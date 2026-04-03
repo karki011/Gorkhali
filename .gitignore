@@ -1,0 +1,17 @@
+# Machine-specific state (per-user, per-machine)
+repos/
+events/
+
+# Build artifacts
+board-app/node_modules/
+board-app/dist/
+board-app/.vite/
+
+# Legacy artifacts
+.board-sync-errors.log
+.server.log
+crew-dashboard.html
+crew-diagram.html
+
+# OS
+.DS_Store
