@@ -18,6 +18,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 
 import { loadEvents, loadEventsSince, getEventFileMtime } from './event-store'
 import { materialize } from './materializer'
+import { loadArsenal } from './arsenal'
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -303,6 +304,11 @@ app.get('/api/contracts', async (c) => {
 app.get('/api/changelog', async (c) => {
   const content = await readText(join(TEAM_ROOT, 'CHANGELOG.md'))
   return c.json({ content })
+})
+
+app.get('/api/arsenal', async (c) => {
+  const repo = getRepo(c)
+  return c.json(await loadArsenal(repo))
 })
 
 // --- SSE ---

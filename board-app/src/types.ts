@@ -95,3 +95,33 @@ export interface DecisionsData {
 export interface ContractsData {
   [type: string]: string
 }
+
+// ---------------------------------------------------------------------------
+// Arsenal from /api/arsenal
+// ---------------------------------------------------------------------------
+
+export interface ArsenalData {
+  hooks: Array<{ event: string; matcher: string; command: string }>
+  skills: {
+    project: Array<{ name: string; path: string }>
+    global: Array<{ name: string; path: string }>
+    plugins: Array<{ name: string; source: string }>
+  }
+  agents: {
+    core: Array<{ name: string; role: string; emoji: string; model: string }>
+    allies: Array<{ name: string; role: string; emoji: string }>
+    marines: Array<{ name: string; role: string; emoji: string }>
+  }
+  plugins: Array<{ name: string; marketplace: string; enabled: boolean }>
+  memory: {
+    entries: number
+    summary: string
+  }
+  config: {
+    model: string | null
+    permissions: string | null
+    effortLevel: string | null
+    teammateMode: string | null
+    mcpServers: string[]
+  }
+}

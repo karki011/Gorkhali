@@ -6,7 +6,7 @@
 // transitions. Ship's Log (event-sourced timeline) is the default view.
 // =============================================================================
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useTheme, type Theme } from './hooks/useTheme.ts'
 import { useRepos } from './hooks/useApi.ts'
@@ -21,6 +21,7 @@ import { CaptainsLog } from './components/CaptainsLog.tsx'
 import { NavigatorNotes } from './components/NavigatorNotes.tsx'
 import { Changelog } from './components/Changelog.tsx'
 import { SkillsOverview } from './components/SkillsOverview.tsx'
+import { Arsenal } from './components/Arsenal.tsx'
 
 // ---------------------------------------------------------------------------
 // Repo context (shared across all tabs)
@@ -50,9 +51,18 @@ const tabs = [
   { id: 'notes',     label: "Navigator's Notes", icon: '🧭' },
   { id: 'changelog', label: 'Changelog',         icon: '📋' },
   { id: 'skills',    label: 'Skills',            icon: '⚡' },
+  { id: 'arsenal',   label: 'Arsenal',           icon: '⚔️' },
 ] as const
 
 type TabId = (typeof tabs)[number]['id']
+
+const TAB_IDS = new Set(tabs.map((t) => t.id))
+const DEFAULT_TAB: TabId = 'log'
+
+const getTabFromHash = (): TabId => {
+  const hash = window.location.hash.replace('#', '')
+  return TAB_IDS.has(hash) ? (hash as TabId) : DEFAULT_TAB
+}
 
 // ---------------------------------------------------------------------------
 // Theme toggle icons
@@ -77,6 +87,7 @@ const TabContent = ({ id }: { id: TabId }) => {
     case 'notes':     return <NavigatorNotes />
     case 'changelog': return <Changelog />
     case 'skills':    return <SkillsOverview />
+    case 'arsenal':   return <Arsenal />
   }
 }
 
@@ -91,7 +102,18 @@ export const App = () => (
 )
 
 const AppInner = () => {
-  const [activeTab, setActiveTab] = useState<TabId>('log')
+  const [activeTab, setActiveTabState] = useState<TabId>(getTabFromHash)
+  const setActiveTab = useCallback((tab: TabId) => {
+    window.location.hash = tab
+    setActiveTabState(tab)
+  }, [])
+
+  // Sync with browser back/forward
+  useEffect(() => {
+    const onHashChange = () => setActiveTabState(getTabFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
   const { theme, toggleTheme } = useTheme()
   const [repo, setRepo] = useState(() => {
     return localStorage.getItem('sh-board-repo') || 'feature-web-apps'

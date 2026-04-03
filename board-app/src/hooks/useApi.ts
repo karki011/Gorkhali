@@ -21,7 +21,7 @@ import type {
 // URL builder — appends ?repo= and &session= query params
 // ---------------------------------------------------------------------------
 
-const buildUrl = (path: string, repo?: string, session?: string | null): string => {
+export const buildUrl = (path: string, repo?: string, session?: string | null): string => {
   const params = new URLSearchParams()
   if (repo) params.set('repo', repo)
   if (session) params.set('session', session)
@@ -33,14 +33,14 @@ const buildUrl = (path: string, repo?: string, session?: string | null): string 
 // Generic fetch hook
 // ---------------------------------------------------------------------------
 
-interface FetchResult<T> {
+export interface FetchResult<T> {
   data: T
   loading: boolean
   error: string | null
   refetch: () => void
 }
 
-const useFetch = <T>(url: string, initialValue: T): FetchResult<T> => {
+export const useFetch = <T>(url: string, initialValue: T): FetchResult<T> => {
   const [data, setData] = useState<T>(initialValue)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
