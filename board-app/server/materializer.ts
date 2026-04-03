@@ -191,8 +191,29 @@ const buildSession = (
     if (cleaned.length > 0) label = cleaned
   }
 
+  // Try to extract ticket from branch if not found in markers
+  if (!ticket) {
+    for (const evt of events) {
+      if ((evt as Record<string, unknown>).branch) {
+        const branchTicket = ((evt as Record<string, unknown>).branch as string).match(TICKET_RE)
+        if (branchTicket) { ticket = branchTicket[1]; break }
+      }
+    }
+  }
+
   // Build tasks by replaying creates + updates
   const tasks = buildTasks(events)
+
+  // Try to extract label from first task description if no marker label
+  if (!label && tasks.length > 0) {
+    const firstDesc = tasks[0].description
+    if (firstDesc) {
+      label = firstDesc.replace(/^Phase\s*\d+[:\s]*/i, '').trim().slice(0, 80) || null
+    }
+    if (!label) {
+      label = tasks[0].subject.slice(0, 80) || null
+    }
+  }
 
   // Collect unique crew names
   const crewSet = new Set<string>()
@@ -238,8 +259,10 @@ const buildTasks = (events: TaskEvent[]): MaterializedTask[] => {
       const stripped = subject.replace(CREW_PREFIX_RE, '').trim()
       if (/^SESSION:(start|pause|wrap)/i.test(stripped)) continue
 
-      const id = extractTaskId(evt.result) ?? `evt-${createIndex}`
       createIndex++
+      // Use extracted ID from result if available, otherwise use sequential position
+      // Claude assigns sequential integer IDs (1, 2, 3...) matching create order
+      const id = extractTaskId(evt.result) ?? String(createIndex)
       const { crew, cleanSubject } = parseCrew(subject)
 
       taskMap.set(id, {

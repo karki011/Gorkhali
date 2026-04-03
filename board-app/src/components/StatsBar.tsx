@@ -64,7 +64,7 @@ export const StatsBar = ({ stats }: { stats: SessionStats }) => (
       >
         {stats.total}
       </span>
-      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>Total</span>
+      <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Total</span>
     </div>
 
     {/* Per-status badges — stacked */}
@@ -100,7 +100,7 @@ export const StatsBar = ({ stats }: { stats: SessionStats }) => (
           </span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 500,
               color,
               opacity: 0.8,
@@ -109,7 +109,7 @@ export const StatsBar = ({ stats }: { stats: SessionStats }) => (
               gap: 3,
             }}
           >
-            <span style={{ fontSize: 12 }}>{icon}</span>
+            <span style={{ fontSize: 13 }}>{icon}</span>
             {label}
           </span>
         </div>

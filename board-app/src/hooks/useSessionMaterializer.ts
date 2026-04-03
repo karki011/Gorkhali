@@ -177,10 +177,14 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
   // Step 3: Materialize each session bucket
   const sessions: MaterializedSession[] = sessionBuckets.map((bucket, index) => {
     // Build task map from events
+    // Key insight: Claude assigns sequential integer IDs (1, 2, 3...) to tasks.
+    // TaskCreate events often lack a result string with the ID, so we track them
+    // by position: the Nth non-marker TaskCreate = taskId "N" (1-indexed).
     const taskMap = new Map<string, MaterializedTask>()
     const crewSet = new Set<string>()
     let sessionTicket: string | null = null
     let sessionLabel: string | null = null
+    let createIndex = 0 // sequential counter for TaskCreate events
 
     for (const event of bucket) {
       const subject = event.input.subject ?? ''
@@ -192,16 +196,16 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
         continue
       }
 
-      const taskId = extractTaskId(event)
-      if (!taskId) continue
-
       if (event.tool === 'TaskCreate') {
+        createIndex++
+        // Use extracted ID from result if available, otherwise use sequential position
+        const taskId = extractTaskId(event) ?? String(createIndex)
         const crew = extractCrew(subject)
         if (crew) crewSet.add(crew)
 
         taskMap.set(taskId, {
           id: taskId,
-          subject: subject.replace(CREW_PATTERN, '').trim(),
+          subject: subject.replace(CREW_PATTERN, '').trim() || 'Task',
           crew,
           description: event.input.description ?? '',
           status: 'pending',
@@ -211,6 +215,9 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
       }
 
       if (event.tool === 'TaskUpdate') {
+        const taskId = event.input.taskId
+        if (!taskId) continue
+
         const existing = taskMap.get(taskId)
 
         if (existing) {
@@ -227,13 +234,13 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
           if (event.input.description) existing.description = event.input.description
           existing.updatedAt = event.ts
         } else {
-          // TaskUpdate without a prior TaskCreate — create from what we have
+          // Orphan update — no matching create. Still record it.
           const crew = event.input.subject ? extractCrew(event.input.subject) : null
           if (crew) crewSet.add(crew)
 
           taskMap.set(taskId, {
             id: taskId,
-            subject: (event.input.subject ?? 'Unknown task').replace(CREW_PATTERN, '').trim(),
+            subject: (event.input.subject ?? `Task #${taskId}`).replace(CREW_PATTERN, '').trim(),
             crew,
             description: event.input.description ?? '',
             status: event.input.status ?? ('pending' as TaskStatus),
@@ -244,23 +251,49 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
       }
     }
 
-    const tasks = Array.from(taskMap.values())
+    // Auto-mark stale in_progress tasks (>15 min without update) as completed
+    const STALE_MS = 15 * 60 * 1000 // 15 minutes
+    const now = Date.now()
+    const tasks = Array.from(taskMap.values()).map((t) => {
+      if (t.status === 'in_progress' && now - new Date(t.updatedAt).getTime() > STALE_MS) {
+        return { ...t, status: 'completed' as TaskStatus }
+      }
+      return t
+    })
     const timestamps = bucket.map((e) => e.ts).sort()
 
-    // Try to extract ticket from any task subject if not found in markers
+    // Try to extract ticket from: 1) markers (already done), 2) branch name, 3) task subjects
+    if (!sessionTicket) {
+      // Check branch field on events
+      for (const event of bucket) {
+        if (event.branch) {
+          const branchTicket = extractTicket(event.branch)
+          if (branchTicket) { sessionTicket = branchTicket; break }
+        }
+      }
+    }
     if (!sessionTicket) {
       for (const task of tasks) {
         const ticket = extractTicket(task.subject)
-        if (ticket) {
-          sessionTicket = ticket
-          break
-        }
+        if (ticket) { sessionTicket = ticket; break }
+      }
+    }
+
+    // Try to extract label from first task's description if no marker label
+    if (!sessionLabel && tasks.length > 0) {
+      const firstDesc = tasks[0].description
+      if (firstDesc) {
+        // Strip "Phase N:" prefix
+        sessionLabel = firstDesc.replace(/^Phase\s*\d+[:\s]*/i, '').trim().slice(0, 80) || null
+      }
+      if (!sessionLabel) {
+        sessionLabel = tasks[0].subject.slice(0, 80) || null
       }
     }
 
     return {
       sessionId: `session-${index}`,
-      repo: '', // Populated by consumer (repo comes from the query context)
+      repo: '',
       ticket: sessionTicket,
       label: sessionLabel,
       startedAt: timestamps[0] ?? '',

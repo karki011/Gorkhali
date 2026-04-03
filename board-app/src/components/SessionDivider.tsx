@@ -76,7 +76,7 @@ export const SessionDivider = ({ session, expanded, onToggle }: SessionDividerPr
       <motion.span
         animate={{ rotate: expanded ? 90 : 0 }}
         transition={{ duration: 0.15 }}
-        style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}
+        style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}
       >
         ▶
       </motion.span>
@@ -88,7 +88,7 @@ export const SessionDivider = ({ session, expanded, onToggle }: SessionDividerPr
           alignItems: 'center',
           gap: 6,
           flexShrink: 0,
-          fontSize: 11,
+          fontSize: 13,
           color: 'var(--muted)',
           fontVariantNumeric: 'tabular-nums',
         }}
@@ -99,7 +99,7 @@ export const SessionDivider = ({ session, expanded, onToggle }: SessionDividerPr
               fontWeight: 700,
               color: 'var(--accent)',
               fontFamily: "'Fira Code', monospace",
-              fontSize: 11,
+              fontSize: 13,
             }}
           >
             {session.ticket}

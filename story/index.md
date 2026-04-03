@@ -103,3 +103,9 @@ Adventures of the Straw Hat Engineering Crew.
 | # | Chapter | Arc | Date | Crew |
 |---|---------|-----|------|------|
 | 21 | [The Breadcrumb Trail](chapter-20-the-breadcrumb-trail.md) | CP-39768 — Breadcrumb Recipe + Migration | 2026-04-02 | Nami, Zoro, Roger, Chopper, Luffy, Greptile |
+
+## Crew Tooling — v2.4 + v2.5 Upgrades
+
+| # | Chapter | Season | Repo | Date | Crew |
+|---|---------|--------|------|------|------|
+| 22 | [The Superpowered Fleet](chapter-22-the-superpowered-fleet.md) | The Living Ship Arc | feature-web-apps | 2026-04-02 | Luffy, Nami, Chopper, Roger |

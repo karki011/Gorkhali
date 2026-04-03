@@ -164,7 +164,7 @@ const AppInner = () => {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 padding: '3px 10px',
                 borderRadius: 10,
@@ -190,7 +190,7 @@ const AppInner = () => {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: 700,
                   padding: '3px 10px',
                   borderRadius: 10,
@@ -206,7 +206,7 @@ const AppInner = () => {
             ) : (
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 13,
                   fontWeight: 600,
                   padding: '3px 10px',
                   borderRadius: 10,
@@ -220,7 +220,7 @@ const AppInner = () => {
             )}
             <span
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
                 color: 'var(--muted)',
                 padding: '3px 10px',

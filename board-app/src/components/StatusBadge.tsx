@@ -46,7 +46,7 @@ export const StatusBadge = ({ status }: { status: TaskStatus }) => {
         gap: 5,
         padding: '2px 10px',
         borderRadius: 12,
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 600,
         background: config.bg,
         color: config.color,

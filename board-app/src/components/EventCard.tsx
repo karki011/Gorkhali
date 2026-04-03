@@ -140,19 +140,19 @@ export const EventCard = ({ task }: { task: MaterializedTask }) => {
             marginBottom: 3,
           }}
         >
-          <span style={{ fontSize: 13, color: crew ? 'var(--text)' : 'var(--muted)' }}>
+          <span style={{ fontSize: 14, color: crew ? 'var(--text)' : 'var(--muted)' }}>
             <span style={{ fontWeight: 600 }}>
               {crew?.name ?? task.crew ?? 'Unknown'}
             </span>
             {crew && (
-              <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>
+              <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 6, fontSize: 13 }}>
                 {crew.role}
               </span>
             )}
           </span>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 13,
               color: 'var(--muted)',
               whiteSpace: 'nowrap',
               flexShrink: 0,
@@ -174,7 +174,7 @@ export const EventCard = ({ task }: { task: MaterializedTask }) => {
         >
           <div
             style={{
-              fontSize: 13,
+              fontSize: 14,
               color: isDimmed ? 'var(--muted)' : 'var(--text)',
               lineHeight: 1.5,
               textDecoration: isCancelled ? 'line-through' : 'none',
@@ -193,7 +193,7 @@ export const EventCard = ({ task }: { task: MaterializedTask }) => {
         {showDescription && (
           <div
             style={{
-              fontSize: 12,
+              fontSize: 13,
               color: 'var(--muted)',
               lineHeight: 1.4,
               overflow: 'hidden',

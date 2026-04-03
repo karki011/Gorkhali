@@ -17,6 +17,7 @@ export interface TaskEvent {
     status?: TaskStatus
   }
   result: string | null
+  branch?: string | null
   _synthetic?: boolean
 }
 

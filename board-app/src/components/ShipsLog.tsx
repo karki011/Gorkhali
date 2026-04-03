@@ -86,7 +86,7 @@ const TaskRow = ({ task }: { task: MaterializedTask }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 13,
+          fontSize: 14,
           flexShrink: 0,
         }}
         title={crew?.name ?? task.crew ?? undefined}
@@ -95,14 +95,14 @@ const TaskRow = ({ task }: { task: MaterializedTask }) => {
       </div>
 
       {/* Crew name */}
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 60, flexShrink: 0 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', minWidth: 60, flexShrink: 0 }}>
         {crew?.name ?? task.crew ?? '—'}
       </span>
 
       {/* Task subject */}
       <span
         style={{
-          fontSize: 12,
+          fontSize: 13,
           color: isDimmed ? 'var(--muted)' : 'var(--text)',
           flex: 1,
           minWidth: 0,
@@ -123,7 +123,7 @@ const TaskRow = ({ task }: { task: MaterializedTask }) => {
       {/* Time */}
       <span
         style={{
-          fontSize: 10,
+          fontSize: 12,
           color: 'var(--muted)',
           flexShrink: 0,
           fontVariantNumeric: 'tabular-nums',
@@ -173,10 +173,13 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
         transition: 'border-color 200ms ease-out',
       }}
     >
-      {/* Card Header — clickable */}
-      <button
+      {/* Card Header — clickable but text selectable */}
+      <div
         onClick={() => setExpanded((v) => !v)}
+        role="button"
+        tabIndex={0}
         aria-expanded={expanded}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v) } }}
         style={{
           width: '100%',
           display: 'flex',
@@ -187,6 +190,7 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
           background: 'transparent',
           cursor: 'pointer',
           transition: 'background 150ms ease-out',
+          userSelect: 'text',
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)' }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
@@ -195,7 +199,7 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
         <motion.span
           animate={{ rotate: expanded ? 90 : 0 }}
           transition={{ duration: 0.15 }}
-          style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}
+          style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}
         >
           ▶
         </motion.span>
@@ -219,7 +223,7 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
         {session.ticket && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 700,
               color: 'var(--orange)',
               fontFamily: "'Fira Code', monospace",
@@ -234,7 +238,7 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
         {label && (
           <span
             style={{
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 500,
               color: 'var(--text)',
               flex: 1,
@@ -254,32 +258,32 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
         {/* Stats pills */}
         <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
           {stats.inProgress > 0 && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--orange)', background: 'var(--orange-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--orange)', background: 'var(--orange-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
               {stats.inProgress} active
             </span>
           )}
           {stats.completed > 0 && (
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)', background: 'var(--green-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', background: 'var(--green-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
               {stats.completed} done
             </span>
           )}
           {stats.pending > 0 && (
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue)', background: 'var(--blue-subtle)', padding: '1px 6px', borderRadius: 8, fontVariantNumeric: 'tabular-nums' }}>
               {stats.pending} pending
             </span>
           )}
-          <span style={{ fontSize: 10, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
             {stats.total}
           </span>
         </div>
 
         {/* Duration */}
         {duration && (
-          <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
             {duration}
           </span>
         )}
-      </button>
+      </div>
 
       {/* Card Body — task rows */}
       <AnimatePresence>
@@ -302,7 +306,7 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
                 <TaskRow key={task.id} task={task} />
               ))}
               {sortedTasks.length === 0 && (
-                <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
+                <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
                   No crew tasks in this session
                 </div>
               )}
@@ -330,7 +334,7 @@ const EmptyState = () => (
   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 64, gap: 16 }}>
     <div style={{ fontSize: 48, opacity: 0.5 }}>📜</div>
     <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)' }}>No entries in the Ship's Log</div>
-    <div style={{ fontSize: 13, color: 'var(--muted)', background: 'var(--card)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontFamily: "'Fira Code', monospace" }}>
+    <div style={{ fontSize: 14, color: 'var(--muted)', background: 'var(--card)', padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontFamily: "'Fira Code', monospace" }}>
       Run <span style={{ color: 'var(--orange)', fontWeight: 600 }}>/team:start</span> to begin a voyage.
     </div>
   </div>
@@ -353,15 +357,35 @@ export const ShipsLog = () => {
   const { events, loading, error, connected } = useTaskEvents(repo)
   const sessions = useMaterializedSessions(events)
 
-  // Filter out Luffy coordination tasks by default
+  // Filters
   const [showCaptainTasks, setShowCaptainTasks] = useState(false)
+  type StatusFilter = 'all' | 'in_progress' | 'pending' | 'completed' | 'cancelled'
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  // Compute global stats across all sessions (before filtering)
+  const globalStats = useMemo(() => {
+    const all = sessions.flatMap((s) => s.tasks)
+    return {
+      total: all.length,
+      inProgress: all.filter((t) => t.status === 'in_progress').length,
+      pending: all.filter((t) => t.status === 'pending').length,
+      completed: all.filter((t) => t.status === 'completed').length,
+      cancelled: all.filter((t) => t.status === 'cancelled').length,
+    }
+  }, [sessions])
 
   const filteredSessions = useMemo(() => {
-    if (showCaptainTasks) return sessions
-
     return sessions
       .map((session) => {
-        const filtered = session.tasks.filter((t) => t.crew?.toLowerCase() !== 'luffy')
+        let filtered = session.tasks
+        // Captain filter
+        if (!showCaptainTasks) {
+          filtered = filtered.filter((t) => t.crew?.toLowerCase() !== 'luffy')
+        }
+        // Status filter
+        if (statusFilter !== 'all') {
+          filtered = filtered.filter((t) => t.status === statusFilter)
+        }
         return {
           ...session,
           tasks: filtered,
@@ -375,7 +399,7 @@ export const ShipsLog = () => {
         }
       })
       .filter((s) => s.tasks.length > 0)
-  }, [sessions, showCaptainTasks])
+  }, [sessions, showCaptainTasks, statusFilter])
 
   if (loading) return <LoadingSkeleton />
   if (error) return <ErrorState message={error} />
@@ -385,27 +409,64 @@ export const ShipsLog = () => {
     <div style={{ display: 'flex', gap: 16, padding: 24, minHeight: 'calc(100vh - 160px)', alignItems: 'flex-start' }}>
       {/* Left panel — Session accordion cards (70%) */}
       <div style={{ flex: 7, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-        {/* Captain toggle */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+        {/* Filter bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 }}>
+          {/* Status filter tabs */}
+          <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 20, padding: 2, border: '1px solid var(--border)' }}>
+            {([
+              { key: 'all' as StatusFilter, label: 'All', icon: '📜', count: globalStats.total, color: 'var(--text)' },
+              { key: 'in_progress' as StatusFilter, label: 'Sailing', icon: '⛵', count: globalStats.inProgress, color: 'var(--orange)' },
+              { key: 'pending' as StatusFilter, label: 'Anchored', icon: '⚓', count: globalStats.pending, color: 'var(--blue)' },
+              { key: 'completed' as StatusFilter, label: 'Conquered', icon: '🏴', count: globalStats.completed, color: 'var(--green)' },
+              { key: 'cancelled' as StatusFilter, label: 'Abandoned', icon: '💀', count: globalStats.cancelled, color: 'var(--red)' },
+            ]).filter((f) => f.key === 'all' || f.count > 0).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  borderRadius: 18,
+                  border: 'none',
+                  background: statusFilter === f.key ? 'var(--bg)' : 'transparent',
+                  color: statusFilter === f.key ? f.color : 'var(--muted)',
+                  fontSize: 13,
+                  fontWeight: statusFilter === f.key ? 700 : 500,
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease-out',
+                  boxShadow: statusFilter === f.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{f.icon}</span>
+                {f.label}
+                <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12, opacity: 0.7 }}>{f.count}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Captain toggle */}
           <button
             onClick={() => setShowCaptainTasks((v) => !v)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
-              padding: '3px 10px',
+              padding: '4px 10px',
               borderRadius: 20,
               border: '1px solid var(--border)',
               background: showCaptainTasks ? 'var(--orange-subtle)' : 'transparent',
               color: showCaptainTasks ? 'var(--orange)' : 'var(--muted)',
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
               transition: 'all 150ms ease-out',
+              flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: 13 }}>👒</span>
-            {showCaptainTasks ? 'Hide' : 'Show'} captain's tasks
+            <span style={{ fontSize: 14 }}>👒</span>
+            {showCaptainTasks ? 'Hide' : 'Show'} captain
           </button>
         </div>
 

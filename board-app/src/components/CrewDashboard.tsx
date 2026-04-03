@@ -75,7 +75,7 @@ const ConnectionStatus = ({ connected }: { connected: boolean }) => (
       borderRadius: 'var(--radius-sm)',
       background: connected ? 'var(--green-subtle)' : 'var(--red-subtle)',
       border: `1px solid ${connected ? 'var(--green)' : 'var(--red)'}22`,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: 500,
       color: connected ? 'var(--green)' : 'var(--red)',
     }}
@@ -140,14 +140,14 @@ const ActiveCrewCard = ({ crewName, tasks }: { crewName: string; tasks: Material
         />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
           {member?.name ?? crewName}
         </div>
         {activeTasks.map((task) => (
           <div
             key={task.id}
             style={{
-              fontSize: 12,
+              fontSize: 13,
               color: 'var(--text-secondary)',
               lineHeight: 1.4,
               overflow: 'hidden',
@@ -191,7 +191,7 @@ const EmptyDashboard = ({ connected }: { connected: boolean }) => (
       <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>
         No active session
       </span>
-      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
         Waiting for crew to set sail...
       </span>
     </div>
@@ -205,7 +205,7 @@ const EmptyDashboard = ({ connected }: { connected: boolean }) => (
 const SectionHeader = ({ icon, label }: { icon: string; label: string }) => (
   <div
     style={{
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: 700,
       color: 'var(--muted)',
       textTransform: 'uppercase',
@@ -218,7 +218,7 @@ const SectionHeader = ({ icon, label }: { icon: string; label: string }) => (
       borderTop: '1px solid var(--border)',
     }}
   >
-    <span style={{ fontSize: 13 }}>{icon}</span>
+    <span style={{ fontSize: 14 }}>{icon}</span>
     {label}
   </div>
 )
@@ -259,75 +259,84 @@ export const CrewDashboard = ({ session, connected }: CrewDashboardProps) => {
       {/* Stats */}
       <StatsBar stats={session.stats} />
 
-      {/* Active crew */}
-      <SectionHeader icon="👥" label="Active Crew" />
+      {/* Active crew — only when tasks are sailing */}
       {activeCrewNames.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {activeCrewNames.map((name) => (
-            <ActiveCrewCard key={name} crewName={name} tasks={session.tasks} />
-          ))}
-        </div>
+        <>
+          <SectionHeader icon="👥" label="Active Crew" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {activeCrewNames.map((name) => (
+              <ActiveCrewCard key={name} crewName={name} tasks={session.tasks} />
+            ))}
+          </div>
+
+          {/* Session info — only show when actively sailing */}
+          <SectionHeader icon="📋" label="Session Info" />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              fontSize: 14,
+              color: 'var(--text-secondary)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {session.ticket && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--muted)', fontSize: 14 }}>Ticket</span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--accent)',
+                    fontFamily: "'Fira Code', monospace",
+                    fontSize: 14,
+                  }}
+                >
+                  {session.ticket}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 14 }}>Duration</span>
+              <span style={{ fontWeight: 600 }}>
+                {session.startedAt ? formatDuration(session.startedAt) : '—'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 14 }}>Last Activity</span>
+              <span style={{ fontWeight: 600 }}>
+                {session.lastActivityAt ? formatRelativeTime(session.lastActivityAt) : '—'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 14 }}>Crew Members</span>
+              <span style={{ fontWeight: 600 }}>{session.crewActive.length}</span>
+            </div>
+          </div>
+        </>
       ) : (
         <div
           style={{
-            fontSize: 13,
-            color: 'var(--muted)',
-            fontStyle: 'italic',
-            textAlign: 'center',
-            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 32,
+            gap: 10,
           }}
         >
-          No crew currently sailing
+          <span style={{ fontSize: 36, opacity: 0.5 }}>💤</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>
+            Crew at rest
+          </span>
+          <span style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
+            No active tasks. Run <code style={{ color: 'var(--orange)', fontFamily: "'Fira Code', monospace" }}>/team:start</code> to begin.
+          </span>
         </div>
       )}
-
-      {/* Session info */}
-      <SectionHeader icon="📋" label="Session Info" />
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          fontSize: 12,
-          color: 'var(--text-secondary)',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {session.ticket && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--muted)', fontSize: 11 }}>Ticket</span>
-            <span
-              style={{
-                fontWeight: 600,
-                color: 'var(--accent)',
-                fontFamily: "'Fira Code', monospace",
-                fontSize: 11,
-              }}
-            >
-              {session.ticket}
-            </span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: 'var(--muted)', fontSize: 11 }}>Duration</span>
-          <span style={{ fontWeight: 600 }}>
-            {session.startedAt ? formatDuration(session.startedAt) : '—'}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: 'var(--muted)', fontSize: 11 }}>Last Activity</span>
-          <span style={{ fontWeight: 600 }}>
-            {session.lastActivityAt ? formatRelativeTime(session.lastActivityAt) : '—'}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: 'var(--muted)', fontSize: 11 }}>Crew Members</span>
-          <span style={{ fontWeight: 600 }}>{session.crewActive.length}</span>
-        </div>
-      </div>
     </div>
   )
 }

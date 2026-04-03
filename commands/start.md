@@ -11,7 +11,11 @@ argument-hint: "<requirement>"
 ## Phase A -- Context Loading
 
 1. Detect ticket from git branch, load `decisions/global.md` (cross-cutting only)
-2. Load `learnings/INDEX.md` (always) + `learnings/crew.md` (always relevant for orchestration)
+2. **Immediately register session on the board** — fire a TaskCreate to signal the session has started:
+   `TaskCreate({ subject: '[Luffy] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
+   This makes the session appear on the board instantly with the ticket + user's requirement as label.
+   The hook captures the git branch automatically for ticket extraction.
+3. Load `learnings/INDEX.md` (always) + `learnings/crew.md` (always relevant for orchestration)
    - After task classification, load domain-specific learnings:
      - UI task → `learnings/ui.md`
      - Data/state/API → `learnings/data.md`
@@ -19,16 +23,16 @@ argument-hint: "<requirement>"
      - Tests/CI → `learnings/testing.md`
      - Migration/refactor → `learnings/migration.md`
      - Tooling/AG Grid/Figma → `learnings/tooling.md`
-3. Create dirs: `sessions/{TICKET}/contracts/` (for contracts/decisions — human-readable)
-4. Detect workflow type (feature, bug, refactor, spike, docs)
-5. Check if `sessions/{TICKET}/decisions.md` exists from prior work -- if so, load it too
-6. **Start board server if not running:**
+4. Create dirs: `sessions/{TICKET}/contracts/` (for contracts/decisions — human-readable)
+5. Detect workflow type (feature, bug, refactor, spike, docs)
+6. Check if `sessions/{TICKET}/decisions.md` exists from prior work -- if so, load it too
+7. **Start board server if not running:**
    - Check ports 3847 and 3848: `lsof -ti:3847` and `lsof -ti:3848`
    - If BOTH are already listening -> skip (server is running)
    - If NOT running -> start: `cd ~/.claude/team/board-app && pnpm dev:all &`
    - Do NOT fail or block if the server can't start -- this is best-effort
-7. **The board-sync hook auto-creates session state** when the first TaskCreate fires. No manual JSON needed. Just create your tasks with `[CrewName]` prefixes and the hook builds the board automatically.
-8. **Create TaskCreate entries for every task** with `[CrewName]` prefix — board-sync hook auto-builds crew roster and board state
+8. **The event hook captures all TaskCreate/TaskUpdate events** as NDJSON. Board materializes sessions from the event log — no manual JSON needed.
+9. **Create TaskCreate entries for every task** with `[CrewName]` prefix when execution begins (Phase D)
 9. **Run Pre-Plan Hook:**
    - Classify task type and risk level
    - Detect missing context (design? API? migration?)

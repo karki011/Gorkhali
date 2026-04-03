@@ -199,7 +199,7 @@ export const NavigatorNotes = () => {
         aria-label="Learning domains"
       >
         <div style={{
-          fontSize: 13, fontWeight: 700, color: 'var(--muted)',
+          fontSize: 14, fontWeight: 700, color: 'var(--muted)',
           textTransform: 'uppercase', letterSpacing: 1,
           padding: '4px 8px', marginBottom: 4,
         }}>
@@ -241,13 +241,13 @@ export const NavigatorNotes = () => {
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {formatDomainTitle(domain)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {domainConfig.desc}
                 </div>
               </div>
               {count > 0 && (
                 <span style={{
-                  fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                  fontSize: 13, fontWeight: 600, color: 'var(--muted)',
                   background: 'var(--bg)', padding: '1px 6px', borderRadius: 8,
                   flexShrink: 0,
                 }}>
@@ -285,7 +285,7 @@ export const NavigatorNotes = () => {
                   <span style={{ fontSize: 22 }}>{config.icon}</span>
                   <div>
                     <h2 style={{ fontSize: 18, fontWeight: 800, color: config.color }}>{formatDomainTitle(selectedDomain)}</h2>
-                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{config.desc}</p>
+                    <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>{config.desc}</p>
                   </div>
                 </div>
 
