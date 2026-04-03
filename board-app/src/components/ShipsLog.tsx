@@ -96,7 +96,7 @@ const TaskRow = ({ task }: { task: MaterializedTask }) => {
 
       {/* Crew name */}
       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', minWidth: 60, flexShrink: 0 }}>
-        {crew?.name ?? task.crew ?? '—'}
+        {crew?.name ?? task.crew ?? 'Claude'}
       </span>
 
       {/* Task subject */}
@@ -156,9 +156,18 @@ const SessionCard = ({ session, defaultExpanded }: SessionCardProps) => {
 
   // Sort: active first, then by updatedAt desc
   const sortedTasks = useMemo(() => {
+    // Sort priority: 1) Sailing first, 2) crew tasks before anonymous, 3) pending before completed, 4) newest first
+    const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3 }
     return [...session.tasks].sort((a, b) => {
-      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1
-      if (b.status === 'in_progress' && a.status !== 'in_progress') return 1
+      // Active tasks always first
+      const sa = statusOrder[a.status] ?? 9
+      const sb = statusOrder[b.status] ?? 9
+      if (sa !== sb) return sa - sb
+      // Within same status: crew tasks before anonymous
+      const aCrew = a.crew ? 0 : 1
+      const bCrew = b.crew ? 0 : 1
+      if (aCrew !== bCrew) return aCrew - bCrew
+      // Within same group: newest first
       return b.updatedAt.localeCompare(a.updatedAt)
     })
   }, [session.tasks])

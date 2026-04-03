@@ -235,9 +235,11 @@ interface CrewDashboardProps {
 export const CrewDashboard = ({ session, connected }: CrewDashboardProps) => {
   if (!session) return <EmptyDashboard connected={connected} />
 
+  const activeTasks = session.tasks.filter((t) => t.status === 'in_progress')
   const activeCrewNames = session.crewActive.filter((name) =>
-    session.tasks.some((t) => t.crew === name && t.status === 'in_progress'),
+    activeTasks.some((t) => t.crew === name),
   )
+  const hasActiveWork = activeTasks.length > 0
 
   return (
     <div
@@ -260,13 +262,35 @@ export const CrewDashboard = ({ session, connected }: CrewDashboardProps) => {
       <StatsBar stats={session.stats} />
 
       {/* Active crew — only when tasks are sailing */}
-      {activeCrewNames.length > 0 ? (
+      {hasActiveWork ? (
         <>
           <SectionHeader icon="👥" label="Active Crew" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {activeCrewNames.map((name) => (
               <ActiveCrewCard key={name} crewName={name} tasks={session.tasks} />
             ))}
+            {/* Show anonymous active tasks as "Claude" */}
+            {activeTasks.filter((t) => !t.crew).length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 12px',
+                  background: 'var(--bg)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <span style={{ fontSize: 20 }}>🤖</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Claude</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4 }}>
+                    {activeTasks.filter((t) => !t.crew).length} background task{activeTasks.filter((t) => !t.crew).length > 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Session info — only show when actively sailing */}

@@ -142,7 +142,7 @@ export const EventCard = ({ task }: { task: MaterializedTask }) => {
         >
           <span style={{ fontSize: 14, color: crew ? 'var(--text)' : 'var(--muted)' }}>
             <span style={{ fontWeight: 600 }}>
-              {crew?.name ?? task.crew ?? 'Unknown'}
+              {crew?.name ?? task.crew ?? 'Claude'}
             </span>
             {crew && (
               <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 6, fontSize: 13 }}>

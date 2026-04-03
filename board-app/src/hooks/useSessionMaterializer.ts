@@ -128,13 +128,22 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
   const sorted = [...events].sort((a, b) => a.ts.localeCompare(b.ts))
 
   // Step 2: Split into session boundaries
+  // Key rule: same branch = same session (don't split on temporal gaps)
   const sessionBuckets: TaskEvent[][] = []
   let currentBucket: TaskEvent[] = []
   let lastTimestamp: number | null = null
+  let currentBranch: string | null = null
+
+  const getBranch = (evt: TaskEvent): string | null =>
+    (evt as Record<string, unknown>).branch as string | null ?? null
 
   for (const event of sorted) {
     const eventTime = new Date(event.ts).getTime()
     const subject = event.input.subject ?? ''
+    const branch = getBranch(event)
+
+    // Track branch for the current bucket
+    if (branch && !currentBranch) currentBranch = branch
 
     // SESSION:start — push previous bucket, start new one with this event
     if (isSessionStart(subject)) {
@@ -142,6 +151,7 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
         sessionBuckets.push(currentBucket)
       }
       currentBucket = [event]
+      currentBranch = branch
       lastTimestamp = eventTime
       continue
     }
@@ -153,16 +163,21 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
         sessionBuckets.push(currentBucket)
       }
       currentBucket = []
+      currentBranch = null
       lastTimestamp = null
       continue
     }
 
-    // Temporal gap creates a new boundary
+    // Temporal gap — BUT only split if the branch is different
     if (lastTimestamp !== null && eventTime - lastTimestamp > SESSION_GAP_MS) {
-      if (currentBucket.length > 0) {
-        sessionBuckets.push(currentBucket)
+      const sameBranch = branch && currentBranch && branch === currentBranch
+      if (!sameBranch) {
+        if (currentBucket.length > 0) {
+          sessionBuckets.push(currentBucket)
+        }
+        currentBucket = []
+        currentBranch = branch
       }
-      currentBucket = []
     }
 
     currentBucket.push(event)
@@ -174,17 +189,27 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
     sessionBuckets.push(currentBucket)
   }
 
+  // Pre-pass: build a global TaskCreate index → ID mapping.
+  // Claude assigns sequential IDs (1, 2, 3...) globally within a session,
+  // NOT per session bucket. So we count ALL creates across the entire sorted
+  // event array to get the correct ID for each create.
+  let globalCreateIndex = 0
+  const createIdByEventIndex = new Map<number, string>() // sorted event index → assigned taskId
+  for (let i = 0; i < sorted.length; i++) {
+    const evt = sorted[i]
+    if (evt.tool === 'TaskCreate') {
+      globalCreateIndex++
+      const extracted = extractTaskId(evt)
+      createIdByEventIndex.set(i, extracted ?? String(globalCreateIndex))
+    }
+  }
+
   // Step 3: Materialize each session bucket
   const sessions: MaterializedSession[] = sessionBuckets.map((bucket, index) => {
-    // Build task map from events
-    // Key insight: Claude assigns sequential integer IDs (1, 2, 3...) to tasks.
-    // TaskCreate events often lack a result string with the ID, so we track them
-    // by position: the Nth non-marker TaskCreate = taskId "N" (1-indexed).
     const taskMap = new Map<string, MaterializedTask>()
     const crewSet = new Set<string>()
     let sessionTicket: string | null = null
     let sessionLabel: string | null = null
-    let createIndex = 0 // sequential counter for TaskCreate events
 
     for (const event of bucket) {
       const subject = event.input.subject ?? ''
@@ -197,9 +222,9 @@ export const materializeSessions = (events: TaskEvent[]): MaterializedSession[] 
       }
 
       if (event.tool === 'TaskCreate') {
-        createIndex++
-        // Use extracted ID from result if available, otherwise use sequential position
-        const taskId = extractTaskId(event) ?? String(createIndex)
+        // Look up the globally-assigned ID for this create event
+        const sortedIdx = sorted.indexOf(event)
+        const taskId = createIdByEventIndex.get(sortedIdx) ?? `unknown-${sortedIdx}`
         const crew = extractCrew(subject)
         if (crew) crewSet.add(crew)
 

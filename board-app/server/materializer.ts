@@ -82,9 +82,20 @@ export const materialize = (
 ): MaterializedSession[] => {
   if (events.length === 0) return []
 
+  // Pre-compute global create counter — Claude assigns IDs sequentially
+  // across the entire session, not per-bucket
+  let globalIdx = 0
+  const globalCreateIds = new Map<TaskEvent, string>()
+  for (const evt of events) {
+    if (evt.tool === 'TaskCreate') {
+      globalIdx++
+      globalCreateIds.set(evt, extractTaskId(evt.result) ?? String(globalIdx))
+    }
+  }
+
   const sessionBuckets = splitIntoSessions(events)
   return sessionBuckets
-    .map((bucket, idx) => buildSession(bucket, repo, idx))
+    .map((bucket, idx) => buildSession(bucket, repo, idx, globalCreateIds))
     .filter((s) => s.tasks.length > 0)
 }
 
@@ -132,16 +143,22 @@ const splitIntoSessions = (events: TaskEvent[]): SessionBucket[] => {
       continue
     }
 
-    // Temporal gap detection
+    // Temporal gap detection — but same branch = same session
     if (current) {
       const prevTs = new Date(
         current.events[current.events.length - 1].ts,
       ).getTime()
       const curTs = new Date(evt.ts).getTime()
       if (curTs - prevTs > SESSION_GAP_MS) {
-        buckets.push(current)
-        current = { events: [evt], marker: 'gap' }
-        continue
+        // Check if same branch — if so, don't split
+        const prevBranch = (current.events[current.events.length - 1] as Record<string, unknown>).branch as string | undefined
+        const curBranch = (evt as Record<string, unknown>).branch as string | undefined
+        const sameBranch = prevBranch && curBranch && prevBranch === curBranch
+        if (!sameBranch) {
+          buckets.push(current)
+          current = { events: [evt], marker: 'gap' }
+          continue
+        }
       }
     }
 
@@ -169,6 +186,7 @@ const buildSession = (
   bucket: SessionBucket,
   repo: string,
   idx: number,
+  globalCreateIds: Map<TaskEvent, string>,
 ): MaterializedSession => {
   const { events, markerSubject } = bucket
   const startedAt = events[0].ts
@@ -202,7 +220,7 @@ const buildSession = (
   }
 
   // Build tasks by replaying creates + updates
-  const tasks = buildTasks(events)
+  const tasks = buildTasks(events, globalCreateIds)
 
   // Try to extract label from first task description if no marker label
   if (!label && tasks.length > 0) {
@@ -246,23 +264,18 @@ const buildSession = (
 // Task building
 // ---------------------------------------------------------------------------
 
-const buildTasks = (events: TaskEvent[]): MaterializedTask[] => {
-  // Map of taskId -> MaterializedTask (mutable during replay)
+const buildTasks = (events: TaskEvent[], globalCreateIds: Map<TaskEvent, string>): MaterializedTask[] => {
   const taskMap = new Map<string, MaterializedTask>()
-  // Track position for synthetic IDs
-  let createIndex = 0
 
   for (const evt of events) {
     if (evt.tool === 'TaskCreate') {
       const subject = evt.input.subject ?? ''
-      // Skip session markers — they're boundaries, not tasks
+      // Skip session markers
       const stripped = subject.replace(CREW_PREFIX_RE, '').trim()
       if (/^SESSION:(start|pause|wrap)/i.test(stripped)) continue
 
-      createIndex++
-      // Use extracted ID from result if available, otherwise use sequential position
-      // Claude assigns sequential integer IDs (1, 2, 3...) matching create order
-      const id = extractTaskId(evt.result) ?? String(createIndex)
+      // Use the globally-computed ID for this create event
+      const id = globalCreateIds.get(evt) ?? `unknown`
       const { crew, cleanSubject } = parseCrew(subject)
 
       taskMap.set(id, {
