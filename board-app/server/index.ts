@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Hono API Server (Event-Sourced)
+// Phantom Works Board — Hono API Server (Event-Sourced)
 // Author: Subash Karki
 //
 // Event-sourced backend that reads directly from NDJSON event logs.
@@ -356,7 +356,7 @@ const PORT = Number(process.env.PORT) || 3847
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
   console.log(
-    `🏴‍☠️ Straw Hat Board API running on http://localhost:${info.port}`,
+    `🏴‍☠️ Phantom Works Board API running on http://localhost:${info.port}`,
   )
   console.log(`   Repo: ${DEFAULT_REPO}`)
   console.log(`   Team: ${TEAM_ROOT}`)

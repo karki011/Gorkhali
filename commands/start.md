@@ -1,101 +1,205 @@
 ---
 name: team:start
-description: Plan -> contracts -> approve -> execute a new task
+description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket (CP-*, CLOUD-*), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent crew."
 argument-hint: "<requirement>"
 ---
 
-> Load `_shared.md` + `_shared-crew.md` + `_shared-contracts.md` + `_shared-board.md` + `_shared-superpowers.md` before executing.
+> **Lazy-load shared tiers by phase:**
+> A: `_shared.md` + `_shared-repo-detection.md` + `_shared-phantom-integration.md` (optional) → B: + `_shared-crew.md` → C: + `_shared-contracts.md` → D: + `_shared-board.md` (event log) + `_shared-auto-learning.md`
 
 # /team:start "$ARGUMENTS"
 
-## Phase A -- Context Loading
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`.
 
-1. Detect ticket from git branch, load `decisions/global.md` (cross-cutting only)
-2. **Immediately register session on the board** — fire a TaskCreate to signal the session has started:
-   `TaskCreate({ subject: '[Luffy] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
-   This makes the session appear on the board instantly with the ticket + user's requirement as label.
-   The hook captures the git branch automatically for ticket extraction.
-3. Load `learnings/INDEX.md` (always) + `learnings/crew.md` (always relevant for orchestration)
-   - After task classification, load domain-specific learnings:
-     - UI task → `learnings/ui.md`
-     - Data/state/API → `learnings/data.md`
-     - Auth/SSO → `learnings/auth.md`
-     - Tests/CI → `learnings/testing.md`
-     - Migration/refactor → `learnings/migration.md`
-     - Tooling/AG Grid/Figma → `learnings/tooling.md`
-4. Create dirs: `sessions/{TICKET}/contracts/` (for contracts/decisions — human-readable)
-5. Detect workflow type (feature, bug, refactor, spike, docs)
-6. Check if `sessions/{TICKET}/decisions.md` exists from prior work -- if so, load it too
-7. **Start board server if not running:**
-   - Check ports 3847 and 3848: `lsof -ti:3847` and `lsof -ti:3848`
-   - If BOTH are already listening -> skip (server is running)
-   - If NOT running -> start: `cd ~/.claude/team/board-app && pnpm dev:all &`
-   - Do NOT fail or block if the server can't start -- this is best-effort
-8. **The event hook captures all TaskCreate/TaskUpdate events** as NDJSON. Board materializes sessions from the event log — no manual JSON needed.
-9. **Create TaskCreate entries for every task** with `[CrewName]` prefix when execution begins (Phase D)
-9. **Run Pre-Plan Hook:**
-   - Classify task type and risk level
-   - Detect missing context (design? API? migration?)
-   - Decide if scouts are needed -> if yes, offer to run them
-   - Determine if Roger is a hard gate
+---
 
-## Phase B -- Planning (NO crew spawned)
+## Phase A — Context Loading
 
-> **IMPORTANT: Enter plan mode at the start of Phase B using `EnterPlanMode`.** Stay in plan mode for the entire planning phase. Only exit (`ExitPlanMode`) once the plan is finalized and user-approved.
+1. Detect ticket from `$ARGUMENTS` or git branch:
+   - If `$ARGUMENTS` matches `[A-Z]+-\d+` (e.g., `CP-41171`): set `TICKET` to that key
+   - Otherwise: detect ticket from git branch name (e.g., `cp-41171-hourly-chart` → `CP-41171`)
+   - Load `decisions/global.md`
+2. **Jira context pull** (if Atlassian MCP available AND `TICKET` detected):
+   - Fetch ticket: `mcp__atlassian__getJiraIssue(issueIdOrKey: TICKET, responseContentFormat: "markdown")`
+   - Extract: summary, description, acceptance criteria, type, priority, comments, parent epic
+   - Merge into `$ARGUMENTS` context — ticket description becomes the requirement
+   - Transition Jira to "In Progress" (best-effort, don't block if it fails)
+   - If Atlassian MCP not available: skip silently, use `$ARGUMENTS` as-is
+3. Register session: `TaskCreate({ subject: '[Cortex] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
+4. Load `learnings/INDEX.md` + `learnings/crew.md`, then domain-specific learnings after classification:
+   UI → `ui.md` | Data/API → `data.md` | Auth → `auth.md` | Tests → `testing.md` | Migration → `migration.md` | Tooling → `tooling.md`
+5. **Phantom graph readiness** (if phantom available):
+   - Call `phantom_graph_build` to trigger async index rebuild (non-blocking)
+   - Call `phantom_conflict_status` — if file-level conflicts detected with other sessions, warn user
+6. Caveman-compress any uncompressed learnings (background, non-blocking)
+7. Create `sessions/{TICKET}/contracts/`, detect workflow type (feature/bug/refactor/spike/docs)
+8. Load `sessions/{TICKET}/decisions.md` if prior work exists
+9. **Pre-Plan Hook:** Classify task type + risk → detect missing context → decide if scouts needed → determine if Prism is hard gate
 
-> **MODEL: All research agents, scout agents, and the Plan agent in this phase MUST use `model: "opus"`** — this ensures deep codebase analysis and catches edge cases before implementation begins. Implementation agents (Nami, Zoro, Chopper, etc.) can use the default Sonnet model.
+---
+
+## Phase B — Planning
 
 1. Ask questions, iterate, confirm understanding
-2. **CODEBASE FIRST** inventory -- read existing patterns before proposing new ones
-   - Spawn Explore agent(s) with `model: "opus"` for codebase research
-   - Spawn Plan agent with `model: "opus"` to design the implementation approach
-   - **Planning discipline** (`superpowers:writing-plans`): Plan MUST include File Structure (exact paths) before tasks,
-     bite-sized tasks (one action, 2-5 min each), no placeholders (TBD/TODO/"similar to Task N"), self-review after writing
-   - For complex features (risk >= medium): apply `superpowers:brainstorming` -- propose 2-3 approaches with tradeoffs before settling
-3. Produce plan with:
-   - Selected crew and agent-to-task mapping
-   - Required contracts (which types, who owns each section)
-   - Execution order with dependencies
-   - Risks and open questions
-4. Get user approval via `ExitPlanMode`
+2. **Capture Intent** (mandatory — ask or infer):
+   ```
+   ## Intent
+   **Goal:** [success in one sentence]
+   **Priority:** [speed | quality | ux | stability | scope — ranked]
+   **Acceptable trade-offs:** [what CAN be sacrificed]
+   **Non-negotiables:** [what MUST NOT be compromised]
+   ```
+   Save to: plan, `sessions/{TICKET}/intent.md`, every agent prompt (compact 3-line version).
+   Infer if user doesn't engage: bug→stability, feature→speed, figma→ux, refactor→quality.
+
+3. Call `Skill(skill="superpowers:writing-plans")` — defines plan structure, task granularity, quality standards
+4. **Codebase-first inventory** + **Anti-repetition check:**
+   - Scan `learnings/INDEX.md` + `learnings/{domain}.md ## Corrections` for matching failures
+   - Scan `~/.claude/team/global/patterns/INDEX.md` (secondary)
+   - If match found: acknowledge, explain difference, or choose alternative
+   - Log matches under `## Anti-Repetition Notes` in plan
+   - Spawn Explore (opus) + Plan (opus) agents for codebase research
+   - Complex tasks (risk >= medium): call `Skill("superpowers:brainstorming")` first
+
+5. Produce plan: crew selection, agent-to-task mapping, contracts, execution order, risks
+
+6. **Validate decomposition** (self-check before presenting):
+   - **Uncertainty Reduction:** Does each task meaningfully reduce uncertainty? Reorder riskiest first.
+   - **Assembly Consistency:** Will agent outputs actually assemble into the intended outcome? Check interface shapes, missing wiring, Intent alignment.
+
+7. **Devil's Advocate Review** (ALL plans — mandatory):
+   Spawn Devil's Advocate (opus, no tools, blocking) with the complete plan:
+   ```
+   Agent({
+     description: "Devil's Advocate: challenge plan for {TICKET}",
+     subagent_type: "oracle", model: "opus",
+     mode: "bypassPermissions", run_in_background: false,
+     prompt: "You are the Devil's Advocate. Review this plan and challenge it.
+       [paste full plan including Intent, tasks, file structure, execution order]
+       [paste coding-principles.md from repo or ~/.claude/team/reference/coding-principles.md]
+       Respond with: Challenges (must address), Warnings (consider), Verdict (PROCEED/REVISE/RETHINK)."
+   })
+   ```
+   - If verdict = PROCEED → continue to step 8
+   - If verdict = REVISE → Cortex addresses each challenge, re-runs Devil's Advocate
+   - If verdict = RETHINK → return to step 4 (codebase research) with new constraints
+   - Max 2 Devil's Advocate iterations — if still RETHINK after 2, escalate to user with the challenges
+
+8. **Phantom strategy advisory** (if phantom available):
+   - Call `phantom_orchestrator_process({ goal: "{TICKET} — {summary}", activeFiles: [plan file list] })`
+   - Map returned strategy to SOLO/CREW routing (see `_shared-phantom-integration.md`)
+   - Call `phantom_orchestrator_history({ limit: 10 })` — merge failed approaches into anti-repetition notes
+   - Log phantom recommendation alongside Cortex's routing decision
+
+9. Get user approval via `ExitPlanMode`
+
+10. **Emit routing decision:**
+   ```
+   TaskCreate({
+     subject: '[Cortex] DECISION:route {TICKET}',
+     description: 'Goal: {summary}\nRoute: {solo|crew}\nRisk: {level}\nComplexity: {level}\nCrew: {agents}\nReasoning: {why}\nAnti-repetition: {corrections or "none"}'
+   })
+   ```
+
+---
 
 ## State Checkpointing
 
-Before each phase transition, snapshot session state for rollback:
-- After Phase B: `state/sessions/{TICKET}/snapshots/phase-b-complete.json`
-- After Phase C: `state/sessions/{TICKET}/snapshots/phase-c-complete.json`
-- After each verify loop: `state/sessions/{TICKET}/snapshots/phase-d-loop-{N}.json`
+Snapshot before each phase transition: `state/sessions/{TICKET}/snapshots/phase-{X}-complete.json`
 
-To rollback: copy snapshot back to main session JSON. Board-sync hook auto-detects restored state.
+---
 
-## Phase C -- Contract Phase
+## Phase C — Contracts
 
-1. For each required contract type, create from template:
-   - Fill metadata, goal, inputs/outputs, ownership, acceptance criteria
-   - Store in `sessions/{TICKET}/contracts/` AND optionally in `.claude/contracts/`
-2. **Run Pre-Execute Hook** -- block if contracts are incomplete or interfaces undefined
-3. Show contract summary to user, get final "Execute now" confirmation
+1. Create contracts from templates → `sessions/{TICKET}/contracts/`
+2. **Pre-Execute Hook:** Block if contracts incomplete or interfaces undefined
+3. Show summary, get "Execute now" confirmation
 
-## Phase D -- Execution + Verify + Fix
+---
 
-1. Spawn crew with: personas from `.claude/agents/`, assigned contracts, skills, learnings
-   - **Dispatch discipline** (`superpowers:dispatching-parallel-agents`): One agent per domain, `isolation: "worktree"` for parallel file-modifying agents, focused self-contained prompts, verify integration after all return
+## Phase D — Execution
+
+> **Before ANY agent spawn:** Run anti-repetition loader (`templates/anti-repetition-loader.md`). Build the Anti-Repetition Block once, inject into every agent prompt.
+> **Phantom scoping** (if phantom available): Call `phantom_before_edit` with all planned files. Use blast radius to validate agent scope and discover missing related files. Pass directlyAffected list to Sentinel.
+
+### D-Solo (SOLO-routed tasks)
+
+Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Oracle when stuck.
+
+1. `TaskCreate({ subject: '[Solo] {task description}' })`
+2. Spawn executor using `templates/solo-executor-prompt.md` with variables filled:
+   ```
+   Agent({
+     description: "Solo: {task description}",
+     subagent_type: "coder", model: "sonnet",
+     mode: "bypassPermissions", run_in_background: true,
+     prompt: "{filled solo-executor-prompt template}"
+   })
+   ```
+3. On completion: review report, check Oracle usage. If blockers → pivot to CREW.
+4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
+   a. Load `_shared-repo-detection.md` → discover verify commands for this repo
+   b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
+   c. Call `Skill(skill="superpowers:verification-before-completion")` — evidence before claims
+   d. If PASS → run quality pipeline before Prism:
+      i.  Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
+      ii. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
+      iii. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
+      iv. Spawn Prism (advisory if low risk, gauntlet if medium+)
+   g. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
+   e. If FAIL → enter fix sub-loop (same as D-Crew step 6)
+   f. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+5. **Pivot escape:** If executor overwhelmed (3 Oracle calls exhausted) → summarize progress, re-enter Phase B, route as CREW.
+
+### D-Crew (CREW-routed tasks)
+
+1. Spawn crew with personas, contracts, learnings, Anti-Repetition Block in every prompt
+   - Call `Skill("superpowers:dispatching-parallel-agents")` before 2+ independent agents
 2. Run agents per execution order (parallel where independent, sequential where dependent)
-3. **After each agent: run Post-Agent Hook** -- validate output, capture handoff, check unblocked
-4. When all build agents done -> spawn Zoro for tests against contracts
-5. Spawn Chopper for verification (lint, typecheck, build, tests)
-6. **Run Post-Verify Hook** -- verification results tracked via TaskUpdate automatically
-7. **If PASS** -> proceed to step 9
-8. **If FAIL** -> enter fix sub-loop:
-   a. Track loop count internally (max 3)
-   b. Spawn **Kureha** (model: sonnet, persona from `.claude/agents/kureha.md`) to triage failures and create fix packet
-   c. Luffy assigns scoped repairs from Kureha's diagnosis -- only the failing scope, no new features
-   d. Spawn repair agents (only assigned owners, only failing files)
-   e. After repairs -> re-run Chopper verification
-   f. If pass -> exit loop, proceed to step 9
-   g. If fail -> repeat from step 8a (max 3 loops, then escalate to user)
-   h. **Same failure twice** -> write correction to relevant `learnings/{domain}.md` under `## Corrections` + escalate
-   i. **Contract must change** -> return to Phase C (contract lock)
-   j. **Scope expansion** -> return to Phase B (planning)
-9. If risk >= medium -> spawn Sengoku (simplify -> Roger review -> verify)
-10. If risk = low -> spawn Roger for advisory review
+3. **After each agent:** Post-Agent Hook → validate output, capture handoff
+   - **Assembly check** (2+ agents done): verify outputs are consistent, match Intent
+   - **Oracle checkpoint** (optional, 3+ files changed): quick opus review before testing
+4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
+   a. Load `_shared-repo-detection.md` → discover verify commands for this repo
+   b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
+   c. Call `Skill(skill="superpowers:verification-before-completion")` — evidence before claims
+   d. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+5. **If PASS** → run quality pipeline:
+   a. Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
+   b. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
+   c. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
+   d. Proceed to step 7
+   e. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
+6. **If FAIL** → fix sub-loop (max 3):
+   a. Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
+   b. Spawn repair agents (only failing scope)
+   c. Re-run Sentinel → pass exits loop, fail repeats
+   d. Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
+   d2. **AUTO-LEARNING TRIGGER 2** (mandatory): Record what failed AND what fixed it — see `_shared-auto-learning.md`. Write correction to INDEX.md.
+   e. Contract change needed → return to Phase C | Scope expansion → return to Phase B
+7. Prism review: gauntlet mode if risk >= medium, advisory if low
+
+### Outcome Recording
+
+After all verification passes:
+```
+TaskCreate({
+  subject: '[Cortex] DECISION:outcome {TICKET}',
+  description: 'Goal: {summary}\nRoute: {solo|crew}\nOutcome: {pass|fail}\nFix loops: {0-3}\nDuration: {minutes}\nCorrections applied: {list or "none"}\nNew corrections: {list or "none"}'
+})
+```
+
+---
+
+## Phase E — Completion
+
+After all verification and review passes:
+
+1. **Detect PR strategy** (from `_shared-repo-detection.md`):
+   - Check `HAS_UI` and whether changed files touch UI layer
+   - UI touched → push branch only, notify user: "Branch pushed. Verify visually, then run `/team:wrap` to create PR."
+   - No UI touched → create draft PR: `gh pr create --draft --title "{TICKET}: {summary}" --body "..."`
+2. **Update Jira** (if Atlassian MCP available):
+   - If draft PR created → transition to "Reviewing" + add PR link comment
+   - If branch pushed only → add comment: "Branch pushed: {branch}. Awaiting visual verification."
+3. **Emit outcome** (existing Outcome Recording block)

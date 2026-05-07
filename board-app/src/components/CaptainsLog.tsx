@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Captain's Log (Story Chapters)
+// Phantom Works Board — Captain's Log (Story Chapters)
 // Author: Subash Karki
 //
 // Split-panel layout: chapter list on the left, rendered content on the right.

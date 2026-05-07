@@ -1,4 +1,4 @@
-# Straw Hat Engineering Crew -- Superpowers Discipline Context
+# Phantom Works Crew -- Superpowers Discipline Context
 
 > Loaded by commands that benefit from superpowers discipline enforcement.
 > Always load `_shared.md` first.
@@ -12,11 +12,11 @@ The orchestrator invokes them by name -- do NOT duplicate their content here.
 
 | Phase | Gap Addressed | Superpowers Skill | Trigger |
 |-------|---------------|-------------------|---------|
-| **B (Planning)** | Ad-hoc plan structure, no file mapping | `superpowers:writing-plans` | Always during plan creation |
+| **B (Planning)** | Ad-hoc plan structure, no file mapping | `superpowers:writing-plans` | **INVOKE via Skill tool** at start of Phase B, before Explore/Plan agents |
 | **B (Planning)** | No structured approach exploration | `superpowers:brainstorming` | Complex features (risk >= medium OR multiple subsystems) |
 | **D (Dispatch)** | No formal agent isolation rules | `superpowers:dispatching-parallel-agents` | When spawning 2+ independent agents |
 | **D (Dispatch)** | No two-stage review model | `superpowers:subagent-driven-development` | Optional: for spec-compliance + quality review pattern |
-| **D→Fix** | No root-cause methodology | `superpowers:systematic-debugging` | Every fix loop entry (before Kureha triage) |
+| **D→Fix** | No root-cause methodology | `superpowers:systematic-debugging` | Every fix loop entry (before Cortex (triage) triage) |
 | **Verify** | No evidence-before-claims discipline | `superpowers:verification-before-completion` | Every verification phase, before any PASS/FAIL claim |
 
 ---

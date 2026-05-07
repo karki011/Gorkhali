@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Task Events Hook (Event-Sourced)
+// Phantom Works Board — Task Events Hook (Event-Sourced)
 // Author: Subash Karki
 //
 // Core data hook that replaces useSessionState. Fetches initial events from

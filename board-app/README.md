@@ -1,8 +1,8 @@
-# Straw Hat Board
+# Phantom Works Board
 
 **Author: Subash Karki**
 
-Live dashboard for the Straw Hat Engineering Crew. Shows task progress, crew status, and session state in real-time as agents work.
+Live dashboard for the Phantom Works Engineering Team. Shows task progress, crew status, and session state in real-time as agents work.
 
 ---
 

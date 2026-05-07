@@ -1,6 +1,6 @@
 ---
 name: team:pause
-description: Quick save -- step away
+description: "Use when stepping away, switching context, taking a break, or saving progress. Saves session state, learnings, and resume notes."
 ---
 
 > Load `_shared.md` (core only -- no additional tiers needed).
@@ -9,7 +9,7 @@ description: Quick save -- step away
 
 Full save -- persist ALL session knowledge before stepping away:
 
-1. `TaskCreate({ subject: "[Luffy] SESSION:pause" })` — hook handles session status change
+1. `TaskCreate({ subject: "[Cortex] SESSION:pause" })` — hook handles session status change
 2. Write session log to `sessions/{TICKET}/{date}_{label}.md` with summary, PRs, decisions, resume notes
 3. Append new learnings to the relevant **domain files** in `learnings/` (ui.md, data.md, auth.md, testing.md, crew.md, migration.md, tooling.md):
    - Patterns → `## Patterns` section in matching domain file

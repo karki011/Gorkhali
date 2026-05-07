@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — SessionDivider (Visual separator between sessions)
+// Phantom Works Board — SessionDivider (Visual separator between sessions)
 // Author: Subash Karki
 //
 // Clickable divider between sessions showing wave emoji, ticket/label,

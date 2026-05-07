@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Materializer
+// Phantom Works Board — Materializer
 // Author: Subash Karki
 //
 // Pure function: TaskEvent[] -> MaterializedSession[]

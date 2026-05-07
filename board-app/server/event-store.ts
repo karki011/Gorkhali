@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Event Store
+// Phantom Works Board — Event Store
 // Author: Subash Karki
 //
 // NDJSON reader with mtime-based cache. Reads TaskEvent lines from

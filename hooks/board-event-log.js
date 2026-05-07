@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // =============================================================================
-// Straw Hat Board — Append-Only Event Logger
+// Phantom Works — Append-Only Event Logger
 // Author: Subash Karki
 //
-// Captures raw TaskCreate/TaskUpdate events as NDJSON (newline-delimited JSON).
+// Captures raw TaskCreate/TaskUpdate/CortexDecision events as NDJSON.
 // Zero translation — stores exactly what Claude reports.
+// Decision events enable strategy performance tracking and anti-repetition.
 // Replaces the 944-line board-sync.js.
 // =============================================================================
 
@@ -48,6 +49,18 @@ process.stdin.on('end', () => {
     }
 
     fs.appendFileSync(path.join(dir, 'task-events.ndjson'), JSON.stringify(event) + '\n')
+
+    // Extract Cortex decision events from TaskCreate subjects
+    const subject = (data.tool_input?.subject ?? '')
+    if (subject.startsWith('[Cortex] DECISION:')) {
+      const decisionEvent = {
+        ts: new Date().toISOString(),
+        tool: 'CortexDecision',
+        input: data.tool_input ?? {},
+        result: data.tool_result ?? null,
+      }
+      fs.appendFileSync(path.join(dir, 'decisions.ndjson'), JSON.stringify(decisionEvent) + '\n')
+    }
   } catch {
     // Never break the workflow — silent on errors
   }

@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — EventCard (Task card in the timeline)
+// Phantom Works Board — EventCard (Task card in the timeline)
 // Author: Subash Karki
 //
 // A single task card showing crew emoji, task description, pirate status

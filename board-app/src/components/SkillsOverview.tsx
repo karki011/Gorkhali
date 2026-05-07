@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Skills Overview
+// Phantom Works Board — Skills Overview
 // Author: Subash Karki
 //
 // Grouped card grid of all /team:* slash commands.

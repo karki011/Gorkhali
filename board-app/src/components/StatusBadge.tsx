@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — StatusBadge (Pirate-themed task status pill)
+// Phantom Works Board — StatusBadge (Pirate-themed task status pill)
 // Author: Subash Karki
 //
 // Small colored pill showing pirate status label for task statuses.

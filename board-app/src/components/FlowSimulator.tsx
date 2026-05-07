@@ -1,5 +1,5 @@
 /**
- * Flow Simulator — multi-flow visualization for the Straw Hat Crew.
+ * Flow Simulator — multi-flow visualization for the Phantom Works Team.
  * @author Subash Karki
  */
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -328,7 +328,7 @@ export const FlowSimulator = () => {
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <h2 style={{ textAlign: 'center', marginBottom: 16, fontSize: 18, color: 'var(--muted)', fontStyle: 'italic' }}>
-        Straw Hat Crew Flow Simulator
+        Phantom Works Team Flow Simulator
       </h2>
 
       {/* Flow selector */}

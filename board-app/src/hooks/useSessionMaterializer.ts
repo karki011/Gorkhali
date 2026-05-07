@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Session Materializer (Event-Sourced)
+// Phantom Works Board — Session Materializer (Event-Sourced)
 // Author: Subash Karki
 //
 // Client-side materialization: folds TaskEvent[] into MaterializedSession[].

@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Main App Shell
+// Phantom Works Board — Main App Shell
 // Author: Subash Karki
 //
 // Header with branding + theme toggle, 5-tab navigation with Motion page
@@ -165,7 +165,7 @@ const AppInner = () => {
           <span style={{ fontSize: 28 }}>🏴‍☠️</span>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2 }}>
-              Straw Hat Board
+              Phantom Works Board
             </h1>
             <p style={{ fontSize: 14, color: 'var(--muted)' }}>
               v3.0 — Event-Sourced Ship's Log

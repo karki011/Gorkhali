@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Arsenal Data Loader (Server)
+// Phantom Works Board — Arsenal Data Loader (Server)
 // Author: Subash Karki
 //
 // Reads the user's Claude Code setup from the filesystem:

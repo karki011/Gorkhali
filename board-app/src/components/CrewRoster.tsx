@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Crew Roster (Bento Card Grid + Detail Popover)
+// Phantom Works Board — Crew Roster (Bento Card Grid + Detail Popover)
 // Author: Subash Karki
 // =============================================================================
 

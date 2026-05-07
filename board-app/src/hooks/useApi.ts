@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Data Fetching Hooks (Event-Sourced)
+// Phantom Works Board — Data Fetching Hooks (Event-Sourced)
 // Author: Subash Karki
 //
 // Plain fetch hooks. Vite proxy forwards /api/* and /events to :3847.

@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — CrewDashboard (Right panel stats + active crew)
+// Phantom Works Board — CrewDashboard (Right panel stats + active crew)
 // Author: Subash Karki
 //
 // Shows connection status, StatsBar, active crew members with their

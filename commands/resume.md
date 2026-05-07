@@ -1,6 +1,6 @@
 ---
 name: team:resume
-description: Resume a paused/wrapped session
+description: "Use when continuing previous work, picking up where left off, or resuming a paused session. Restores full context, contracts, and learnings."
 argument-hint: "[ticket-or-slug]"
 ---
 

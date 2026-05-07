@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Straw Hat Crew — Agent Output Validator (Layer 3)
+# Phantom Works Crew — Agent Output Validator (Layer 3)
 # Author: Subash Karki
 #
 # Validates agent output after completion:
@@ -149,7 +149,7 @@ fi
 
 # ─── Output ───
 echo ""
-echo "=== Straw Hat Output Validator ==="
+echo "=== Phantom Works Output Validator ==="
 echo "Agent: $AGENT_NAME"
 echo "Files changed: $(echo "$ALL_CHANGED" | grep -c '.' || echo 0)"
 echo "New files: $(echo "$NEW_FILES" | grep -c '.' || echo 0)"

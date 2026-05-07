@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — StatsBar (Session task count badges)
+// Phantom Works Board — StatsBar (Session task count badges)
 // Author: Subash Karki
 //
 // Horizontal flex layout of four stat badges showing task counts

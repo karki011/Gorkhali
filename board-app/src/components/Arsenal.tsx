@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Arsenal Dashboard
+// Phantom Works Board — Arsenal Dashboard
 // Author: Subash Karki
 //
 // Sidebar + Content layout (matching Changelog pattern).

@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Straw Hat Crew — Plan Validator (Layer 1)
+# Phantom Works Crew — Plan Validator (Layer 1)
 # Author: Subash Karki
 #
 # Validates a session JSON plan before execution begins.
@@ -33,7 +33,7 @@ WORKFLOW=$(jq -r '.workflow // "feature"' "$SESSION_FILE")
 
 if [ "$PHASE_COUNT" = "0" ] || [ -z "$PHASES" ]; then
   add_block "No phases found in session JSON"
-  echo -e "\n=== Straw Hat Plan Validator ==="
+  echo -e "\n=== Phantom Works Plan Validator ==="
   echo -e "$BLOCKS"
   exit 2
 fi
@@ -172,7 +172,7 @@ fi
 
 # ─── Output ───
 echo ""
-echo "=== Straw Hat Plan Validator ==="
+echo "=== Phantom Works Plan Validator ==="
 echo "Session: $(basename "$SESSION_FILE")"
 echo "Phases: $PHASE_COUNT | Workflow: $WORKFLOW | Visual verify: $VISUAL_VERIFY"
 echo "───────────────────────────────"

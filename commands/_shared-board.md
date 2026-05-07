@@ -1,22 +1,18 @@
-# Straw Hat Engineering Crew -- Board Context
+# Phantom Works Crew -- Event Log Context
 
-> Loaded by commands that interact with board state. Always load `_shared.md` first.
+> Loaded by commands that interact with session state. Always load `_shared.md` first.
 
 ---
 
 ## Data Layout
 
-Event-sourced architecture — zero translation between Claude tasks and the board.
+Event-sourced architecture — task events are the source of truth.
 
 ```
 ~/.claude/team/
-  board-app/                        # Board UI (Vite + Hono)
   events/                           # NDJSON event logs (append-only)
     {REPO_NAME}/
       task-events.ndjson            # Raw TaskCreate/TaskUpdate events
-  story/                            # GLOBAL Captain's Log (cross-repo)
-    index.md
-    chapter-*.md
   repos/
     {REPO_NAME}/
       sessions/{TICKET}/            # SESSION DETAILS (human-readable)
@@ -31,20 +27,16 @@ Event-sourced architecture — zero translation between Claude tasks and the boa
         migration.md / tooling.md
 ```
 
-### How data flows (zero translation)
+### How data flows
 
 1. **`TaskCreate`/`TaskUpdate`** fires → `board-event-log.js` hook appends raw event to `events/{REPO}/task-events.ndjson`
-2. **Board server** reads NDJSON, materializes sessions/tasks on-the-fly
-3. **SSE** broadcasts new events to connected clients in real-time
-4. **Session boundaries** detected by `[Luffy] SESSION:start` markers or temporal gaps (>30 min)
-5. **Crew roster** parsed from `[CrewName]` prefixes in task subjects by the board UI
+2. **Session boundaries** detected by `[Cortex] SESSION:start` markers or temporal gaps (>30 min)
+3. **Crew roster** parsed from `[CrewName]` prefixes in task subjects
 
 ### Where to write what
 
-| Data | Write to | Who writes | Board reads? |
-|------|----------|------------|--------------|
-| Task events | `events/{REPO}/task-events.ndjson` | board-event-log.js hook (append-only) | YES |
-| Contracts | `sessions/{TICKET}/contracts/` | `team:contract` | via /api/contracts |
-| Decisions | `sessions/{TICKET}/decisions.md` | Manual | No |
-
-**No session JSON needed.** Board materializes sessions from the event log. No sync, no translation, no drift.
+| Data | Write to | Who writes |
+|------|----------|------------|
+| Task events | `events/{REPO}/task-events.ndjson` | board-event-log.js hook (append-only) |
+| Contracts | `sessions/{TICKET}/contracts/` | `team:contract` |
+| Decisions | `sessions/{TICKET}/decisions.md` | Manual |

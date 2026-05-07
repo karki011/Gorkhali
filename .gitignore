@@ -1,13 +1,27 @@
-# Machine-specific state (per-user, per-machine)
-repos/
+# Per-user mutable state (not shared)
+config.yaml
+sessions/
 events/
+state/
+repos/
+
+# Learnings are per-user (INDEX.md structure is tracked, content is not)
+learnings/*.md
+!learnings/.gitkeep
+
+# Global patterns content is per-user
+global/patterns/*.md
+!global/patterns/.gitkeep
+
+# Board app (removed)
+board-app/
 
 # Build artifacts
-board-app/node_modules/
-board-app/dist/
-board-app/.vite/
+node_modules/
+dist/
+.vite/
 
-# Legacy artifacts
+# Legacy
 .board-sync-errors.log
 .server.log
 crew-dashboard.html
@@ -15,3 +29,6 @@ crew-diagram.html
 
 # OS
 .DS_Store
+
+# Archive (restorable, not shared)
+.archive/

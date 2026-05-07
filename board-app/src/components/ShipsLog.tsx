@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Ship's Log (Accordion session cards + crew dashboard)
+// Phantom Works Board — Ship's Log (Accordion session cards + crew dashboard)
 // Author: Subash Karki
 //
 // Main 2-panel view. Left panel shows sessions as accordion cards — each card

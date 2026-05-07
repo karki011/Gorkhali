@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 // =============================================================================
-// Straw Hat Board — Legacy Session Migration
+// Phantom Works Board — Legacy Session Migration
 // Author: Subash Karki
 //
 // One-time migration: reads old SessionState JSON files from

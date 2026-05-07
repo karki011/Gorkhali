@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Changelog
+// Phantom Works Board — Changelog
 // Author: Subash Karki
 //
 // Split-panel layout: version list on the left, version content on the right.

@@ -1,4 +1,4 @@
-# Straw Hat Engineering Crew -- Contracts & Hooks Context
+# Phantom Works Crew -- Contracts & Hooks Context
 
 > Loaded by commands that create/validate contracts or run verification hooks. Always load `_shared.md` first.
 
@@ -21,10 +21,10 @@ Four types, live in `.claude/contracts/` or session state:
 
 | Hook | When | Key Checks |
 |------|------|------------|
-| **Pre-Plan** | Before planning | Task type, missing context, scout needs, Roger gate |
+| **Pre-Plan** | Before planning | Task type, missing context, scout needs, Prism gate |
 | **Pre-Execute** | Before execution | Contracts exist, owners assigned, skills listed, risky work has review path. **BLOCK if critical interfaces undefined.** |
 | **Post-Agent** | After each agent | Validate output format, capture handoff, list files, open questions, unblock downstream |
-| **Post-Verify** | After verification | Capture result in session JSON, route: PASS -> Sengoku/wrap, FAIL -> Kureha fix loop (max 3), same failure twice -> escalate |
+| **Post-Verify** | After verification | Capture result in session JSON, route: PASS -> Prism (gauntlet mode)/wrap, FAIL -> Cortex (triage) fix loop (max 3), same failure twice -> escalate |
 | **Pre-Wrap** | Before wrapping | Implementation notes exist, test/verification recorded, quality review recorded |
 
 ---
@@ -41,7 +41,7 @@ Four types, live in `.claude/contracts/` or session state:
       "typecheck": "pass | fail",
       "build": "pass | fail",
       "tests": "pass | fail",
-      "roger": "approved | needs_work | skipped"
+      "reviewer": "approved | needs_work | skipped"
     },
     "failures": [{
       "class": "build | type | contract | ui | a11y | test | performance | docs | integration",

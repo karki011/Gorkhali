@@ -109,3 +109,39 @@ Adventures of the Straw Hat Engineering Crew.
 | # | Chapter | Season | Repo | Date | Crew |
 |---|---------|--------|------|------|------|
 | 22 | [The Superpowered Fleet](chapter-22-the-superpowered-fleet.md) | The Living Ship Arc | feature-web-apps | 2026-04-02 | Luffy, Nami, Chopper, Roger |
+
+## CP-39855 — The Explorer Arc
+
+| # | Chapter | Arc | Date | Crew |
+|---|---------|-----|------|------|
+| 23 | [The Memory Keeper](chapter-23-the-memory-keeper.md) | CP-39855 — Explorer Query Tracker | 2026-04-05 | Luffy (solo), Greptile |
+
+## CP-39829 — The Nested Curse
+
+| # | Chapter | Arc | Date | Crew |
+|---|---------|-----|------|------|
+| 25 | [The Nested Curse](chapter-25-the-nested-curse.md) | CP-39829 — Preferences Cleanup | 2026-04-09 | Luffy (solo) |
+
+## CP-40010 — Explorer: Update Collapsed Menu
+
+| # | Chapter | Arc | Date | Crew |
+|---|---------|-----|------|------|
+| 26 | [The Hidden Selector](chapter-26-the-hidden-selector.md) | CP-40010 — Explorer Collapsed Menu | 2026-04-09 | Luffy, Nami, Chopper, Roger, Greptile |
+
+## PhantomOS — The State Forge
+
+| # | Chapter | Season | Repo | Date | Crew |
+|---|---------|--------|------|------|------|
+| 27 | [The Jotai Forge Reborn](chapter-27-the-jotai-forge-reborn.md) | PhantomOS — The State Forge | Phantom-OS | 2026-04-10 | Luffy (solo) |
+
+## CP-40129 — The Favorite Scroll
+
+| # | Chapter | Arc | Date | Crew |
+|---|---------|-----|------|------|
+| 28 | [The Favorite Scroll](chapter-28-the-favorite-scroll.md) | CP-40129 — Favorite Label Edit | 2026-04-10 | Luffy, Nami, Zoro, Chopper, Roger |
+
+## CP-40131 — Favorite Dimensions
+
+| # | Chapter | Arc | Date | Crew |
+|---|---------|-----|------|------|
+| 29 | [The Heart of the GroupBy](chapter-29-the-heart-of-the-groupby.md) | CP-40131 — Favorite/Pinned Dimensions in GroupBy | 2026-04-10 | Luffy, Franky, Sanji, Nami, Zoro, Roger, Chopper, Greptile |

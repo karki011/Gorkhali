@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Theme Management
+// Phantom Works Board — Theme Management
 // Author: Subash Karki
 //
 // Persists to localStorage, applies via data-theme attribute on <html>.

@@ -22,7 +22,7 @@ Validates the session JSON plan before execution:
 ~/.claude/team/scripts/validate-plan.sh ~/.claude/team/repos/{REPO_NAME}/state/sessions/{TICKET}.json
 ```
 
-Checks: phase order (Roger -> Chopper -> Sengoku -> Smoker -> User Feedback), Smoker inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
+Checks: phase order (Prism -> Sentinel -> Prism (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
 
 ---
 
@@ -59,6 +59,6 @@ Runs all three validators in sequence. Summarizes combined results.
 ## Automatic Validation (built into execution flow)
 
 - **PreToolUse hook** on Agent calls validates `mode: "bypassPermissions"`, `run_in_background: true`, model tier, and prompt content. BLOCKs bad spawns automatically.
-- **Luffy** runs `validate-plan.sh` before Phase C execution starts.
-- **Luffy** runs `validate-output.sh` after each agent completes (with that agent's owned files).
-- **Luffy** runs `validate-session.sh` at phase transitions and after verify/fix loops.
+- **Cortex** runs `validate-plan.sh` before Phase C execution starts.
+- **Cortex** runs `validate-output.sh` after each agent completes (with that agent's owned files).
+- **Cortex** runs `validate-session.sh` at phase transitions and after verify/fix loops.

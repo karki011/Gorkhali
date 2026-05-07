@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Straw Hat Crew — Session State Validator (Layer 4)
+# Phantom Works Crew — Session State Validator (Layer 4)
 # Author: Subash Karki
 #
 # Validates session JSON integrity at checkpoints:
@@ -202,7 +202,7 @@ TICKET=$(jq -r '.ticket // "unknown"' "$SESSION_FILE")
 STATUS=$(jq -r '.status // "unknown"' "$SESSION_FILE")
 
 echo ""
-echo "=== Straw Hat Session Validator ==="
+echo "=== Phantom Works Session Validator ==="
 echo "Ticket: $TICKET | Status: $STATUS | Phases: $PHASE_COUNT"
 echo "Verify loop: ${VERIFY_LOOP}/3 | Visual loop: ${VISUAL_LOOP}/3"
 echo "────────────────────────────────────"

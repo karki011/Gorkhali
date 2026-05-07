@@ -1,5 +1,5 @@
 // =============================================================================
-// Straw Hat Board — Navigator's Notes (Learnings)
+// Phantom Works Board — Navigator's Notes (Learnings)
 // Author: Subash Karki
 //
 // Side-nav layout: domain list on left, rendered content on right.
