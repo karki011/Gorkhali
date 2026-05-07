@@ -21,5 +21,21 @@ Explicitly trigger the verification phase on current work.
      Run command -> read full output -> verify claim matches -> THEN claim. No "should pass", no trusting agent reports.
 3. **Run Post-Verify Hook** -- capture results in session JSON
 4. Route based on result:
-   - **PASS** -> show green summary, proceed to Prism (gauntlet mode) gauntlet or wrap
-   - **FAIL** -> show Cortex (triage) diagnosis, ask: "Run `/team:fix`?"
+   - **PASS**:
+     ```
+       ┌─────────────────────┐
+       │  ✓ VERIFICATION OK  │
+       │  lint ✓  build ✓    │
+       │  tests ✓  review ✓  │
+       └─────────────────────┘
+     ```
+     Proceed to Prism gauntlet or wrap.
+   - **FAIL**:
+     ```
+       ┌─────────────────────┐
+       │  ✗ VERIFICATION FAIL│
+       │  {failed step} ✗    │
+       │  Run /team:fix ?    │
+       └─────────────────────┘
+     ```
+     Show Cortex diagnosis, ask: "Run `/team:fix`?"

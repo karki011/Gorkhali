@@ -15,6 +15,14 @@ argument-hint: "<requirement>"
 
 ## Phase A — Context Loading
 
+> **Output on start:**
+> ```
+>   ⚡ PHANTOM WORKS ⚡
+>   ━━━━━━━━━━━━━━━━━
+>   Session: {TICKET}
+>   Crew assembling...
+> ```
+
 1. Detect ticket from `$ARGUMENTS` or git branch:
    - If `$ARGUMENTS` matches `[A-Z]+-\d+` (e.g., `CP-41171`): set `TICKET` to that key
    - Otherwise: detect ticket from git branch name (e.g., `cp-41171-hourly-chart` → `CP-41171`)
@@ -66,6 +74,14 @@ argument-hint: "<requirement>"
 6. **Validate decomposition** (self-check before presenting):
    - **Uncertainty Reduction:** Does each task meaningfully reduce uncertainty? Reorder riskiest first.
    - **Assembly Consistency:** Will agent outputs actually assemble into the intended outcome? Check interface shapes, missing wiring, Intent alignment.
+
+> **Output before Devil's Advocate:**
+> ```
+>   ╔═══════════════════════════╗
+>   ║   😈 DEVIL'S ADVOCATE    ║
+>   ║   Challenging plan...     ║
+>   ╚═══════════════════════════╝
+> ```
 
 7. **Devil's Advocate Review** (ALL plans — mandatory):
    Spawn Devil's Advocate (opus, no tools, blocking) with the complete plan:
@@ -122,6 +138,17 @@ Snapshot before each phase transition: `state/sessions/{TICKET}/snapshots/phase-
 > **Before ANY agent spawn:** Run anti-repetition loader (`templates/anti-repetition-loader.md`). Build the Anti-Repetition Block once, inject into every agent prompt.
 > **Phantom scoping** (if phantom available): Call `phantom_before_edit` with all planned files. Use blast radius to validate agent scope and discover missing related files. Pass directlyAffected list to Sentinel.
 
+> **Output on dispatch:**
+> ```
+>   CREW STATUS
+>   ───────────────────────────
+>   Cortex     ● orchestrating
+>   {for each Spark}  ● deploying    {N} files
+>   Sentinel   ○ standby
+>   Prism      ○ standby
+>   ───────────────────────────
+> ```
+
 ### D-Solo (SOLO-routed tasks)
 
 Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Oracle when stuck.
@@ -164,6 +191,25 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
    c. Call `Skill(skill="superpowers:verification-before-completion")` — evidence before claims
    d. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+
+> **Output on verification result:**
+> If PASS:
+> ```
+>   ┌─────────────────────┐
+>   │  ✓ VERIFICATION OK  │
+>   │  lint ✓  build ✓    │
+>   │  tests ✓             │
+>   └─────────────────────┘
+> ```
+> If FAIL:
+> ```
+>   ┌─────────────────────┐
+>   │  ✗ VERIFICATION FAIL│
+>   │  {failed step} ✗     │
+>   │  entering fix loop   │
+>   └─────────────────────┘
+> ```
+
 5. **If PASS** → run quality pipeline:
    a. Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
    b. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
@@ -203,3 +249,19 @@ After all verification and review passes:
    - If draft PR created → transition to "Reviewing" + add PR link comment
    - If branch pushed only → add comment: "Branch pushed: {branch}. Awaiting visual verification."
 3. **Emit outcome** (existing Outcome Recording block)
+
+> **Output on completion** (pick one randomly):
+> ```
+>   ╭───────────────────────────╮
+>   │                           │
+>   │   MISSION COMPLETE  ✓     │
+>   │                           │
+>   │   Files:    {N} changed   │
+>   │   Verify:   PASS          │
+>   │   Prism:    {verdict}     │
+>   │   PR:       {#N or branch}│
+>   │   Learned:  {N} patterns  │
+>   │                           │
+>   ╰───────────────────────────╯
+> ```
+> Fun message (random): "Ship it like it's hot." | "Code verified. Coffee earned." | "Another one bites the dust." | "0 bugs found. Suspiciously clean." | "PR drafted. Your move, reviewer." | "Patterns learned: {N}. Mistakes remembered: forever."

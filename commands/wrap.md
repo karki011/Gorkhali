@@ -43,3 +43,22 @@ Full shutdown:
    - Wrap MUST NOT complete without this step
 9. Update auto-memory (`project_*.md` in memory dir)
 10. Shut down crew
+
+---
+
+> **Output on wrap complete:**
+> ```
+>   ╭───────────────────────────╮
+>   │                           │
+>   │   SESSION WRAPPED  ✓      │
+>   │                           │
+>   │   Ticket:  {TICKET}       │
+>   │   Route:   {SOLO|CREW}    │
+>   │   Outcome: {pass|fail}    │
+>   │   Loops:   {N}            │
+>   │   Learned: {N} patterns   │
+>   │   Corrections: {N}        │
+>   │                           │
+>   ╰───────────────────────────╯
+> ```
+> Fun sign-off (random): "Cortex out. Mic drop." | "Learnings saved. Brain bigger." | "Session archived. History written." | "Until next time, crew." | "Patterns locked. Mistakes noted. Moving on."

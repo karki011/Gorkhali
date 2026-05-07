@@ -13,8 +13,17 @@ learnings/*.md
 global/patterns/*.md
 !global/patterns/.gitkeep
 
-# Board app (removed)
+# Board app (local only)
 board-app/
+
+# Story chronicles (personal)
+story/
+
+# Legacy hooks
+hooks/
+
+# Dispatches (archived)
+dispatches/
 
 # Build artifacts
 node_modules/
@@ -32,3 +41,8 @@ crew-diagram.html
 
 # Archive (restorable, not shared)
 .archive/
+.swarm/
+ruvector.db
+*.db
+*.db-shm
+*.db-wal
