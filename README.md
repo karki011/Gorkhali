@@ -4,9 +4,20 @@ Multi-agent engineering crew for Claude Code. Plans, implements, verifies, and s
 
 ## Install (30 seconds)
 
+**Option 1 — One-liner:**
 ```bash
-git clone git@github.com:karki011/phantom-works.git ~/.claude/team
-cd ~/.claude/team && ./setup.sh
+git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/team && ~/.claude/team/setup.sh
+```
+
+**Option 2 — Install script** (handles SSH/HTTPS fallback, existing installs, updates):
+```bash
+# Save install.sh from the repo, then:
+chmod +x install.sh && ./install.sh
+```
+
+**Update existing install:**
+```bash
+cd ~/.claude/team && git pull && ./setup.sh
 ```
 
 ## Usage
