@@ -34,23 +34,47 @@ STORY     = ~/.claude/team/story/
 
 ---
 
-## Enforced Workflow Rules
+## IRON LAWS — Claude MUST Follow These. No Exceptions. No Rationalizing.
+
+These are not suggestions. These are hard constraints. Violating any of these is a bug in Claude's behavior.
+
+| # | Law | What Claude MUST Do | What Happens If Violated |
+|---|-----|---------------------|--------------------------|
+| 1 | **Feature branch** | Before ANY commit: run `git branch --show-current`. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch FIRST. Do NOT ask. Do NOT commit to protected branches. | Commit is on wrong branch. Teammate's CI breaks. |
+| 2 | **Verification is mandatory** | After ALL implementation: spawn Sentinel with repo-detected commands. Run them. Read output. Confirm pass. Then AND ONLY THEN claim "done". | Broken code shipped. Trust destroyed. |
+| 3 | **No patchwork fixes** | When debugging: reproduce → trace exact code path → confirm root cause BEFORE writing any fix. One hypothesis, one variable, one change at a time. | Stacked patches on wrong hypothesis. Bug returns. |
+| 4 | **Parallel agents for 2+ files** | If task touches 2+ independent files → spawn parallel agents. Do NOT edit files sequentially when they can be parallelized. | Slow, wastes user's time. |
+| 5 | **Background agents always** | ALL agents use `mode: "bypassPermissions"` + `run_in_background: true`. Exception: oracle/devils-advocate/Plan/Explore may block. | Context window floods. Session degrades. |
+| 6 | **Read repo rules first** | Before ANY code change: read repo's CLAUDE.md + `.claude/rules/`. Before ANY exploration: check these first. Do NOT assume tech stack. | Wrong patterns applied. Code doesn't match repo conventions. |
+| 7 | **Smart PR** | UI files touched → push branch only (user verifies visually). No UI → draft PR. NEVER create ready-for-review PR automatically. | User can't verify UI changes before review. |
+| 8 | **Anti-repetition** | Before proposing ANY approach: scan `learnings/INDEX.md` for matching corrections. If match → acknowledge + explain why different OR choose alternative. | Same mistake repeated. Learning system useless. |
+| 9 | **Auto-learning writes** | After verification pass → record what worked (Trigger 1). After fix loop → record failure + fix (Trigger 2). After wrap → validate patterns (Trigger 3). NEVER skip. | System never improves. Open-loop. |
+| 10 | **Devil's Advocate on ALL plans** | Every plan gets challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. | Bad plans ship unchallenged. Scope creep. Over-engineering. |
+
+### How to Self-Check
+
+Before claiming ANY task is done, Claude MUST answer YES to ALL of these:
+
+- [ ] Am I on a feature branch (not main/develop)?
+- [ ] Did I run verification commands and read the output?
+- [ ] Did I record what worked in learnings (Trigger 1)?
+- [ ] Did the Devil's Advocate review the plan?
+- [ ] Did I check anti-repetition before starting?
+- [ ] Are all agents running in background (except whitelisted)?
+
+If ANY answer is NO → fix it before proceeding. Do NOT report "done".
+
+---
+
+## Additional Rules (important but not iron laws)
 
 | Rule | Enforcement |
 |------|-------------|
-| **Follow repo conventions** | Read repo's CLAUDE.md and `.claude/rules/` for coding conventions. Never assume a specific UI framework or tech stack. |
-| **Use task events for state** | Just use `TaskCreate`/`TaskUpdate` with `[CrewName]` prefixes. Event log is the source of truth. |
-| **bypassPermissions for all agents** | All spawned agents use `mode: "bypassPermissions"`. Never ask for approval to spawn. |
-| **Smart PR strategy** | If changed files touch UI layer (detected via `_shared-repo-detection.md`), push branch only for visual verification. If no UI touched or repo has no UI layer, create a draft PR. Never auto-create a ready-for-review PR. |
-| **Fun fact in PR body** | Every PR body MUST include a fun fact. |
+| **Use task events for state** | Use `TaskCreate`/`TaskUpdate` with `[CrewName]` prefixes. Event log is source of truth. |
 | **No Co-Authored-By** | Never add Co-Authored-By or AI attribution to commits or PRs. |
-| **Codebase-first exploration** | Read repo's CLAUDE.md, AGENTS.md, and `.claude/rules/` before exploring code. Use available graph/search tools if present, fall back to Grep/Glob/Read. |
-| **Caveman-compress learnings** | All prose files in `learnings/`, `decisions/`, and session markdown MUST be kept in caveman-compressed format. Run `cd ~/.claude/plugins/marketplaces/caveman/compress && python3 -m scripts <filepath>` on any prose file before it grows past ~80 lines. Originals backed up as `.original.md`. Saves ~45% input tokens per session. |
-| **Caveman output mode** | ALL agents (including Cortex) MUST output in caveman-full mode. Drop articles/filler/hedging, fragments OK, short synonyms. Technical terms exact. Code blocks unchanged. Pattern: `[thing] [action] [reason]`. Exception: security warnings, irreversible confirmations, and user-facing PR/commit text use normal English. Saves ~65% output tokens. |
-| **Cache-friendly prompts** | Static content first, dynamic last in all agent prompts. Never switch models mid-session (caches are model-specific) — use subagents for different models instead. Saves ~90% on cached input tokens. |
-| **Lifecycle tags on learnings** | Every INDEX.md entry MUST include lifecycle tag: `[proposed]` (untested), `[validated:N]` (confirmed N times), `[failed]` (tried, abandoned). Cortex prioritizes `[validated:5+]` as high-confidence, flags `[proposed]` for validation, deprioritizes `[failed]`. |
-| **Anti-repetition gate** | Before proposing any approach (Phase B planning, Spark implementation), scan `learnings/INDEX.md` corrections for entries matching proposed approach. If match found: acknowledge it, explain why this time is different, or choose alternative. Falls back to `global/patterns/INDEX.md` as secondary check. |
-| **Scoped knowledge** | All learnings, decisions, edges are repo-scoped under `repos/{REPO_NAME}/`. Cross-project patterns require explicit promotion via `[scope:global]` tag during `/team:wrap`. Global entries are read-only copies with `derived_from: {REPO}` provenance. |
+| **Lifecycle tags on learnings** | Every INDEX.md entry MUST include lifecycle tag: `[proposed]`, `[validated:N]`, or `[failed]`. |
+| **Scoped knowledge** | All learnings repo-scoped under `repos/{REPO_NAME}/`. Cross-project promotion via `[scope:global]` during wrap. |
+| **Cache-friendly prompts** | Static content first, dynamic last. Use subagents for different models — never switch mid-session. |
 
 ---
 
