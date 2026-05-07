@@ -20,6 +20,22 @@ chmod +x install.sh && ./install.sh
 cd ~/.claude/team && git pull && ./setup.sh
 ```
 
+### What setup.sh does
+
+1. Creates symlink `~/.claude/commands/team` → skill commands
+2. Initializes per-user directories (sessions, events, learnings)
+3. Asks config questions (Jira project, Slack channel, model preference)
+4. Auto-detects MCP integrations (Atlassian, phantom-ai, Slack)
+5. Installs agent spawn validator hook (keeps context window clean)
+6. Writes `config.yaml` with your settings
+7. Checks prerequisites (Claude Code CLI, gh CLI)
+
+### Prerequisites
+
+- **Required**: Claude Code CLI, git
+- **Recommended**: gh CLI (for PR features), Atlassian MCP (for Jira)
+- **Optional**: phantom-ai MCP (graph intelligence), Slack MCP (notifications)
+
 ## Usage
 
 ```bash
@@ -47,6 +63,43 @@ Or just describe what you want — Claude auto-triggers the team skill:
 4. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism quality gate
 5. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
 6. **Self-learning**: auto-records what worked/failed, improves over sessions
+7. **Always on feature branch** — never commits to main/develop
+
+## The Pipeline
+
+```
+  ⚡ PHANTOM WORKS ⚡           /team:start "CP-41171"
+  ━━━━━━━━━━━━━━━━━
+       │
+  Phase A: Context Loading      Jira pull, learnings, phantom graph
+       │
+  Phase B: Planning             Intent → plan → Devil's Advocate challenge
+       │
+  Phase C: Contracts            Agent assignments locked
+       │
+  Phase D: Execution            Parallel Sparks → Sentinel → Simplify
+       │                        → Code Review → Prism quality gate
+  Phase E: Completion           Draft PR or branch push + Jira update
+       │
+  ╭───────────────────╮
+  │ MISSION COMPLETE ✓│         Auto-learning records what worked
+  ╰───────────────────╯
+```
+
+## 10 Iron Laws
+
+The skill enforces 10 non-negotiable rules that Claude cannot rationalize past:
+
+1. **Feature branch** — never commit to main/develop
+2. **Verification is mandatory** — no "done" without evidence
+3. **No patchwork fixes** — root cause first, one variable at a time
+4. **Parallel agents for 2+ files** — don't edit sequentially
+5. **Background agents always** — keep context window clean
+6. **Read repo rules first** — CLAUDE.md before any code
+7. **Smart PR** — UI = branch, no UI = draft PR
+8. **Anti-repetition** — check learnings before proposing approach
+9. **Auto-learning writes** — every session reads AND writes
+10. **Devil's Advocate on ALL plans** — no unchallenged plans
 
 ## Works With Any Repo
 
@@ -59,7 +112,7 @@ Or just describe what you want — Claude auto-triggers the team skill:
 | Rust | `Cargo.toml` | `cargo clippy && cargo build` |
 | Terraform | `*.tf` | `terraform fmt && terraform validate` |
 
-**Override**: If your repo has `CLAUDE.md` with verify commands, those take priority.
+If your repo has `CLAUDE.md` with verify commands, those take priority.
 
 ## Crew
 
@@ -70,7 +123,7 @@ Or just describe what you want — Claude auto-triggers the team skill:
 | Sentinel | sonnet | Verification — repo-aware lint/build/test |
 | Prism | opus | Quality gate — code review + architecture |
 | Oracle | opus | On-demand guidance for stuck agents |
-| Devil's Advocate | opus | Adversarial plan reviewer |
+| Devil's Advocate | opus | Adversarial plan reviewer — 5 challenge categories |
 | Lens | sonnet | Visual — Figma extraction + Playwright |
 
 ## Optional Integrations
@@ -103,9 +156,9 @@ See `config.yaml.example` for all options.
 
 The skill gets better over time — automatically, no manual action needed:
 
-- **After verification passes**: records what approach worked
-- **After fix loops**: records what failed and what fixed it
-- **After each session**: validates/promotes/demotes patterns
+- **Trigger 1** (after verification pass): records what approach worked
+- **Trigger 2** (after fix loop): records what failed and what fixed it
+- **Trigger 3** (after wrap): validates/promotes/demotes patterns across sessions
 
 Learnings are per-user and gitignored — your corrections won't affect teammates.
 
