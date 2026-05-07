@@ -13,6 +13,7 @@ echo "  ────────────────────────
 echo ""
 
 # 1. Symlink
+mkdir -p "$HOME/.claude/commands"
 if [ -L "$COMMANDS_LINK" ] || [ -d "$COMMANDS_LINK" ]; then
   echo "  ✓ Symlink exists: $COMMANDS_LINK"
 else
