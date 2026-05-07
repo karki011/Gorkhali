@@ -50,6 +50,7 @@ These are not suggestions. These are hard constraints. Violating any of these is
 | 8 | **Anti-repetition** | Before proposing ANY approach: scan `learnings/INDEX.md` for matching corrections. If match → acknowledge + explain why different OR choose alternative. | Same mistake repeated. Learning system useless. |
 | 9 | **Auto-learning writes** | After verification pass → record what worked (Trigger 1). After fix loop → record failure + fix (Trigger 2). After wrap → validate patterns (Trigger 3). NEVER skip. | System never improves. Open-loop. |
 | 10 | **Devil's Advocate on ALL plans** | Every plan gets challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. | Bad plans ship unchallenged. Scope creep. Over-engineering. |
+| 11 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. User should NEVER have to ask "move ticket to reviewing". | User wastes time on manual Jira updates. |
 
 ### How to Self-Check
 

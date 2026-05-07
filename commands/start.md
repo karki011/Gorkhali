@@ -245,9 +245,15 @@ After all verification and review passes:
    - Check `HAS_UI` and whether changed files touch UI layer
    - UI touched → push branch only, notify user: "Branch pushed. Verify visually, then run `/team:wrap` to create PR."
    - No UI touched → create draft PR: `gh pr create --draft --title "{TICKET}: {summary}" --body "..."`
-2. **Update Jira** (if Atlassian MCP available):
-   - If draft PR created → transition to "Reviewing" + add PR link comment
-   - If branch pushed only → add comment: "Branch pushed: {branch}. Awaiting visual verification."
+2. **Update Jira — MANDATORY, DO NOT SKIP** (if Atlassian MCP available AND TICKET detected):
+   a. Get available transitions: `mcp__atlassian__getTransitionsForJiraIssue(issueKey: TICKET)`
+   b. Find transition with name containing "Review" or "Reviewing"
+   c. Execute transition: `mcp__atlassian__transitionJiraIssue(issueKey: TICKET, transitionId: {id})`
+   d. Add comment with PR/branch link: `mcp__atlassian__addCommentToJiraIssue(issueKey: TICKET, body: "...")`
+   - If draft PR created → transition to "Reviewing" + comment with PR URL
+   - If branch pushed only → transition to "Reviewing" + comment with branch name
+   - If transition fails → log warning but do NOT block completion
+   - Cortex does NOT have permission to skip Jira update. The user should NEVER have to ask "move ticket to reviewing".
 3. **Emit outcome** (existing Outcome Recording block)
 
 > **Output on completion** (pick one randomly):
