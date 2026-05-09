@@ -53,6 +53,7 @@ These are not suggestions. These are hard constraints. Violating any of these is
 | 11 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. User should NEVER have to ask "move ticket to reviewing". | User wastes time on manual Jira updates. |
 | 12 | **Self-evaluate before quality** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. Verdict: ALIGNED/DRIFT/WRONG. WRONG → fix loop. DRIFT → ask user. | Wrong solution ships because tests passed. User trust eroded. |
 | 13 | **Elegance before review** | Before Prism: check for unnecessary abstraction, dead code, pass-through wrappers, single-consumer abstractions. Simplify if found, re-verify, then quality review. | Over-engineered code ships. Maintenance burden grows. |
+| 14 | **Simplify always runs** | After EVERY verification pass: call `Skill(skill="simplify")` on all changed files. This is NOT optional. Not "if time permits." Not "if it seems complex." EVERY time. If simplify produces changes → re-run Sentinel before proceeding. Simplify is the last defense against unnecessary complexity reaching review. | Bloated, unreviewed code ships. Reviewer wastes time on issues Claude should have caught. |
 
 ### How to Self-Check
 
@@ -66,6 +67,7 @@ Before claiming ANY task is done, Claude MUST answer YES to ALL of these:
 - [ ] Are all agents running in background (except whitelisted)?
 - [ ] Did Cortex self-evaluate the diff against contract intent (not just tests)?
 - [ ] Did I check for unnecessary complexity before quality review?
+- [ ] Did I run `simplify` on all changed files after verification passed?
 
 If ANY answer is NO → fix it before proceeding. Do NOT report "done".
 
