@@ -51,6 +51,8 @@ These are not suggestions. These are hard constraints. Violating any of these is
 | 9 | **Auto-learning writes** | After verification pass → record what worked (Trigger 1). After fix loop → record failure + fix (Trigger 2). After wrap → validate patterns (Trigger 3). NEVER skip. | System never improves. Open-loop. |
 | 10 | **Devil's Advocate on ALL plans** | Every plan gets challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. | Bad plans ship unchallenged. Scope creep. Over-engineering. |
 | 11 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. User should NEVER have to ask "move ticket to reviewing". | User wastes time on manual Jira updates. |
+| 12 | **Self-evaluate before quality** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. Verdict: ALIGNED/DRIFT/WRONG. WRONG → fix loop. DRIFT → ask user. | Wrong solution ships because tests passed. User trust eroded. |
+| 13 | **Elegance before review** | Before Prism: check for unnecessary abstraction, dead code, pass-through wrappers, single-consumer abstractions. Simplify if found, re-verify, then quality review. | Over-engineered code ships. Maintenance burden grows. |
 
 ### How to Self-Check
 
@@ -62,6 +64,8 @@ Before claiming ANY task is done, Claude MUST answer YES to ALL of these:
 - [ ] Did the Devil's Advocate review the plan?
 - [ ] Did I check anti-repetition before starting?
 - [ ] Are all agents running in background (except whitelisted)?
+- [ ] Did Cortex self-evaluate the diff against contract intent (not just tests)?
+- [ ] Did I check for unnecessary complexity before quality review?
 
 If ANY answer is NO → fix it before proceeding. Do NOT report "done".
 
