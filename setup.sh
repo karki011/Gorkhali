@@ -89,6 +89,30 @@ else
   echo "  ○ Slack MCP: not found (notifications disabled)"
 fi
 
+CODE_GRAPH_AVAILABLE="false"
+if claude --print 2>/dev/null | grep -q "code-review-graph" 2>/dev/null; then
+  CODE_GRAPH_AVAILABLE="true"
+  echo "  ✓ code-review-graph MCP: detected"
+else
+  echo "  ○ code-review-graph MCP: not found (structural analysis disabled)"
+fi
+
+CONTEXT_MODE_AVAILABLE="false"
+if claude --print 2>/dev/null | grep -q "context-mode" 2>/dev/null; then
+  CONTEXT_MODE_AVAILABLE="true"
+  echo "  ✓ context-mode MCP: detected"
+else
+  echo "  ○ context-mode MCP: not found (context window protection disabled)"
+fi
+
+CLAUDE_FLOW_AVAILABLE="false"
+if claude --print 2>/dev/null | grep -q "claude-flow" 2>/dev/null; then
+  CLAUDE_FLOW_AVAILABLE="true"
+  echo "  ✓ claude-flow MCP: detected"
+else
+  echo "  ○ claude-flow MCP: not found (cross-session memory disabled)"
+fi
+
 # 6. Write config
 cat > "$TEAM_DIR/config.yaml" << CONFIGEOF
 # Phantom Works — User Configuration
@@ -112,6 +136,9 @@ integrations:
   atlassian_mcp: ${ATLASSIAN_AVAILABLE}
   phantom_ai: ${PHANTOM_AVAILABLE}
   slack_mcp: ${SLACK_AVAILABLE}
+  code_review_graph: ${CODE_GRAPH_AVAILABLE}
+  context_mode: ${CONTEXT_MODE_AVAILABLE}
+  claude_flow: ${CLAUDE_FLOW_AVAILABLE}
   greptile: false
 
 preferences:

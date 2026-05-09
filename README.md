@@ -58,12 +58,14 @@ Or just describe what you want — Claude auto-triggers the team skill:
 ## What It Does
 
 1. **Pulls Jira ticket** context automatically (if Atlassian MCP configured)
-2. **Plans** with Devil's Advocate review — challenges assumptions, catches scope creep
-3. **Spawns parallel agents** for implementation (Spark instances with role focus)
-4. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism quality gate
-5. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
-6. **Self-learning**: auto-records what worked/failed, improves over sessions
-7. **Always on feature branch** — never commits to main/develop
+2. **Plans** with self-scoring reflexion loop → Devil's Advocate challenge
+3. **Spawns parallel agents** with self-review — each Spark critiques its own code before handoff
+4. **Intent alignment checkpoints** — catches drift during multi-agent execution
+5. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism (scored 0-10)
+6. **Quality gate loop**: Prism findings → Spark fixes → re-verify → re-score (max 2 iterations)
+7. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
+8. **Self-learning**: auto-records what worked/failed, improves over sessions
+9. **Always on feature branch** — never commits to main/develop
 
 ## The Pipeline
 
@@ -73,12 +75,19 @@ Or just describe what you want — Claude auto-triggers the team skill:
        │
   Phase A: Context Loading      Jira pull, learnings, phantom graph
        │
-  Phase B: Planning             Intent → plan → Devil's Advocate challenge
+  Phase B: Planning             Intent → plan
+       │                        🔄 Plan Reflexion (score → improve → rescore)
+       │                        😈 Devil's Advocate challenge
        │
   Phase C: Contracts            Agent assignments locked
        │
-  Phase D: Execution            Parallel Sparks → Sentinel → Simplify
-       │                        → Code Review → Prism quality gate
+  Phase D: Execution            Parallel Sparks
+       │                        🔄 Spark Self-Review (diff → critique → fix)
+       │                        🔄 Intent Alignment Checkpoint
+       │                        Sentinel → Simplify → Code Review
+       │                        Prism quality gate (scored 0-10)
+       │                        🔄 Quality Gate Loop (fix → re-verify → rescore)
+       │
   Phase E: Completion           Draft PR or branch push + Jira update
        │
   ╭───────────────────╮
@@ -161,6 +170,41 @@ The skill gets better over time — automatically, no manual action needed:
 - **Trigger 3** (after wrap): validates/promotes/demotes patterns across sessions
 
 Learnings are per-user and gitignored — your corrections won't affect teammates.
+
+## Agentic RAG Improvements (Wave 1-3)
+
+Inspired by the Classic → Graph → Agentic RAG evolution, Boris Cherny's CLAUDE.md workflow patterns, and the 5-layer Agent Development Kit architecture.
+
+### Wave 1 — Learning System Upgrade
+- **Trigger 0 (User Corrections):** Captures user corrections immediately as the highest-signal feedback. No waiting for verification gates — corrections are recorded inline and applied instantly.
+- **Weighted Pattern Retrieval:** Anti-repetition now weights patterns by validation count: `[validated:5+]` auto-applies, `[failed]` blocks, `[proposed]` mentions only.
+- **Re-plan on Repeated Failure:** Fix loop detects same failure class repeated twice and escalates to full re-plan instead of stacking patches.
+
+### Wave 2 — Self-Evaluation & Elegance
+- **Self-Evaluation Gate:** After tests pass, Cortex reviews the diff against contract intent (ALIGNED/DRIFT/WRONG). Catches "tests pass but wrong solution."
+- **Elegance Pause:** Before quality review, checks for unnecessary complexity — single-consumer abstractions, pass-through wrappers, deletable code.
+- **Diff-Against-Main:** Scope creep detection before PR creation. Flags files changed outside contract scope.
+- **Iron Laws #12-13:** Self-evaluation and elegance checks as mandatory constraints.
+
+### Wave 3 — Multi-Source Intelligence
+- **MCP Discovery:** Phase A probes available MCP servers (phantom-ai, code-review-graph, context-mode, claude-flow, atlassian) and sets capability flags for downstream phases.
+- **Semantic Anti-Repetition:** 3-layer retrieval — keyword match (always), phantom semantic match (if available), AgentDB vector search (if available). Graceful degradation to keyword-only.
+- **Memory Layer Sync:** Validated patterns and corrections written to Claude's auto-memory during wrap, persisting across sessions without full team skill load.
+- **Smart Learnings Loading:** Domain-based conditional loading instead of loading all learnings files every session.
+- **Cross-MCP Execution:** code-review-graph for structural impact analysis, context-mode for context window protection, claude-flow for cross-session memory.
+
+### MCP Integrations
+
+| MCP Server | Feature | Detected by |
+|---|---|---|
+| phantom-ai | Graph intelligence, blast radius, strategy routing | `setup.sh` |
+| code-review-graph | Structural code analysis, impact radius, affected flows | `setup.sh` |
+| context-mode | Context window protection, large output indexing | `setup.sh` |
+| claude-flow | Cross-session memory, vector search, coordination | `setup.sh` |
+| atlassian | Jira ticket context, auto-transition | `setup.sh` |
+| slack | Notifications, standup generation | `setup.sh` |
+
+Run `setup.sh` after pulling to detect newly available MCP servers.
 
 ## Author
 
