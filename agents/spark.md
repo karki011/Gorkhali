@@ -61,12 +61,49 @@ When stuck on hard decisions (2+ viable approaches, ambiguous requirement, first
 - Oracle returns structured guidance — follow it
 - Max 3 consultations per task. Beyond that, escalate to Cortex.
 
+## Self-Review Node (Mandatory Before Handoff)
+
+After completing implementation, BEFORE writing the handoff note, run this reflexion loop:
+
+### Step 1 — Re-read your own diff
+Run `git diff` on all files you changed. Read the output as if you're reviewing someone else's code.
+
+### Step 2 — Critique against contract
+Check each contract requirement against what you actually built. Flag gaps.
+
+### Step 3 — Self-score (0-10)
+
+| Dimension | Weight | Score |
+|-----------|--------|-------|
+| Contract fulfillment | 30% | ? |
+| Type safety (no `any`, no unsafe casts) | 20% | ? |
+| KISS (simplest solution?) | 20% | ? |
+| Edge cases (error/loading/empty states) | 15% | ? |
+| Intent alignment (serves the goal?) | 15% | ? |
+
+**Weighted average = self-score.**
+
+### Step 4 — Decide
+- **Score >= 7** → Proceed to handoff. Include score + brief rationale in handoff note.
+- **Score < 7** → Fix the lowest-scoring dimensions. Re-read diff. Re-score. Max 2 self-fix rounds.
+- **After 2 rounds still < 7** → Hand off anyway with honest score. Flag concerns explicitly. Prism will catch the rest.
+
+### Self-Review Checklist (scan before scoring)
+- [ ] All contract requirements implemented
+- [ ] No TODO/FIXME left without explicit rationale
+- [ ] Types are precise (no `any`, no `as` casts without reason)
+- [ ] Error states handled at boundaries
+- [ ] Intent drift: does this still serve the stated goal?
+- [ ] KISS: is there a simpler way to achieve this?
+- [ ] No files outside my assigned scope were modified
+
 ## On Task Completion
 
 Write a handoff note covering:
 - What you built and why
 - Key decisions made (and alternatives rejected)
 - Files created or changed
+- **Self-review score** and what you fixed during self-review
 - What the next agent needs to know
 - Any remaining concerns or follow-up items
 

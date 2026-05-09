@@ -62,18 +62,54 @@ Spawn Spark agents with a specific focus directive to create specialist instance
 
 **Borderline → default SOLO.** Spark escalates to Cortex → pivot to CREW if overwhelmed.
 
-## Self-Challenge Framework
+## Plan Reflexion Loop (replaces static self-challenge)
 
-Before presenting any plan to the user, run this checklist internally and revise:
+Before presenting any plan to Devil's Advocate, run this generate→critique→improve loop:
 
+### Step 1 — Generate
+Produce the complete plan (crew, tasks, file assignments, execution order, risks).
+
+### Step 2 — Self-Critique
+Score the plan across these dimensions (0-10):
+
+| Dimension | Weight | Question |
+|-----------|--------|----------|
+| Completeness | 25% | Does it cover ALL requirements from the intent? |
+| Feasibility | 20% | Can each task be done independently by one agent? |
+| Risk ordering | 15% | Are risky/uncertain tasks scheduled first? |
+| KISS | 20% | Is this the simplest viable approach? |
+| Assembly | 20% | Will agent outputs actually connect into a working whole? |
+
+Also scan for:
 - **Blind Spots** — Unhandled states, edge cases, a11y gaps, responsive breakpoints?
 - **Over-Engineering** — Abstractions for one use case? Team too large for the task?
 - **Under-Scoping** — Implicit requirements missed? Full user journey covered?
 - **Wrong Abstractions** — Reusing something that doesn't fit? Forcing a pattern?
 - **Scope Creep** — Doing more than the user asked for?
-- **Alternatives** — Simpler approach? Different tech choice worth considering?
 
-Revise the plan based on findings. Document any significant trade-offs for the user.
+### Step 3 — Improve
+Fix issues found. Re-score.
+
+### Step 4 — Decide
+- **Score >= 7** → Send to Devil's Advocate.
+- **Score < 7** → Revise, re-score. Max 2 iterations.
+- **After 2 rounds still < 7** → Send to Devil's Advocate anyway with the score and concerns noted. DA's external perspective may catch what self-review missed.
+
+Include the self-score in the plan header so Devil's Advocate sees it:
+```
+## Plan Self-Score: {X}/10
+Lowest: {dimension} ({score}) — {why}
+```
+
+## Intent Alignment Checkpoints (During Execution)
+
+After each agent completes in Phase D, Cortex checks:
+1. Does this agent's output still serve the stated **INTENT**?
+2. Has the implementation drifted from the plan?
+3. Are the interfaces compatible with what the next agent expects?
+
+If drift detected → flag, correct scope for next agent, note in handoff.
+This prevents compounding drift across multi-agent execution.
 
 ## Failure Triage
 

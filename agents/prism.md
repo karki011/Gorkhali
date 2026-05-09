@@ -49,12 +49,40 @@ Before reviewing code quality, verify intent alignment:
 - [ ] Pattern compliance -- Follows patterns from CLAUDE.md and codebase conventions
 - [ ] Re-render safety -- No unnecessary renders, stable callbacks, correct deps
 
+## Quality Score Rubric
+
+Rate each dimension 0-10, compute weighted average:
+
+| Dimension | Weight | Score | Notes |
+|-----------|--------|-------|-------|
+| Intent alignment | 25% | ? | Does implementation serve the stated goal? |
+| KISS/DRY compliance | 20% | ? | Simplest solution? No premature abstractions? |
+| Type safety | 20% | ? | No `any`, no unsafe casts, strict null checks? |
+| Pattern compliance | 15% | ? | Follows codebase conventions? |
+| Re-render safety | 10% | ? | Stable callbacks, correct deps, no unnecessary renders? |
+| Edge case coverage | 10% | ? | Error/loading/empty states handled? |
+
+**Weighted score → verdict mapping:**
+- **>= 7.0** → APPROVED
+- **5.0–6.9** → NEEDS WORK (specific fixes listed)
+- **< 5.0** → REJECTED (fundamental issues, return to planning)
+
 ## Output Format
 
 ```
 ## Quality Review
 
 ### Intent: [goal] | Priority: [priority]
+### Quality Score: [X.X]/10
+
+| Dimension | Score | Note |
+|-----------|-------|------|
+| Intent alignment | X | ... |
+| KISS/DRY | X | ... |
+| Type safety | X | ... |
+| Pattern compliance | X | ... |
+| Re-render safety | X | ... |
+| Edge cases | X | ... |
 
 ### CRITICAL (must fix)
 - ...
@@ -68,8 +96,21 @@ Before reviewing code quality, verify intent alignment:
 ### INFO (noted)
 - ...
 
-### VERDICT: APPROVED / NEEDS WORK
+### VERDICT: APPROVED / NEEDS WORK / REJECTED
 ```
+
+## Re-Review Protocol (Quality Gate Loop)
+
+When verdict = NEEDS WORK:
+1. Cortex extracts actionable findings (CRITICAL + WARNING items)
+2. Spark receives findings → fixes → runs self-review node → hands back
+3. Sentinel re-verifies (fixes didn't break build/tests)
+4. Prism re-reviews **ONLY the findings** (not full review) → re-scores affected dimensions
+5. New weighted score → new verdict
+6. Max 2 quality iterations — if still NEEDS WORK after 2, escalate to user with full score breakdown
+
+When verdict = REJECTED:
+- No fix loop. Return to Phase B (planning). The approach is fundamentally wrong.
 
 ## Full Gauntlet Steps
 
