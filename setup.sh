@@ -149,6 +149,36 @@ CONFIGEOF
 echo ""
 echo "  ✓ Config written to $TEAM_DIR/config.yaml"
 
+# 6b. Inject enforcement patterns into user's CLAUDE.md
+CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+ENFORCEMENT_MARKER="## Learning & Self-Correction"
+
+if [ -f "$CLAUDE_MD" ]; then
+  if grep -q "$ENFORCEMENT_MARKER" "$CLAUDE_MD" 2>/dev/null; then
+    echo "  ✓ CLAUDE.md enforcement section already present"
+  else
+    cat >> "$CLAUDE_MD" << 'CLEOF'
+
+## Learning & Self-Correction
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/team/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
+- If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
+- After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
+CLEOF
+    echo "  ✓ CLAUDE.md enforcement section injected"
+  fi
+else
+  # Create CLAUDE.md with enforcement section
+  cat > "$CLAUDE_MD" << 'CLEOF'
+## Learning & Self-Correction
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/team/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
+- If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
+- After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
+CLEOF
+  echo "  ✓ Created CLAUDE.md with enforcement section"
+fi
+
 # 7. Install agent spawn validator hook
 HOOKS_DIR="$HOME/.claude/hooks"
 HOOK_FILE="$HOOKS_DIR/validate-agent-spawn.sh"
