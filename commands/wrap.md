@@ -58,8 +58,40 @@ Full shutdown:
    - Append session summary to INDEX.md: `SESSION {TICKET}: route={route}, outcome={outcome}, fix_loops={N}, patterns_validated={N}, corrections_added={N} ({date})`
    - See `_shared-auto-learning.md` for full protocol
    - Wrap MUST NOT complete without this step
-10. Update auto-memory (`project_*.md` in memory dir)
-11. Shut down crew
+10. **Memory layer sync** (persist key learnings to Claude auto-memory):
+   After Trigger 3 validates patterns, sync significant learnings to Claude's persistent memory:
+   
+   a. **What to sync** (only high-value, cross-session patterns):
+      - Corrections from this session (Trigger 0 or Trigger 2 entries)
+      - Patterns promoted to `[validated:5+]` this session
+      - Decisions recorded in `sessions/{TICKET}/decisions.md` marked as cross-cutting
+      - NOT: session-specific context, temporary state, or task details
+   
+   b. **Where to sync:**
+      Write to `~/.claude/projects/{PROJECT_PATH}/memory/` as memory files:
+      ```
+      File: learning_{REPO_NAME}_{keyword}.md
+      ---
+      name: {keyword} learning
+      description: {one-line description of the pattern/correction}
+      type: feedback
+      ---
+      
+      {Pattern or correction content}
+      **Why:** {context from the session}
+      **How to apply:** {when this pattern is relevant}
+      ```
+      
+      Update the project's `MEMORY.md` index with a one-liner pointer.
+   
+   c. **Dedup check:** Before writing, scan existing memory files for the same keyword.
+      If exists → update the existing file instead of creating a duplicate.
+   
+   d. **Why this matters:** Claude's auto-memory loads at session start regardless of
+      whether the team skill is invoked. Critical corrections and validated patterns
+      survive even in quick sessions that don't load the full team skill.
+11. Update auto-memory (`project_*.md` in memory dir)
+12. Shut down crew
 
 ---
 

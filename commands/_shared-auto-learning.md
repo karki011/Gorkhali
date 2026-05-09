@@ -179,3 +179,71 @@ Anti-repetition scan for [chart rendering]:
   MEDIUM: [responsive-chart-container] — use ResizeObserver (validated:2)
   LOW: [d3-axis-labels] — custom tick formatter (proposed)
 ```
+
+---
+
+## Semantic Anti-Repetition (Multi-Source)
+
+The anti-repetition gate uses a **layered retrieval strategy** — not just keyword matching:
+
+### Layer 1: Keyword Match (always available)
+Scan `learnings/INDEX.md` for exact keyword matches against the current task's file paths, approach keywords, and domain.
+- Fast, zero-cost, always works
+- Limitation: misses paraphrased patterns ("use ResizeObserver" won't match "responsive container sizing")
+
+### Layer 2: Phantom Semantic Match (if phantom-ai MCP available)
+Call `phantom_orchestrator_history({ limit: 10 })` for embedding-based similarity search:
+- Finds conceptually similar past approaches even with different keywords
+- Returns confidence scores — only surface matches with confidence > 0.6
+- Merge results with Layer 1: if phantom finds a failed approach that keyword scan missed, add to anti-repetition block
+
+### Layer 3: AgentDB Vector Search (if claude-flow MCP available)
+Call `memory_search({ query: "{task description}", type: "pattern" })` for cross-session semantic retrieval:
+- Searches patterns stored via `memory_store` during previous wraps
+- Broader than per-repo learnings — can surface patterns from other repos
+- Lower priority than repo-specific learnings (repo context > global context)
+
+### Merge Strategy
+
+```
+anti_repetition_results = []
+
+# Layer 1: Always
+keyword_matches = scan_index_md(task_keywords, task_files)
+anti_repetition_results += keyword_matches
+
+# Layer 2: If available
+if AVAILABLE_MCPS.phantom:
+  semantic_matches = phantom_orchestrator_history(limit=10)
+  for match in semantic_matches:
+    if match.confidence > 0.6 AND match not in keyword_matches:
+      anti_repetition_results += match  # tagged [semantic]
+
+# Layer 3: If available
+if AVAILABLE_MCPS.claude_flow:
+  vector_matches = memory_search(query=task_description, type="pattern")
+  for match in vector_matches:
+    if match.similarity > 0.7 AND match not in anti_repetition_results:
+      anti_repetition_results += match  # tagged [cross-session]
+
+# Apply weights from Weighted Pattern Retrieval table
+# Semantic/cross-session matches default to MEDIUM weight unless they have lifecycle tags
+```
+
+### Anti-Repetition Block Format (injected into agent prompts)
+
+```
+## Anti-Repetition (DO NOT repeat these failures)
+{for each BLOCKING result}
+⛔ CORRECTION [{keyword}]: {failure description} — {what to do instead} ({source: keyword|semantic|cross-session})
+
+## Suggested Patterns (validated approaches)
+{for each HIGH/MEDIUM result}
+✅ [{keyword}]: {what worked} (validated:{N}, source: {keyword|semantic|cross-session})
+
+## Noted Patterns (unvalidated, for awareness)
+{for each LOW result}
+📝 [{keyword}]: {approach} (proposed, source: {keyword|semantic|cross-session})
+```
+
+**Graceful degradation:** If only Layer 1 is available, the system works identically to the current keyword-only approach. Layers 2 and 3 are additive — they never replace Layer 1.

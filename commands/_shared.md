@@ -100,6 +100,53 @@ Every crew member follows these output rules to maximize token savings:
 
 ---
 
+## Smart Learnings Loading
+
+Instead of loading all domain learnings files every session, load based on task classification:
+
+### Loading Strategy
+
+```
+# Always loaded (lightweight, one-liners):
+ALWAYS: learnings/INDEX.md, learnings/EDGES.md (on demand)
+
+# Load based on task domain (from Phase A classification):
+IF task touches UI components/styles/layouts:
+  LOAD: learnings/ui.md
+IF task touches API calls/data fetching/state management:
+  LOAD: learnings/data.md
+IF task touches auth/sessions/permissions:
+  LOAD: learnings/auth.md
+IF task touches test files or verification:
+  LOAD: learnings/testing.md
+IF task touches build/CI/tooling config:
+  LOAD: learnings/tooling.md
+IF task touches schema/data migration:
+  LOAD: learnings/migration.md
+IF task is crew/workflow related:
+  LOAD: learnings/crew.md
+
+# Cross-cutting: load if task risk >= medium
+IF risk >= medium:
+  LOAD: ALL domain files (comprehensive context needed)
+```
+
+### Domain Detection Heuristic
+
+| Signal | Domain |
+|---|---|
+| Files: `*.tsx`, `*.css`, `components/`, `styles/` | ui |
+| Files: `*.api.*`, `hooks/use*`, `services/`, `graphql/` | data |
+| Files: `auth/`, `session/`, `permissions/`, `middleware/` | auth |
+| Files: `*.test.*`, `*.spec.*`, `__tests__/`, `cypress/` | testing |
+| Files: `*.config.*`, `Makefile`, `.github/`, `tsconfig.*` | tooling |
+| Files: `migrations/`, `schema/`, `*.sql` | migration |
+| Keyword: "crew", "agent", "workflow", "skill" | crew |
+
+Multiple domains can match — load all matching. When in doubt, load more rather than less. The cost of loading an extra 50-line file is far less than missing a critical correction.
+
+---
+
 ## Additional Context Tiers
 
 Load these ONLY when your command needs them:

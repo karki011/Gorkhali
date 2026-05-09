@@ -39,6 +39,28 @@ argument-hint: "<requirement>"
 5. **Phantom graph readiness** (if phantom available):
    - Call `phantom_graph_build` to trigger async index rebuild (non-blocking)
    - Call `phantom_conflict_status` — if file-level conflicts detected with other sessions, warn user
+5b. **MCP capability discovery** (automatic, non-blocking):
+   Detect available MCP servers and set capability flags for downstream phases:
+   ```
+   AVAILABLE_MCPS = {}
+   
+   # Check each MCP by attempting a lightweight call:
+   phantom-ai     → phantom_list_projects     → AVAILABLE_MCPS.phantom = true
+   code-review-graph → list_graph_stats_tool  → AVAILABLE_MCPS.code_graph = true
+   context-mode   → ctx_stats                 → AVAILABLE_MCPS.context_mode = true
+   claude-flow    → system_status              → AVAILABLE_MCPS.claude_flow = true
+   atlassian      → (already checked in step 2) → AVAILABLE_MCPS.atlassian = true
+   ```
+   
+   Log discovered capabilities:
+   ```
+   TaskCreate({
+     subject: '[Cortex] MCP:discovery',
+     description: 'Available: {list enabled MCPs}\nDisabled: {list unavailable MCPs}'
+   })
+   ```
+   
+   This is a ONE-TIME check per session. Store flags in session state. All agents read flags — none call discovery themselves.
 6. Caveman-compress any uncompressed learnings (background, non-blocking)
 7. Create `sessions/{TICKET}/contracts/`, detect workflow type (feature/bug/refactor/spike/docs)
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
@@ -71,15 +93,20 @@ argument-hint: "<requirement>"
 
 5. Produce plan: crew selection, agent-to-task mapping, contracts, execution order, risks
 
-6. **Validate decomposition** (self-check before presenting):
-   - **Uncertainty Reduction:** Does each task meaningfully reduce uncertainty? Reorder riskiest first.
-   - **Assembly Consistency:** Will agent outputs actually assemble into the intended outcome? Check interface shapes, missing wiring, Intent alignment.
+6. **Plan Reflexion Loop** (see `cortex.md` "Plan Reflexion Loop"):
+   - Score plan across 5 dimensions (completeness, feasibility, risk ordering, KISS, assembly)
+   - If score < 7 → revise and re-score (max 2 iterations)
+   - Include self-score in plan header for Devil's Advocate visibility
 
 > **Output before Devil's Advocate:**
 > ```
 >   ╔═══════════════════════════╗
->   ║   😈 DEVIL'S ADVOCATE    ║
->   ║   Challenging plan...     ║
+>   ║  🔄 PLAN REFLEXION        ║
+>   ║  Self-score: {X}/10       ║
+>   ║  Iterations: {N}          ║
+>   ╠═══════════════════════════╣
+>   ║  😈 DEVIL'S ADVOCATE      ║
+>   ║  Challenging plan...       ║
 >   ╚═══════════════════════════╝
 > ```
 
@@ -137,6 +164,10 @@ Snapshot before each phase transition: `state/sessions/{TICKET}/snapshots/phase-
 
 > **Before ANY agent spawn:** Run anti-repetition loader (`templates/anti-repetition-loader.md`). Build the Anti-Repetition Block once, inject into every agent prompt.
 > **Phantom scoping** (if phantom available): Call `phantom_before_edit` with all planned files. Use blast radius to validate agent scope and discover missing related files. Pass directlyAffected list to Sentinel.
+> **MCP-enhanced execution** (based on Phase A discovery):
+> - If `code_graph` available → use `detect_changes` + `get_review_context` instead of raw Grep for impact analysis. Use `get_affected_flows` to validate agent scope.
+> - If `context_mode` available → route all agent outputs > 50 lines through `ctx_batch_execute` to protect context window. Index large diffs for searchable follow-up.
+> - If `claude_flow` available → use `memory_store` for cross-session pattern persistence beyond learnings files.
 
 > **Output on dispatch:**
 > ```
@@ -163,7 +194,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
      prompt: "{filled solo-executor-prompt template}"
    })
    ```
-3. On completion: review report, check Oracle usage. If blockers → pivot to CREW.
+3. On completion: review report, check Oracle usage, verify Spark self-review score >= 7. If blockers → pivot to CREW.
 4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
    a. Load `_shared-repo-detection.md` → discover verify commands for this repo
    b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
@@ -171,6 +202,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    d. If PASS → run quality pipeline before Prism:
       i.  Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
       ii. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
+      ii-b. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` on modified files for structural impact analysis. Feed impact report into Prism context.
       iii. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
       iv. Spawn Prism (advisory if low risk, gauntlet if medium+)
    g. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
@@ -184,6 +216,10 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    - Call `Skill("superpowers:dispatching-parallel-agents")` before 2+ independent agents
 2. Run agents per execution order (parallel where independent, sequential where dependent)
 3. **After each agent:** Post-Agent Hook → validate output, capture handoff
+   - **Self-review score check**: Verify Spark's self-review score >= 7. If < 7, note concerns for Prism.
+   - **Intent Alignment Checkpoint** (see `cortex.md` "Intent Alignment Checkpoints"):
+     Does this agent's output still serve the stated INTENT? Has it drifted from the plan?
+     Are interfaces compatible with what the next agent expects? If drift → flag and correct.
    - **Assembly check** (2+ agents done): verify outputs are consistent, match Intent
    - **Oracle checkpoint** (optional, 3+ files changed): quick opus review before testing
 4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
@@ -213,6 +249,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
 5. **If PASS** → run quality pipeline:
    a. Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
    b. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
+   b2. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` + `get_affected_flows` on all modified files. Feed structural analysis into Prism context.
    c. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
    d. Proceed to step 7
    e. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
@@ -223,7 +260,27 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    d. Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
    d2. **AUTO-LEARNING TRIGGER 2** (mandatory): Record what failed AND what fixed it — see `_shared-auto-learning.md`. Write correction to INDEX.md.
    e. Contract change needed → return to Phase C | Scope expansion → return to Phase B
-7. Prism review: gauntlet mode if risk >= medium, advisory if low
+7. **Prism review** (with Quality Gate Loop):
+   a. Prism reviews with quality score rubric (see `prism.md` "Quality Score Rubric")
+   b. If APPROVED (score >= 7.0) → proceed to Outcome Recording
+   c. If NEEDS WORK (score 5.0–6.9) → enter quality gate loop:
+      i.   Cortex extracts CRITICAL + WARNING findings from Prism report
+      ii.  Spawn Spark (scoped to findings only) → fix → Spark runs self-review node
+      iii. Re-run Sentinel (verify fixes didn't break build/tests)
+      iv.  Re-run Prism (re-review ONLY the findings, not full review) → re-score
+      v.   Loop until APPROVED or max 2 quality iterations
+      vi.  If still NEEDS WORK after 2 → escalate to user with full score breakdown
+   d. If REJECTED (score < 5.0) → return to Phase B. Approach is fundamentally wrong.
+
+> **Output on quality gate:**
+> ```
+>   ╔═══════════════════════════════╗
+>   ║  🔄 QUALITY GATE LOOP        ║
+>   ║  Score: {X.X}/10 → NEEDS WORK║
+>   ║  Fixing {N} findings...      ║
+>   ║  Iteration: {N}/2            ║
+>   ╚═══════════════════════════════╝
+> ```
 
 ### Outcome Recording
 
@@ -264,7 +321,8 @@ After all verification and review passes:
 >   │                           │
 >   │   Files:    {N} changed   │
 >   │   Verify:   PASS          │
->   │   Prism:    {verdict}     │
+>   │   Prism:    {verdict} {X.X}/10│
+>   │   Reflexion: {N} loops    │
 >   │   PR:       {#N or branch}│
 >   │   Learned:  {N} patterns  │
 >   │                           │
