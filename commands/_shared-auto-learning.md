@@ -5,7 +5,33 @@
 
 ---
 
-## Three Mandatory Triggers
+## Four Mandatory Triggers
+
+### Trigger 0: User Correction (IMMEDIATE — highest priority)
+
+**When:** Immediately when the user:
+- Rejects a proposed approach ("no, don't do that", "that's wrong", "not like that")
+- Corrects an implementation ("use X instead of Y", "that's the wrong pattern")
+- Redirects scope ("that's not what I meant", "I wanted X not Y")
+- Expresses frustration with a repeated mistake ("I already told you", "again?")
+
+**Who:** Cortex (automatic, inline — do NOT wait for verification gate).
+
+**Actions:**
+1. STOP current work immediately
+2. Extract the correction:
+   - What was attempted (the wrong approach)
+   - What user wants instead (the right approach)
+   - Domain classification (ui/data/auth/testing/crew/migration/tooling)
+3. Write to `learnings/{domain}.md ## Corrections`:
+   ```
+   CORRECTION [{keyword}]: [{what was wrong}] — [{what user wants instead}] [failed] ({date})
+   ```
+4. Update `learnings/INDEX.md` with one-liner
+5. Log to event board: `[LEARNING] Trigger 0: user correction captured — [{keyword}]`
+6. Resume work with the corrected approach
+
+**This is the HIGHEST-SIGNAL trigger.** User corrections are more valuable than automated verification signals because they capture intent, not just pass/fail. NEVER skip this trigger. NEVER wait until wrap to record a user correction.
 
 ### Trigger 1: Post-Verification (after Sentinel PASS)
 
@@ -81,9 +107,11 @@
 ```
 Session starts
   ↓
-Anti-repetition gate READS learnings (existing)
+Anti-repetition gate READS learnings (existing, WEIGHTED by validation count)
   ↓
 Implementation happens
+  ↓ (if user corrects)
+User correction → Trigger 0: IMMEDIATE record to learnings (highest signal)
   ↓
 Verification PASS → Trigger 1: auto-record what worked
   ↓ (or)
@@ -126,3 +154,28 @@ Prism review
 | **No silent sessions** | INDEX.md session summary ensures every session leaves a trace |
 | **Corrections are never deleted** | They can be marked `[stale]` but never removed — failure memory persists |
 | **Write before read** | Cortex writes this session's learnings BEFORE updating auto-memory (which other sessions read) |
+
+---
+
+## Weighted Pattern Retrieval
+
+When the anti-repetition gate scans `learnings/INDEX.md`, weight patterns by validation count:
+
+| Lifecycle Tag | Weight | Anti-Repetition Behavior |
+|---|---|---|
+| `[validated:5+]` | **HIGH** | Auto-apply — follow this pattern unless task is fundamentally different. Log: "Following validated pattern [{keyword}]" |
+| `[validated:1-4]` | **MEDIUM** | Suggest — mention to user/agent as recommended approach. Log: "Suggesting pattern [{keyword}] (validated {N} times)" |
+| `[proposed]` | **LOW** | Mention only — note it exists but don't auto-apply. Log: "Noting proposed pattern [{keyword}]" |
+| `[failed]` | **BLOCKING** | Block — this approach failed before. MUST acknowledge and explain why current approach differs OR choose alternative. |
+| `[stale]` | **DEPRIORITIZED** | Log as "stale — verify before relying on this" but don't block or auto-apply |
+
+**Corrections always take priority over patterns.** If a correction says "don't use X" and a pattern says "use X", the correction wins regardless of validation count.
+
+**Example anti-repetition check output:**
+```
+Anti-repetition scan for [chart rendering]:
+  BLOCK: CORRECTION [absolute-pixel-crossline] — don't use absolute px positioning (failed)
+  HIGH: [chart-hourly-granularity] — use h:mm a format (validated:5)
+  MEDIUM: [responsive-chart-container] — use ResizeObserver (validated:2)
+  LOW: [d3-axis-labels] — custom tick formatter (proposed)
+```

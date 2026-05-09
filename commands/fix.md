@@ -24,20 +24,40 @@ Start a fix loop from the latest failed verification.
    b. Spawn only the assigned repair agents (scoped to failing files only)
    c. After repairs complete, automatically run `/team:verify`
 7. If re-verify passes -> exit loop, proceed to wrap
-8. If re-verify fails -> increment loop, repeat from step 1
+8. If re-verify fails:
+   a. Compare failure class to previous iteration's failure class
+   b. If SAME class → trigger re-plan (step 10) — do NOT increment loop
+   c. If DIFFERENT class → increment loop counter, repeat from step 1
+   d. Write correction for the failed approach (Trigger 2 from auto-learning)
 9. **Correction format** (when writing corrections on repeated failure in step 8):
    Format: `CORRECTION [{approach-keyword}]: [{what went wrong}] — [{what to do instead}] [failed] ({date})`
    Include approach signature so future anti-repetition gate can pattern-match.
    Example: `CORRECTION [_groupHover in Popover]: hover state unreliable on portal content — use kebab menu or controlled open state [failed] (2026-04-10)`
 
-10. **Escalation triggers:**
-    - Loop count > 3
-    - Same failure repeated twice (writes correction per format above to relevant `learnings/{domain}.md` under `## Corrections` + updates `INDEX.md`)
-    - 3+ fix attempts on same root cause without resolution (architectural problem signal -- see `superpowers:systematic-debugging`)
+10. **Re-plan on repeated failure** (Iron Law enforcement — no patch stacking):
+    Before each fix loop iteration (step 8), compare current failure class to previous:
+    
+    ```
+    IF fix_loop.iteration >= 2 AND current_failure_class == previous_failure_class:
+      LOG "[FIX] Same failure class repeated ({failure_class}). Patch approach exhausted."
+      WRITE correction to learnings/{domain}.md
+      ESCALATE to re-plan (Phase B) with:
+        - All failure history from this fix loop
+        - Correction entries written
+        - Devil's Advocate challenge focused on "why did the original approach fail?"
+      EXIT fix loop — do NOT attempt another patch
+    ```
+    
+    This is different from "same root cause" (which triggers at 3+). Same *failure class* after just 2 iterations means the approach is wrong, not the fix.
+
+11. **Other escalation triggers:**
+    - Loop count > 3 (hard cap — present structured escalation from step 11)
+    - 3+ fix attempts on same root cause without resolution (architectural problem signal — see `superpowers:systematic-debugging`)
     - Contract must change to fix (return to contract phase)
     - Scope expanded beyond original failure (return to planning)
+    - User says "stop", "this isn't working", or expresses frustration → STOP immediately, present options
 
-11. **Structured escalation** (when loop count > 3 or 3+ attempts on same root cause):
+12. **Structured escalation** (when loop count > 3 or 3+ attempts on same root cause):
     Present to user in this exact format:
     ```
     ## FIX LOOP EXHAUSTED ({N}/3)
