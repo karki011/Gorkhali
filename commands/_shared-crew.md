@@ -19,7 +19,9 @@
 
 Background agents can be spawned with a non-default model when the user requests it (e.g., "use opus for sparks", "spawn with sonnet").
 
-**Supported values:** `opus` (Opus 4.6 with 1M context), `sonnet` (Sonnet 4.6)
+**Supported values:** `opus` (Opus 4.6 with 1M context), `sonnet` (Sonnet 4.6 with 1M context)
+
+**HARD RULE:** NEVER use model 4.7 variants — they are too slow. Only `"opus"` and `"sonnet"` (both resolve to 4.6).
 
 **How to apply:**
 - If the user specifies a model preference at session start or in a `/team:start` invocation, use that model for ALL background agent spawns regardless of the default in the registry above.
