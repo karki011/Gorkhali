@@ -65,6 +65,7 @@ argument-hint: "<requirement>"
 7. Create `sessions/{TICKET}/contracts/`, detect workflow type (feature/bug/refactor/spike/docs)
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
 9. **Pre-Plan Hook:** Classify task type + risk → detect missing context → decide if scouts needed → determine if Prism is hard gate
+10. **Model override detection:** Check if user specified a model preference in `$ARGUMENTS` or conversation (e.g., "use opus", "spawn with sonnet", "opus for sparks"). If found, set `MODEL_OVERRIDE` for the session — all background agent spawns use this model instead of the registry default. Valid values: `opus`, `sonnet`. If not specified, `MODEL_OVERRIDE = null` (use registry defaults).
 
 ---
 
@@ -189,7 +190,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    ```
    Agent({
      description: "Solo: {task description}",
-     subagent_type: "coder", model: "sonnet",
+     subagent_type: "coder", model: MODEL_OVERRIDE || "sonnet",
      mode: "bypassPermissions", run_in_background: true,
      prompt: "{filled solo-executor-prompt template}"
    })

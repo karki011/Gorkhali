@@ -9,6 +9,8 @@ description: Execute a saved plan (blocks without contracts)
 
 Load saved plan from `state/sessions/{TICKET}.json` (status: planned).
 
+**Model override:** If `MODEL_OVERRIDE` was set during `/team:start` (user said "use opus" or "use sonnet"), apply it to ALL agent spawns in this execution. See `_shared-crew.md` → Model Override section.
+
 **Run Pre-Execute Hook** -- verify contracts exist and owners assigned. Block if not.
 
 Spawn crew per the saved plan. Follow Phase D from `/team:start`:

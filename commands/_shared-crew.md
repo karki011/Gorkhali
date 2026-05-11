@@ -6,19 +6,37 @@
 
 ## Agent Registry
 
-| Codename | Model | Role |
-|----------|-------|------|
+| Codename | Default Model | Role |
+|----------|---------------|------|
 | **Cortex** | opus | Plans, decomposes, coordinates, triages failures |
 | **Spark** | sonnet | All implementation — spawned with ROLE FOCUS directives |
 | **Sentinel** | sonnet | Repo-aware verification — discovers lint/build/test commands from repo context, runs them, reports evidence |
 | **Prism** | opus | Quality gate — code review + gauntlet + architecture |
 | **Oracle** | opus | On-demand guidance for Sparks (no tools, no output, <100 words) |
-| **Lens** | sonnet | Figma extraction + Playwright visual verification |
+| **Lens** | sonnet | Figma extraction + visual verification (agent-browser preferred, Playwright fallback) |
+
+### Model Override
+
+Background agents can be spawned with a non-default model when the user requests it (e.g., "use opus for sparks", "spawn with sonnet").
+
+**Supported values:** `opus` (Opus 4.6 with 1M context), `sonnet` (Sonnet 4.6)
+
+**How to apply:**
+- If the user specifies a model preference at session start or in a `/team:start` invocation, use that model for ALL background agent spawns regardless of the default in the registry above.
+- If the user says "use opus" → all Spark/Sentinel/Lens agents spawn with `model: "opus"` instead of sonnet.
+- If the user says "use sonnet" → all Prism/Oracle agents spawn with `model: "sonnet"` instead of opus.
+- If no override → use the default model from the registry.
+- The override applies to the current session only. It does NOT persist across sessions unless the user explicitly asks to remember it.
+
+**In Agent() calls**, always set `model` to the resolved value:
+```
+model: "{user_override || registry_default}"
+```
 
 ### Agent Spawning Rules
 
 - Set `subagent_type` matching codename (e.g., `coder` for Spark, `verifier` for Sentinel, `reviewer` for Prism)
-- Set `model` to the agent's designated model
+- Set `model` to the user's override if provided, otherwise the agent's default model from the registry
 - Include in prompt: persona, assigned scope, contract section, relevant learnings
 - **Include compact Intent Block in EVERY agent prompt:**
   `INTENT: [goal]. PRIORITY: [ranked priorities]. NON-NEGOTIABLE: [hard constraints].`
