@@ -16,6 +16,11 @@ Explicitly trigger the verification phase on current work.
    c. **Simplify** -- Call `Skill(skill="simplify")` on changed files. Fix issues found.
    d. **Code Review** -- Call `Skill(skill="code-review:code-review")` on changed files. Fix issues found.
    e. If simplify or code-review produced changes → re-run Sentinel
+   e2. **PR REVIEW TOOLKIT GATE — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+       - Call `Skill(skill="pr-review-toolkit:code-simplifier")` — simplify changed code for clarity and maintainability
+       - Call `Skill(skill="pr-review-toolkit:code-reviewer")` — review changed files against project guidelines and style
+       - If either produced changes → re-run Sentinel (verify fixes didn't break anything)
+       - Cortex does NOT have permission to skip this gate or proceed past this step without running both
    f. **Self-evaluation gate** (after Sentinel PASS, before Prism):
       Cortex reviews the full diff against the original contract:
       - Does this diff actually solve the contract goal, or does it just pass tests?

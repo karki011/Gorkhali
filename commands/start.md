@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`.
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions.
 
 ---
 
@@ -165,7 +165,12 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
       ii. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
       ii-b. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` on modified files for structural impact analysis. Feed impact report into Prism context.
       iii. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
-      iv. Spawn Prism (advisory if low risk, gauntlet if medium+)
+      iv. **PR REVIEW TOOLKIT GATE — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+          - Call `Skill(skill="pr-review-toolkit:code-simplifier")` — simplify changed code for clarity and maintainability
+          - Call `Skill(skill="pr-review-toolkit:code-reviewer")` — review changed files against project guidelines and style
+          - If either produced changes → re-run Sentinel (verify fixes didn't break anything)
+          - Cortex does NOT have permission to skip this gate or proceed to Prism without it
+      v. Spawn Prism (advisory if low risk, gauntlet if medium+)
    g. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
    e. If FAIL → enter fix sub-loop (same as D-Crew step 6)
    f. Cortex does NOT have permission to skip this step or report "done" without verification evidence
@@ -212,6 +217,11 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    b. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
    b2. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` + `get_affected_flows` on all modified files. Feed structural analysis into Prism context.
    c. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
+   c2. **PR REVIEW TOOLKIT GATE — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+       - Call `Skill(skill="pr-review-toolkit:code-simplifier")` — simplify changed code for clarity and maintainability
+       - Call `Skill(skill="pr-review-toolkit:code-reviewer")` — review changed files against project guidelines and style
+       - If either produced changes → re-run Sentinel (verify fixes didn't break anything)
+       - Cortex does NOT have permission to skip this gate or proceed to Prism without it
    d. Proceed to step 7
    e. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
 6. **If FAIL** → fix sub-loop (max 3):
