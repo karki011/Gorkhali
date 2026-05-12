@@ -15,24 +15,35 @@
 | **Oracle** | opus | On-demand guidance for Sparks (no tools, no output, <100 words) |
 | **Lens** | sonnet | Figma extraction + visual verification (agent-browser preferred, Playwright fallback) |
 
+### Three-Tier Model Routing
+
+Cortex classifies each task and routes to the cheapest model that can handle it:
+
+| Tier | Model | When | Examples |
+|------|-------|------|----------|
+| **Bypass** | No agent — Cortex uses Edit/Write directly | Mechanical: rename, add import, fix typo, formatting | `s/oldName/newName/g`, add missing import, fix lint auto-fixable |
+| **Haiku** | `model: "haiku"` | Routine: single-file, copy changes, docs, config, simple tests | Update README, add env var, write doc comment, single component prop change |
+| **Sonnet** | `model: "sonnet"` | Standard: feature impl, multi-file, API integration, refactoring | New component, hook, API endpoint, test suite, multi-file refactor |
+| **Opus** | `model: "opus"` | Complex: architecture decisions, quality gates, planning, cross-cutting | Cortex, Prism, Oracle, Devil's Advocate, security-sensitive changes |
+
+**Routing rules:**
+- Bypass tier: Cortex identifies mechanical edits during planning. Executes inline — no Spark spawn, no overhead.
+- Haiku tier: Tasks with ≤1 file, no complex logic, no cross-file dependencies. Spark spawned with `model: "haiku"`.
+- Sonnet tier: Default for all standard Spark work.
+- Opus tier: Reserved for orchestration, quality gates, and advisory agents.
+
+**HARD RULE:** NEVER use model 4.7 variants — they are too slow. Only `"opus"`, `"sonnet"`, and `"haiku"` (all resolve to 4.6/4.5).
+
 ### Model Override
 
-Background agents can be spawned with a non-default model when the user requests it (e.g., "use opus for sparks", "spawn with sonnet").
+User can override the routing at session start (e.g., "use opus for everything", "use sonnet"):
+- Overrides ALL Spark/Sentinel/Lens spawns regardless of tier classification
+- Session-scoped only — does not persist
+- Does NOT affect Cortex/Prism/Oracle (always opus) unless explicitly requested
 
-**Supported values:** `opus` (Opus 4.6 with 1M context), `sonnet` (Sonnet 4.6 with 1M context)
-
-**HARD RULE:** NEVER use model 4.7 variants — they are too slow. Only `"opus"` and `"sonnet"` (both resolve to 4.6).
-
-**How to apply:**
-- If the user specifies a model preference at session start or in a `/team:start` invocation, use that model for ALL background agent spawns regardless of the default in the registry above.
-- If the user says "use opus" → all Spark/Sentinel/Lens agents spawn with `model: "opus"` instead of sonnet.
-- If the user says "use sonnet" → all Prism/Oracle agents spawn with `model: "sonnet"` instead of opus.
-- If no override → use the default model from the registry.
-- The override applies to the current session only. It does NOT persist across sessions unless the user explicitly asks to remember it.
-
-**In Agent() calls**, always set `model` to the resolved value:
+**In Agent() calls:**
 ```
-model: "{user_override || registry_default}"
+model: "{user_override || tier_classification || registry_default}"
 ```
 
 ### Agent Spawning Rules

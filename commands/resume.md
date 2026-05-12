@@ -17,3 +17,16 @@ argument-hint: "[ticket-or-slug]"
 7. Re-spawn same team with same mapping + handoff notes + contracts
 
 **Decision loading rule**: NEVER load decisions from other tickets. Only `global.md` + current ticket's `decisions.md`.
+
+### Resuming Forked Sessions
+
+If the previous session used `--fork-session` for exploration:
+1. Check `state/sessions/{TICKET}/forks/` for fork results
+2. If both forks completed → present comparison to user, let them choose
+3. If one fork is incomplete → offer to continue it or abandon
+4. Load the chosen fork's state as the active session
+
+```bash
+# Resume a specific fork
+claude --resume {fork-session-id}
+```

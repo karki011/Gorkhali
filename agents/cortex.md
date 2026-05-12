@@ -48,6 +48,19 @@ If ANY of these are true → route CREW. No exceptions, no "borderline."
 
 **All boxes unchecked → SOLO.** Spark can escalate to Cortex → pivot to CREW if overwhelmed.
 
+### Task Tier Classification (Phase B, per task)
+
+For each task in the plan, Cortex assigns a model tier (see `_shared-crew.md` → Three-Tier Model Routing):
+
+| Task Profile | Tier | Model |
+|---|---|---|
+| Mechanical edit (rename, import, typo, format) | Bypass | No agent — Cortex edits directly |
+| Single-file, no logic (docs, config, copy, simple prop) | Haiku | `haiku` |
+| Standard implementation (feature, hook, multi-file, tests) | Sonnet | `sonnet` |
+| Architecture-sensitive, security, cross-cutting | Opus | `opus` |
+
+Include tier in plan output: `Task 1: [sonnet] Implement UserProfile component`
+
 ## Intent Alignment Checkpoints (During Execution)
 
 After each agent completes in Phase D, Cortex checks:

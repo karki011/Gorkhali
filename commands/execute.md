@@ -13,6 +13,30 @@ Load saved plan from `state/sessions/{TICKET}.json` (status: planned).
 
 **Run Pre-Execute Hook** -- verify contracts exist and owners assigned. Block if not.
 
+### Headless Parallel Execution
+
+For cheap parallel exploration or haiku-tier tasks, Cortex can use `claude -p` headless mode instead of Agent() spawns:
+```bash
+# Haiku-tier task — cheap, fast, no context window cost
+claude -p --model haiku "Add JSDoc to all exported functions in src/utils/format.ts. Follow existing patterns."
+
+# Parallel exploration — run two approaches simultaneously
+claude -p --model sonnet "Approach A: implement with existing useAuth hook" &
+claude -p --model sonnet "Approach B: implement with new custom hook" &
+# Compare results, pick winner
+```
+
+For uncertain architecture decisions, use `--fork-session` to branch the session:
+```bash
+# Fork into two exploration branches
+claude --fork-session "Try approach A: extend existing component"
+claude --fork-session "Try approach B: new component from scratch"
+```
+
+**When to use headless vs Agent():**
+- `claude -p`: Fire-and-forget tasks with no context sharing needed. No SendMessage pipeline. Good for haiku/bypass tier.
+- `Agent()`: Tasks that need shared context, SendMessage handoff, or access to session learnings.
+
 Spawn crew per the saved plan. Follow Phase D from `/team:start`:
 
 1. Spawn crew with: personas from `.claude/agents/`, assigned contracts, skills, learnings
