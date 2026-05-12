@@ -58,14 +58,16 @@ Or just describe what you want — Claude auto-triggers the team skill:
 ## What It Does
 
 1. **Pulls Jira ticket** context automatically (if Atlassian MCP configured)
-2. **Plans** with Devil's Advocate adversarial challenge
-3. **Spawns parallel agents** — each Spark self-reviews before handoff
-4. **Intent alignment checkpoints** — Cortex catches drift during execution
-5. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism (scored 0-10)
-6. **Quality gate loop**: Prism findings → Spark fixes → re-verify → re-score (max 2 iterations)
-7. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
-8. **Self-learning**: auto-records what worked/failed, improves over sessions
-9. **Always on feature branch** — never commits to main/develop
+2. **Plans** with Devil's Advocate adversarial challenge + GOAP precondition/effect modeling (CREW tasks)
+3. **Three-tier model routing** — Bypass (no agent) → Haiku (routine) → Sonnet (standard) → Opus (complex)
+4. **Auto-CREW trigger** — hard checklist (4+ files, cross-layer, security, schema) replaces narrative judgment
+5. **SendMessage pipeline** — Spark → Sentinel → Prism hand off directly, no Cortex polling
+6. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism (scored 0-10) + witness marker check
+7. **Witness regression markers** — fix code registered in `witness-fixes.json`, verified every build
+8. **Scored learnings** — patterns decay (`[v:N q:0.X u:date]`), auto-prune stale, auto-promote validated
+9. **Testgaps scan** at wrap — flags source changes without test updates
+10. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
+11. **`claude -p` headless** + `--fork-session` for cheap parallel exploration
 
 ## The Pipeline
 
@@ -73,22 +75,27 @@ Or just describe what you want — Claude auto-triggers the team skill:
   /team:start "CP-41171"
   ━━━━━━━━━━━━━━━━━━━━━
        │
-  Phase A: Context       Jira pull, learnings, graph intelligence
+  Phase A: Context       Jira pull, scored learnings, graph intelligence
        │
-  Phase B: Planning      Intent capture → plan → Devil's Advocate challenge
+  Phase B: Planning      Intent → Auto-CREW checklist → tier classification
+       │                 GOAP preconditions (CREW only)
+       │                 Devil's Advocate challenge
        │
   Phase C: Contracts     Agent assignments locked
        │
-  Phase D: Execution     Parallel Sparks (self-review before handoff)
+  Phase D: Execution     Tiered dispatch (bypass/haiku/sonnet/opus)
+       │                 SendMessage pipeline (Spark→Sentinel→Prism)
        │                 Cortex intent alignment check
-       │                 Sentinel → Simplify → Code Review
-       │                 Prism quality gate (scored 0-10)
+       │                 Sentinel verify + witness marker check
+       │                 Simplify → Code Review → Prism (0-10)
        │                 Fix loop (max 3, same-class → re-plan)
        │
-  Phase E: Completion    Draft PR or branch push + Jira update
+  Phase E: Wrap          Testgaps scan + scope creep detection
+       │                 Scored learnings update (prune/promote)
+       │                 Draft PR or branch push + Jira update
        │
   ╭───────────────────╮
-  │ SESSION WRAPPED  ✓│  Auto-learning records what worked
+  │ SESSION WRAPPED  ✓│
   ╰───────────────────╯
 ```
 
@@ -127,16 +134,23 @@ If your repo has `CLAUDE.md` with verify commands, those take priority.
 | Agent | Default Model | Role |
 |-------|---------------|------|
 | Cortex | opus | Orchestrator — plans, decomposes, coordinates |
-| Spark | sonnet | Implementation — infers specialization from task domain |
-| Sentinel | sonnet | Verification — repo-aware lint/build/test |
+| Spark | haiku/sonnet/opus | Implementation — tier-routed by task complexity |
+| Sentinel | sonnet | Verification — repo-aware lint/build/test + witness markers |
 | Prism | opus | Quality gate — code review (single rubric, scored 0-10) |
 | Oracle | opus | On-demand guidance for stuck agents (<100 words) |
 | Devil's Advocate | opus | Adversarial plan reviewer |
 | Lens | sonnet | Visual — Figma extraction + browser verification (agent-browser preferred, Playwright fallback) |
 
-### Model Override
+### Model Routing
 
-Say "use opus" or "use sonnet" at session start to override all agent spawns. All models are 4.6 only — 4.7 is too slow for agent workflows.
+| Tier | Model | When |
+|------|-------|------|
+| Bypass | No agent | Mechanical: rename, import, typo |
+| Haiku | haiku | Routine: single-file, docs, config |
+| Sonnet | sonnet | Standard: features, multi-file, tests |
+| Opus | opus | Complex: architecture, quality gates |
+
+Say "use opus" or "use sonnet" at session start to override all tiers. All models are 4.6 only — 4.7 is too slow.
 
 ## Optional Integrations
 
