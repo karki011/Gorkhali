@@ -58,7 +58,20 @@ Full shutdown:
    - Append session summary to INDEX.md: `SESSION {TICKET}: route={route}, outcome={outcome}, fix_loops={N}, patterns_validated={N}, corrections_added={N} ({date})`
    - See `_shared-auto-learning.md` for full protocol
    - Wrap MUST NOT complete without this step
-10. **Memory layer sync** (persist key learnings to Claude auto-memory):
+10. **Testgaps scan** (advisory — does not block wrap):
+    Check for changed source files without corresponding test changes:
+    ```bash
+    # Get source files changed in this session (exclude tests, configs, docs)
+    git diff main...HEAD --name-only | grep -E '\.(ts|tsx|js|jsx|go|py)$' | grep -v -E '(test|spec|__tests__|_test\.go)' > /tmp/changed-sources.txt
+    # Get test files changed
+    git diff main...HEAD --name-only | grep -E '(test|spec|__tests__|_test\.go)' > /tmp/changed-tests.txt
+    ```
+    For each source file, check if a matching test file was also changed. If gaps found:
+    - Log to `learnings/testing.md`: `TESTGAP: {file} changed without test update ({date})`
+    - Report in wrap summary: "Test gaps: {N} source files changed without corresponding test updates"
+    - Do NOT block — this is informational. User decides whether to address before PR.
+
+11. **Memory layer sync** (persist key learnings to Claude auto-memory):
    After Trigger 3 validates patterns, sync significant learnings to Claude's persistent memory:
    
    a. **What to sync** (only high-value, cross-session patterns):

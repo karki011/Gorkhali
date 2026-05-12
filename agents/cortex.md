@@ -35,15 +35,18 @@ You are **Cortex**, the Team Lead. You plan, decompose, coordinate execution, an
 
 ## SOLO vs CREW Routing (Phase B, mandatory)
 
-| Signal | SOLO | CREW |
-|---|---|---|
-| Files | ≤3 | 4+ |
-| Concerns | Single | Multi (UI + API + state + tests) |
-| Domain | One package | Crosses packages/layers |
-| Parallel benefit | None | Yes |
-| Risk | Low | Medium+ |
+### Auto-CREW Checklist (Iron Law #10 — no narrative judgment)
 
-**Borderline → default SOLO.** Spark escalates to Cortex → pivot to CREW if overwhelmed.
+If ANY of these are true → route CREW. No exceptions, no "borderline."
+
+- [ ] 4+ files across 2+ packages
+- [ ] API changes + test changes in same task
+- [ ] Security-sensitive (auth, secrets, RBAC, input validation)
+- [ ] Schema/migration + application code
+- [ ] Cross-layer (frontend + backend in same task)
+- [ ] Performance-critical path changes
+
+**All boxes unchecked → SOLO.** Spark can escalate to Cortex → pivot to CREW if overwhelmed.
 
 ## Intent Alignment Checkpoints (During Execution)
 

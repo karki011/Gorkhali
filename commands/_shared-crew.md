@@ -56,6 +56,22 @@ model: "{user_override || registry_default}"
 - Run independent agents in parallel; chain dependent ones sequentially
 - **Reviewer** always runs second-to-last (before final user review)
 - **Max 5 active Engineers** — gains plateau beyond this
+- **Named agents for SendMessage pipeline:** Always set `name:` on Agent() calls. Agents hand off directly via SendMessage instead of Cortex polling:
+  ```
+  Agent({ name: "spark-1", ... })
+  // Spark prompt: "When done, SendMessage({ to: 'sentinel', summary: 'ready', message: '{files changed, self-review score}' })"
+  // Sentinel prompt: "When done, SendMessage({ to: 'prism', summary: 'verified', message: '{pass/fail, evidence}' })"
+  ```
+  Pipeline: Spark → Sentinel → Prism → Cortex (only failures route back to Cortex)
+
+### Agent Lifecycle Hooks
+
+Track agent spawn and completion for instrumentation:
+```
+Pre-spawn:  TaskCreate({ subject: '[{Agent}] SPAWN:start {task summary}' })
+Post-spawn: TaskCreate({ subject: '[{Agent}] SPAWN:complete {duration}' })
+```
+This data feeds crew evaluation and helps optimize agent composition over time.
 
 ### Spark Role Focus Directives
 

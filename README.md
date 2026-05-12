@@ -92,19 +92,22 @@ Or just describe what you want — Claude auto-triggers the team skill:
   ╰───────────────────╯
 ```
 
-## Hard Rules
+## 12 Iron Laws
 
-9 rules the skill enforces — not defaults restated, but rules that change behavior:
+Non-negotiable constraints Claude cannot rationalize past:
 
 1. **Feature branch** — never commit to main/develop
 2. **Verification mandatory** — no "done" without Sentinel evidence
-3. **Anti-repetition** — check learnings before proposing any approach
+3. **Anti-repetition** — `[failed]` blocks approach, `[validated:5+]` auto-applies
 4. **Devil's Advocate** — every plan challenged before execution
 5. **Simplify always runs** — after verification, simplify changed files, re-verify if changed
 6. **Intent check** — Cortex reviews diff against intent (tests passing ≠ problem solved)
 7. **Smart PR** — UI = branch only, no UI = draft PR
 8. **Jira auto-transition** — auto-move to "Reviewing" after push
 9. **Learnings** — every session reads AND writes to learnings
+10. **Auto-CREW trigger** — 4+ files, cross-layer, security, schema → CREW. Checklist, not judgment.
+11. **No patchwork fixes** — reproduce → trace → confirm root cause. Same class twice → re-plan.
+12. **Parallel agents** — 2+ independent files → parallel. No sequential when parallelizable.
 
 ## Works With Any Repo
 

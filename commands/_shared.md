@@ -34,19 +34,36 @@ STORY     = ~/.claude/team/story/
 
 ---
 
-## Hard Rules
+## IRON LAWS — Non-Negotiable. No Exceptions. No Rationalizing.
 
-| Rule | What |
-|------|------|
-| **Feature branch** | Before ANY commit: check branch. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch first. |
-| **Verification mandatory** | After implementation: Sentinel runs repo-detected commands. Read output. Confirm pass. Only then claim "done". |
-| **Anti-repetition** | Before ANY approach: scan `learnings/INDEX.md` for matching corrections. If match → acknowledge or choose alternative. |
-| **Devil's Advocate** | Every plan gets challenged before execution. Max 2 iterations. |
-| **Simplify always runs** | After verification pass: `simplify` on all changed files. If changes → re-verify. |
-| **Intent check** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. |
-| **Smart PR** | UI touched → push branch only. No UI → draft PR. Never auto-create ready-for-review PR. |
-| **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. |
-| **Learnings** | After wrap: record what worked, corrections from fix loops, validate/promote patterns. |
+Violating any of these is a bug. Claude cannot skip, defer, or rationalize past these.
+
+| # | Law | Enforcement |
+|---|-----|-------------|
+| 1 | **Feature branch** | Before ANY commit: `git branch --show-current`. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch. No asking. No committing to protected branches. |
+| 2 | **Verification mandatory** | After ALL implementation: Sentinel runs repo-detected commands. Read FULL output. Confirm pass. Only then claim "done". No "looks good" without evidence. |
+| 3 | **Anti-repetition** | Before ANY approach: scan `learnings/INDEX.md`. `[failed]` → BLOCKED (must explain difference or choose alternative). `[validated:5+]` → auto-apply. |
+| 4 | **Devil's Advocate** | Every plan challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. No unchallenged plans ship. |
+| 5 | **Simplify always runs** | After EVERY verification pass: `simplify` on all changed files. If changes → re-verify before proceeding. Not optional. Not "if time permits." |
+| 6 | **Intent check** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. ALIGNED/DRIFT/WRONG. WRONG → fix loop. DRIFT → ask user. |
+| 7 | **Smart PR** | UI touched → push branch only (user verifies visually). No UI → draft PR. NEVER auto-create ready-for-review PR. |
+| 8 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + comment with link. User should NEVER have to ask "move ticket." |
+| 9 | **Learnings** | Every session reads AND writes learnings. After wrap: record successes, corrections, validate/promote patterns. No silent sessions. |
+| 10 | **Auto-CREW trigger** | If ANY: 4+ files across 2+ packages, API + tests, security changes, schema + app code, cross-layer (FE+BE), perf-critical path → route CREW. No narrative judgment. Checklist only. |
+| 11 | **No patchwork fixes** | Reproduce → trace exact code path → confirm root cause BEFORE fix. Same failure class twice → STOP and re-plan. No stacking patches on wrong hypothesis. |
+| 12 | **Parallel agents** | 2+ independent files → spawn parallel agents. Do NOT edit sequentially when parallelizable. |
+
+### Self-Check (before claiming "done")
+
+- [ ] On feature branch (not main/develop)?
+- [ ] Verification commands ran and output read?
+- [ ] Anti-repetition checked before starting?
+- [ ] Devil's Advocate reviewed the plan?
+- [ ] Simplify ran on all changed files?
+- [ ] Cortex checked intent alignment (not just test pass)?
+- [ ] Learnings recorded?
+
+If ANY is NO → fix before proceeding.
 
 ---
 
