@@ -34,21 +34,18 @@ Start a fix loop from the latest failed verification.
    Include approach signature so future anti-repetition gate can pattern-match.
    Example: `CORRECTION [_groupHover in Popover]: hover state unreliable on portal content — use kebab menu or controlled open state [failed] (2026-04-10)`
 
-10. **Re-plan on repeated failure** (Iron Law enforcement — no patch stacking):
-    Before each fix loop iteration (step 8), compare current failure class to previous:
+10. **Re-plan on repeated failure** (no patch stacking):
+    Before each fix iteration (step 8), compare current failure class to ALL previous iterations (not just N-1):
     
     ```
-    IF fix_loop.iteration >= 2 AND current_failure_class == previous_failure_class:
-      LOG "[FIX] Same failure class repeated ({failure_class}). Patch approach exhausted."
+    IF fix_loop.iteration >= 2 AND current_failure_class IN previous_failure_classes:
+      LOG "[FIX] Failure class '{failure_class}' seen before. Patch approach exhausted."
       WRITE correction to learnings/{domain}.md
-      ESCALATE to re-plan (Phase B) with:
-        - All failure history from this fix loop
-        - Correction entries written
-        - Devil's Advocate challenge focused on "why did the original approach fail?"
-      EXIT fix loop — do NOT attempt another patch
+      ESCALATE to re-plan (Phase B) with failure history
+      EXIT fix loop
     ```
     
-    This is different from "same root cause" (which triggers at 3+). Same *failure class* after just 2 iterations means the approach is wrong, not the fix.
+    This catches cycling patterns (A→B→A) that comparing only N-1 would miss.
 
 11. **Other escalation triggers:**
     - Loop count > 3 (hard cap — present structured escalation from step 11)

@@ -39,28 +39,6 @@ argument-hint: "<requirement>"
 5. **Phantom graph readiness** (if phantom available):
    - Call `phantom_graph_build` to trigger async index rebuild (non-blocking)
    - Call `phantom_conflict_status` — if file-level conflicts detected with other sessions, warn user
-5b. **MCP capability discovery** (automatic, non-blocking):
-   Detect available MCP servers and set capability flags for downstream phases:
-   ```
-   AVAILABLE_MCPS = {}
-   
-   # Check each MCP by attempting a lightweight call:
-   phantom-ai     → phantom_list_projects     → AVAILABLE_MCPS.phantom = true
-   code-review-graph → list_graph_stats_tool  → AVAILABLE_MCPS.code_graph = true
-   context-mode   → ctx_stats                 → AVAILABLE_MCPS.context_mode = true
-   claude-flow    → system_status              → AVAILABLE_MCPS.claude_flow = true
-   atlassian      → (already checked in step 2) → AVAILABLE_MCPS.atlassian = true
-   ```
-   
-   Log discovered capabilities:
-   ```
-   TaskCreate({
-     subject: '[Cortex] MCP:discovery',
-     description: 'Available: {list enabled MCPs}\nDisabled: {list unavailable MCPs}'
-   })
-   ```
-   
-   This is a ONE-TIME check per session. Store flags in session state. All agents read flags — none call discovery themselves.
 6. Caveman-compress any uncompressed learnings (background, non-blocking)
 7. Create `sessions/{TICKET}/contracts/`, detect workflow type (feature/bug/refactor/spike/docs)
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
@@ -94,24 +72,7 @@ argument-hint: "<requirement>"
 
 5. Produce plan: crew selection, agent-to-task mapping, contracts, execution order, risks
 
-6. **Plan Reflexion Loop** (see `cortex.md` "Plan Reflexion Loop"):
-   - Score plan across 5 dimensions (completeness, feasibility, risk ordering, KISS, assembly)
-   - If score < 7 → revise and re-score (max 2 iterations)
-   - Include self-score in plan header for Devil's Advocate visibility
-
-> **Output before Devil's Advocate:**
-> ```
->   ╔═══════════════════════════╗
->   ║  🔄 PLAN REFLEXION        ║
->   ║  Self-score: {X}/10       ║
->   ║  Iterations: {N}          ║
->   ╠═══════════════════════════╣
->   ║  😈 DEVIL'S ADVOCATE      ║
->   ║  Challenging plan...       ║
->   ╚═══════════════════════════╝
-> ```
-
-7. **Devil's Advocate Review** (ALL plans — mandatory):
+6. **Devil's Advocate Review** (ALL plans — mandatory):
    Spawn Devil's Advocate (opus, no tools, blocking) with the complete plan:
    ```
    Agent({
@@ -129,15 +90,14 @@ argument-hint: "<requirement>"
    - If verdict = RETHINK → return to step 4 (codebase research) with new constraints
    - Max 2 Devil's Advocate iterations — if still RETHINK after 2, escalate to user with the challenges
 
-8. **Phantom strategy advisory** (if phantom available):
+7. **Phantom strategy advisory** (if phantom available):
    - Call `phantom_orchestrator_process({ goal: "{TICKET} — {summary}", activeFiles: [plan file list] })`
    - Map returned strategy to SOLO/CREW routing (see `_shared-phantom-integration.md`)
    - Call `phantom_orchestrator_history({ limit: 10 })` — merge failed approaches into anti-repetition notes
-   - Log phantom recommendation alongside Cortex's routing decision
 
-9. Get user approval via `ExitPlanMode`
+8. Get user approval via `ExitPlanMode`
 
-10. **Emit routing decision:**
+9. **Emit routing decision:**
    ```
    TaskCreate({
      subject: '[Cortex] DECISION:route {TICKET}',
@@ -206,7 +166,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
       ii-b. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` on modified files for structural impact analysis. Feed impact report into Prism context.
       iii. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
       iv. Spawn Prism (advisory if low risk, gauntlet if medium+)
-   g. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
+   g. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
    e. If FAIL → enter fix sub-loop (same as D-Crew step 6)
    f. Cortex does NOT have permission to skip this step or report "done" without verification evidence
 5. **Pivot escape:** If executor overwhelmed (3 Oracle calls exhausted) → summarize progress, re-enter Phase B, route as CREW.
@@ -253,13 +213,13 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    b2. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` + `get_affected_flows` on all modified files. Feed structural analysis into Prism context.
    c. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
    d. Proceed to step 7
-   e. **AUTO-LEARNING TRIGGER 1** (mandatory): Record what worked — see `_shared-auto-learning.md`. Extract files, approach, strategy. Write to INDEX.md.
+   e. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
 6. **If FAIL** → fix sub-loop (max 3):
    a. Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
    b. Spawn repair agents (only failing scope)
    c. Re-run Sentinel → pass exits loop, fail repeats
    d. Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
-   d2. **AUTO-LEARNING TRIGGER 2** (mandatory): Record what failed AND what fixed it — see `_shared-auto-learning.md`. Write correction to INDEX.md.
+   d2. Record what failed + what fixed it to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
    e. Contract change needed → return to Phase C | Scope expansion → return to Phase B
 7. **Prism review** (with Quality Gate Loop):
    a. Prism reviews with quality score rubric (see `prism.md` "Quality Score Rubric")

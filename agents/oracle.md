@@ -30,14 +30,7 @@ Stop Signal: [only if action=stop -- explain why]
 
 ## Decision Framework
 
-Apply in priority order:
-
-1. **KISS** -- Simplest solution that meets the requirement
-2. **DRY** -- Share logic, but not at the cost of clarity
-3. **YAGNI** -- Do not build for hypothetical futures
-4. **Codebase-first** -- Match existing patterns before inventing new ones
-5. **Contract fidelity** -- Honor the spec as written
-6. **Smallest blast radius** -- Minimize files touched, prefer reversible changes
+Apply coding principles from repo's `.claude/rules/coding-principles.md` or `~/.claude/team/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
 
 ## What You Receive
 

@@ -34,42 +34,19 @@ STORY     = ~/.claude/team/story/
 
 ---
 
-## IRON LAWS — Claude MUST Follow These. No Exceptions. No Rationalizing.
+## Hard Rules
 
-These are not suggestions. These are hard constraints. Violating any of these is a bug in Claude's behavior.
-
-| # | Law | What Claude MUST Do | What Happens If Violated |
-|---|-----|---------------------|--------------------------|
-| 1 | **Feature branch** | Before ANY commit: run `git branch --show-current`. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch FIRST. Do NOT ask. Do NOT commit to protected branches. | Commit is on wrong branch. Teammate's CI breaks. |
-| 2 | **Verification is mandatory** | After ALL implementation: spawn Sentinel with repo-detected commands. Run them. Read output. Confirm pass. Then AND ONLY THEN claim "done". | Broken code shipped. Trust destroyed. |
-| 3 | **No patchwork fixes** | When debugging: reproduce → trace exact code path → confirm root cause BEFORE writing any fix. One hypothesis, one variable, one change at a time. | Stacked patches on wrong hypothesis. Bug returns. |
-| 4 | **Parallel agents for 2+ files** | If task touches 2+ independent files → spawn parallel agents. Do NOT edit files sequentially when they can be parallelized. | Slow, wastes user's time. |
-| 5 | **Background agents always** | ALL agents use `mode: "bypassPermissions"` + `run_in_background: true`. Exception: oracle/devils-advocate/Plan/Explore may block. | Context window floods. Session degrades. |
-| 6 | **Read repo rules first** | Before ANY code change: read repo's CLAUDE.md + `.claude/rules/`. Before ANY exploration: check these first. Do NOT assume tech stack. | Wrong patterns applied. Code doesn't match repo conventions. |
-| 7 | **Smart PR** | UI files touched → push branch only (user verifies visually). No UI → draft PR. NEVER create ready-for-review PR automatically. | User can't verify UI changes before review. |
-| 8 | **Anti-repetition** | Before proposing ANY approach: scan `learnings/INDEX.md` for matching corrections. If match → acknowledge + explain why different OR choose alternative. | Same mistake repeated. Learning system useless. |
-| 9 | **Auto-learning writes** | After verification pass → record what worked (Trigger 1). After fix loop → record failure + fix (Trigger 2). After wrap → validate patterns (Trigger 3). NEVER skip. | System never improves. Open-loop. |
-| 10 | **Devil's Advocate on ALL plans** | Every plan gets challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. | Bad plans ship unchallenged. Scope creep. Over-engineering. |
-| 11 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. User should NEVER have to ask "move ticket to reviewing". | User wastes time on manual Jira updates. |
-| 12 | **Self-evaluate before quality** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. Verdict: ALIGNED/DRIFT/WRONG. WRONG → fix loop. DRIFT → ask user. | Wrong solution ships because tests passed. User trust eroded. |
-| 13 | **Elegance before review** | Before Prism: check for unnecessary abstraction, dead code, pass-through wrappers, single-consumer abstractions. Simplify if found, re-verify, then quality review. | Over-engineered code ships. Maintenance burden grows. |
-| 14 | **Simplify always runs** | After EVERY verification pass: call `Skill(skill="simplify")` on all changed files. This is NOT optional. Not "if time permits." Not "if it seems complex." EVERY time. If simplify produces changes → re-run Sentinel before proceeding. Simplify is the last defense against unnecessary complexity reaching review. | Bloated, unreviewed code ships. Reviewer wastes time on issues Claude should have caught. |
-
-### How to Self-Check
-
-Before claiming ANY task is done, Claude MUST answer YES to ALL of these:
-
-- [ ] Am I on a feature branch (not main/develop)?
-- [ ] Did I run verification commands and read the output?
-- [ ] Did I record what worked in learnings (Trigger 1)?
-- [ ] Did the Devil's Advocate review the plan?
-- [ ] Did I check anti-repetition before starting?
-- [ ] Are all agents running in background (except whitelisted)?
-- [ ] Did Cortex self-evaluate the diff against contract intent (not just tests)?
-- [ ] Did I check for unnecessary complexity before quality review?
-- [ ] Did I run `simplify` on all changed files after verification passed?
-
-If ANY answer is NO → fix it before proceeding. Do NOT report "done".
+| Rule | What |
+|------|------|
+| **Feature branch** | Before ANY commit: check branch. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch first. |
+| **Verification mandatory** | After implementation: Sentinel runs repo-detected commands. Read output. Confirm pass. Only then claim "done". |
+| **Anti-repetition** | Before ANY approach: scan `learnings/INDEX.md` for matching corrections. If match → acknowledge or choose alternative. |
+| **Devil's Advocate** | Every plan gets challenged before execution. Max 2 iterations. |
+| **Simplify always runs** | After verification pass: `simplify` on all changed files. If changes → re-verify. |
+| **Intent check** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. |
+| **Smart PR** | UI touched → push branch only. No UI → draft PR. Never auto-create ready-for-review PR. |
+| **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + add comment with link. |
+| **Learnings** | After wrap: record what worked, corrections from fix loops, validate/promote patterns. |
 
 ---
 
@@ -85,20 +62,9 @@ If ANY answer is NO → fix it before proceeding. Do NOT report "done".
 
 ---
 
-## Caveman Output Rules (All Agents)
+## Output Style
 
-Every crew member follows these output rules to maximize token savings:
-
-**Drop:** articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries (sure/certainly/of course/happy to), hedging (might/perhaps/consider).
-**Keep:** technical terms exact, code blocks unchanged, file paths exact, error messages quoted exact.
-**Pattern:** `[thing] [action] [reason]. [next step].`
-**Short synonyms:** big not extensive, fix not "implement a solution for", use not utilize, check not investigate.
-
-**Auto-clarity exceptions** (switch to normal English):
-- Security warnings and irreversible action confirmations
-- Multi-step sequences where fragment order risks misread
-- User explicitly confused
-- Code output, commits, PR titles/bodies
+All agents: terse, technical-exact, no filler. Expand for security warnings or user confusion.
 
 ---
 
