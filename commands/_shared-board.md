@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Event Log Context
+# Team Skill Crew -- Event Log Context
 
 > Loaded by commands that interact with session state. Always load `_shared.md` first.
 

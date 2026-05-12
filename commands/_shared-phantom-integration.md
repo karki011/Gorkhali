@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Phantom AI Integration (Optional)
+# Team Skill Crew -- Phantom AI Integration (Optional)
 
 > Loaded by commands that benefit from graph intelligence.
 > Always load `_shared.md` first. ALL phantom tools are OPTIONAL — skill degrades gracefully without them.

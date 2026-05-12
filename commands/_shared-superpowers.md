@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Superpowers Discipline Context
+# Team Skill Crew -- Superpowers Discipline Context
 
 > Loaded by commands that benefit from superpowers discipline enforcement.
 > Always load `_shared.md` first.

@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Shared Context (Core)
+# Team Skill Crew -- Shared Context (Core)
 
 > **Every `/team:*` subcommand MUST load this file first.**
 > Additional context tiers are loaded only by commands that need them.

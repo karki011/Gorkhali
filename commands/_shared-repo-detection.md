@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Repo Detection Context
+# Team Skill Crew -- Repo Detection Context
 
 > Loaded by commands that need repo-aware verification or stack-specific behavior.
 > Always load `_shared.md` first.

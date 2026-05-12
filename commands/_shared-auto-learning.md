@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Auto-Learning System
+# Team Skill Crew -- Auto-Learning System
 
 > Loaded by commands that complete work. Always load `_shared.md` first.
 

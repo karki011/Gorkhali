@@ -1,4 +1,4 @@
-# Phantom Works Crew -- Contracts & Hooks Context
+# Team Skill Crew -- Contracts & Hooks Context
 
 > Loaded by commands that create/validate contracts or run verification hooks. Always load `_shared.md` first.
 

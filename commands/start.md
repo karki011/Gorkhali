@@ -17,7 +17,7 @@ argument-hint: "<requirement>"
 
 > **Output on start:**
 > ```
->   ⚡ PHANTOM WORKS ⚡
+>   ⚡ TEAM SKILL ⚡
 >   ━━━━━━━━━━━━━━━━━
 >   Session: {TICKET}
 >   Crew assembling...

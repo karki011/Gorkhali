@@ -1,4 +1,4 @@
-# Phantom Works — Crew Context
+# Team Skill — Crew Context
 
 > Loaded by commands that spawn agents. Always load `_shared.md` first.
 
