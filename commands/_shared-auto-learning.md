@@ -23,10 +23,41 @@
 ## INDEX.md Entry Format
 
 ```markdown
-- [{keyword}] {what worked} — {files} [validated:N] ({date})
-- CORRECTION [{keyword}]: {failure} — {alternative} [failed] ({date})
+# Patterns
+- [{keyword}] {what worked} — {files} [v:N q:0.8 u:2026-05-11]
+- [{keyword}] {what worked} — {files} [proposed u:2026-05-11]
+
+# Corrections
+- CORRECTION [{keyword}]: {failure} — {alternative} [failed u:2026-05-11]
+
+# Sessions
 - SESSION {TICKET}: route={SOLO|CREW}, outcome={pass|fail}, fix_loops={N} ({date})
 ```
+
+**Field meanings:**
+- `v:N` — validation count (times used successfully)
+- `q:0.X` — quality score = (times_followed_without_issues / times_loaded). Computed at wrap.
+- `u:YYYY-MM-DD` — last used date. Updated every time pattern is loaded into an agent prompt.
+
+---
+
+## Scoring + Decay Rules
+
+**On every session start (Phase A):**
+- When loading INDEX.md, update `u:` date on every pattern that matches the current task domain
+
+**On wrap:**
+- Patterns followed without issues this session → `v:N+1`, recompute `q:`
+- Patterns that caused issues → `v:N-1` (min 0), recompute `q:`
+- `v:0` and `q:` < 0.3 → flip to `[failed]`
+
+**Auto-prune (during wrap):**
+- `u:` older than 30 days AND `v:` < 2 → mark `[stale]`
+- `[stale]` entries older than 60 days → remove entirely (they had no value)
+
+**Auto-promote (during wrap):**
+- `v:5+` AND `q:` > 0.6 AND not repo-specific → promote to `global/patterns/INDEX.md`
+- Global entry starts at `[v:1 q:0.8 u:{today}]` regardless of source count
 
 ---
 

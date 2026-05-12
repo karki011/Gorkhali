@@ -61,6 +61,32 @@ For each task in the plan, Cortex assigns a model tier (see `_shared-crew.md` �
 
 Include tier in plan output: `Task 1: [sonnet] Implement UserProfile component`
 
+### GOAP Precondition/Effect Modeling (CREW-routed tasks only)
+
+For CREW tasks, declare preconditions and effects per task. This catches ordering bugs before execution.
+
+**Format (in plan output):**
+```
+Task 1: [sonnet] Generate API types from OpenAPI spec
+  Preconditions: [OpenAPI spec exists, codegen tool installed]
+  Effects: [types exported from src/api/types.ts]
+
+Task 2: [sonnet] Implement UserProfile component
+  Preconditions: [API types exist (Task 1), design spec available]
+  Effects: [component renders at /profile, props typed, tests pass]
+
+Task 3: [haiku] Add route to router config
+  Preconditions: [UserProfile component exists (Task 2)]
+  Effects: [/profile route registered, lazy-loaded]
+```
+
+**Validation (before dispatching):**
+- For each task, verify all preconditions are satisfied by effects of earlier tasks or existing codebase state
+- If a precondition is unmet → reorder tasks or add a missing task
+- If circular dependency → flag to user
+
+**SOLO tasks skip this** — single Spark handles ordering internally.
+
 ## Intent Alignment Checkpoints (During Execution)
 
 After each agent completes in Phase D, Cortex checks:
