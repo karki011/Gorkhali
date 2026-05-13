@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`.
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) After execution completes (D-Solo or D-Crew), `Skill(skill="team:verify")` MUST run — it contains the full pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism). No inline verification shortcuts. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion. (6) **SUBAGENT-DRIVEN ALWAYS** — Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit. ALL implementation goes through the Agent tool, even 1-line fixes. Call `Skill("superpowers:subagent-driven-development")` before any dispatch. (7) Native `/goal` is OPT-IN (Phase B step 8b) — only for long-running tasks, always with turn cap clause to prevent runaway loops. Wrap clears it defensively.
 
 ---
 
@@ -30,9 +30,10 @@ argument-hint: "<requirement>"
 2. **Jira context pull** (if Atlassian MCP available AND `TICKET` detected):
    - Fetch ticket: `mcp__atlassian__getJiraIssue(issueIdOrKey: TICKET, responseContentFormat: "markdown")`
    - Extract: summary, description, acceptance criteria, type, priority, comments, parent epic
+   - **Capture acceptance criteria separately** into `ACCEPTANCE_CRITERIA` variable — used as default `Done When` predicate in Phase B Intent
    - Merge into `$ARGUMENTS` context — ticket description becomes the requirement
    - Transition Jira to "In Progress" (best-effort, don't block if it fails)
-   - If Atlassian MCP not available: skip silently, use `$ARGUMENTS` as-is
+   - If Atlassian MCP not available: skip silently, use `$ARGUMENTS` as-is, `ACCEPTANCE_CRITERIA = null`
 3. Register session: `TaskCreate({ subject: '[Cortex] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
 4. Load `learnings/INDEX.md` + `learnings/crew.md`, then domain-specific learnings after classification:
    UI → `ui.md` | Data/API → `data.md` | Auth → `auth.md` | Tests → `testing.md` | Migration → `migration.md` | Tooling → `tooling.md`
@@ -44,6 +45,11 @@ argument-hint: "<requirement>"
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
 9. **Pre-Plan Hook:** Classify task type + risk → detect missing context → decide if scouts needed → determine if Prism is hard gate
 10. **Model override detection:** Check if user specified a model preference in `$ARGUMENTS` or conversation (e.g., "use opus", "spawn with sonnet", "opus for sparks"). If found, set `MODEL_OVERRIDE` for the session — all background agent spawns use this model instead of the registry default. Valid values: `opus`, `sonnet`. If not specified, `MODEL_OVERRIDE = null` (use registry defaults).
+11. **Activate cortex-subagent-driven hook (Iron Law #13 audit):**
+    ```
+    touch ~/.claude/team/.cortex-active
+    ```
+    This sentinel arms the PreToolUse hook at `~/.claude/team/hooks/cortex-subagent-driven-law.sh`. Every Edit/Write/MultiEdit call during the session is audited to `~/.claude/team/audit/cortex-edits-{date}.jsonl`. Orchestration paths (sessions/, .planning/, contracts/, decisions/, learnings/) are exempt. Removed by `/team:wrap`.
 
 ---
 
@@ -54,12 +60,19 @@ argument-hint: "<requirement>"
    ```
    ## Intent
    **Goal:** [success in one sentence]
+   **Done When:** [machine-checkable exit condition — checklist of verifiable predicates]
    **Priority:** [speed | quality | ux | stability | scope — ranked]
    **Acceptable trade-offs:** [what CAN be sacrificed]
    **Non-negotiables:** [what MUST NOT be compromised]
    ```
    Save to: plan, `sessions/{TICKET}/intent.md`, every agent prompt (compact 3-line version).
    Infer if user doesn't engage: bug→stability, feature→speed, figma→ux, refactor→quality.
+
+   **`Done When` sourcing — MANDATORY, in this order:**
+   a. If `ACCEPTANCE_CRITERIA` from Jira is non-empty → use it as the default. Show to user: "Done When derived from {TICKET} acceptance criteria: [list]. Confirm or edit?"
+   b. If `ACCEPTANCE_CRITERIA` empty/missing → ask user explicitly: "What are the exit conditions? When is this done?" Block Phase B until answered.
+   c. Format as verifiable predicates (e.g., "tests pass", "lint clean", "endpoint returns 200 on /foo", "UAT confirmed by user", "Prism >= 7.0"). Vague predicates ("looks good", "works well") MUST be sharpened before proceeding.
+   d. Cortex does NOT have permission to infer `Done When` — it must come from Jira or the user.
 
 3. Call `Skill(skill="superpowers:writing-plans")` — defines plan structure, task granularity, quality standards
 4. **Codebase-first inventory** + **Anti-repetition check:**
@@ -96,6 +109,36 @@ argument-hint: "<requirement>"
    - Call `phantom_orchestrator_history({ limit: 10 })` — merge failed approaches into anti-repetition notes
 
 8. Get user approval via `ExitPlanMode`
+
+8b. **Activate native `/goal` loop (OPT-IN, with turn cap):**
+
+   `/goal` is **opt-in** — Cortex asks before activating to avoid runaway turn-loops on short tasks. Default is OFF.
+
+   **Decision rule:**
+   - Task estimated > 5 turns (multi-file feature, refactor, debugging chase) → ASK user: "Activate `/goal` auto-loop with `Done When` as exit condition?"
+   - Task estimated ≤ 5 turns (single-file fix, doc update, simple component) → SKIP `/goal`, rely on Phase E Gate alone
+   - Running headless (`claude -p`) → activate by default with turn cap
+
+   **If activating, ALWAYS append a turn cap clause** to prevent infinite loops:
+   ```
+   /goal {Done When predicates joined with " AND "} OR stop after {N} turns
+   ```
+   - `N` = max(10, 2× expected turn count). Hard ceiling: 20 turns.
+   - Example: `/goal Sentinel PASS AND Prism >= 7.0 AND CP-41171 AC confirmed OR stop after 12 turns`
+
+   **What `/goal` does:**
+   - Wraps the session in a turn-loop. After each turn, a small fast model evaluates the condition against the conversation transcript
+   - Unmet → auto-triggers another turn with condition as directive
+   - Met OR turn cap hit → goal clears, normal flow resumes
+
+   **Anti-runaway safeguards:**
+   - Turn cap clause is MANDATORY (never omit it)
+   - If user sees "Goal not yet met… continuing" 3+ times → press `ctrl+o` or run `/goal clear` manually
+   - Phase E Gate runs independent of `/goal` — it's the deterministic exit, not the loop's evaluator
+
+   The `/goal` evaluator cannot run tools — it only reads the transcript. Phase E Goal Gate (step 0) surfaces hard evidence (Sentinel results, Prism score) into the transcript for the evaluator to find.
+
+   If `/goal` is unavailable (no trust dialog accepted, `disableAllHooks` set, etc.) → skip silently and rely on Phase E Gate alone.
 
 9. **Emit routing decision:**
    ```
@@ -156,19 +199,16 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    })
    ```
 3. On completion: review report, check Oracle usage, verify Spark self-review score >= 7. If blockers → pivot to CREW.
-4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
-   a. Load `_shared-repo-detection.md` → discover verify commands for this repo
-   b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
-   c. Call `Skill(skill="superpowers:verification-before-completion")` — evidence before claims
-   d. If PASS → run quality pipeline before Prism:
-      i.  Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
-      ii. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
-      ii-b. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` on modified files for structural impact analysis. Feed impact report into Prism context.
-      iii. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
-      iv. Spawn Prism (advisory if low risk, gauntlet if medium+)
-   g. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
-   e. If FAIL → enter fix sub-loop (same as D-Crew step 6)
-   f. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+4. **Run `/team:verify` — MANDATORY, NO SKIP, NO EXCEPTIONS:**
+   Call `Skill(skill="team:verify")` — this runs the full verification pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism).
+   a. If PASS → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
+   b. If FAIL → enter fix sub-loop (max 3):
+      i.   Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
+      ii.  Spawn repair agents (only failing scope)
+      iii. Re-run `Skill(skill="team:verify")` → pass exits loop, fail repeats
+      iv.  Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
+      v.   Contract change needed → return to Phase C | Scope expansion → return to Phase B
+   c. Cortex does NOT have permission to skip this step or report "done" without verification evidence
 5. **Pivot escape:** If executor overwhelmed (3 Oracle calls exhausted) → summarize progress, re-enter Phase B, route as CREW.
 
 ### D-Crew (CREW-routed tasks)
@@ -183,65 +223,18 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
      Are interfaces compatible with what the next agent expects? If drift → flag and correct.
    - **Assembly check** (2+ agents done): verify outputs are consistent, match Intent
    - **Oracle checkpoint** (optional, 3+ files changed): quick opus review before testing
-4. **MANDATORY VERIFICATION GATE — NO SKIP, NO EXCEPTIONS:**
-   a. Load `_shared-repo-detection.md` → discover verify commands for this repo
-   b. Spawn Sentinel with discovered commands (NOT hardcoded `pnpm check`)
-   c. Call `Skill(skill="superpowers:verification-before-completion")` — evidence before claims
-   d. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+4. **Run `/team:verify` — MANDATORY, NO SKIP, NO EXCEPTIONS:**
+   Call `Skill(skill="team:verify")` — this runs the full verification pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism).
+   a. Cortex does NOT have permission to skip this step or report "done" without verification evidence
 
-> **Output on verification result:**
-> If PASS:
-> ```
->   ┌─────────────────────┐
->   │  ✓ VERIFICATION OK  │
->   │  lint ✓  build ✓    │
->   │  tests ✓             │
->   └─────────────────────┘
-> ```
-> If FAIL:
-> ```
->   ┌─────────────────────┐
->   │  ✗ VERIFICATION FAIL│
->   │  {failed step} ✗     │
->   │  entering fix loop   │
->   └─────────────────────┘
-> ```
-
-5. **If PASS** → run quality pipeline:
-   a. Call `Skill(skill="simplify")` — review changed code for reuse, quality, efficiency. Fix issues found.
-   b. Call `Skill(skill="code-review:code-review")` — code review changed files against repo conventions
-   b2. If `AVAILABLE_MCPS.code_graph` → call `detect_changes` + `get_affected_flows` on all modified files. Feed structural analysis into Prism context.
-   c. If simplify or code-review produced changes → re-run Sentinel (verify fixes didn't break anything)
-   d. Proceed to step 7
-   e. Record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
+5. **If PASS** → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
 6. **If FAIL** → fix sub-loop (max 3):
    a. Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
    b. Spawn repair agents (only failing scope)
-   c. Re-run Sentinel → pass exits loop, fail repeats
+   c. Re-run `Skill(skill="team:verify")` → pass exits loop, fail repeats
    d. Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
    d2. Record what failed + what fixed it to `learnings/INDEX.md` (see `_shared-auto-learning.md`).
    e. Contract change needed → return to Phase C | Scope expansion → return to Phase B
-7. **Prism review** (with Quality Gate Loop):
-   a. Prism reviews with quality score rubric (see `prism.md` "Quality Score Rubric")
-   b. If APPROVED (score >= 7.0) → proceed to Outcome Recording
-   c. If NEEDS WORK (score 5.0–6.9) → enter quality gate loop:
-      i.   Cortex extracts CRITICAL + WARNING findings from Prism report
-      ii.  Spawn Spark (scoped to findings only) → fix → Spark runs self-review node
-      iii. Re-run Sentinel (verify fixes didn't break build/tests)
-      iv.  Re-run Prism (re-review ONLY the findings, not full review) → re-score
-      v.   Loop until APPROVED or max 2 quality iterations
-      vi.  If still NEEDS WORK after 2 → escalate to user with full score breakdown
-   d. If REJECTED (score < 5.0) → return to Phase B. Approach is fundamentally wrong.
-
-> **Output on quality gate:**
-> ```
->   ╔═══════════════════════════════╗
->   ║  🔄 QUALITY GATE LOOP        ║
->   ║  Score: {X.X}/10 → NEEDS WORK║
->   ║  Fixing {N} findings...      ║
->   ║  Iteration: {N}/2            ║
->   ╚═══════════════════════════════╝
-> ```
 
 ### Outcome Recording
 
@@ -258,6 +251,19 @@ TaskCreate({
 ## Phase E — Completion
 
 After all verification and review passes:
+
+0. **Goal Gate — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+   a. Load `Done When` predicates from `sessions/{TICKET}/intent.md`
+   b. Evaluate each predicate against current state (verification results, Prism score, file changes, UAT status)
+   c. For each predicate, mark: ✓ met / ✗ unmet / ? unverifiable
+   d. **If all predicates met** → proceed to step 1
+   e. **If any predicate unmet** → loop back to Phase B with delta:
+      - Capture which predicates failed and why
+      - Update plan with the gap
+      - Re-enter Phase D (skip Phase C if contracts still valid)
+      - Max 3 goal-loop iterations — if still unmet after 3, escalate to user with full predicate status
+   f. **If any predicate unverifiable** → ask user to confirm/deny that predicate before proceeding
+   g. Cortex does NOT have permission to declare done with unmet predicates. The `Done When` clause is the contract.
 
 1. **Detect PR strategy** (from `_shared-repo-detection.md`):
    - Check `HAS_UI` and whether changed files touch UI layer
