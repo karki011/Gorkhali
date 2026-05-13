@@ -118,7 +118,12 @@ Full shutdown:
     ```
     rm -f ~/.claude/team/.cortex-active
     ```
-14. Shut down crew
+14. **Clear native `/goal` if still active:**
+    ```
+    /goal clear
+    ```
+    Safe to run even if no goal is active — it's a no-op. Prevents a lingering goal from auto-triggering turns after wrap.
+15. Shut down crew
 
 ---
 

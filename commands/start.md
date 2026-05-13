@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion. (6) **SUBAGENT-DRIVEN ALWAYS** — Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit. ALL implementation goes through the Agent tool, even 1-line fixes. Call `Skill("superpowers:subagent-driven-development")` before any dispatch.
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion. (6) **SUBAGENT-DRIVEN ALWAYS** — Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit. ALL implementation goes through the Agent tool, even 1-line fixes. Call `Skill("superpowers:subagent-driven-development")` before any dispatch. (7) Native `/goal` activates after plan approval (Phase B step 8b) with `Done When` predicates — wrap clears it.
 
 ---
 
@@ -109,6 +109,24 @@ argument-hint: "<requirement>"
    - Call `phantom_orchestrator_history({ limit: 10 })` — merge failed approaches into anti-repetition notes
 
 8. Get user approval via `ExitPlanMode`
+
+8b. **Activate native `/goal` loop (Done When predicates):**
+   After plan approval, invoke `/goal` with the captured `Done When` predicates as a single condition string:
+   ```
+   /goal {Done When predicates joined with " AND "}
+   ```
+   Example: `/goal Sentinel PASS on lint+build+tests AND Prism score >= 7.0 AND all CP-41171 acceptance criteria confirmed`
+
+   What this does:
+   - Native Claude Code `/goal` wraps the rest of the session in a turn-loop
+   - After each turn, the small fast model evaluates the condition against the conversation transcript
+   - If unmet → automatically starts another turn with the condition as directive
+   - If met → goal clears automatically, normal flow resumes
+   - Works in headless `claude -p` mode for autonomous runs
+
+   The `/goal` evaluator cannot run tools — it judges from the transcript. Phase E Goal Gate (step 0) remains the deterministic verification layer that surfaces evidence into the transcript for the evaluator to read.
+
+   If `/goal` is unavailable (no trust dialog accepted, `disableAllHooks` set, etc.) → skip silently and rely on Phase E Gate alone.
 
 9. **Emit routing decision:**
    ```
