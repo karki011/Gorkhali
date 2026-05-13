@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions.
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion.
 
 ---
 
@@ -30,9 +30,10 @@ argument-hint: "<requirement>"
 2. **Jira context pull** (if Atlassian MCP available AND `TICKET` detected):
    - Fetch ticket: `mcp__atlassian__getJiraIssue(issueIdOrKey: TICKET, responseContentFormat: "markdown")`
    - Extract: summary, description, acceptance criteria, type, priority, comments, parent epic
+   - **Capture acceptance criteria separately** into `ACCEPTANCE_CRITERIA` variable — used as default `Done When` predicate in Phase B Intent
    - Merge into `$ARGUMENTS` context — ticket description becomes the requirement
    - Transition Jira to "In Progress" (best-effort, don't block if it fails)
-   - If Atlassian MCP not available: skip silently, use `$ARGUMENTS` as-is
+   - If Atlassian MCP not available: skip silently, use `$ARGUMENTS` as-is, `ACCEPTANCE_CRITERIA = null`
 3. Register session: `TaskCreate({ subject: '[Cortex] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
 4. Load `learnings/INDEX.md` + `learnings/crew.md`, then domain-specific learnings after classification:
    UI → `ui.md` | Data/API → `data.md` | Auth → `auth.md` | Tests → `testing.md` | Migration → `migration.md` | Tooling → `tooling.md`
@@ -54,12 +55,19 @@ argument-hint: "<requirement>"
    ```
    ## Intent
    **Goal:** [success in one sentence]
+   **Done When:** [machine-checkable exit condition — checklist of verifiable predicates]
    **Priority:** [speed | quality | ux | stability | scope — ranked]
    **Acceptable trade-offs:** [what CAN be sacrificed]
    **Non-negotiables:** [what MUST NOT be compromised]
    ```
    Save to: plan, `sessions/{TICKET}/intent.md`, every agent prompt (compact 3-line version).
    Infer if user doesn't engage: bug→stability, feature→speed, figma→ux, refactor→quality.
+
+   **`Done When` sourcing — MANDATORY, in this order:**
+   a. If `ACCEPTANCE_CRITERIA` from Jira is non-empty → use it as the default. Show to user: "Done When derived from {TICKET} acceptance criteria: [list]. Confirm or edit?"
+   b. If `ACCEPTANCE_CRITERIA` empty/missing → ask user explicitly: "What are the exit conditions? When is this done?" Block Phase B until answered.
+   c. Format as verifiable predicates (e.g., "tests pass", "lint clean", "endpoint returns 200 on /foo", "UAT confirmed by user", "Prism >= 7.0"). Vague predicates ("looks good", "works well") MUST be sharpened before proceeding.
+   d. Cortex does NOT have permission to infer `Done When` — it must come from Jira or the user.
 
 3. Call `Skill(skill="superpowers:writing-plans")` — defines plan structure, task granularity, quality standards
 4. **Codebase-first inventory** + **Anti-repetition check:**
@@ -268,6 +276,19 @@ TaskCreate({
 ## Phase E — Completion
 
 After all verification and review passes:
+
+0. **Goal Gate — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+   a. Load `Done When` predicates from `sessions/{TICKET}/intent.md`
+   b. Evaluate each predicate against current state (verification results, Prism score, file changes, UAT status)
+   c. For each predicate, mark: ✓ met / ✗ unmet / ? unverifiable
+   d. **If all predicates met** → proceed to step 1
+   e. **If any predicate unmet** → loop back to Phase B with delta:
+      - Capture which predicates failed and why
+      - Update plan with the gap
+      - Re-enter Phase D (skip Phase C if contracts still valid)
+      - Max 3 goal-loop iterations — if still unmet after 3, escalate to user with full predicate status
+   f. **If any predicate unverifiable** → ask user to confirm/deny that predicate before proceeding
+   g. Cortex does NOT have permission to declare done with unmet predicates. The `Done When` clause is the contract.
 
 1. **Detect PR strategy** (from `_shared-repo-detection.md`):
    - Check `HAS_UI` and whether changed files touch UI layer
