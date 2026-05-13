@@ -45,6 +45,11 @@ argument-hint: "<requirement>"
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
 9. **Pre-Plan Hook:** Classify task type + risk → detect missing context → decide if scouts needed → determine if Prism is hard gate
 10. **Model override detection:** Check if user specified a model preference in `$ARGUMENTS` or conversation (e.g., "use opus", "spawn with sonnet", "opus for sparks"). If found, set `MODEL_OVERRIDE` for the session — all background agent spawns use this model instead of the registry default. Valid values: `opus`, `sonnet`. If not specified, `MODEL_OVERRIDE = null` (use registry defaults).
+11. **Activate cortex-subagent-driven hook (Iron Law #13 audit):**
+    ```
+    touch ~/.claude/team/.cortex-active
+    ```
+    This sentinel arms the PreToolUse hook at `~/.claude/team/hooks/cortex-subagent-driven-law.sh`. Every Edit/Write/MultiEdit call during the session is audited to `~/.claude/team/audit/cortex-edits-{date}.jsonl`. Orchestration paths (sessions/, .planning/, contracts/, decisions/, learnings/) are exempt. Removed by `/team:wrap`.
 
 ---
 

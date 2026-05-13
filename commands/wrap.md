@@ -104,7 +104,21 @@ Full shutdown:
       whether the team skill is invoked. Critical corrections and validated patterns
       survive even in quick sessions that don't load the full team skill.
 11. Update auto-memory (`project_*.md` in memory dir)
-12. Shut down crew
+12. **Iron Law #13 audit report** — scan `~/.claude/team/audit/cortex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+    ```bash
+    grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/cortex-edits-*.jsonl 2>/dev/null
+    ```
+    - If no entries → ✓ Iron Law #13 held (subagent-driven was respected)
+    - If entries found → ✗ violations occurred. Report in wrap summary:
+      - Count of violations
+      - Files touched directly
+      - Append summary to `learnings/crew.md ## Corrections`: `CORRECTION [subagent-driven]: Cortex edited {N} files directly — should have spawned Spark [failed] ({date})`
+    - This is informational for Option C mode. If Option A (hard block) was active, violations wouldn't have been possible.
+13. **Deactivate cortex hook sentinel:**
+    ```
+    rm -f ~/.claude/team/.cortex-active
+    ```
+14. Shut down crew
 
 ---
 
