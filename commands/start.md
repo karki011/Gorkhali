@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion.
+> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:code-reviewer` MUST run after verification passes and before Prism — no skip, no exceptions. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion. (6) **SUBAGENT-DRIVEN ALWAYS** — Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit. ALL implementation goes through the Agent tool, even 1-line fixes. Call `Skill("superpowers:subagent-driven-development")` before any dispatch.
 
 ---
 

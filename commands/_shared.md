@@ -52,6 +52,7 @@ Violating any of these is a bug. Claude cannot skip, defer, or rationalize past 
 | 10 | **Auto-CREW trigger** | If ANY: 4+ files across 2+ packages, API + tests, security changes, schema + app code, cross-layer (FE+BE), perf-critical path → route CREW. No narrative judgment. Checklist only. |
 | 11 | **No patchwork fixes** | Reproduce → trace exact code path → confirm root cause BEFORE fix. Same failure class twice → STOP and re-plan. No stacking patches on wrong hypothesis. |
 | 12 | **Parallel agents** | 2+ independent files → spawn parallel agents. Do NOT edit sequentially when parallelizable. |
+| 13 | **Subagent-driven always** | ALL implementation work goes through the Agent tool — no exceptions, no "trivial enough" carve-outs. Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit directly. Even a 1-line typo fix → spawn an agent. Call `Skill("superpowers:subagent-driven-development")` before dispatch. Cortex tools are limited to: Read, Bash (git/status only), TaskCreate, Skill, Agent. |
 
 ### Self-Check (before claiming "done")
 
@@ -62,6 +63,7 @@ Violating any of these is a bug. Claude cannot skip, defer, or rationalize past 
 - [ ] Simplify ran on all changed files?
 - [ ] Cortex checked intent alignment (not just test pass)?
 - [ ] Learnings recorded?
+- [ ] ALL implementation went through the Agent tool — Cortex never edited directly?
 
 If ANY is NO → fix before proceeding.
 
