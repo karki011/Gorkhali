@@ -75,4 +75,4 @@ Start a fix loop from the latest failed verification.
 
     Choose A/B/C/D or provide direction:
     ```
-    Do NOT continue without user response. This is a hard gate.
+    Wait for user response before continuing.

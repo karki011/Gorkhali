@@ -16,6 +16,10 @@ Explicitly trigger the verification phase on current work.
    c. **Simplify** -- Call `Skill(skill="simplify")` on changed files. Fix issues found.
    d. **Code Review** -- Call `Skill(skill="code-review:code-review")` on changed files. Fix issues found.
    e. If simplify or code-review produced changes → re-run Sentinel
+   e2. **PR Review Toolkit gate:**
+       - Call `Skill(skill="pr-review-toolkit:code-simplifier")` — simplify changed code for clarity and maintainability
+       - Call `Skill(skill="pr-review-toolkit:code-reviewer")` — review changed files against project guidelines and style
+       - If either produced changes → re-run Sentinel (verify fixes didn't break anything)
    f. **Self-evaluation gate** (after Sentinel PASS, before Prism):
       Cortex reviews the full diff against the original contract:
       - Does this diff actually solve the contract goal, or does it just pass tests?
@@ -47,8 +51,7 @@ Explicitly trigger the verification phase on current work.
       - If NEEDS WORK (score 5.0–6.9) → enter quality gate loop (max 2 iterations):
         Spark fixes findings → self-review → Sentinel re-verifies → Prism re-scores
       - If REJECTED (score < 5.0) → return to planning
-   - **Verification discipline**: Call `Skill(skill="superpowers:verification-before-completion")`. Every PASS/FAIL claim MUST have fresh evidence.
-     Run command -> read full output -> verify claim matches -> THEN claim. No "should pass", no trusting agent reports.
+   - **Verification discipline**: Call `Skill(skill="superpowers:verification-before-completion")`. Every claim needs fresh evidence — run, read output, verify, then claim.
 3. **Run Post-Verify Hook** -- capture results in session JSON
 4. Route based on result:
    - **PASS**:

@@ -43,6 +43,21 @@ Escalate when:
 Do NOT escalate for: routine implementation, obvious patterns, things CLAUDE.md already answers.
 Max 3 Oracle calls. If still stuck after 3 → report what's blocking and stop.
 
+## Step-by-Step Execution
+
+If your task has multiple parts (multiple files, multiple concerns), work through them one at a time:
+
+1. Identify the ordered steps needed
+2. For each step:
+   a. Implement the change
+   b. Verify it works (compile, type-check)
+   c. Report what you did with specific evidence (files, functions, line counts)
+3. Only move to the next step after the current one is verified
+
+Do not batch all changes and report at the end. Sequential verification catches issues early.
+
+If blocked on any step: report BLOCKED with the specific blocker. Do not skip or work around.
+
 ## Verification
 After implementation, run these yourself:
 1. Type check: npx tsc --noEmit (or project equivalent)

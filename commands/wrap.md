@@ -51,13 +51,12 @@ Full shutdown:
    - Call `phantom_evaluate_output` with verification summary + Prism verdict as output, original goal as context
    - This closes phantom's learning loop — the orchestrator records success/failure and adjusts strategy weights for similar future goals
    - If verification failed: phantom records failure reason, penalizing the strategy for similar goals going forward
-9c. **AUTO-LEARNING TRIGGER 3 — MANDATORY, NO SKIP:**
+9c. **Auto-learning trigger 3:**
    - Validate all patterns used this session: increment `[validated:N]` on patterns that held, downgrade patterns that caused issues
    - Auto-promote `[validated:5+]` patterns to `global/patterns/INDEX.md`
    - Auto-demote patterns not validated in 30+ days → `[stale]`
    - Append session summary to INDEX.md: `SESSION {TICKET}: route={route}, outcome={outcome}, fix_loops={N}, patterns_validated={N}, corrections_added={N} ({date})`
    - See `_shared-auto-learning.md` for full protocol
-   - Wrap MUST NOT complete without this step
 10. **Testgaps scan** (advisory — does not block wrap):
     Check for changed source files without corresponding test changes:
     ```bash
@@ -104,7 +103,26 @@ Full shutdown:
       whether the team skill is invoked. Critical corrections and validated patterns
       survive even in quick sessions that don't load the full team skill.
 11. Update auto-memory (`project_*.md` in memory dir)
-12. Shut down crew
+12. **Iron Law #13 audit report** — scan `~/.claude/team/audit/cortex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+    ```bash
+    grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/cortex-edits-*.jsonl 2>/dev/null
+    ```
+    - If no entries → ✓ Iron Law #13 held (subagent-driven was respected)
+    - If entries found → ✗ violations occurred. Report in wrap summary:
+      - Count of violations
+      - Files touched directly
+      - Append summary to `learnings/crew.md ## Corrections`: `CORRECTION [subagent-driven]: Cortex edited {N} files directly — should have spawned Spark [failed] ({date})`
+    - This is informational for Option C mode. If Option A (hard block) was active, violations wouldn't have been possible.
+13. **Deactivate cortex hook sentinel:**
+    ```
+    rm -f ~/.claude/team/.cortex-active
+    ```
+14. **Clear native `/goal` if still active:**
+    ```
+    /goal clear
+    ```
+    Safe to run even if no goal is active — it's a no-op. Prevents a lingering goal from auto-triggering turns after wrap.
+15. Shut down crew
 
 ---
 

@@ -9,7 +9,7 @@ argument-hint: "<requirement>"
 
 # /team:start "$ARGUMENTS"
 
-> **HARD GATES:** (1) `EnterPlanMode` at Phase B start — no exceptions. (2) `Skill("superpowers:writing-plans")` before any plan. (3) All research/scout agents use `model: "opus"`. (4) After execution completes (D-Solo or D-Crew), `Skill(skill="team:verify")` MUST run — it contains the full pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism). No inline verification shortcuts. (5) `Done When` predicates MUST come from Jira acceptance criteria or explicit user input — Cortex cannot infer them. Phase E Goal Gate evaluates them before completion. (6) **SUBAGENT-DRIVEN ALWAYS** — Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit. ALL implementation goes through the Agent tool, even 1-line fixes. Call `Skill("superpowers:subagent-driven-development")` before any dispatch. (7) Native `/goal` is OPT-IN (Phase B step 8b) — only for long-running tasks, always with turn cap clause to prevent runaway loops. Wrap clears it defensively.
+> **Gates:** (1) EnterPlanMode before planning. (2) writing-plans skill before any plan. (3) Research agents use opus. (4) team:verify after execution. (5) Done When from Jira AC or user — never inferred. (6) All implementation through Agent tool. (7) /goal opt-in with turn cap.
 
 ---
 
@@ -68,11 +68,10 @@ argument-hint: "<requirement>"
    Save to: plan, `sessions/{TICKET}/intent.md`, every agent prompt (compact 3-line version).
    Infer if user doesn't engage: bug→stability, feature→speed, figma→ux, refactor→quality.
 
-   **`Done When` sourcing — MANDATORY, in this order:**
+   **`Done When` sourcing (in order):**
    a. If `ACCEPTANCE_CRITERIA` from Jira is non-empty → use it as the default. Show to user: "Done When derived from {TICKET} acceptance criteria: [list]. Confirm or edit?"
    b. If `ACCEPTANCE_CRITERIA` empty/missing → ask user explicitly: "What are the exit conditions? When is this done?" Block Phase B until answered.
-   c. Format as verifiable predicates (e.g., "tests pass", "lint clean", "endpoint returns 200 on /foo", "UAT confirmed by user", "Prism >= 7.0"). Vague predicates ("looks good", "works well") MUST be sharpened before proceeding.
-   d. Cortex does NOT have permission to infer `Done When` — it must come from Jira or the user.
+   c. Format as verifiable predicates (e.g., "tests pass", "lint clean", "endpoint returns 200 on /foo", "UAT confirmed by user", "Prism >= 7.0"). Vague predicates ("looks good", "works well") must be sharpened before proceeding.
 
 3. Call `Skill(skill="superpowers:writing-plans")` — defines plan structure, task granularity, quality standards
 4. **Codebase-first inventory** + **Anti-repetition check:**
@@ -84,6 +83,15 @@ argument-hint: "<requirement>"
    - Complex tasks (risk >= medium): call `Skill("superpowers:brainstorming")` first
 
 5. Produce plan: crew selection, agent-to-task mapping, contracts, execution order, risks
+
+5b. **Subtask decomposition** (structural enforcement of step ordering):
+   For each Spark's scope in the plan, decompose into ordered atomic subtasks:
+   - Each subtask = single concern (one file, one function, one integration point)
+   - Each subtask has an evidence requirement (what "done" looks like)
+   - Use `templates/decomposition-templates.md` for standard patterns
+   - Subtasks are created as TaskCreate entries during Phase D dispatch
+   
+   This replaces prompt-based "don't skip steps" with structural enforcement — Sparks execute one subtask at a time, report evidence, then get the next.
 
 6. **Devil's Advocate Review** (ALL plans — mandatory):
    Spawn Devil's Advocate (opus, no tools, blocking) with the complete plan:
@@ -199,8 +207,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    })
    ```
 3. On completion: review report, check Oracle usage, verify Spark self-review score >= 7. If blockers → pivot to CREW.
-4. **Run `/team:verify` — MANDATORY, NO SKIP, NO EXCEPTIONS:**
-   Call `Skill(skill="team:verify")` — this runs the full verification pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism).
+4. **Run team:verify** — `Skill(skill="team:verify")`
    a. If PASS → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
    b. If FAIL → enter fix sub-loop (max 3):
       i.   Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
@@ -208,7 +215,6 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
       iii. Re-run `Skill(skill="team:verify")` → pass exits loop, fail repeats
       iv.  Same failure twice → write correction to `learnings/{domain}.md ## Corrections` + escalate
       v.   Contract change needed → return to Phase C | Scope expansion → return to Phase B
-   c. Cortex does NOT have permission to skip this step or report "done" without verification evidence
 5. **Pivot escape:** If executor overwhelmed (3 Oracle calls exhausted) → summarize progress, re-enter Phase B, route as CREW.
 
 ### D-Crew (CREW-routed tasks)
@@ -223,9 +229,7 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
      Are interfaces compatible with what the next agent expects? If drift → flag and correct.
    - **Assembly check** (2+ agents done): verify outputs are consistent, match Intent
    - **Oracle checkpoint** (optional, 3+ files changed): quick opus review before testing
-4. **Run `/team:verify` — MANDATORY, NO SKIP, NO EXCEPTIONS:**
-   Call `Skill(skill="team:verify")` — this runs the full verification pipeline (Sentinel → simplify → code review → PR Review Toolkit → self-evaluation → elegance pause → Prism).
-   a. Cortex does NOT have permission to skip this step or report "done" without verification evidence
+4. **Run team:verify** — `Skill(skill="team:verify")`
 
 5. **If PASS** → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
 6. **If FAIL** → fix sub-loop (max 3):
@@ -252,7 +256,7 @@ TaskCreate({
 
 After all verification and review passes:
 
-0. **Goal Gate — HARD GATE, NO SKIP, NO EXCEPTIONS:**
+0. **Goal Gate:**
    a. Load `Done When` predicates from `sessions/{TICKET}/intent.md`
    b. Evaluate each predicate against current state (verification results, Prism score, file changes, UAT status)
    c. For each predicate, mark: ✓ met / ✗ unmet / ? unverifiable
@@ -263,21 +267,19 @@ After all verification and review passes:
       - Re-enter Phase D (skip Phase C if contracts still valid)
       - Max 3 goal-loop iterations — if still unmet after 3, escalate to user with full predicate status
    f. **If any predicate unverifiable** → ask user to confirm/deny that predicate before proceeding
-   g. Cortex does NOT have permission to declare done with unmet predicates. The `Done When` clause is the contract.
 
 1. **Detect PR strategy** (from `_shared-repo-detection.md`):
    - Check `HAS_UI` and whether changed files touch UI layer
    - UI touched → push branch only, notify user: "Branch pushed. Verify visually, then run `/team:wrap` to create PR."
    - No UI touched → create draft PR: `gh pr create --draft --title "{TICKET}: {summary}" --body "..."`
-2. **Update Jira — MANDATORY, DO NOT SKIP** (if Atlassian MCP available AND TICKET detected):
+2. **Update Jira** (if Atlassian MCP available AND TICKET detected):
    a. Get available transitions: `mcp__atlassian__getTransitionsForJiraIssue(issueKey: TICKET)`
    b. Find transition with name containing "Review" or "Reviewing"
    c. Execute transition: `mcp__atlassian__transitionJiraIssue(issueKey: TICKET, transitionId: {id})`
    d. Add comment with PR/branch link: `mcp__atlassian__addCommentToJiraIssue(issueKey: TICKET, body: "...")`
    - If draft PR created → transition to "Reviewing" + comment with PR URL
    - If branch pushed only → transition to "Reviewing" + comment with branch name
-   - If transition fails → log warning but do NOT block completion
-   - Cortex does NOT have permission to skip Jira update. The user should NEVER have to ask "move ticket to reviewing".
+   - If transition fails → log warning but do not block completion
 3. **Emit outcome** (existing Outcome Recording block)
 
 > **Output on completion** (pick one randomly):

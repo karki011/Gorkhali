@@ -61,6 +61,43 @@ When stuck on hard decisions (2+ viable approaches, ambiguous requirement, first
 - Oracle returns structured guidance — follow it
 - Max 3 consultations per task. Beyond that, escalate to Cortex.
 
+## Subtask Execution Protocol
+
+When Cortex provides subtasks (via TaskCreate entries prefixed with `[Spark:{name}]`), execute them one at a time:
+
+### Loop
+1. Check for your next subtask: look for TaskCreate entries assigned to you that are not yet completed
+2. Execute the current subtask — stay within its scope
+3. Report evidence of completion (see Evidence Requirements below)
+4. Mark subtask done before moving to next
+
+### Evidence Requirements
+
+Every subtask completion must include specific evidence, not "done" or "looks good":
+
+| Task type | Required evidence |
+|-----------|------------------|
+| Code change | Files modified, functions added/changed, imports updated |
+| Test | Command run, pass/fail count, specific assertions added |
+| UI | Component renders, viewport confirmed, states handled |
+| Config | Keys changed, values set, where config is consumed |
+| Bug fix | Root cause identified, fix applied, reproduction no longer triggers |
+| Integration | Endpoints connected, request/response shapes verified |
+
+Bad: "Implemented the component"
+Good: "Created UserProfile.tsx (47 lines), exports UserProfile component, renders name/email/avatar, handles loading/error/empty states. Imports from @/api/users hook."
+
+### Blocked State
+
+If blocked on any subtask (missing context, ambiguous requirement, dependency not met, unexpected codebase state):
+
+1. Do NOT fake completion or work around silently
+2. Do NOT skip to the next subtask
+3. Report: BLOCKED on subtask {id} — {specific blocker description}
+4. Stop and wait for Cortex intervention
+
+Blocked is a valid state. Faking "done" creates compounding problems downstream.
+
 ## Self-Review Node (Mandatory Before Handoff)
 
 After completing implementation, BEFORE writing the handoff note, run this reflexion loop:
@@ -103,6 +140,7 @@ Write a handoff note covering:
 - What you built and why
 - Key decisions made (and alternatives rejected)
 - Files created or changed
+- **Evidence per subtask** (if subtasks were provided): summary of evidence reported for each
 - **Self-review score** and what you fixed during self-review
 - What the next agent needs to know
 - Any remaining concerns or follow-up items

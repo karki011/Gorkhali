@@ -34,25 +34,23 @@ STORY     = ~/.claude/team/story/
 
 ---
 
-## IRON LAWS — Non-Negotiable. No Exceptions. No Rationalizing.
-
-Violating any of these is a bug. Claude cannot skip, defer, or rationalize past these.
+## Iron Laws
 
 | # | Law | Enforcement |
 |---|-----|-------------|
-| 1 | **Feature branch** | Before ANY commit: `git branch --show-current`. If on `main`/`develop`/`master` → create `{TICKET}/{slug}` branch. No asking. No committing to protected branches. |
-| 2 | **Verification mandatory** | After ALL implementation: Sentinel runs repo-detected commands. Read FULL output. Confirm pass. Only then claim "done". No "looks good" without evidence. |
-| 3 | **Anti-repetition** | Before ANY approach: scan `learnings/INDEX.md`. `[failed]` → BLOCKED (must explain difference or choose alternative). `[validated:5+]` → auto-apply. |
-| 4 | **Devil's Advocate** | Every plan challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. No unchallenged plans ship. |
-| 5 | **Simplify always runs** | After EVERY verification pass: `simplify` on all changed files. If changes → re-verify before proceeding. Not optional. Not "if time permits." |
-| 6 | **Intent check** | After Sentinel PASS: Cortex reviews diff against contract intent. Tests passing ≠ problem solved. ALIGNED/DRIFT/WRONG. WRONG → fix loop. DRIFT → ask user. |
-| 7 | **Smart PR** | UI touched → push branch only (user verifies visually). No UI → draft PR. NEVER auto-create ready-for-review PR. |
-| 8 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + comment with link. User should NEVER have to ask "move ticket." |
-| 9 | **Learnings** | Every session reads AND writes learnings. After wrap: record successes, corrections, validate/promote patterns. No silent sessions. |
-| 10 | **Auto-CREW trigger** | If ANY: 4+ files across 2+ packages, API + tests, security changes, schema + app code, cross-layer (FE+BE), perf-critical path → route CREW. No narrative judgment. Checklist only. |
-| 11 | **Root cause or nothing** | NEVER patch symptoms. Reproduce issue → trace exact code path → identify root cause → explain root cause to user → get confirmation → THEN fix. If you cannot explain WHY the bug happens, you do not have permission to write a fix. Same failure class twice → STOP, discard approach, re-plan from scratch. Stacking patches on a wrong hypothesis is a violation — one properly understood fix beats five guesses. |
-| 12 | **Parallel agents** | 2+ independent files → spawn parallel agents. Do NOT edit sequentially when parallelizable. |
-| 13 | **Subagent-driven always** | ALL implementation work goes through the Agent tool — no exceptions, no "trivial enough" carve-outs. Cortex NEVER calls Edit/Write/NotebookEdit/MultiEdit directly. Even a 1-line typo fix → spawn an agent. Call `Skill("superpowers:subagent-driven-development")` before dispatch. Cortex tools are limited to: Read, Bash (git/status only), TaskCreate, Skill, Agent. |
+| 1 | **Feature branch** | Before commit: `git branch --show-current`. On `main`/`develop`/`master` → create `{TICKET}/{slug}` branch. |
+| 2 | **Verification mandatory** | After implementation: Sentinel runs repo commands. Read full output. Confirm pass. Then claim "done". |
+| 3 | **Anti-repetition** | Before approach: scan `learnings/INDEX.md`. `[failed]` → blocked (explain difference or choose alternative). `[validated:5+]` → auto-apply. |
+| 4 | **Devil's Advocate** | Every plan challenged before execution. Verdict: PROCEED/REVISE/RETHINK. Max 2 iterations. |
+| 5 | **Simplify always runs** | After verification pass: `simplify` on changed files. If changes → re-verify. |
+| 6 | **Intent check** | After Sentinel PASS: review diff against contract intent. Tests passing ≠ problem solved. ALIGNED/DRIFT/WRONG. |
+| 7 | **Smart PR** | UI touched → push branch only (user verifies visually). No UI → draft PR. Never auto-create ready-for-review PR. |
+| 8 | **Jira auto-transition** | After push/PR: transition ticket to "Reviewing" + comment with link. |
+| 9 | **Learnings** | Every session reads and writes learnings. After wrap: record successes, corrections, validate/promote patterns. |
+| 10 | **Auto-CREW trigger** | If any: 4+ files across 2+ packages, API + tests, security changes, schema + app code, cross-layer, perf-critical → route CREW. Checklist only. |
+| 11 | **Root cause or nothing** | Reproduce → trace → identify root cause → explain to user → get confirmation → fix. Cannot explain WHY = cannot write fix. Same failure twice → discard approach, re-plan. |
+| 12 | **Parallel agents** | 2+ independent files → spawn parallel agents. Never edit sequentially when parallelizable. |
+| 13 | **Subagent-driven always** | All implementation through Agent tool. Cortex tools: Read, Bash (git only), TaskCreate, Skill, Agent. Even 1-line fixes → spawn agent. Call `Skill("superpowers:subagent-driven-development")` before dispatch. |
 
 ### Self-Check (before claiming "done")
 
