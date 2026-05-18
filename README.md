@@ -45,6 +45,8 @@ cd ~/.claude/team && git pull && ./setup.sh
 /team:pause                         # Save state, step away
 /team:resume                        # Pick up where you left off
 /team:wrap                          # Full shutdown with learnings
+/team:grill                         # Quiz yourself on the diff before shipping
+/team:grill --hard                  # Adversarial 7-question grill
 ```
 
 Or just describe what you want — Claude auto-triggers the team skill:
@@ -90,7 +92,8 @@ Or just describe what you want — Claude auto-triggers the team skill:
        │                 Simplify → Code Review → Prism (0-10)
        │                 Fix loop (max 3, same-class → re-plan)
        │
-  Phase E: Wrap          Testgaps scan + scope creep detection
+  Phase E: Wrap          Grill Gate (3+ agent files → quiz human)
+       │                 Testgaps scan + scope creep detection
        │                 Scored learnings update (prune/promote)
        │                 Draft PR or branch push + Jira update
        │
@@ -99,7 +102,22 @@ Or just describe what you want — Claude auto-triggers the team skill:
   ╰───────────────────╯
 ```
 
-## 12 Iron Laws
+## Recent Improvements (Research-Driven)
+
+Adopted from analysis of [claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) and [gstack](https://github.com/garrytan/gstack):
+
+| Feature | Description |
+|---------|-------------|
+| **Context thresholds** | 30/40/60% warnings via PreCompact hook. `/compact` with focus hints. |
+| **Tiered preamble (T1-T4)** | Simple commands load lean context. 40-60% token savings. |
+| **Grill Gate** | Human understanding check before PR — auto-triggers at 3+ agent files |
+| **Scrap-and-redo** | Fix loop synthesizes failure knowledge, reverts code, rebuilds fresh |
+| **Worktree isolation** | Parallel Sparks get `isolation: "worktree"` — no file conflicts |
+| **Declarative agent frontmatter** | `maxTurns`, `effort` structurally enforced per agent |
+
+Research reports: `research/*.html`
+
+## 13 Iron Laws
 
 Non-negotiable constraints Claude cannot rationalize past:
 
@@ -115,6 +133,7 @@ Non-negotiable constraints Claude cannot rationalize past:
 10. **Auto-CREW trigger** — 4+ files, cross-layer, security, schema → CREW. Checklist, not judgment.
 11. **No patchwork fixes** — reproduce → trace → confirm root cause. Same class twice → re-plan.
 12. **Parallel agents** — 2+ independent files → parallel. No sequential when parallelizable.
+13. **Subagent-driven always** — all implementation through Agent tool. Cortex never edits directly.
 
 ## Works With Any Repo
 
@@ -131,15 +150,15 @@ If your repo has `CLAUDE.md` with verify commands, those take priority.
 
 ## Crew
 
-| Agent | Default Model | Role |
-|-------|---------------|------|
-| Cortex | opus | Orchestrator — plans, decomposes, coordinates |
-| Spark | haiku/sonnet/opus | Implementation — tier-routed by task complexity |
-| Sentinel | sonnet | Verification — repo-aware lint/build/test + witness markers |
-| Prism | opus | Quality gate — code review (single rubric, scored 0-10) |
-| Oracle | opus | On-demand guidance for stuck agents (<100 words) |
-| Devil's Advocate | opus | Adversarial plan reviewer |
-| Lens | sonnet | Visual — Figma extraction + browser verification (agent-browser preferred, Playwright fallback) |
+| Agent | Model | maxTurns | Effort | Role |
+|-------|-------|----------|--------|------|
+| Cortex | opus | 50 | xhigh | Orchestrator — plans, decomposes, coordinates |
+| Spark | sonnet | 25 | high | Implementation — tier-routed, worktree-isolated in parallel |
+| Sentinel | sonnet | 20 | medium | Verification — repo-aware lint/build/test + witness markers |
+| Prism | opus | 15 | high | Quality gate — code review (single rubric, scored 0-10) |
+| Oracle | opus | 5 | max | On-demand guidance for stuck agents (<100 words) |
+| Devil's Advocate | opus | — | — | Adversarial plan reviewer |
+| Lens | sonnet | 15 | medium | Visual — Figma extraction + browser verification |
 
 ### Model Routing
 
