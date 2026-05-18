@@ -3,7 +3,7 @@ name: team:fix
 description: "Use when verification failed, tests broke, build errors occurred, or lint issues found. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
 ---
 
-> Load `_shared.md` + `_shared-crew.md` + `_shared-contracts.md` + `_shared-board.md` + `_shared-superpowers.md` before executing.
+> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
 
 # /team:fix
 
@@ -34,18 +34,36 @@ Start a fix loop from the latest failed verification.
    Include approach signature so future anti-repetition gate can pattern-match.
    Example: `CORRECTION [_groupHover in Popover]: hover state unreliable on portal content — use kebab menu or controlled open state [failed] (2026-04-10)`
 
-10. **Re-plan on repeated failure** (no patch stacking):
+10. **Scrap and redo on repeated failure** (no patch stacking):
     Before each fix iteration (step 8), compare current failure class to ALL previous iterations (not just N-1):
     
     ```
     IF fix_loop.iteration >= 2 AND current_failure_class IN previous_failure_classes:
       LOG "[FIX] Failure class '{failure_class}' seen before. Patch approach exhausted."
       WRITE correction to learnings/{domain}.md
-      ESCALATE to re-plan (Phase B) with failure history
+      EXECUTE scrap-and-redo protocol (below)
       EXIT fix loop
     ```
     
     This catches cycling patterns (A→B→A) that comparing only N-1 would miss.
+
+    **Scrap-and-redo protocol:**
+    The failed attempts produced garbage code but gold knowledge. Synthesize, revert, rebuild.
+    
+    a. **Synthesize** — agent summarizes what it LEARNED (not what it tried):
+       - What edge cases were discovered?
+       - What's the actual data shape / API behavior?
+       - Which constraints are real vs assumed?
+       - Why did the previous approaches fail at a root level?
+    
+    b. **Revert** — clean slate: `git checkout -- <all files touched by fix attempts>`
+    
+    c. **Rebuild** — spawn a fresh agent with this prompt structure:
+       "You tried [X] and [Y], which failed because [Z]. Knowing everything you now know,
+       scrap the previous approach and implement the elegant solution from scratch."
+       Include the synthesized learnings, NOT the failed code.
+    
+    d. **Verify** — run `team:verify` on the fresh implementation
 
 11. **Other escalation triggers:**
     - Loop count > 3 (hard cap — present structured escalation from step 11)
@@ -75,4 +93,4 @@ Start a fix loop from the latest failed verification.
 
     Choose A/B/C/D or provide direction:
     ```
-    Do NOT continue without user response. This is a hard gate.
+    Wait for user response before continuing.

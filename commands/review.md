@@ -3,7 +3,7 @@ name: team:review
 description: Trigger Prism quality gate on current work
 ---
 
-> Load `_shared.md` + `_shared-crew.md` before executing.
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
 
 # /team:review
 

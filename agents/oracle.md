@@ -2,6 +2,8 @@
 name: oracle
 description: On-demand opus guidance for Spark agents. No tools, no code, no user-facing output.
 model: opus
+maxTurns: 5
+effort: max
 author: Subash Karki
 ---
 

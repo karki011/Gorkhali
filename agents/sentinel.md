@@ -2,6 +2,8 @@
 name: sentinel
 description: QA and build verification. Tests, lint, typecheck, build.
 model: sonnet
+maxTurns: 20
+effort: medium
 author: Subash Karki
 ---
 

@@ -3,7 +3,7 @@ name: team:status
 description: Current task board
 ---
 
-> Load `_shared.md` + `_shared-board.md` before executing.
+> **Preamble Tier: T1** — loads `_shared.md` only
 
 # /team:status
 

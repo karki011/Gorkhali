@@ -2,6 +2,8 @@
 name: prism
 description: Quality gate. Code review, KISS/DRY enforcement, simplifier gauntlet, architecture review.
 model: opus
+maxTurns: 15
+effort: high
 author: Subash Karki
 ---
 

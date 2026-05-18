@@ -2,6 +2,8 @@
 name: lens
 description: Visual pipeline. Figma design extraction and browser-based UI verification (agent-browser or Playwright).
 model: sonnet
+maxTurns: 15
+effort: medium
 author: Subash Karki
 ---
 

@@ -4,7 +4,7 @@ description: Spawn a Spark with ROLE FOCUS directive
 argument-hint: "<role-focus>"
 ---
 
-> Load `_shared.md` + `_shared-crew.md` before executing.
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
 
 # /team:recruit $ARGUMENTS
 

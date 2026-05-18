@@ -153,6 +153,38 @@ Agents load ONLY what they need — Cortex holds the full picture.
 | **Prism** | Lens (if UI task) | Visual verification after quality gate |
 | **Lens** | Cortex | Visual issues route back for Spark fixes |
 
+### Worktree Isolation for Parallel Sparks
+
+When spawning 2+ Spark agents that may touch overlapping files, use `isolation: "worktree"`:
+
+```
+Agent({
+  description: "Spark: {task}",
+  subagent_type: "coder",
+  model: "sonnet",
+  mode: "bypassPermissions",
+  isolation: "worktree",
+  prompt: "..."
+})
+```
+
+**When to use:**
+- 2+ parallel Sparks in CREW route
+- Sparks touching files in the same directory
+- Refactors that cross module boundaries
+
+**When NOT to use:**
+- Solo route (only 1 Spark)
+- Sequential Spark execution
+- Read-only operations (research, exploration)
+
+**How it works:**
+- Each Spark gets a temporary git worktree (isolated copy)
+- Changes are committed in the worktree branch
+- If no changes: worktree auto-cleaned
+- If changes: branch name returned in result — Cortex merges
+- Cortex merges worktree branches after all Sparks complete
+
 ### Task Routing: SOLO vs CREW
 
 | Route | Executor | Advisory | Verification | When |

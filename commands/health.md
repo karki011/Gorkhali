@@ -3,7 +3,7 @@ name: team:health
 description: Diagnose knowledge layer health and report issues
 ---
 
-> Load `_shared.md` (core only).
+> **Preamble Tier: T1** — loads '_shared.md' only
 
 # /team:health
 

@@ -4,7 +4,7 @@ description: "Use when continuing previous work, picking up where left off, or r
 argument-hint: "[ticket-or-slug]"
 ---
 
-> Load `_shared.md` + `_shared-crew.md` + `_shared-contracts.md` before executing.
+> **Preamble Tier: T4** — loads ALL shared contexts
 
 # /team:resume $ARGUMENTS
 

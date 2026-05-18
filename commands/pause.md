@@ -3,7 +3,7 @@ name: team:pause
 description: "Use when stepping away, switching context, taking a break, or saving progress. Saves session state, learnings, and resume notes."
 ---
 
-> Load `_shared.md` (core only -- no additional tiers needed).
+> **Preamble Tier: T4** — loads ALL shared contexts
 
 # /team:pause
 

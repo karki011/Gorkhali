@@ -3,7 +3,7 @@ name: team:eval
 description: Evaluate crew performance with rubric
 ---
 
-> Load `_shared.md` + `_shared-crew.md` before executing.
+> **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'
 
 # /team:eval
 

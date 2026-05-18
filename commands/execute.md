@@ -3,7 +3,7 @@ name: team:execute
 description: Execute a saved plan (blocks without contracts)
 ---
 
-> Load `_shared.md` + `_shared-repo-detection.md` + `_shared-crew.md` + `_shared-contracts.md` + `_shared-superpowers.md` + `_shared-auto-learning.md` before executing.
+> **Preamble Tier: T4** — loads ALL shared contexts
 
 # /team:execute
 

@@ -4,7 +4,7 @@ description: Run background scouts for missing context
 argument-hint: "[area]"
 ---
 
-> Load `_shared.md` + `_shared-crew.md` before executing.
+> **Preamble Tier: T1** — loads '_shared.md' only
 
 # /team:scout $ARGUMENTS
 

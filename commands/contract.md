@@ -4,7 +4,7 @@ description: Create contract from template (feature/api/testing/ui/fix)
 argument-hint: "<type>"
 ---
 
-> Load `_shared.md` + `_shared-contracts.md` before executing.
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
 
 # /team:contract $ARGUMENTS
 

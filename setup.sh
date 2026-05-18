@@ -22,7 +22,7 @@ else
 fi
 
 # 2. Initialize directories
-for dir in sessions events state learnings global/patterns; do
+for dir in sessions events state learnings global/patterns audit; do
   mkdir -p "$TEAM_DIR/$dir"
   if [ ! -f "$TEAM_DIR/$dir/.gitkeep" ]; then
     touch "$TEAM_DIR/$dir/.gitkeep"
@@ -263,6 +263,24 @@ if [ -f "$SETTINGS_FILE" ]; then
 else
   echo "  ℹ No settings.json found. Hook file installed at $HOOK_FILE"
   echo "    Register manually in Claude Code settings."
+fi
+
+# 7b. Make context-compact-guide hook executable
+COMPACT_HOOK="$TEAM_DIR/hooks/context-compact-guide.sh"
+if [ -f "$COMPACT_HOOK" ]; then
+  chmod +x "$COMPACT_HOOK"
+  echo "  ✓ Context compact guide hook ready"
+else
+  echo "  ○ Context compact guide hook not found (run git pull to update)"
+fi
+
+# 7c. Make cortex subagent-driven law hook executable
+CORTEX_HOOK="$TEAM_DIR/hooks/cortex-subagent-driven-law.sh"
+if [ -f "$CORTEX_HOOK" ]; then
+  chmod +x "$CORTEX_HOOK"
+  echo "  ✓ Cortex subagent-driven law hook ready"
+else
+  echo "  ○ Cortex subagent-driven law hook not found"
 fi
 
 # 8. Prerequisites check

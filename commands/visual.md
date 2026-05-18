@@ -4,7 +4,7 @@ description: Trigger Lens visual inspection on current task
 argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright]"
 ---
 
-> Load `_shared.md` + `_shared-crew.md` before executing.
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
 
 # /team:visual $ARGUMENTS
 

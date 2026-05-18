@@ -4,7 +4,7 @@ description: Capture a learning mid-session
 argument-hint: "<correction>"
 ---
 
-> Load `_shared.md` (core only -- no additional tiers needed).
+> **Preamble Tier: T1** — loads '_shared.md' only
 
 # /team:learn "$ARGUMENTS"
 

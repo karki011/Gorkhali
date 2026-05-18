@@ -4,7 +4,7 @@ description: Run validation checks (plan/output/session/all)
 argument-hint: "[layer]"
 ---
 
-> Load `_shared.md` + `_shared-contracts.md` before executing.
+> **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'
 
 # /team:validate $ARGUMENTS
 
