@@ -4,8 +4,8 @@ description: "Use when starting any new feature, bug fix, refactor, or task. Als
 argument-hint: "<requirement>"
 ---
 
-> **Lazy-load shared tiers by phase:**
-> A: `_shared.md` + `_shared-repo-detection.md` + `_shared-phantom-integration.md` (optional) → B: + `_shared-crew.md` → C: + `_shared-contracts.md` → D: + `_shared-board.md` (event log) + `_shared-auto-learning.md`
+> **Preamble Tier: T4** (full orchestration — loads ALL shared contexts)
+> See `_shared.md` § Preamble Tiers for the tier system.
 
 # /team:start "$ARGUMENTS"
 
@@ -168,7 +168,7 @@ Snapshot before each phase transition: `state/sessions/{TICKET}/snapshots/phase-
 
 1. Create contracts from templates → `sessions/{TICKET}/contracts/`
 2. **Pre-Execute Hook:** Block if contracts incomplete or interfaces undefined
-3. Show summary, get "Execute now" confirmation
+3. Log contract summary to task board — no second approval gate (user already approved plan in Phase B step 8)
 
 ---
 
@@ -208,7 +208,41 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    ```
 3. On completion: review report, check Oracle usage, verify Spark self-review score >= 7. If blockers → pivot to CREW.
 4. **Run team:verify** — `Skill(skill="team:verify")`
-   a. If PASS → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
+   a. If PASS → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`)
+
+      ### Visual Verification Gate (auto-triggered)
+
+      **Condition:** `HAS_UI = true` AND changed files include `*.tsx`, `*.jsx`, `*.css`, `*.css.ts`, or `*.scss`.
+
+      If condition met:
+      1. Detect target routes from:
+         - Contract's `routes` field (if specified)
+         - Session state's `affectedRoutes` (if tracked)
+         - Infer from changed component paths (e.g., `pages/Settings.tsx` → `/settings`)
+         - If no routes determinable → ask user once: "Which routes should I visually verify?"
+      2. Auto-spawn Lens (visual verification mode):
+         ```
+         Agent({
+           name: "lens-verify",
+           description: "Lens: visual verification",
+           subagent_type: "coder",
+           model: MODEL_OVERRIDE || "sonnet",
+           mode: "bypassPermissions",
+           run_in_background: true,
+           prompt: "{lens persona + visual verification protocol + target routes + task description + expected behavior from contract}"
+         })
+         ```
+      3. **If VISUAL PASS** → proceed to Outcome Recording
+      4. **If VISUAL ISSUES FOUND** → enter autonomous visual fix loop:
+         a. Lens outputs structured fix packet (issue, screenshot, expected vs actual, element refs)
+         b. Cortex auto-dispatches Spark with fix packet (NO user approval needed for visual fixes)
+         c. After Spark fixes → re-run Sentinel (verify code still passes)
+         d. Re-spawn Lens on same routes (agent-browser: same daemon session)
+         e. Max 3 visual fix loops — if unresolved, escalate to user with screenshot evidence
+         f. Same visual issue class twice → scrap visual approach, escalate
+
+      If condition NOT met → skip silently (no visual verification needed for non-UI changes).
+
    b. If FAIL → enter fix sub-loop (max 3):
       i.   Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
       ii.  Spawn repair agents (only failing scope)
@@ -221,7 +255,20 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
 
 1. Spawn crew with personas, contracts, learnings, Anti-Repetition Block in every prompt
    - Call `Skill("superpowers:dispatching-parallel-agents")` before 2+ independent agents
-2. Run agents per execution order (parallel where independent, sequential where dependent)
+   - **Parallel Sparks: use `isolation: "worktree"`** to prevent file conflicts:
+     ```
+     Agent({
+       name: "spark-1",
+       description: "Spark: {task}",
+       subagent_type: "coder",
+       model: MODEL_OVERRIDE || "sonnet",
+       mode: "bypassPermissions",
+       isolation: "worktree",
+       prompt: "{filled spark prompt with ROLE FOCUS + contract + learnings}"
+     })
+     ```
+     After all parallel Sparks complete, Cortex merges worktree branches sequentially. Resolve conflicts if any.
+2. Run agents per execution order (parallel where independent with worktree isolation, sequential where dependent)
 3. **After each agent:** Post-Agent Hook → validate output, capture handoff
    - **Self-review score check**: Verify Spark's self-review score >= 7. If < 7, note concerns for Prism.
    - **Intent Alignment Checkpoint** (see `cortex.md` "Intent Alignment Checkpoints"):
@@ -231,7 +278,41 @@ Cortex classified as SOLO in Phase B. One Spark drives end-to-end, consulting Or
    - **Oracle checkpoint** (optional, 3+ files changed): quick opus review before testing
 4. **Run team:verify** — `Skill(skill="team:verify")`
 
-5. **If PASS** → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`), proceed to Outcome Recording
+5. **If PASS** → record what worked to `learnings/INDEX.md` (see `_shared-auto-learning.md`)
+
+   ### Visual Verification Gate (auto-triggered)
+
+   **Condition:** `HAS_UI = true` AND changed files include `*.tsx`, `*.jsx`, `*.css`, `*.css.ts`, or `*.scss`.
+
+   If condition met:
+   1. Detect target routes from:
+      - Contract's `routes` field (if specified)
+      - Session state's `affectedRoutes` (if tracked)
+      - Infer from changed component paths (e.g., `pages/Settings.tsx` → `/settings`)
+      - If no routes determinable → ask user once: "Which routes should I visually verify?"
+   2. Auto-spawn Lens (visual verification mode):
+      ```
+      Agent({
+        name: "lens-verify",
+        description: "Lens: visual verification",
+        subagent_type: "coder",
+        model: MODEL_OVERRIDE || "sonnet",
+        mode: "bypassPermissions",
+        run_in_background: true,
+        prompt: "{lens persona + visual verification protocol + target routes + task description + expected behavior from contract}"
+      })
+      ```
+   3. **If VISUAL PASS** → proceed to Outcome Recording
+   4. **If VISUAL ISSUES FOUND** → enter autonomous visual fix loop:
+      a. Lens outputs structured fix packet (issue, screenshot, expected vs actual, element refs)
+      b. Cortex auto-dispatches Spark with fix packet (NO user approval needed for visual fixes)
+      c. After Spark fixes → re-run Sentinel (verify code still passes)
+      d. Re-spawn Lens on same routes (agent-browser: same daemon session)
+      e. Max 3 visual fix loops — if unresolved, escalate to user with screenshot evidence
+      f. Same visual issue class twice → scrap visual approach, escalate
+
+   If condition NOT met → skip silently (no visual verification needed for non-UI changes).
+
 6. **If FAIL** → fix sub-loop (max 3):
    a. Cortex (triage, sonnet) diagnoses failures → scoped repair assignments
    b. Spawn repair agents (only failing scope)
@@ -270,17 +351,19 @@ After all verification and review passes:
 
 1. **Detect PR strategy** (from `_shared-repo-detection.md`):
    - Check `HAS_UI` and whether changed files touch UI layer
-   - UI touched → push branch only, notify user: "Branch pushed. Verify visually, then run `/team:wrap` to create PR."
-   - No UI touched → create draft PR: `gh pr create --draft --title "{TICKET}: {summary}" --body "..."`
-2. **Update Jira** (if Atlassian MCP available AND TICKET detected):
-   a. Get available transitions: `mcp__atlassian__getTransitionsForJiraIssue(issueKey: TICKET)`
-   b. Find transition with name containing "Review" or "Reviewing"
-   c. Execute transition: `mcp__atlassian__transitionJiraIssue(issueKey: TICKET, transitionId: {id})`
-   d. Add comment with PR/branch link: `mcp__atlassian__addCommentToJiraIssue(issueKey: TICKET, body: "...")`
-   - If draft PR created → transition to "Reviewing" + comment with PR URL
-   - If branch pushed only → transition to "Reviewing" + comment with branch name
-   - If transition fails → log warning but do not block completion
-3. **Emit outcome** (existing Outcome Recording block)
+   - Check `visualVerification.status` from session state
+   - **UI touched + visual verification PASSED in Phase D** → create draft PR (visual already verified autonomously)
+   - **UI touched + visual verification SKIPPED or FAILED** → push branch only, notify user: "Branch pushed. Visual verification {skipped|failed} — verify manually, then run `/team:wrap`."
+   - **No UI touched** → create draft PR: `gh pr create --draft --title "{TICKET}: {summary}" --body "..."`
+
+2. **Auto-wrap** — flow directly into `/team:wrap`:
+   ```
+   Skill(skill="team:wrap")
+   ```
+   This handles: learnings, crew eval, Jira transition, PR creation, session archive.
+   No manual `/team:wrap` needed — completion flows straight through.
+   
+   **Exception:** If visual verification was skipped/failed for UI work → STOP here, push branch, ask user to verify manually and run `/team:wrap` when ready.
 
 > **Output on completion** (pick one randomly):
 > ```
@@ -290,6 +373,7 @@ After all verification and review passes:
 >   │                           │
 >   │   Files:    {N} changed   │
 >   │   Verify:   PASS          │
+>   │   Visual:   {PASS|N/A}    │
 >   │   Prism:    {verdict} {X.X}/10│
 >   │   Reflexion: {N} loops    │
 >   │   PR:       {#N or branch}│

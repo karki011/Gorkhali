@@ -3,7 +3,7 @@ name: team:verify
 description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Runs lint, build, tests, simplify, code review, and quality gate."
 ---
 
-> Load `_shared.md` + `_shared-repo-detection.md` + `_shared-crew.md` + `_shared-contracts.md` + `_shared-superpowers.md` before executing.
+> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
 
 # /team:verify
 
@@ -46,7 +46,26 @@ Explicitly trigger the verification phase on current work.
       c. If still passes → proceed with simpler version
       d. If fails → revert, proceed with original
 
-      If no simplification needed → proceed directly to Prism
+      If no simplification needed → proceed directly to visual verification (step 2g2)
+   g2. **Visual verification** (conditional — UI changes only):
+      
+      **Trigger:** `HAS_UI = true` AND changed files include `*.tsx`, `*.jsx`, `*.css`, `*.css.ts`, or `*.scss`
+      
+      If triggered:
+      a. Detect target routes from contract or infer from changed file paths
+      b. Verify dev server is running (check `localhost:8080` or port from repo config)
+      c. Spawn Lens in visual verification mode with target routes and expected behavior
+      d. Lens navigates, screenshots (3 viewports), analyzes against contract expectations
+      e. **VISUAL PASS** → proceed to Prism (step 2h), include visual evidence in Prism's input
+      f. **VISUAL ISSUES FOUND** → autonomous fix loop:
+         - Lens creates fix packet (issue, screenshot, element ref, expected vs actual)
+         - Spark fixes visual issues (scoped to affected files only)
+         - Re-run Sentinel on fixed files (ensure code still passes)
+         - Re-run Lens on same routes (max 3 loops)
+         - If unresolved after 3 → escalate to user with screenshot evidence
+      g. If dev server not running → warn user: "Dev server needed for visual verification. Start it or skip with --no-visual"
+      
+      If not triggered → skip silently.
    h. **Prism** -- quality gate review with score rubric (see `prism.md` "Quality Score Rubric")
       - If NEEDS WORK (score 5.0–6.9) → enter quality gate loop (max 2 iterations):
         Spark fixes findings → self-review → Sentinel re-verifies → Prism re-scores
@@ -60,6 +79,7 @@ Explicitly trigger the verification phase on current work.
        │  ✓ VERIFICATION OK       │
        │  lint ✓  build ✓         │
        │  tests ✓  review ✓       │
+       │  visual: {✓|skipped}     │
        │  quality: {X.X}/10       │
        └──────────────────────────┘
      ```
@@ -69,6 +89,7 @@ Explicitly trigger the verification phase on current work.
        ┌─────────────────────┐
        │  ✗ VERIFICATION FAIL│
        │  {failed step} ✗    │
+       │  visual: {✗|N/A}    │
        │  Run /team:fix ?    │
        └─────────────────────┘
      ```
