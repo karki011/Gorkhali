@@ -37,9 +37,109 @@ argument-hint: "<requirement>"
 3. Register session: `TaskCreate({ subject: '[Cortex] SESSION:start "{TICKET} — {$ARGUMENTS}"' })`
 4. Load `learnings/INDEX.md` + `learnings/crew.md`, then domain-specific learnings after classification:
    UI → `ui.md` | Data/API → `data.md` | Auth → `auth.md` | Tests → `testing.md` | Migration → `migration.md` | Tooling → `tooling.md`
-5. **Phantom graph readiness** (if phantom available):
-   - Call `phantom_graph_build` to trigger async index rebuild (non-blocking)
-   - Call `phantom_conflict_status` — if file-level conflicts detected with other sessions, warn user
+5. **Phantom recon** (if phantom available — all non-blocking, skip silently if unavailable):
+
+   **File extraction** (for blast radius — best effort):
+   - From `$ARGUMENTS`: extract explicit file paths (e.g., `src/components/Foo.tsx`)
+   - From Jira description: extract code blocks and path references
+   - From git: `git diff --name-only main...HEAD` (if on feature branch)
+   - Store as `PHANTOM_FILES`. If empty, blast radius step is skipped.
+
+   **Tool calls** (parallel where independent):
+   ```
+   PHANTOM_STRATEGY = phantom_orchestrator_process({
+     goal: "{TICKET} — {$ARGUMENTS summary}",
+     activeFiles: PHANTOM_FILES,
+     cwd: "{repo root}"
+   })
+
+   PHANTOM_BLAST_RADIUS = phantom_before_edit({
+     files: PHANTOM_FILES,
+     goal: "{$ARGUMENTS summary}"
+   })  // skip if PHANTOM_FILES empty
+
+   PHANTOM_HISTORY = phantom_orchestrator_history({ limit: 5 })
+
+   PHANTOM_CONFLICTS = phantom_conflict_status({ cwd: "{repo root}" })
+   ```
+
+   **Print recon block:**
+   ```
+   ╔══════════════════════════════════════════════════════════════╗
+   ║  PHANTOM RECON                                              ║
+   ╠══════════════════════════════════════════════════════════════╣
+   ║                                                             ║
+   ║  ┌─── Strategy Pipeline ───────────────────────────────┐    ║
+   ║  │                                                     │    ║
+   ║  │  goal ──▶ orchestrator ──▶ [{STRATEGY}]             │    ║
+   ║  │                            confidence: {CONF}       │    ║
+   ║  │                                                     │    ║
+   ║  │  alternatives:                                      │    ║
+   ║  │    ├─ {ALT_1} ({SCORE_1})                           │    ║
+   ║  │    └─ {ALT_2} ({SCORE_2})                           │    ║
+   ║  │                                                     │    ║
+   ║  │  risk: {RISK_LEVEL}    complexity: {COMPLEXITY}      │    ║
+   ║  └─────────────────────────────────────────────────────┘    ║
+   ║                                                             ║
+   ║  ┌─── Blast Radius ────────────────────────────────────┐    ║
+   ║  │                        // omit if PHANTOM_FILES empty    ║
+   ║  │  {FILE_1} ──┬──▶ {N} dependents  (impact: {SCORE}) │    ║
+   ║  │  {FILE_2} ──┤                                       │    ║
+   ║  │  {FILE_3} ──┤    total: {N} files affected          │    ║
+   ║  │  {FILE_4} ──┤                                       │    ║
+   ║  │  {FILE_5} ──┘                                       │    ║
+   ║  │                                                     │    ║
+   ║  │  graph-discovered (not in original scope):          │    ║
+   ║  │    {RELATED_FILE_1}                                 │    ║
+   ║  │    {RELATED_FILE_2}   // omit if no new files       │    ║
+   ║  └─────────────────────────────────────────────────────┘    ║
+   ║                                                             ║
+   ║  ┌─── Routing ─────────────────────────────────────────┐    ║
+   ║  │                                                     │    ║
+   ║  │  {STRATEGY} ──▶ {SOLO|CREW}                         │    ║
+   ║  │                                                     │    ║
+   ║  │  ┌──────────┬───────────────┬──────────────────┐    │    ║
+   ║  │  │ Strategy │ Route         │ Why              │    │    ║
+   ║  │  ├──────────┼───────────────┼──────────────────┤    │    ║
+   ║  │  │ Direct   │ SOLO          │ simple, 1 spark  │    │    ║
+   ║  │  │ Advisor  │ SOLO + Oracle │ needs guidance   │    │    ║
+   ║  │  │ Refine   │ SOLO          │ iterative        │    │    ║
+   ║  │  │ Decompose│ CREW          │ subtask split    │    │    ║
+   ║  │  │ Tree     │ CREW + brain  │ explore paths    │    ║
+   ║  │  │ Debate   │ CREW + redteam│ high risk        │    │    ║
+   ║  │  │ Graph    │ CREW + topo   │ parallel groups  │    │    ║
+   ║  │  └──────────┴───────────────┴──────────────────┘    │    ║
+   ║  │                             ▲                       │    ║
+   ║  │                             │ selected              │    ║
+   ║  └─────────────────────────────────────────────────────┘    ║
+   ║                                                             ║
+   ║  ┌─── Context ─────────────────────────────────────────┐    ║
+   ║  │  conflicts: {none | N sessions — ⚠️ overlap}        │    ║
+   ║  │  history:   {closest past decision — outcome}       │    ║
+   ║  │             {if failed: "⚠ consider alternative"}   │    ║
+   ║  └─────────────────────────────────────────────────────┘    ║
+   ║                                                             ║
+   ╚══════════════════════════════════════════════════════════════╝
+   ```
+   
+   **Compact variant** (use when blast radius is empty / strategy is Direct with high confidence):
+   ```
+   ╔══════════════════════════════════════════╗
+   ║  PHANTOM RECON                          ║
+   ╠══════════════════════════════════════════╣
+   ║  strategy:   {NAME} ({CONF})            ║
+   ║  risk:       {LEVEL}                    ║
+   ║  complexity: {LEVEL}                    ║
+   ║  route:      {STRATEGY} ──▶ {ROUTE}     ║
+   ║  conflicts:  {none}                     ║
+   ╚══════════════════════════════════════════╝
+   ```
+
+   **Degradation:** If individual tools fail, print what succeeded. If ALL fail:
+   ```
+   PHANTOM RECON: unavailable (MCP not connected)
+   ```
+   Continue to step 6 regardless.
 6. Caveman-compress any uncompressed learnings (background, non-blocking)
 7. Create `sessions/{TICKET}/contracts/`, detect workflow type (feature/bug/refactor/spike/docs)
 8. Load `sessions/{TICKET}/decisions.md` if prior work exists
@@ -111,10 +211,26 @@ argument-hint: "<requirement>"
    - If verdict = RETHINK → return to step 4 (codebase research) with new constraints
    - Max 2 Devil's Advocate iterations — if still RETHINK after 2, escalate to user with the challenges
 
-7. **Phantom strategy advisory** (if phantom available):
-   - Call `phantom_orchestrator_process({ goal: "{TICKET} — {summary}", activeFiles: [plan file list] })`
-   - Map returned strategy to SOLO/CREW routing (see `_shared-phantom-integration.md`)
-   - Call `phantom_orchestrator_history({ limit: 10 })` — merge failed approaches into anti-repetition notes
+7. **Phantom strategy advisory** (if `PHANTOM_STRATEGY` set from Phase A):
+   - Map `PHANTOM_STRATEGY.strategy.id` to SOLO/CREW routing (see `_shared-phantom-integration.md`)
+   - Merge `PHANTOM_HISTORY` failed approaches into anti-repetition notes
+   - If plan introduced NEW files not in `PHANTOM_FILES` → re-call `phantom_before_edit` with full plan file list, update `PHANTOM_BLAST_RADIUS`
+   - No redundant tool calls — data collected in Phase A step 5
+
+   **Print routing decision:**
+   ```
+   ┌─── Phantom ──▶ Route ──────────────────────────────┐
+   │                                                     │
+   │  {STRATEGY} ({CONF}) ──▶ {SOLO|CREW}               │
+   │                                                     │
+   │  blast radius: {N} files   risk: {LEVEL}            │
+   │  anti-repetition: {N matches | none}                │
+   │  history: {closest match — outcome}                 │
+   │                                                     │
+   │  files (plan + graph-discovered):                   │
+   │    {FILE_1}  {FILE_2}  {FILE_3}  ...                │
+   └─────────────────────────────────────────────────────┘
+   ```
 
 8. Get user approval via `ExitPlanMode`
 
@@ -175,7 +291,25 @@ Snapshot before each phase transition: `state/sessions/{TICKET}/snapshots/phase-
 ## Phase D — Execution
 
 > **Before ANY agent spawn:** Run anti-repetition loader (`templates/anti-repetition-loader.md`). Build the Anti-Repetition Block once, inject into every agent prompt.
-> **Phantom scoping** (if phantom available): Call `phantom_before_edit` with all planned files. Use blast radius to validate agent scope and discover missing related files. Pass directlyAffected list to Sentinel.
+> **Phantom scoping** (if `PHANTOM_BLAST_RADIUS` set): Use stored blast radius to validate agent scope and discover missing related files. Pass directlyAffected list to Sentinel. If Phase B step 7 re-called `phantom_before_edit` (new files discovered during planning), use the updated `PHANTOM_BLAST_RADIUS`.
+>
+> Print scoping block before dispatch:
+> ```
+> ┌─── Phantom Scope Gate ───────────────────────────────┐
+> │                                                      │
+> │  planned files ──▶ blast radius check                │
+> │                                                      │
+> │  {FILE} ─┬─▶ {N} dependents  impact: {SCORE}        │
+> │  {FILE} ─┤                                           │
+> │  {FILE} ─┘   total: {N} files in blast zone          │
+> │                                                      │
+> │  high-impact (>0.3): {FILES or "none"}               │
+> │  missing from plan: {DISCOVERED or "none"}           │
+> │  sentinel scope:    {N} files queued                 │
+> │                                                      │
+> │  conflicts: {none | ⚠ N sessions overlap}            │
+> └──────────────────────────────────────────────────────┘
+> ```
 > **MCP-enhanced execution** (based on Phase A discovery):
 > - If `code_graph` available → use `detect_changes` + `get_review_context` instead of raw Grep for impact analysis. Use `get_affected_flows` to validate agent scope.
 > - If `context_mode` available → route all agent outputs > 50 lines through `ctx_batch_execute` to protect context window. Index large diffs for searchable follow-up.
