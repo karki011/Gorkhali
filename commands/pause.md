@@ -3,20 +3,52 @@ name: team:pause
 description: "Use when stepping away, switching context, taking a break, or saving progress. Saves session state, learnings, and resume notes."
 ---
 
-> **Preamble Tier: T4** — loads ALL shared contexts
+> **Preamble Tier: T1** — loads `_shared.md` only
 
 # /team:pause
 
-Full save -- persist ALL session knowledge before stepping away:
+Save full session state so `/clear` + `/team:resume` restores everything.
 
-1. `TaskCreate({ subject: "[Cortex] SESSION:pause" })` — hook handles session status change
-2. Write session log to `sessions/{TICKET}/{date}_{label}.md` with summary, PRs, decisions, resume notes
-3. Append new learnings to the relevant **domain files** in `learnings/` (ui.md, data.md, auth.md, testing.md, crew.md, migration.md, tooling.md):
-   - Patterns → `## Patterns` section in matching domain file
-   - Corrections → `## Corrections` section in matching domain file
-   - Habits → `## Habits` section in matching domain file
-4. Update `learnings/INDEX.md` quick reference with one-liners for new entries
-6. Update/create project memory in auto-memory dir (`project_*.md`)
-7. Update `MEMORY.md` index if new memory files were created
+1. **Capture git state**
+   - Branch: `git branch --show-current`
+   - HEAD: `git rev-parse --short HEAD`
+   - Uncommitted: `git diff --name-only`
 
-**This is NOT optional** -- every pause saves the full knowledge set. The user should never have to ask for learnings separately.
+2. **Write state artifact** to `state/sessions/{TICKET}/pause-state.json`:
+   ```json
+   {
+     "_meta": {
+       "writtenAt": "{ISO 8601 now}",
+       "gitHead": "{HEAD sha}",
+       "gitBranch": "{branch}",
+       "phase": "{current phase A/B/C/D}",
+       "skill": "team:pause",
+       "version": 1
+     },
+     "ticket": "{TICKET}",
+     "phase": "{A/B/C/D}",
+     "phaseStep": "{specific step if known}",
+     "status": "paused",
+     "intent": "state/sessions/{TICKET}/intent.json",
+     "plan": "state/sessions/{TICKET}/plan.json",
+     "contracts": ["{list of contract file paths}"],
+     "contractsCompleted": ["{completed task IDs}"],
+     "contractsPending": ["{pending task IDs}"],
+     "route": "{solo|crew}",
+     "verifyStatus": "{pass|fail|null}",
+     "resumeNotes": "{what was being worked on, what's next}"
+   }
+   ```
+
+3. **Write session log** to `sessions/{TICKET}/{date}_{slug}.md`
+   - Summary of work done
+   - Key decisions made
+   - Resume instructions
+
+4. **Append learnings** to relevant domain files in `learnings/`
+
+5. **Update INDEX.md** with new entries
+
+6. **Update auto-memory** in project memory directory
+
+Print: "Session paused. Run `/clear` then `/team:resume {TICKET}` to continue."
