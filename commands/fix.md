@@ -9,6 +9,8 @@ description: "Use when verification failed, tests broke, build errors occurred, 
 
 Fix loop from latest failed verification.
 
+<instructions>
+
 1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/team:verify` first).
 2. **Check loop count** — if >= 3, go straight to structured escalation (step 10).
 3. **Debugging discipline** — call `Skill(skill="superpowers:systematic-debugging")` before triage. Do not inline rules.
@@ -27,11 +29,19 @@ Fix loop from latest failed verification.
    - SAME class → scrap-and-redo (step 9), write correction, exit loop
    - DIFFERENT class → increment loop counter, return to step 1
    - Write correction: `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`
+
+<scrap_and_redo>
+
 9. **Scrap-and-redo** (patch approach exhausted):
    - **Synthesize** — agent documents what was learned: edge cases, real API behavior, why approaches failed
    - **Revert** — `git checkout -- <all files touched by fix attempts>`
    - **Rebuild** — spawn fresh agent: "You tried [X] and [Y], which failed because [Z]. Knowing this, implement the elegant solution from scratch." Pass synthesized learnings, not failed code.
    - **Verify** — run `team:verify` on fresh implementation
+
+</scrap_and_redo>
+
+<constraints>
+
 10. **Escalation triggers**: loop > 3, contract must change, scope expanded, user says stop.
 11. **Structured escalation** format:
     ```
@@ -54,3 +64,7 @@ Fix loop from latest failed verification.
     Choose A/B/C/D or provide direction:
     ```
     Wait for user response before continuing.
+
+</constraints>
+
+</instructions>

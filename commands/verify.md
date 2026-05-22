@@ -9,6 +9,8 @@ description: "Use when checking if code works, running tests, verifying changes,
 
 Three-step verification: correctness commands → temperature review → auto-address.
 
+<instructions>
+
 ## Step 1: Correctness (commands, no agents)
 
 Discover verify commands from repo (see `_shared-repo-detection.md` protocol):
@@ -32,6 +34,8 @@ Spawn ONE review agent (model: sonnet, mode: bypassPermissions):
 
 If output is `[]` → verdict: pass. Skip to Write Artifact.
 
+<auto_address_loop>
+
 ## Step 3: Auto-Address (only if P0/P1 findings exist)
 
 1. Spawn 1 fix agent with scoped P0+P1 findings
@@ -41,9 +45,16 @@ If output is `[]` → verdict: pass. Skip to Write Artifact.
 5. Clean after loop → verdict: pass
 6. Still P0/P1 after 2 loops → escalate to user with findings
 
+</auto_address_loop>
+
+</instructions>
+
 ## Write Artifact
 
 Write `state/sessions/{TICKET}/verification.json`:
+
+<output_format>
+
 ```json
 {
   "_meta": {
@@ -71,6 +82,8 @@ Write `state/sessions/{TICKET}/verification.json`:
   "score": 8.0
 }
 ```
+
+</output_format>
 
 ## Result
 
