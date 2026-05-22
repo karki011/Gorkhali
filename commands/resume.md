@@ -1,32 +1,45 @@
 ---
 name: team:resume
 description: "Use when continuing previous work, picking up where left off, or resuming a paused session. Restores full context, contracts, and learnings."
-argument-hint: "[ticket-or-slug]"
 ---
 
-> **Preamble Tier: T4** — loads ALL shared contexts
+> **Preamble Tier: T1** — loads `_shared.md` only (artifacts provide the rest)
 
-# /team:resume $ARGUMENTS
+# /team:resume "$ARGUMENTS"
 
-1. Load `state/sessions/{TICKET}.json` for phase progress
-2. Read all session files from `sessions/{ticket}/` for full context
-3. Load `sessions/{ticket}/contracts/` for active contracts
-4. Load `decisions/global.md` (cross-cutting decisions only)
-5. Load `sessions/{ticket}/decisions.md` (feature-specific decisions)
-6. Load `learnings/INDEX.md` (always) + `learnings/crew.md` (always) + domain-specific files based on ticket context (ui.md, data.md, auth.md, testing.md, migration.md, tooling.md)
-7. Re-spawn same team with same mapping + handoff notes + contracts
+Resume from a paused session by reading the state artifact.
 
-**Decision loading rule**: NEVER load decisions from other tickets. Only `global.md` + current ticket's `decisions.md`.
+1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/team:resume CP-41606`)
 
-### Resuming Forked Sessions
+2. **Read state artifact**: `state/sessions/{TICKET}/pause-state.json`
+   - If missing: list available sessions in `state/sessions/`, ask user to pick
+   - If found: load and display summary
 
-If the previous session used `--fork-session` for exploration:
-1. Check `state/sessions/{TICKET}/forks/` for fork results
-2. If both forks completed → present comparison to user, let them choose
-3. If one fork is incomplete → offer to continue it or abandon
-4. Load the chosen fork's state as the active session
+3. **Staleness check**: Compare `_meta.gitHead` to current `git rev-parse --short HEAD`
+   - Match → continue
+   - Mismatch → warn: "State saved at {old HEAD} but HEAD is now {new HEAD}."
+     Show: `git log {old}..{new} --oneline`
+     Ask: "Continue from saved state or start fresh?"
 
-```bash
-# Resume a specific fork
-claude --resume {fork-session-id}
-```
+4. **Restore context** from artifact paths:
+   - Read `intent.json` (from `intent` field)
+   - Read `plan.json` (from `plan` field)
+   - Read active contracts (from `contracts` field)
+   - Load `decisions/global.md`
+   - Load `learnings/INDEX.md` + domain files matching task type
+
+5. **Display resume summary**:
+   ```
+   RESUMING: {TICKET}
+   Phase:    {phase} (step: {phaseStep})
+   Route:    {route}
+   Done:     {contractsCompleted}
+   Pending:  {contractsPending}
+   Notes:    {resumeNotes}
+   ```
+
+6. **Continue from last phase**:
+   - Phase B → re-enter planning (plan.json loaded)
+   - Phase C → create remaining contracts
+   - Phase D → dispatch pending tasks
+   - Verify → re-run verification
