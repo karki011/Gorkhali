@@ -5,7 +5,16 @@ description: "Use when work is done, ready to create PR, finishing a session, or
 
 > **Preamble Tier: T4** — loads ALL shared contexts
 
+## Precondition
+
+Check `state/sessions/{TICKET}/verification.json`:
+- If exists AND `verdict: "pass"` → proceed
+- If exists AND `verdict: "fail"` → BLOCK: "Verification failed. Run `/team:verify` first."
+- If missing → WARN: "No verification artifact found. Run `/team:verify` first, or proceed at your own risk?"
+
 # /team:wrap
+
+Single ship ceremony. All git operations happen here — no commits, pushes, or PRs before wrap.
 
 Full shutdown:
 
@@ -84,7 +93,72 @@ If not triggered (< 3 agent-changed files): skip silently.
     - Report in wrap summary: "Test gaps: {N} source files changed without corresponding test updates"
     - Do NOT block — this is informational. User decides whether to address before PR.
 
-11. **Memory layer sync** (persist key learnings to Claude auto-memory):
+## Ship
+
+**No git operations happened before this point. All prior work was local-only.**
+
+11. **Stage changed files**:
+    - Read `state/sessions/{TICKET}/execution.json` for `filesChanged` list if available
+    - Fallback: `git diff --name-only main...HEAD`
+    - `git add <each file>` (never `git add -A`)
+    - Skip: `.env`, `credentials.*`, `*.key`, `*.pem` (warn if found)
+
+12. **Commit**:
+    - Message format: `{TICKET}: {summary}`
+    - Do NOT add "Co-Authored-By: AI" or any AI attribution
+
+13. **Push**:
+    - `git push -u origin $(git branch --show-current)`
+    - If push fails (no remote, auth error): warn user, continue to archive
+
+14. **Create PR**:
+    - `gh pr create --draft --title "{TICKET}: {summary}" --body "{body}"`
+    - PR body:
+      ```
+      ## Summary
+      {1-3 bullet points from intent or session context}
+
+      ## Changes
+      {files changed, grouped by concern}
+
+      ## Test plan
+      {verification results from verification.json if available}
+      ```
+    - If `gh` not available: print branch name, skip PR creation
+
+15. **Greptile review** (non-blocking):
+    - If Greptile integration available: request AI review on the PR
+    - If unavailable: skip silently
+
+16. **Jira transition** (non-blocking):
+    - If Atlassian MCP available AND TICKET matches `[A-Z]+-\d+`:
+      - Transition {TICKET} to "Review" (or "In Review")
+      - Add comment: "PR #{number}: {url}"
+    - If unavailable: skip silently
+
+17. **Write wrap artifact** to `state/sessions/{TICKET}/wrap.json`:
+    ```json
+    {
+      "_meta": {
+        "writtenAt": "{ISO 8601 now}",
+        "gitHead": "{new HEAD after commit}",
+        "gitBranch": "{branch}",
+        "phase": "wrap",
+        "skill": "team:wrap",
+        "version": 1
+      },
+      "pr": { "number": N, "url": "...", "status": "draft" },
+      "jira": { "ticket": "{TICKET}", "transition": "Review", "commented": true },
+      "greptile": { "requested": true, "status": "pending" },
+      "learnings": { "recorded": N, "promoted": N, "pruned": N }
+    }
+    ```
+
+18. **Archive session**:
+    - Copy session state to `state/completed/{TICKET}/`
+    - Update `state/current.json`: remove {TICKET} from active sessions
+
+19. **Memory layer sync** (persist key learnings to Claude auto-memory):
    After Trigger 3 validates patterns, sync significant learnings to Claude's persistent memory:
    
    a. **What to sync** (only high-value, cross-session patterns):
@@ -116,8 +190,8 @@ If not triggered (< 3 agent-changed files): skip silently.
    d. **Why this matters:** Claude's auto-memory loads at session start regardless of
       whether the team skill is invoked. Critical corrections and validated patterns
       survive even in quick sessions that don't load the full team skill.
-11. Update auto-memory (`project_*.md` in memory dir)
-12. **Iron Law #13 audit report** — scan `~/.claude/team/audit/cortex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+20. Update auto-memory (`project_*.md` in memory dir)
+21. **Iron Law #13 audit report** — scan `~/.claude/team/audit/cortex-edits-$(date +%Y-%m-%d).jsonl` for this session:
     ```bash
     grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/cortex-edits-*.jsonl 2>/dev/null
     ```
@@ -127,16 +201,16 @@ If not triggered (< 3 agent-changed files): skip silently.
       - Files touched directly
       - Append summary to `learnings/crew.md ## Corrections`: `CORRECTION [subagent-driven]: Cortex edited {N} files directly — should have spawned Spark [failed] ({date})`
     - This is informational for Option C mode. If Option A (hard block) was active, violations wouldn't have been possible.
-13. **Deactivate cortex hook sentinel:**
+22. **Deactivate cortex hook sentinel:**
     ```
     rm -f ~/.claude/team/.cortex-active
     ```
-14. **Clear native `/goal` if still active:**
+23. **Clear native `/goal` if still active:**
     ```
     /goal clear
     ```
     Safe to run even if no goal is active — it's a no-op. Prevents a lingering goal from auto-triggering turns after wrap.
-15. Shut down crew
+24. Shut down crew
 
 ---
 
@@ -150,6 +224,8 @@ If not triggered (< 3 agent-changed files): skip silently.
 >   │   Route:   {SOLO|CREW}    │
 >   │   Outcome: {pass|fail}    │
 >   │   Loops:   {N}            │
+>   │   PR:      #{N} (draft)   │
+>   │   Jira:    → Review       │
 >   │   Learned: {N} patterns   │
 >   │   Corrections: {N}        │
 >   │                           │
