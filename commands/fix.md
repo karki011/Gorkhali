@@ -7,73 +7,33 @@ description: "Use when verification failed, tests broke, build errors occurred, 
 
 # /team:fix
 
-Start a fix loop from the latest failed verification.
+Fix loop from latest failed verification.
 
-1. Load `verification` from session state -- **BLOCK if no failures recorded** (must run `/team:verify` first)
-2. Check loop count -- if >= 3, escalate to user instead of running
-3. **Debugging discipline**: Call `Skill(skill="superpowers:systematic-debugging")` before Cortex (triage) triages. Enforce root-cause investigation --
-   read error messages completely, check recent changes (git diff from last passing state), trace data flow to SOURCE not symptom.
-   Form single hypothesis, test minimally, one variable at a time. **3+ fixes on same issue -> STOP, question architecture, escalate.**
-4. Spawn **Cortex (triage)** (model: sonnet) to:
-   - Read failure details from session JSON
+1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/team:verify` first).
+2. **Check loop count** — if >= 3, go straight to structured escalation (step 10).
+3. **Debugging discipline** — call `Skill(skill="superpowers:systematic-debugging")` before triage. Do not inline rules.
+4. **Triage** — spawn **Cortex** (model: sonnet) to:
+   - Read failure details from the loaded artifact
    - Classify each failure (build/type/contract/ui/a11y/test/performance/docs/integration)
    - Create fix packet with assigned owners and scoped repairs
-5. Show fix packet to user for approval
+5. Show fix packet to user for approval.
 6. On approval:
-   a. Update board with fix loop task
-   b. Spawn only the assigned repair agents (scoped to failing files only)
-   c. After repairs complete, automatically run `/team:verify`
-7. If re-verify passes -> exit loop, proceed to wrap
+   - Update board with fix loop task
+   - Spawn only the assigned repair agents (scoped to failing files)
+   - After repairs, call `Skill(skill="team:verify")` — verify handles temperature review internally
+7. If re-verify passes → exit loop, proceed to wrap.
 8. If re-verify fails:
-   a. Compare failure class to previous iteration's failure class
-   b. If SAME class → trigger re-plan (step 10) — do NOT increment loop
-   c. If DIFFERENT class → increment loop counter, repeat from step 1
-   d. Write correction for the failed approach (Trigger 2 from auto-learning)
-9. **Correction format** (when writing corrections on repeated failure in step 8):
-   Format: `CORRECTION [{approach-keyword}]: [{what went wrong}] — [{what to do instead}] [failed] ({date})`
-   Include approach signature so future anti-repetition gate can pattern-match.
-   Example: `CORRECTION [_groupHover in Popover]: hover state unreliable on portal content — use kebab menu or controlled open state [failed] (2026-04-10)`
-
-10. **Scrap and redo on repeated failure** (no patch stacking):
-    Before each fix iteration (step 8), compare current failure class to ALL previous iterations (not just N-1):
-    
-    ```
-    IF fix_loop.iteration >= 2 AND current_failure_class IN previous_failure_classes:
-      LOG "[FIX] Failure class '{failure_class}' seen before. Patch approach exhausted."
-      WRITE correction to learnings/{domain}.md
-      EXECUTE scrap-and-redo protocol (below)
-      EXIT fix loop
-    ```
-    
-    This catches cycling patterns (A→B→A) that comparing only N-1 would miss.
-
-    **Scrap-and-redo protocol:**
-    The failed attempts produced garbage code but gold knowledge. Synthesize, revert, rebuild.
-    
-    a. **Synthesize** — agent summarizes what it LEARNED (not what it tried):
-       - What edge cases were discovered?
-       - What's the actual data shape / API behavior?
-       - Which constraints are real vs assumed?
-       - Why did the previous approaches fail at a root level?
-    
-    b. **Revert** — clean slate: `git checkout -- <all files touched by fix attempts>`
-    
-    c. **Rebuild** — spawn a fresh agent with this prompt structure:
-       "You tried [X] and [Y], which failed because [Z]. Knowing everything you now know,
-       scrap the previous approach and implement the elegant solution from scratch."
-       Include the synthesized learnings, NOT the failed code.
-    
-    d. **Verify** — run `team:verify` on the fresh implementation
-
-11. **Other escalation triggers:**
-    - Loop count > 3 (hard cap — present structured escalation from step 11)
-    - 3+ fix attempts on same root cause without resolution (architectural problem signal — see `superpowers:systematic-debugging`)
-    - Contract must change to fix (return to contract phase)
-    - Scope expanded beyond original failure (return to planning)
-    - User says "stop", "this isn't working", or expresses frustration → STOP immediately, present options
-
-12. **Structured escalation** (when loop count > 3 or 3+ attempts on same root cause):
-    Present to user in this exact format:
+   - Compare failure class to **all** previous iterations (not just N-1)
+   - SAME class → scrap-and-redo (step 9), write correction, exit loop
+   - DIFFERENT class → increment loop counter, return to step 1
+   - Write correction: `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`
+9. **Scrap-and-redo** (patch approach exhausted):
+   - **Synthesize** — agent documents what was learned: edge cases, real API behavior, why approaches failed
+   - **Revert** — `git checkout -- <all files touched by fix attempts>`
+   - **Rebuild** — spawn fresh agent: "You tried [X] and [Y], which failed because [Z]. Knowing this, implement the elegant solution from scratch." Pass synthesized learnings, not failed code.
+   - **Verify** — run `team:verify` on fresh implementation
+10. **Escalation triggers**: loop > 3, contract must change, scope expanded, user says stop.
+11. **Structured escalation** format:
     ```
     ## FIX LOOP EXHAUSTED ({N}/3)
 
@@ -86,7 +46,7 @@ Start a fix loop from the latest failed verification.
     [{Cortex's best theory based on all 3 attempts}]
 
     ### Options
-    A. **Pivot approach**: [{describe specific alternative not yet tried}]
+    A. **Pivot approach**: [{specific alternative not yet tried}]
     B. **Reduce scope**: [{what to cut to make remaining work pass}]
     C. **Accept as-is**: [{what remains broken, impact assessment}]
     D. **Abandon**: [{roll back to last known good state}]
