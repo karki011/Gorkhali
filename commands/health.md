@@ -27,6 +27,21 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `~/.claude/team/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
 
+9. **File size caps**: Check all skill/reference/learnings files against caps:
+   - `commands/*.md` (non-shared) > 80 lines → needs trimming
+   - `reference/*.md` > 100 lines → needs distillation
+   - `learnings/INDEX.md` > 80 entries → needs pruning
+   - `learnings/{domain}.md` > 50 entries → needs condensing
+   Report oversized files. Suggest `/team:evolve` to distill.
+
+10. **Stale sessions**: Sessions in `state/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `state/completed/`.
+
+11. **Evolution log**: Check `state/evolution-log.json`:
+    - Total evolutions applied
+    - Last evolution date
+    - Any tier 2-3 proposals pending user approval
+    - Any reverted changes
+
 ## Output Format
 
 ```
