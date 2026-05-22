@@ -154,6 +154,22 @@ If not triggered (< 3 agent-changed files): skip silently.
     }
     ```
 
+## Evolution Check (Haiku sidecar)
+
+Spawn Haiku agent (model: haiku, mode: bypassPermissions, run_in_background: false):
+
+Prompt: "Scan learnings/INDEX.md. Find:
+1. Entries with [validated:5+] → Tier 1 (auto-promote to reference/)
+2. [failed] corrections in 3+ sessions → Tier 2 (propose skill edit)
+3. Repeated multi-step patterns in 4+ sessions → Tier 3 (propose new skill)
+4. Files over size cap? (reference: 100 lines, commands: 80 lines)
+Output JSON: {tier1: [...], tier2: [...], tier3: [...], oversized: [...]}"
+
+Process results (see `reference/evolution.md` for full protocol):
+- Tier 1: auto-apply, prune INDEX entry, log to `state/evolution-log.json`
+- Tier 2-3: present to user, apply on approval, log
+- Oversized: offer Haiku distillation
+
 18. **Archive session**:
     - Copy session state to `state/completed/{TICKET}/`
     - Update `state/current.json`: remove {TICKET} from active sessions
