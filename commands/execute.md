@@ -9,6 +9,8 @@ description: "Execute a saved plan (blocks without contracts)"
 
 Execute a plan from artifacts. Used by start.md router or standalone.
 
+<instructions>
+
 1. **Detect ticket** from $ARGUMENTS or git branch
 
 2. **Load plan**: Read `state/sessions/{TICKET}/plan.json`
@@ -26,6 +28,8 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - Agent results → `state/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
+
+<output_format>
 
 6. **Write execution artifact** to `state/sessions/{TICKET}/execution.json`:
    ```json
@@ -52,4 +56,12 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    }
    ```
 
+</output_format>
+
+<no_git_until_wrap>
+
 7. **No git operations.** All work is local until wrap.
+
+</no_git_until_wrap>
+
+</instructions>

@@ -13,6 +13,8 @@ Router: context → plan → execute → verify → wrap.
 Each phase reads/writes artifacts in `state/sessions/{TICKET}/`.
 No git operations until wrap. All work is local.
 
+<phase_a_context>
+
 ## Phase A: Context
 
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current`
@@ -23,6 +25,10 @@ No git operations until wrap. All work is local.
 6. If Phantom MCP available: call `phantom_before_edit` for blast radius (non-blocking)
 7. Write `state/sessions/{TICKET}/context.json` with `_meta` header
 8. Activate cortex hook: `touch ~/.claude/team/.cortex-active`
+
+</phase_a_context>
+
+<phase_b_plan>
 
 ## Phase B: Plan
 
@@ -36,10 +42,18 @@ No git operations until wrap. All work is local.
 7. Write `state/sessions/{TICKET}/plan.json` with `devilsAdvocateVerdict`
 8. Get user approval via ExitPlanMode
 
+</phase_b_plan>
+
+<phase_c_contracts>
+
 ## Phase C: Contracts
 
 1. READ `reference/contracts.md` for templates
 2. Create contracts → `state/sessions/{TICKET}/contracts/`
+
+</phase_c_contracts>
+
+<phase_d_execute>
 
 ## Phase D: Execute
 
@@ -49,13 +63,23 @@ No git operations until wrap. All work is local.
 4. Write `state/sessions/{TICKET}/execution.json`
 5. No git operations. All work is local.
 
+</phase_d_execute>
+
+<phase_e_verify_ship>
+
 ## Phase E: Verify + Ship
 
 1. `Skill(skill="team:verify")` — writes verification.json
 2. If PASS → `Skill(skill="team:wrap")` — ships and archives
 3. If FAIL → `Skill(skill="team:fix")` → loop: fix → verify → wrap on pass
 
+</phase_e_verify_ship>
+
+<context_management>
+
 ## Context Management
 
 Between any phase: if context is heavy, run `Skill(skill="team:pause")`.
 User runs `/clear` then `/team:resume {TICKET}` to continue from the last artifact.
+
+</context_management>
