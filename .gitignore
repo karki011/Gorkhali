@@ -19,8 +19,6 @@ board-app/
 # Story chronicles (personal)
 story/
 
-# Legacy hooks
-hooks/
 
 # Dispatches (archived)
 dispatches/
