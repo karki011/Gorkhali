@@ -12,6 +12,8 @@
 
 ---
 
+<context>
+
 ## Path Helper
 
 ```
@@ -28,7 +30,11 @@ GLOBAL_EDGES    = ~/.claude/team/global/patterns/EDGES.md  # Cross-project relat
 STORY     = ~/.claude/team/story/
 ```
 
+</context>
+
 ---
+
+<constraints>
 
 ## Iron Laws
 
@@ -50,6 +56,10 @@ STORY     = ~/.claude/team/story/
 
 See `reference/governance.md` for enforcement details.
 
+</constraints>
+
+<verify_before_claiming_done>
+
 ### Self-Check (before claiming "done")
 
 - [ ] On feature branch (not main/develop)?
@@ -65,7 +75,11 @@ If ANY is NO → fix before proceeding.
 
 See `reference/governance.md` for additional rules and output style.
 
+</verify_before_claiming_done>
+
 ---
+
+<context_management>
 
 ## Context Management
 
@@ -79,6 +93,8 @@ See `reference/governance.md` for additional rules and output style.
 **Rules:** Always compact with hints (never bare `/compact`). Rewind over correct (failed attempts pollute context). Subagents for heavy reads. After compact: re-read `intent.md` + active contracts.
 
 See `_shared-auto-learning.md` for smart learnings loading strategy and domain detection.
+
+</context_management>
 
 ---
 
