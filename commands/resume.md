@@ -9,17 +9,20 @@ description: "Use when continuing previous work, picking up where left off, or r
 
 Resume from a paused session by reading the state artifact.
 
+<instructions>
 1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/team:resume CP-41606`)
 
 2. **Read state artifact**: `state/sessions/{TICKET}/pause-state.json`
    - If missing: list available sessions in `state/sessions/`, ask user to pick
    - If found: load and display summary
 
+<staleness_check>
 3. **Staleness check**: Compare `_meta.gitHead` to current `git rev-parse --short HEAD`
    - Match → continue
    - Mismatch → warn: "State saved at {old HEAD} but HEAD is now {new HEAD}."
      Show: `git log {old}..{new} --oneline`
      Ask: "Continue from saved state or start fresh?"
+</staleness_check>
 
 4. **Restore context** from artifact paths:
    - Read `intent.json` (from `intent` field)
@@ -43,3 +46,4 @@ Resume from a paused session by reading the state artifact.
    - Phase C → create remaining contracts
    - Phase D → dispatch pending tasks
    - Verify → re-run verification
+</instructions>

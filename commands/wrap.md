@@ -5,17 +5,20 @@ description: "Use when work is done, ready to create PR, finishing a session, or
 
 > **Preamble Tier: T4** — loads ALL shared contexts
 
+<precondition>
 ## Precondition
 
 Check `state/sessions/{TICKET}/verification.json`:
 - If exists AND `verdict: "pass"` → proceed
 - If exists AND `verdict: "fail"` → BLOCK: "Verification failed. Run `/team:verify` first."
 - If missing → WARN: "No verification artifact found. Run `/team:verify` first, or proceed at your own risk?"
+</precondition>
 
 # /team:wrap
 
 Single ship ceremony. All git operations happen here — no commits, pushes, or PRs before wrap.
 
+<knowledge_recording>
 Full shutdown:
 
 1. **Run Pre-Wrap Hook** -- verify implementation, test, and review status is recorded
@@ -92,16 +95,21 @@ If not triggered (< 3 agent-changed files): skip silently.
     - Log to `learnings/testing.md`: `TESTGAP: {file} changed without test update ({date})`
     - Report in wrap summary: "Test gaps: {N} source files changed without corresponding test updates"
     - Do NOT block — this is informational. User decides whether to address before PR.
+</knowledge_recording>
 
 ## Ship
 
 **No git operations happened before this point. All prior work was local-only.**
 
+<ship_ceremony>
 11. **Stage changed files**:
+
+<NEVER_COMMIT_SECRETS>
     - Read `state/sessions/{TICKET}/execution.json` for `filesChanged` list if available
     - Fallback: `git diff --name-only main...HEAD`
     - `git add <each file>` (never `git add -A`)
     - Skip: `.env`, `credentials.*`, `*.key`, `*.pem` (warn if found)
+</NEVER_COMMIT_SECRETS>
 
 12. **Commit**:
     - Message format: `{TICKET}: {summary}`
@@ -135,7 +143,9 @@ If not triggered (< 3 agent-changed files): skip silently.
       - Transition {TICKET} to "Review" (or "In Review")
       - Add comment: "PR #{number}: {url}"
     - If unavailable: skip silently
+</ship_ceremony>
 
+<output_format>
 17. **Write wrap artifact** to `state/sessions/{TICKET}/wrap.json`:
     ```json
     {
@@ -153,7 +163,9 @@ If not triggered (< 3 agent-changed files): skip silently.
       "learnings": { "recorded": N, "promoted": N, "pruned": N }
     }
     ```
+</output_format>
 
+<evolution_check>
 ## Evolution Check (Haiku sidecar)
 
 Spawn Haiku agent (model: haiku, mode: bypassPermissions, run_in_background: false):
@@ -169,7 +181,9 @@ Process results (see `reference/evolution.md` for full protocol):
 - Tier 1: auto-apply, prune INDEX entry, log to `state/evolution-log.json`
 - Tier 2-3: present to user, apply on approval, log
 - Oversized: offer Haiku distillation
+</evolution_check>
 
+<archive_and_shutdown>
 18. **Archive session**:
     - Copy session state to `state/completed/{TICKET}/`
     - Update `state/current.json`: remove {TICKET} from active sessions
@@ -227,6 +241,7 @@ Process results (see `reference/evolution.md` for full protocol):
     ```
     Safe to run even if no goal is active — it's a no-op. Prevents a lingering goal from auto-triggering turns after wrap.
 24. Shut down crew
+</archive_and_shutdown>
 
 ---
 

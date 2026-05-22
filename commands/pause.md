@@ -9,12 +9,15 @@ description: "Use when stepping away, switching context, taking a break, or savi
 
 Save full session state so `/clear` + `/team:resume` restores everything.
 
+<instructions>
 1. **Capture git state**
    - Branch: `git branch --show-current`
    - HEAD: `git rev-parse --short HEAD`
    - Uncommitted: `git diff --name-only`
 
 2. **Write state artifact** to `state/sessions/{TICKET}/pause-state.json`:
+
+<output_format>
    ```json
    {
      "_meta": {
@@ -39,6 +42,7 @@ Save full session state so `/clear` + `/team:resume` restores everything.
      "resumeNotes": "{what was being worked on, what's next}"
    }
    ```
+</output_format>
 
 3. **Write session log** to `sessions/{TICKET}/{date}_{slug}.md`
    - Summary of work done
@@ -50,5 +54,6 @@ Save full session state so `/clear` + `/team:resume` restores everything.
 5. **Update INDEX.md** with new entries
 
 6. **Update auto-memory** in project memory directory
+</instructions>
 
 Print: "Session paused. Run `/clear` then `/team:resume {TICKET}` to continue."
