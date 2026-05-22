@@ -1,196 +1,118 @@
-# Team Skill
+# Team Skill v2 — Multi-Agent Orchestration for Claude Code
 
-Multi-agent engineering crew for Claude Code. Plans, implements, verifies, and ships — any repo, any stack.
-
-## Install (30 seconds)
-
-**Option 1 — One-liner:**
-```bash
-git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/team && ~/.claude/team/setup.sh
-```
-
-**Option 2 — Install script** (handles SSH/HTTPS fallback, existing installs, updates):
-```bash
-# Save install.sh from the repo, then:
-chmod +x install.sh && ./install.sh
-```
-
-**Update existing install:**
-```bash
-cd ~/.claude/team && git pull && ./setup.sh
-```
-
-### What setup.sh does
-
-1. Creates symlink `~/.claude/commands/team` → skill commands
-2. Initializes per-user directories (sessions, events, learnings)
-3. Asks config questions (Jira project, Slack channel, model preference)
-4. Auto-detects MCP integrations (Atlassian, phantom-ai, Slack)
-5. Installs agent spawn validator hook (keeps context window clean)
-6. Writes `config.yaml` with your settings
-7. Checks prerequisites (Claude Code CLI, gh CLI)
-
-### Prerequisites
-
-- **Required**: Claude Code CLI, git
-- **Recommended**: gh CLI (for PR features), Atlassian MCP (for Jira)
-- **Optional**: phantom-ai MCP (graph intelligence), Slack MCP (notifications)
-
-## Usage
-
-```bash
-/team:start "CP-41171"              # Jira ticket → plan → implement → verify → PR
-/team:start "fix the auth bug"      # Free text → same pipeline
-/team:verify                        # Run quality gate on current work
-/team:pause                         # Save state, step away
-/team:resume                        # Pick up where you left off
-/team:wrap                          # Full shutdown with learnings
-```
-
-Or just describe what you want — Claude auto-triggers the team skill:
-```
-"implement CP-41171"    → team:start
-"fix this bug"          → team:start
-"check if it works"     → team:verify
-"I'm done"              → team:wrap
-```
+**Author: Subash Karki**
 
 ## What It Does
 
-1. **Pulls Jira ticket** context automatically (if Atlassian MCP configured)
-2. **Plans** with Devil's Advocate adversarial challenge + GOAP precondition/effect modeling (CREW tasks)
-3. **Three-tier model routing** — Bypass (no agent) → Haiku (routine) → Sonnet (standard) → Opus (complex)
-4. **Auto-CREW trigger** — hard checklist (4+ files, cross-layer, security, schema) replaces narrative judgment
-5. **SendMessage pipeline** — Spark → Sentinel → Prism hand off directly, no Cortex polling
-6. **Mandatory verification**: Sentinel → Simplify → Code Review → Prism (scored 0-10) + witness marker check
-7. **Witness regression markers** — fix code registered in `witness-fixes.json`, verified every build
-8. **Scored learnings** — patterns decay (`[v:N q:0.X u:date]`), auto-prune stale, auto-promote validated
-9. **Testgaps scan** at wrap — flags source changes without test updates
-10. **Smart PR**: draft PR for backend, branch-only for UI (verify visually first)
-11. **`claude -p` headless** + `--fork-session` for cheap parallel exploration
+Orchestrates AI agents for software development. Takes a ticket or requirement, plans, executes with parallel agents, verifies with temperature-based review, and ships via PR with Greptile review and Jira transition. Self-evolving — learns from every session and compresses knowledge over time.
 
-## The Pipeline
+## Quick Start
 
-```
-  /team:start "CP-41171"
-  ━━━━━━━━━━━━━━━━━━━━━
-       │
-  Phase A: Context       Jira pull, scored learnings, graph intelligence
-       │
-  Phase B: Planning      Intent → Auto-CREW checklist → tier classification
-       │                 GOAP preconditions (CREW only)
-       │                 Devil's Advocate challenge
-       │
-  Phase C: Contracts     Agent assignments locked
-       │
-  Phase D: Execution     Tiered dispatch (bypass/haiku/sonnet/opus)
-       │                 SendMessage pipeline (Spark→Sentinel→Prism)
-       │                 Cortex intent alignment check
-       │                 Sentinel verify + witness marker check
-       │                 Simplify → Code Review → Prism (0-10)
-       │                 Fix loop (max 3, same-class → re-plan)
-       │
-  Phase E: Wrap          Testgaps scan + scope creep detection
-       │                 Scored learnings update (prune/promote)
-       │                 Draft PR or branch push + Jira update
-       │
-  ╭───────────────────╮
-  │ SESSION WRAPPED  ✓│
-  ╰───────────────────╯
+```bash
+/team:start CP-41606          # plan → execute → verify → ship
+/team:verify                   # temperature review (P0/P1 fix, P2/P3 drop)
+/team:wrap                     # commit, push, PR, Greptile, Jira
+/team:pause → /clear → /team:resume CP-41606   # context management
 ```
 
-## 12 Iron Laws
+## Architecture
 
-Non-negotiable constraints Claude cannot rationalize past:
+- **Artifact-passing pipeline** — each phase reads/writes JSON to `state/sessions/`
+- **Thin skills** — directives are 30-50 lines; reference material injected by hooks on demand
+- **Structural enforcement** — hooks enforce Iron Laws (not prompting)
+- **Knowledge compression** — learnings → reference promotion → skill evolution over time
 
-1. **Feature branch** — never commit to main/develop
-2. **Verification mandatory** — no "done" without Sentinel evidence
-3. **Anti-repetition** — `[failed]` blocks approach, `[validated:5+]` auto-applies
-4. **Devil's Advocate** — every plan challenged before execution
-5. **Simplify always runs** — after verification, simplify changed files, re-verify if changed
-6. **Intent check** — Cortex reviews diff against intent (tests passing ≠ problem solved)
-7. **Smart PR** — UI = branch only, no UI = draft PR
-8. **Jira auto-transition** — auto-move to "Reviewing" after push
-9. **Learnings** — every session reads AND writes to learnings
-10. **Auto-CREW trigger** — 4+ files, cross-layer, security, schema → CREW. Checklist, not judgment.
-11. **No patchwork fixes** — reproduce → trace → confirm root cause. Same class twice → re-plan.
-12. **Parallel agents** — 2+ independent files → parallel. No sequential when parallelizable.
+## Folder Structure
 
-## Works With Any Repo
+```
+~/.claude/team/
+├── commands/          # Skill directives (30-80 lines each)
+├── reference/         # On-demand reference (injected by hooks)
+├── agents/            # Agent personas
+├── state/             # JSON artifacts (source of truth)
+│   ├── sessions/      # Active session artifacts
+│   ├── completed/     # Archived sessions
+│   └── evolution-log.json
+├── hooks/             # Structural enforcement
+├── learnings/         # Scored knowledge with decay
+├── repos/             # Per-repo state
+├── templates/         # Reusable templates
+└── global/            # Cross-repo patterns
+```
 
-| Stack | Detected Via | Verify Commands |
-|-------|-------------|-----------------|
-| Node/pnpm | `pnpm-lock.yaml` | `pnpm check && pnpm build` |
-| Node/yarn | `yarn.lock` | `yarn lint && yarn build` |
-| Go | `go.mod` | `go vet && go build && go test` |
-| Python | `pyproject.toml` | `ruff check && pytest` |
-| Rust | `Cargo.toml` | `cargo clippy && cargo build` |
-| Terraform | `*.tf` | `terraform fmt && terraform validate` |
+## Lifecycle
 
-If your repo has `CLAUDE.md` with verify commands, those take priority.
+```
+start → plan → execute → verify → wrap → done
+                           ↑          │
+                           └── fix ───┘
+Context heavy? pause → /clear → resume
+```
+
+## Key Concepts
+
+**Artifacts** — JSON files in `state/sessions/` with `_meta` headers. Files are truth, context is ephemeral.
+
+**Temperature Review** — P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped. 1 agent, not 7.
+
+**Self-Evolution** — Tier 1: reference auto-promote. Tier 2: skill edits (user approval). Tier 3: skill spawning (user approval).
+
+**Haiku Sidecar** — Small LLM handles routing, validation, evolution, distillation.
+
+**Iron Laws** — 13 rules, 10+ enforced structurally via hooks and artifact schemas.
 
 ## Crew
 
-| Agent | Default Model | Role |
-|-------|---------------|------|
+| Agent | Model | Role |
+|-------|-------|------|
 | Cortex | opus | Orchestrator — plans, decomposes, coordinates |
-| Spark | haiku/sonnet/opus | Implementation — tier-routed by task complexity |
-| Sentinel | sonnet | Verification — repo-aware lint/build/test + witness markers |
-| Prism | opus | Quality gate — code review (single rubric, scored 0-10) |
-| Oracle | opus | On-demand guidance for stuck agents (<100 words) |
-| Devil's Advocate | opus | Adversarial plan reviewer |
-| Lens | sonnet | Visual — Figma extraction + browser verification (agent-browser preferred, Playwright fallback) |
+| Spark | sonnet | Implementation — parallel execution |
+| Sentinel | sonnet | QA — lint, build, test verification |
+| Prism | sonnet | Quality gate — temperature review (scored) |
+| Oracle | opus | Advisory — guidance for stuck agents (<100 words) |
+| Lens | sonnet | Visual verification — screenshot + diff |
+| Hawkeye | opus | Cross-file review — pre-PR structural analysis |
+| Devil's Advocate | opus | Plan challenger — adversarial review |
 
-### Model Routing
+All models are 4.6 only — 4.7 is too slow.
 
-| Tier | Model | When |
-|------|-------|------|
-| Bypass | No agent | Mechanical: rename, import, typo |
-| Haiku | haiku | Routine: single-file, docs, config |
-| Sonnet | sonnet | Standard: features, multi-file, tests |
-| Opus | opus | Complex: architecture, quality gates |
+## Skills Reference
 
-Say "use opus" or "use sonnet" at session start to override all tiers. All models are 4.6 only — 4.7 is too slow.
+| Command | Description |
+|---------|-------------|
+| `/team:start` | Plan + execute + verify + ship (main entry point) |
+| `/team:verify` | Temperature review with auto-fix for P0/P1 |
+| `/team:wrap` | Commit, push, PR, Greptile review, Jira transition |
+| `/team:pause` | Save session state for context management |
+| `/team:resume` | Restore session from saved state |
+| `/team:fix` | Triage failures, assign scoped repairs, re-verify (max 3 loops) |
+| `/team:status` | Current task board |
+| `/team:review` | Trigger Prism quality gate |
+| `/team:visual` | Trigger Lens visual inspection |
+| `/team:scout` | Run background scouts for missing context |
+| `/team:recruit` | Spawn a Spark with ROLE FOCUS directive |
+| `/team:grill` | Quiz yourself on the diff before shipping |
+| `/team:learn` | Capture a learning mid-session |
+| `/team:evolve` | Trigger evolution check — scan learnings, propose promotions |
+| `/team:health` | Diagnose knowledge layer health |
+| `/team:eval` | Evaluate crew performance with rubric |
+| `/team:sessions` | List all sessions with status |
+| `/team:execute` | Execute a saved plan |
+| `/team:contract` | Create contract from template (feature/api/testing/ui/fix) |
+| `/team:validate` | Run validation checks (plan/output/session/all) |
 
-## Optional Integrations
+## Setup
 
-| Integration | What It Adds | How to Get |
-|-------------|-------------|------------|
-| Atlassian MCP | Jira ticket auto-pull + status transitions | `claude mcp add atlassian` |
-| phantom-ai MCP | Blast radius, strategy selection, learning loop | Install Phantom OS |
-| Slack MCP | Notifications on completion | `claude mcp add slack` |
-| code-review-graph | Structural impact analysis | `setup.sh` detects |
-| agent-browser | Fast visual verification (replaces Playwright for Lens) | `npm i -g agent-browser` |
+```bash
+# Fresh install
+git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/team
+~/.claude/team/setup.sh
 
-All optional — skill works fine without any of them.
-
-## Configuration
-
-After `setup.sh`, edit `~/.claude/team/config.yaml`:
-
-```yaml
-jira:
-  project: CP              # Your Jira project key
-models:
-  spark: sonnet            # or haiku for speed
-preferences:
-  auto_draft_pr: true      # Draft PR for non-UI work
+# Update existing
+cd ~/.claude/team && git pull && ./setup.sh
 ```
 
-See `config.yaml.example` for all options.
-
-## How It Learns
-
-The skill gets better over time — automatically, no manual action needed:
-
-- **User corrections** (immediate): highest signal, recorded inline when user corrects approach
-- **After verification**: records what approach worked with `[proposed]` tag
-- **Fix loop failures**: records what failed and what fixed it as `[failed]` corrections
-- **After wrap**: validates/promotes patterns (`[validated:5+]` auto-promoted to global)
-
-Anti-repetition scans learnings before every task — `[failed]` patterns block, `[validated:5+]` auto-apply.
-
-Learnings are per-user and gitignored — your corrections won't affect teammates.
+Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP.
 
 ## Author
 
