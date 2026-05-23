@@ -49,3 +49,6 @@ ruvector.db
 # AgentDB
 agentdb.rvf
 agentdb.rvf.lock
+
+# Docs (local research/design docs, not tracked)
+docs/
