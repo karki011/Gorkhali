@@ -101,6 +101,18 @@ All models are 4.6 only — 4.7 is too slow.
 | `/team:contract` | Create contract from template (feature/api/testing/ui/fix) |
 | `/team:validate` | Run validation checks (plan/output/session/all) |
 
+## Hooks
+
+| Hook | Type | Purpose |
+|------|------|---------|
+| `pre-phase-context.js` | PreToolUse | Injects reference content based on current session phase |
+| `feature-branch-gate.sh` | PreToolUse | Blocks destructive operations on main/master |
+| `validate-artifact.js` | PostToolUse | Validates JSON artifacts have proper `_meta` headers |
+| `board-event-log.js` | PostToolUse | Logs task/decision events to `events/` NDJSON |
+| `observation-capture.js` | PostToolUse | Captures Read/Edit/Write/Bash/Grep/Glob events with structural summaries to `observations/{date}.jsonl` |
+
+**observation-capture** — passive context accumulation. Every tool use is silently recorded with compressed structural data (imports, exports, function counts, class names). Deduplicates within 60s windows. Observations stored as NDJSON, one line per event, max 500 chars each.
+
 ## Setup
 
 ```bash

@@ -2,6 +2,7 @@
 config.yaml
 sessions/
 events/
+observations/
 state/
 repos/
 
