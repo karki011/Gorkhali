@@ -45,3 +45,7 @@ ruvector.db
 *.db
 *.db-shm
 *.db-wal
+
+# AgentDB
+agentdb.rvf
+agentdb.rvf.lock
