@@ -1,6 +1,6 @@
 ---
 name: team:evolve
-description: "Manually trigger evolution check — scan learnings, propose promotions, distill oversized files."
+description: "Use when learnings files are getting large, patterns should be promoted to global, or the knowledge system needs maintenance. Scans learnings, proposes promotions to global patterns, distills oversized files, and cleans stale entries. Also use when user says 'clean up learnings', 'promote patterns', 'knowledge maintenance', or 'evolve the system'."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only

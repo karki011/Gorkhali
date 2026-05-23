@@ -1,6 +1,6 @@
 ---
 name: team:eval
-description: Evaluate crew performance with rubric
+description: "Use when you want to evaluate how well the agents performed, score the session quality, or review crew effectiveness. Produces a rubric-based evaluation of agent outputs, coordination, and outcome quality. Also use when user says 'how did that go', 'rate the work', 'score this session', or 'performance review'."
 ---
 
 > **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'

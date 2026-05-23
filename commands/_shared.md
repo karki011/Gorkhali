@@ -116,7 +116,7 @@ Each command declares a complexity tier (T1-T4). Load ONLY the context for that 
 | Tier | Commands |
 |------|----------|
 | **T1** | `status`, `sessions`, `health`, `learn`, `note`, `scout` |
-| **T2** | `verify`, `fix`, `validate`, `eval` |
+| **T2** | `verify`, `fix`, `validate`, `eval`, `detective` |
 | **T3** | `review`, `contract`, `recruit`, `visual` |
 | **T4** | `start`, `execute`, `wrap`, `resume`, `pause` |
 
@@ -130,5 +130,6 @@ Each command declares a complexity tier (T1-T4). Load ONLY the context for that 
 | `_shared-crew.md` | | | Y | Y | Agent spawning, crew roles |
 | `_shared-superpowers.md` | | | Y | Y | Plan/execution discipline |
 | `_shared-contracts.md` | | | Y | Y | Contract templates, hooks |
+| `_shared-detective.md` | | Y* | | Y | Forensic analysis (loaded on detective trigger) |
 | `_shared-board.md` | | | | Y | Event log, session state |
 | `_shared-phantom-integration.md` | | | | Y | Graph intelligence (optional) |

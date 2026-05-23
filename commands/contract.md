@@ -1,6 +1,6 @@
 ---
 name: team:contract
-description: Create contract from template (feature/api/testing/ui/fix)
+description: "Use when you need to define scope, write an interface contract, or create acceptance criteria before implementation. Creates structured contracts from templates (feature/api/testing/ui/fix) that agents must satisfy. Also use when user says 'define the interface', 'what are the requirements', 'scope this', or 'acceptance criteria'."
 argument-hint: "<type>"
 ---
 

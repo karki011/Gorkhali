@@ -1,6 +1,6 @@
 ---
 name: team:validate
-description: Run validation checks (plan/output/session/all)
+description: "Use when you want to validate work quality, check plan completeness, verify outputs match contracts, or audit session artifacts. Runs targeted validation on plan, output, session state, or all layers. Also use when user says 'is this complete', 'did we miss anything', 'sanity check', or 'audit'."
 argument-hint: "[layer]"
 ---
 

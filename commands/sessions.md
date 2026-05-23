@@ -1,6 +1,6 @@
 ---
 name: team:sessions
-description: List all sessions with status
+description: "Use when you want to see past work, list previous sessions, check session history, or find a specific session to resume. Shows all sessions with their status (active/paused/completed), dates, and ticket IDs. Also use when user says 'what did we do before', 'show history', 'past sessions', or 'find session'."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only

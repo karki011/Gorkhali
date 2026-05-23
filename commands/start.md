@@ -25,8 +25,34 @@ No git operations until wrap. All work is local.
 6. If Phantom MCP available: call `phantom_before_edit` for blast radius (non-blocking)
 7. Write `state/sessions/{TICKET}/context.json` with `_meta` header
 8. Activate cortex hook: `touch ~/.claude/team/.cortex-active`
+9. **Detective check** — classify input as bug vs feature (see below)
 
 </phase_a_context>
+
+<detective_pre_scan>
+
+## Phase A.5: Detective Pre-Scan (auto, bugs only)
+
+Classify input as bug report if ANY match:
+- Keywords in description: `bug`, `broken`, `regression`, `error`, `crash`, `failing`, `doesn't work`, `TypeError`, `undefined`, `null pointer`, `500`, `timeout`, `flaky`
+- Jira issue type: Bug, Defect, Incident
+- Branch prefix: `fix/`, `bugfix/`, `hotfix/`, `patch/`
+
+If classified as bug → run lightweight detective pre-scan:
+
+1. Identify suspect files from ticket description or error output
+2. Run hotspot check: `git log --format=format: --name-only --since="6.months" -- {suspects} | sort | uniq -c | sort -rn`
+3. Run ownership check: `git shortlog -sn --no-merges -- {suspects}` (top 3 files)
+4. Add `detective` field to `context.json` (schema in `reference/detective-protocol.md`)
+5. Report findings in 2-3 lines: "Detective pre-scan: {file} is a hotspot ({N} changes, bus factor {M})"
+
+If NOT a bug → skip silently. No token cost for feature work.
+
+If mixed signals → ask: "This might be a bug investigation. Run detective pre-scan first?"
+
+Pre-scan feeds into Phase B planning — the plan accounts for hotspot risk and ownership data.
+
+</detective_pre_scan>
 
 <phase_b_plan>
 

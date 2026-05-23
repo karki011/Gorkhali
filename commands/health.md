@@ -1,6 +1,6 @@
 ---
 name: team:health
-description: Diagnose knowledge layer health and report issues
+description: "Use when something seems wrong with the team skill system, learnings are stale, sessions are corrupted, or artifacts are missing. Diagnoses knowledge layer health — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is the team skill broken', 'check health', 'diagnose', or 'something is wrong'."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
