@@ -1,6 +1,6 @@
 ---
 name: team:recruit
-description: Spawn a Spark with ROLE FOCUS directive
+description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, or focused coding job. Spawns a Spark agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer'). Also use when user says 'spawn an agent', 'I need help with', 'get someone to', or 'specialist for'."
 argument-hint: "<role-focus>"
 ---
 

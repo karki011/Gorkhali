@@ -1,6 +1,6 @@
 ---
 name: team:scout
-description: Run background scouts for missing context
+description: "Use when you need more context, want to explore the codebase, understand dependencies, or gather background information before planning. Spawns parallel background agents to research design patterns, API contracts, test coverage, or dependency relationships. Also use when user says 'what does this do', 'how does this work', 'find related code', or 'explore'."
 argument-hint: "[area]"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: team:execute
-description: "Execute a saved plan (blocks without contracts)"
+description: "Use when you have a plan ready and want to run it, dispatch agents, or kick off implementation. Executes a saved plan.json by spawning agents per task decomposition. Blocks if no contracts exist — run /team:contract first."
 ---
 
 > **Preamble Tier: T2**

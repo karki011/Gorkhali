@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Skill System — Overview</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #db6d28;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+    --pink: #f778ba;
+    --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    padding: 2rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header .subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+  }
+  header .version {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin: 2.5rem 0 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .stat-card .number {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+  .stat-card .label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 1.5rem 0;
+    margin-bottom: 1rem;
+  }
+  .flow-node {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    min-width: 120px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .flow-node .cmd {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .flow-node .desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+  .flow-node.active { border-color: var(--green); }
+  .flow-node.detective { border-color: var(--purple); }
+  .flow-arrow {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+    flex-shrink: 0;
+  }
+  .flow-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .flow-branch .branch-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  /* Command table */
+  .cmd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .cmd-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+  .cmd-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .cmd-table tr:hover td { background: var(--surface); }
+  .cmd-table .cmd-name {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .cmd-table .tier {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .tier-1 { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tier-2 { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tier-3 { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .tier-4 { background: rgba(188,140,255,0.15); color: var(--purple); }
+
+  .keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+  }
+  .kw {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    background: var(--surface-2);
+    border-radius: 3px;
+    color: var(--text-muted);
+  }
+
+  /* Crew agents */
+  .crew-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .agent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .agent-card .name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .agent-card .model {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+  .model-opus { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .model-sonnet { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .agent-card .role {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* Auto-triggers */
+  .trigger-list {
+    list-style: none;
+    padding: 0;
+  }
+  .trigger-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .trigger-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+  }
+  .trigger-icon.start { background: rgba(63,185,80,0.15); color: var(--green); }
+  .trigger-icon.verify { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .trigger-icon.fix { background: rgba(248,81,73,0.15); color: var(--red); }
+  .trigger-source {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--purple);
+  }
+
+  /* Context tiers */
+  .tier-diagram {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .tier-col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .tier-col h3 {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+  .tier-col .ctx-file {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    background: var(--surface-2);
+    border-radius: 4px;
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--text-muted);
+  }
+  .tier-col .ctx-file.loaded { color: var(--green); background: rgba(63,185,80,0.1); }
+
+  /* Shared context */
+  .shared-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+  }
+  .shared-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .shared-card .filename {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--cyan);
+    margin-bottom: 0.35rem;
+  }
+  .shared-card .purpose {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Iron Laws */
+  .laws-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.5rem;
+  }
+  .law {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .law .num {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--orange);
+    font-weight: 700;
+    min-width: 1.5rem;
+  }
+
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .tier-diagram { grid-template-columns: 1fr 1fr; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Team Skill System</h1>
+  <div class="subtitle">Multi-agent orchestrated development for Claude Code</div>
+  <div class="version">v2.1 &middot; Detective Mode &middot; 2026-05-23 &middot; Author: Subash Karki</div>
+</header>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="number" style="color: var(--accent)">22</div>
+    <div class="label">Commands</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--purple)">8</div>
+    <div class="label">Crew Agents</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--green)">9</div>
+    <div class="label">Shared Contexts</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--orange)">13</div>
+    <div class="label">Iron Laws</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--yellow)">4</div>
+    <div class="label">Preamble Tiers</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--red)">3</div>
+    <div class="label">Auto-Triggers</div>
+  </div>
+</div>
+
+<h2>Main Workflow</h2>
+<div class="flow">
+  <div class="flow-node active">
+    <div class="cmd">/team:start</div>
+    <div class="desc">Context + Plan</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-node detective">
+    <div class="cmd">Detective?</div>
+    <div class="desc">Bug auto-detect</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-node">
+    <div class="cmd">/team:contract</div>
+    <div class="desc">Interface scope</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-node">
+    <div class="cmd">/team:execute</div>
+    <div class="desc">Dispatch agents</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-node">
+    <div class="cmd">/team:verify</div>
+    <div class="desc">Tests + review</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-branch">
+    <div class="flow-node" style="border-color: var(--green)">
+      <div class="cmd">/team:wrap</div>
+      <div class="desc">PR + ship</div>
+    </div>
+    <div class="branch-label">pass</div>
+  </div>
+</div>
+<div class="flow" style="padding-top: 0; justify-content: center;">
+  <div class="flow-node" style="border-color: var(--red); opacity: 0.8;">
+    <div class="cmd">/team:fix</div>
+    <div class="desc">Triage + repair</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div class="flow-node detective" style="opacity: 0.8;">
+    <div class="cmd">Detective?</div>
+    <div class="desc">Loop 2+ forensics</div>
+  </div>
+  <div class="flow-arrow">&rarr;</div>
+  <div style="color: var(--text-muted); font-size: 0.8rem; align-self: center;">
+    back to verify (max 3 loops)
+  </div>
+</div>
+
+<h2>All Commands</h2>
+<table class="cmd-table">
+  <thead>
+    <tr><th>Command</th><th>Tier</th><th>Purpose</th><th>User Keywords</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="cmd-name">/team:start</td>
+      <td><span class="tier tier-4">T4</span></td>
+      <td>Full orchestration: context, plan, execute, verify, ship</td>
+      <td><div class="keywords"><span class="kw">implement</span><span class="kw">build</span><span class="kw">fix</span><span class="kw">work on</span><span class="kw">CP-*</span><span class="kw">CLOUD-*</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:execute</td>
+      <td><span class="tier tier-4">T4</span></td>
+      <td>Dispatch agents from saved plan.json</td>
+      <td><div class="keywords"><span class="kw">run it</span><span class="kw">kick off</span><span class="kw">dispatch</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:verify</td>
+      <td><span class="tier tier-2">T2</span></td>
+      <td>Lint + build + tests + temperature review</td>
+      <td><div class="keywords"><span class="kw">run tests</span><span class="kw">check build</span><span class="kw">lint it</span><span class="kw">does it pass</span><span class="kw">is it working</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:fix</td>
+      <td><span class="tier tier-2">T2</span></td>
+      <td>Triage failures, scoped repair, max 3 loops</td>
+      <td><div class="keywords"><span class="kw">tests broke</span><span class="kw">build error</span><span class="kw">lint failed</span><span class="kw">verification failed</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:detective</td>
+      <td><span class="tier tier-2">T2</span></td>
+      <td>Forensic investigation: 7-step protocol, HTML reports</td>
+      <td><div class="keywords"><span class="kw">investigate</span><span class="kw">debug</span><span class="kw">root cause</span><span class="kw">trace</span><span class="kw">why is it broken</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:wrap</td>
+      <td><span class="tier tier-4">T4</span></td>
+      <td>Ship: eval, learnings, commit, PR, Jira, archive</td>
+      <td><div class="keywords"><span class="kw">done</span><span class="kw">create PR</span><span class="kw">ship it</span><span class="kw">finishing</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:review</td>
+      <td><span class="tier tier-3">T3</span></td>
+      <td>Prism quality gate: KISS/DRY, architecture</td>
+      <td><div class="keywords"><span class="kw">review this</span><span class="kw">check my code</span><span class="kw">is this good</span><span class="kw">code quality</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:scout</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Background agents for context gathering</td>
+      <td><div class="keywords"><span class="kw">explore</span><span class="kw">how does this work</span><span class="kw">find related</span><span class="kw">what does this do</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:grill</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Human understanding verification before shipping</td>
+      <td><div class="keywords"><span class="kw">grill me</span><span class="kw">quiz me</span><span class="kw">do I understand</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:contract</td>
+      <td><span class="tier tier-3">T3</span></td>
+      <td>Create interface contracts (feature/api/testing/ui/fix)</td>
+      <td><div class="keywords"><span class="kw">scope this</span><span class="kw">define interface</span><span class="kw">requirements</span><span class="kw">acceptance criteria</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:validate</td>
+      <td><span class="tier tier-2">T2</span></td>
+      <td>Check plan/output/session completeness</td>
+      <td><div class="keywords"><span class="kw">is this complete</span><span class="kw">sanity check</span><span class="kw">audit</span><span class="kw">did we miss anything</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:visual</td>
+      <td><span class="tier tier-3">T3</span></td>
+      <td>Browser-based UI inspection via Lens</td>
+      <td><div class="keywords"><span class="kw">does it look right</span><span class="kw">screenshot</span><span class="kw">visual check</span><span class="kw">check the UI</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:status</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Current task board and progress</td>
+      <td><div class="keywords"><span class="kw">where are we</span><span class="kw">show progress</span><span class="kw">task list</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:sessions</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>List past sessions with status</td>
+      <td><div class="keywords"><span class="kw">show history</span><span class="kw">past sessions</span><span class="kw">what did we do</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:pause</td>
+      <td><span class="tier tier-4">T4</span></td>
+      <td>Save state and resume notes for later</td>
+      <td><div class="keywords"><span class="kw">stepping away</span><span class="kw">save progress</span><span class="kw">taking a break</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:resume</td>
+      <td><span class="tier tier-4">T4</span></td>
+      <td>Restore context from paused session</td>
+      <td><div class="keywords"><span class="kw">continue</span><span class="kw">pick up</span><span class="kw">where I left off</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:learn</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Record corrections and patterns</td>
+      <td><div class="keywords"><span class="kw">remember this</span><span class="kw">note that</span><span class="kw">don't do that again</span><span class="kw">correction</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:eval</td>
+      <td><span class="tier tier-2">T2</span></td>
+      <td>Score crew performance with rubric</td>
+      <td><div class="keywords"><span class="kw">how did that go</span><span class="kw">rate the work</span><span class="kw">score this</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:recruit</td>
+      <td><span class="tier tier-3">T3</span></td>
+      <td>Spawn specialist Spark agent</td>
+      <td><div class="keywords"><span class="kw">spawn agent</span><span class="kw">I need help with</span><span class="kw">specialist for</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:evolve</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Promote patterns, distill learnings</td>
+      <td><div class="keywords"><span class="kw">clean up learnings</span><span class="kw">promote patterns</span><span class="kw">knowledge maintenance</span></div></td>
+    </tr>
+    <tr>
+      <td class="cmd-name">/team:health</td>
+      <td><span class="tier tier-1">T1</span></td>
+      <td>Diagnose system health, fix corrupted state</td>
+      <td><div class="keywords"><span class="kw">something is wrong</span><span class="kw">check health</span><span class="kw">diagnose</span></div></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Crew Agents</h2>
+<div class="crew-grid">
+  <div class="agent-card">
+    <div class="name">Cortex</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Team lead. Plans, decomposes, coordinates, self-challenges. Never implements directly.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Spark</div>
+    <span class="model model-sonnet">sonnet</span>
+    <div class="role">Implementation engine. Spawned with ROLE FOCUS directives (React, Go, tests, etc.). Max 5 concurrent.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Sentinel</div>
+    <span class="model model-sonnet">sonnet</span>
+    <div class="role">QA and build verification. Tests, lint, typecheck, build. Witness regression markers.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Hawkeye</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Cross-file reviewer. Cache coherence, regressions, dead code, convention deviations.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Prism</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Quality gate. KISS/DRY enforcement, simplifier gauntlet, architecture review.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Oracle</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Advisory only, no tools. On-demand guidance for Spark agents. Max 3 consultations per session.</div>
+  </div>
+  <div class="agent-card">
+    <div class="name">Lens</div>
+    <span class="model model-sonnet">sonnet</span>
+    <div class="role">Visual verification. Browser-based UI inspection with structured fix packets.</div>
+  </div>
+  <div class="agent-card" style="border-color: var(--purple);">
+    <div class="name" style="color: var(--purple);">Detective</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Forensic investigator. Traces symptoms to root causes via git history, hotspot analysis, coupling detection.</div>
+  </div>
+</div>
+
+<h2>Detective Mode — Auto-Triggers</h2>
+<ul class="trigger-list">
+  <li>
+    <div class="trigger-icon start">A</div>
+    <div>
+      <strong>Bug Report Detection</strong> &mdash; <span class="trigger-source">start.md Phase A.5</span>
+      <div style="color: var(--text-muted); font-size: 0.85rem;">
+        Keywords: bug, broken, regression, error, crash, failing. Jira type: Bug. Branch: fix/*, hotfix/*<br>
+        Depth: <strong>Pre-scan</strong> (2-3 git commands, adds detective field to context.json)
+      </div>
+    </div>
+  </li>
+  <li>
+    <div class="trigger-icon verify">V</div>
+    <div>
+      <strong>Verification Failure</strong> &mdash; <span class="trigger-source">verify.md Step 1 failure</span>
+      <div style="color: var(--text-muted); font-size: 0.85rem;">
+        When lint, build, or tests fail, scan failing files before routing to fix<br>
+        Depth: <strong>Failure scan</strong> (4-5 git commands, adds detective field to verification.json)
+      </div>
+    </div>
+  </li>
+  <li>
+    <div class="trigger-icon fix">F</div>
+    <div>
+      <strong>Fix Loop 2+</strong> &mdash; <span class="trigger-source">fix.md Step 8.5</span>
+      <div style="color: var(--text-muted); font-size: 0.85rem;">
+        Same failure class repeats after first fix attempt. Full forensic investigation before scrap-and-redo<br>
+        Depth: <strong>Deep investigation</strong> (full 7-step protocol, produces investigation.html)
+      </div>
+    </div>
+  </li>
+</ul>
+
+<h2>Preamble Tiers</h2>
+<div class="tier-diagram">
+  <div class="tier-col">
+    <h3 style="color: var(--green);">T1 — Leaf</h3>
+    <span class="ctx-file loaded">_shared.md</span>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+      status, sessions, health, learn, scout, evolve
+    </div>
+  </div>
+  <div class="tier-col">
+    <h3 style="color: var(--accent);">T2 — Verify</h3>
+    <span class="ctx-file loaded">_shared.md</span>
+    <span class="ctx-file loaded">_shared-repo-detection.md</span>
+    <span class="ctx-file loaded">_shared-auto-learning.md</span>
+    <span class="ctx-file">_shared-detective.md *</span>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+      verify, fix, validate, eval, detective
+    </div>
+  </div>
+  <div class="tier-col">
+    <h3 style="color: var(--yellow);">T3 — Plan</h3>
+    <span class="ctx-file loaded">+ _shared-crew.md</span>
+    <span class="ctx-file loaded">+ _shared-superpowers.md</span>
+    <span class="ctx-file loaded">+ _shared-contracts.md</span>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+      review, contract, recruit, visual
+    </div>
+  </div>
+  <div class="tier-col">
+    <h3 style="color: var(--purple);">T4 — Full</h3>
+    <span class="ctx-file loaded">+ _shared-board.md</span>
+    <span class="ctx-file loaded">+ _shared-phantom.md</span>
+    <span class="ctx-file loaded">+ _shared-detective.md</span>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+      start, execute, wrap, resume, pause
+    </div>
+  </div>
+</div>
+<div style="font-size: 0.75rem; color: var(--text-muted);">
+  * _shared-detective.md loaded on-demand at T2 only when detective mode triggers
+</div>
+
+<h2>Iron Laws</h2>
+<div class="laws-grid">
+  <div class="law"><span class="num">#1</span> Feature branch — never commit on main/develop/master</div>
+  <div class="law"><span class="num">#2</span> Verification mandatory — Sentinel confirms pass</div>
+  <div class="law"><span class="num">#3</span> Anti-repetition — scan learnings before any approach</div>
+  <div class="law"><span class="num">#4</span> Devil's Advocate — every plan challenged</div>
+  <div class="law"><span class="num">#5</span> Simplify always runs — after verify pass</div>
+  <div class="law"><span class="num">#6</span> Intent check — diff vs contract intent</div>
+  <div class="law"><span class="num">#7</span> Smart PR — UI = branch only, no UI = draft PR</div>
+  <div class="law"><span class="num">#8</span> Jira auto-transition — after push/PR</div>
+  <div class="law"><span class="num">#9</span> Learnings — every session reads and writes</div>
+  <div class="law"><span class="num">#10</span> Auto-CREW — 4+ files, cross-cutting = CREW</div>
+  <div class="law"><span class="num">#11</span> Root cause or nothing — reproduce, trace, confirm, fix</div>
+  <div class="law"><span class="num">#12</span> Parallel agents — 2+ independent files = parallel</div>
+  <div class="law"><span class="num">#13</span> Subagent-driven — all implementation through Agent tool</div>
+</div>
+
+<h2>Session Artifact Pipeline</h2>
+<table class="cmd-table">
+  <thead>
+    <tr><th>Phase</th><th>Artifact</th><th>Path</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A — Context</td><td>context.json</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>A.5 — Detective</td><td>context.json + detective field</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>B — Plan</td><td>intent.json, plan.json</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>C — Contracts</td><td>contracts/*.md</td><td>state/sessions/{TICKET}/contracts/</td></tr>
+    <tr><td>D — Execute</td><td>agent-outputs/*.md, execution.json</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>E — Verify</td><td>verification.json + detective field</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td style="color: var(--purple);">Detective</td><td style="color: var(--purple);">investigation.html</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>Wrap</td><td>wrap.json, decisions.md, learnings</td><td>state/sessions/{TICKET}/</td></tr>
+    <tr><td>Archive</td><td>full session copy</td><td>state/completed/{TICKET}/</td></tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  Team Skill System v2.1 &middot; Detective Mode &middot; Author: Subash Karki &middot; Generated 2026-05-23
+</div>
+
+</body>
+</html>

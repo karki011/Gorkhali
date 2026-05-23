@@ -14,6 +14,7 @@ Fix loop from latest failed verification.
 1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/team:verify` first).
 2. **Check loop count** — if >= 3, go straight to structured escalation (step 10).
 3. **Debugging discipline** — call `Skill(skill="superpowers:systematic-debugging")` before triage. Do not inline rules.
+3.5. **Detective escalation (loop 2+ only)** — if this is the 2nd+ attempt with the same failure class, trigger deep investigation before retrying (see below).
 4. **Triage** — spawn **Cortex** (model: sonnet) to:
    - Read failure details from the loaded artifact
    - Classify each failure (build/type/contract/ui/a11y/test/performance/docs/integration)
@@ -29,6 +30,26 @@ Fix loop from latest failed verification.
    - SAME class → scrap-and-redo (step 9), write correction, exit loop
    - DIFFERENT class → increment loop counter, return to step 1
    - Write correction: `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`
+
+<detective_deep_investigation>
+
+8.5. **Detective deep investigation** (same failure class on loop 2+):
+   The previous approach failed. Before scrap-and-redo, gather forensic evidence.
+   
+   Load `_shared-detective.md` context. Run full 7-step investigation:
+   1. Collect all error messages from both failed attempts
+   2. Timeline: `git log --oneline --since="2.weeks"` on failing files
+   3. Hotspot analysis on failing files (change frequency × complexity)
+   4. Ownership check (`git shortlog -sn`) — is this a knowledge silo?
+   5. Coupling check — did a coupled file miss a co-change?
+   6. Hypothesis with confidence level
+   7. Evidence trail (specific commits, line numbers)
+   
+   Write `state/sessions/{TICKET}/investigation.html` using template from `reference/detective-protocol.md`.
+   
+   Feed hypothesis and evidence into step 9 (scrap-and-redo) — the fresh agent gets the forensic report, not just "try again."
+
+</detective_deep_investigation>
 
 <scrap_and_redo>
 

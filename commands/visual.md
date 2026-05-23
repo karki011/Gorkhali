@@ -1,6 +1,6 @@
 ---
 name: team:visual
-description: Trigger Lens visual inspection on current task
+description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
 argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright] [--autonomous] [--no-fix]"
 ---
 

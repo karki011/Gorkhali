@@ -1,6 +1,6 @@
 ---
 name: team:verify
-description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Runs correctness checks + temperature review."
+description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Also use when user says 'does it pass', 'run tests', 'check the build', 'lint it', 'is it working', or 'test this'. Runs correctness checks (lint + build + tests) then a temperature review for quality."
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
@@ -21,7 +21,7 @@ Run each command. Read full output. Report:
 - build: pass/fail
 - tests: pass/fail
 
-If ANY fail → print failures, suggest `/team:fix`. Stop here.
+If ANY fail → run detective failure scan (see below), then print failures, suggest `/team:fix`. Stop here.
 
 Run `Skill(skill="simplify")` on changed files. If changes produced → re-run correctness.
 
@@ -48,6 +48,23 @@ If output is `[]` → verdict: pass. Skip to Write Artifact.
 </auto_address_loop>
 
 </instructions>
+
+<detective_failure_scan>
+
+## Detective Failure Scan (auto, on correctness failure)
+
+When Step 1 correctness fails, before suggesting `/team:fix`:
+
+1. Extract failing file paths from test/build/lint output
+2. Run hotspot check on failing files: `git log --format=format: --name-only --since="6.months" -- {failing_files} | sort | uniq -c | sort -rn`
+3. Run coupling check: find files that frequently co-change with the failing files
+4. Check recent changes: `git log --oneline --since="2.weeks" -- {failing_files}`
+5. Add `detective` field to verification.json (schema in `reference/detective-protocol.md`)
+6. Report: "Detective scan: {file} has {N} changes in 6mo, coupled with {other_file} (strength {S}). Recent change by {author} on {date} may be relevant."
+
+This scan adds ~5 seconds but gives fix.md structured evidence to work with instead of raw error output.
+
+</detective_failure_scan>
 
 ## Write Artifact
 

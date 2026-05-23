@@ -1,6 +1,6 @@
 ---
 name: team:review
-description: Trigger Prism quality gate on current work
+description: "Use when you want a code review, quality check, or second opinion on current changes. Spawns Prism for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review this', 'check my code', 'is this good', or 'code quality'."
 ---
 
 > **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
