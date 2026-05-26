@@ -68,6 +68,17 @@
       "description": "Appends raw tool events to NDJSON event log"
     },
     {
+      "name": "memory-consolidator",
+      "event": "PreCompact",
+      "matcher": ".*",
+      "script": "hooks/memory-consolidator.js",
+      "enabled": true,
+      "once": false,
+      "priority": 40,
+      "input": "stdin-json",
+      "description": "Distills session state to memory-snapshot.json before compaction"
+    },
+    {
       "name": "context-compact-guide",
       "event": "PreCompact",
       "matcher": ".*",
@@ -77,6 +88,28 @@
       "priority": 50,
       "input": "stdin-json",
       "description": "Outputs compact guidance before context compaction"
+    },
+    {
+      "name": "memory-reader",
+      "event": "UserPromptSubmit",
+      "matcher": ".*",
+      "script": "hooks/memory-reader.js",
+      "enabled": true,
+      "once": false,
+      "priority": 5,
+      "input": "stdin-json",
+      "description": "Injects relevant learnings from INDEX.md before each prompt"
+    },
+    {
+      "name": "memory-writer",
+      "event": "Stop",
+      "matcher": ".*",
+      "script": "hooks/memory-writer.js",
+      "enabled": true,
+      "once": false,
+      "priority": 90,
+      "input": "stdin-json",
+      "description": "Extracts learning candidates from this turn's observations"
     }
   ]
 }
