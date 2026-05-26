@@ -6,12 +6,27 @@ description: "Use when work is DONE — finalizing a session, creating a PR, rec
 > **Preamble Tier: T4** — loads ALL shared contexts
 
 <precondition>
-## Precondition
+## Smart Verification Gate
 
-Check `state/sessions/{TICKET}/verification.json`:
-- If exists AND `verdict: "pass"` → proceed
-- If exists AND `verdict: "fail"` → BLOCK: "Verification failed. Run `/team:verify` first."
-- If missing → WARN: "No verification artifact found. Run `/team:verify` first, or proceed at your own risk?"
+Nothing ships without passing verification. No "proceed at your own risk" option.
+
+1. **Check** `state/sessions/{TICKET}/verification.json`:
+
+   | State | Action |
+   |-------|--------|
+   | Missing | Auto-run verify (step 2) |
+   | `verdict: "fail"` | Auto-run verify (step 2) |
+   | `verdict: "pass"` BUT `_meta.gitHead` ≠ current `git rev-parse HEAD` | Stale — auto-run verify (step 2) |
+   | `verdict: "pass"` AND `_meta.gitHead` = current HEAD | Current — proceed to wrap |
+
+2. **Auto-run**: Report status, then run `Skill(skill="team:verify")`:
+   - Missing: `"No verification found — running quality gates (lint → build → tests → simplify → review)..."`
+   - Failed: `"Previous verification failed — re-running quality gates..."`
+   - Stale: `"Files changed since last verification (HEAD moved) — re-running quality gates..."`
+
+3. **Gate result**:
+   - verify passes → proceed with wrap
+   - verify fails → **STOP**. Print failures. Suggest `/team:fix` then `/team:wrap` again. Do not continue to ship ceremony.
 </precondition>
 
 # /team:wrap
