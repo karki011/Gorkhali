@@ -119,7 +119,42 @@ If not triggered (< 3 agent-changed files): skip silently.
     - `git push -u origin $(git branch --show-current)`
     - If push fails (no remote, auth error): warn user, continue to archive
 
-14. **Create PR**:
+14. **Smart PR Decision**:
+
+    Evaluate whether to create a Draft PR based on what happened, not the route.
+
+    <pr_decision>
+    #### Gather signals (from artifacts already in memory)
+
+    ```
+    changed_files    = execution.json.filesChanged OR git diff --name-only main...HEAD
+    file_count       = len(changed_files)
+    has_code_changes = any file matches \.(ts|tsx|js|jsx|go|py|rs|java|rb|sql)$
+    route            = route-decision.json.route (DIRECT|PLAN|BRAINSTORM|FULL)
+    branch           = git branch --show-current
+    on_main          = branch == "main" OR branch == "master"
+    has_ui_changes   = any changed file matches \.(tsx|jsx)$ OR paths contain /components/|/pages/|/views/
+    HAS_UI           = repo has UI layer (from stack detection in _shared-repo-detection.md)
+    only_artifacts   = all changed files are in state/|.planning/|docs/|*.md
+    user_said_no_pr  = user explicitly said "don't PR" or "no PR" during session
+    ```
+
+    #### Decision table
+
+    | # | Condition | Action | Reason |
+    |---|-----------|--------|--------|
+    | 1 | `on_main = true` | **SKIP** | Cannot PR from default branch |
+    | 2 | `user_said_no_pr = true` | **SKIP** | User override |
+    | 3 | `has_code_changes = false` AND `only_artifacts = true` | **SKIP** | No shippable code — research/planning only |
+    | 4 | `HAS_UI = true` AND `has_ui_changes = true` | **DRAFT PR** | UI changes need visual review, draft signals "not yet approved visually" |
+    | 5 | `has_code_changes = true` | **DRAFT PR** | Default: code changes should be visible to the team |
+    | 6 | Everything else | **SKIP** | No meaningful changes to PR |
+
+    First matching row wins.
+
+    #### Execute decision
+
+    **If DRAFT PR:**
     - `gh pr create --draft --title "{TICKET}: {summary}" --body "{body}"`
     - PR body:
       ```
@@ -132,7 +167,12 @@ If not triggered (< 3 agent-changed files): skip silently.
       ## Test plan
       {verification results from verification.json if available}
       ```
-    - If `gh` not available: print branch name, skip PR creation
+    - If `gh` not available: print branch name + "run `gh pr create --draft` when ready"
+
+    **If SKIP:**
+    - Log reason to wrap.json: `"pr": { "status": "skipped", "reason": "{reason}" }`
+    - Print: "PR skipped ({reason}). Branch pushed — create manually when ready."
+    </pr_decision>
 
 15. **Greptile review** (non-blocking):
     - If Greptile integration available: request AI review on the PR
@@ -160,7 +200,7 @@ If not triggered (< 3 agent-changed files): skip silently.
         "skill": "team:wrap",
         "version": 1
       },
-      "pr": { "number": N, "url": "...", "status": "draft" },
+      "pr": { "number": N, "url": "...", "status": "draft|skipped", "skipReason": "on-main|no-code|user-override|null" },
       "jira": { "ticket": "{TICKET}", "transition": "Review", "commented": true },
       "greptile": { "requested": true, "status": "pending" },
       "learnings": { "recorded": N, "promoted": N, "pruned": N }
@@ -258,7 +298,7 @@ Process results (see `reference/evolution.md` for full protocol):
 >   │   Route:   {SOLO|CREW}    │
 >   │   Outcome: {pass|fail}    │
 >   │   Loops:   {N}            │
->   │   PR:      #{N} (draft)   │
+>   │   PR:      #{N} (draft)   │  ← or "skipped ({reason})" if pr_decision = SKIP
 >   │   Jira:    → Review       │
 >   │   Learned: {N} patterns   │
 >   │   Corrections: {N}        │

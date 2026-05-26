@@ -48,7 +48,7 @@ These exist because each one prevents a specific, observed failure mode.
 | 4 | **Devil's Advocate** — every plan challenged. PROCEED/REVISE/RETHINK | Catches wrong assumptions before expensive implementation. Cheap insurance. |
 | 5 | **Simplify always runs** — after verify pass, simplify changed files | Code grows complex during implementation. A simplify pass catches accidental complexity while context is fresh. |
 | 6 | **Intent check** — diff vs contract intent. Tests passing ≠ problem solved | Tests verify code correctness, not feature correctness. The diff must match what the user actually asked for. |
-| 7 | **Smart PR** — UI touched → branch only. No UI → draft PR | UI changes need visual verification before PR. API/backend changes can go straight to review. |
+| 7 | **Smart PR** — Draft PR by default for any code changes. Skip only for: on-main, no-code, user override | Code should be visible to the team as soon as it's committed. Decision based on what happened, not the route. See `wrap.md` step 14. |
 | 8 | **Jira auto-transition** — after push/PR: transition + comment | Keeps project tracking in sync without manual overhead. Stakeholders see real-time progress. |
 | 9 | **Learnings** — every session reads and writes learnings | The knowledge system only works if it's fed. Reading prevents repeated mistakes; writing prevents knowledge loss. |
 | 10 | **Auto-CREW trigger** — 4+ files, 2+ packages, cross-cutting → CREW | Large changes benefit from parallel agents. A single agent doing 10 file edits sequentially wastes time and context. |

@@ -10,7 +10,7 @@
 | 4 | Devil's Advocate | plan.json requires verdict field |
 | 5 | Simplify always | verification.json requires simplifyRan |
 | 6 | Intent check | Temperature reviewer compares to intent.json |
-| 7 | Smart PR | wrap checks HAS_UI from context |
+| 7 | Smart PR | wrap step 14 `<pr_decision>` — Draft PR default, skip only for on-main/no-code/user-override |
 | 8 | Jira transition | wrap step (structural) |
 | 9 | Learnings | wrap step (structural) |
 | 10 | Auto-CREW | plan.json routing logic |

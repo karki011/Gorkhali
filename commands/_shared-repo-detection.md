@@ -62,10 +62,17 @@ Sentinel verification protocol: see `reference/verification.md`.
 
 ## PR Strategy
 
-| Condition | Action |
-|---|---|
-| `HAS_UI = true` AND changes touch UI | Push branch only (user verifies visually) |
-| `HAS_UI = true` BUT API/domain only | Draft PR |
-| `HAS_UI = false` | Draft PR |
+Smart Draft PR creation — default is to create, exceptions are explicit.
+Decision is based on **what happened** (changed files, code vs artifacts), not the route.
+Full decision table lives in `commands/wrap.md` step 14 `<pr_decision>`.
 
-Never auto-create ready-for-review PR. User or `/team:wrap` promotes draft → ready.
+| # | Condition | Action | Reason |
+|---|-----------|--------|--------|
+| 1 | On default branch (main/master) | Skip | Cannot PR from default branch |
+| 2 | User said "no PR" | Skip | User override |
+| 3 | No code changes (only artifacts/docs) | Skip | Research/planning — nothing to review |
+| 4 | `HAS_UI = true` AND UI files changed | Draft PR | Visual review needed, draft signals not yet approved |
+| 5 | Any code changes | Draft PR | Default: code should be visible to the team |
+| 6 | Everything else | Skip | No meaningful changes |
+
+First matching row wins. Never auto-create ready-for-review PR — user promotes draft → ready.

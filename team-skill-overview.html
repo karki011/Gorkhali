@@ -1367,8 +1367,8 @@
     </tr>
     <tr>
       <td class="num">#7</td>
-      <td><strong>Smart PR</strong> &mdash; UI touched = branch only. No UI = draft PR</td>
-      <td class="why">UI changes need visual verification before PR. API/backend changes can go straight to review.</td>
+      <td><strong>Smart PR</strong> &mdash; Draft PR by default for any code changes. Skip only for: on-main, no-code, user override</td>
+      <td class="why">Code should be visible to the team immediately. Decision based on what happened (changed files), not the route. See <code>wrap.md</code> step 14 <code>&lt;pr_decision&gt;</code>.</td>
     </tr>
     <tr>
       <td class="num">#8</td>
