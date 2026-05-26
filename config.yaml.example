@@ -14,11 +14,16 @@ models:
   cortex: opus                 # Orchestrator
   prism: opus                  # Quality gate
   sentinel: sonnet             # Verification
+  plan_checker: sonnet         # Pre-execution plan validation
+  simplifier: sonnet           # Code simplification
 
 integrations:
   atlassian_mcp: false         # Auto-detected by setup.sh
   phantom_ai: false            # Auto-detected by setup.sh
   slack_mcp: false             # Auto-detected by setup.sh
+  code_review_graph: false     # Auto-detected by setup.sh
+  context_mode: false          # Auto-detected by setup.sh
+  claude_flow: false           # Auto-detected by setup.sh
   greptile: false              # Opt-in: automated code review
 
 preferences:

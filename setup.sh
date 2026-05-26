@@ -22,7 +22,7 @@ else
 fi
 
 # 2. Initialize directories
-for dir in sessions events state learnings global/patterns audit; do
+for dir in sessions events state state/completed learnings global/patterns audit; do
   mkdir -p "$TEAM_DIR/$dir"
   if [ ! -f "$TEAM_DIR/$dir/.gitkeep" ]; then
     touch "$TEAM_DIR/$dir/.gitkeep"
@@ -265,23 +265,16 @@ else
   echo "    Register manually in Claude Code settings."
 fi
 
-# 7b. Make context-compact-guide hook executable
-COMPACT_HOOK="$TEAM_DIR/hooks/context-compact-guide.sh"
-if [ -f "$COMPACT_HOOK" ]; then
-  chmod +x "$COMPACT_HOOK"
-  echo "  ✓ Context compact guide hook ready"
-else
-  echo "  ○ Context compact guide hook not found (run git pull to update)"
-fi
+# 7b. Make all hooks and scripts executable
+for hook in "$TEAM_DIR"/hooks/*.sh "$TEAM_DIR"/hooks/*.js; do
+  [ -f "$hook" ] && chmod +x "$hook"
+done
+echo "  ✓ Hook scripts ready"
 
-# 7c. Make cortex subagent-driven law hook executable
-CORTEX_HOOK="$TEAM_DIR/hooks/cortex-subagent-driven-law.sh"
-if [ -f "$CORTEX_HOOK" ]; then
-  chmod +x "$CORTEX_HOOK"
-  echo "  ✓ Cortex subagent-driven law hook ready"
-else
-  echo "  ○ Cortex subagent-driven law hook not found"
-fi
+for script in "$TEAM_DIR"/scripts/*.sh "$TEAM_DIR"/scripts/*.js; do
+  [ -f "$script" ] && chmod +x "$script"
+done
+echo "  ✓ Utility scripts ready (evolution-runner, session-cleanup, preamble-tier)"
 
 # 8. Prerequisites check
 echo ""
@@ -307,6 +300,9 @@ echo ""
 echo "  Quick start:"
 echo "    /team:start \"CP-41171\"          # with Jira ticket"
 echo "    /team:start \"fix the auth bug\"  # free text"
+echo "    /team:brainstorm \"approaches\"   # diverge/converge"
+echo "    /team:wire                      # dependency topology"
 echo "    /team:verify                    # run quality gate"
+echo "    /team:evolve                    # run evolution pipeline"
 echo "    /team:pause                     # save & step away"
 echo ""
