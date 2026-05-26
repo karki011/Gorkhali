@@ -23,7 +23,7 @@ Run each command. Read full output. Report:
 
 If ANY fail → run detective failure scan (see below), then print failures, suggest `/team:fix`. Stop here.
 
-Run `Skill(skill="simplify")` on changed files. If changes produced → re-run correctness.
+Spawn simplifier agent (model: sonnet, mode: bypassPermissions) on changed files using `agents/simplifier.md` persona. If changes produced → re-run correctness.
 
 ## Step 2: Temperature Review (1 agent)
 

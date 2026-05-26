@@ -4,7 +4,7 @@ description: "Use when you want to visually verify UI changes, check how the app
 argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright] [--autonomous] [--no-fix]"
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
 # /team:visual $ARGUMENTS
 
@@ -52,9 +52,16 @@ Visual verification pipeline — runs standalone or auto-triggered by `/team:ver
    - Expected behavior (from contract's acceptance criteria or Done When predicates)
    - `run_in_background: true`, `mode: "bypassPermissions"`
 
-6. **Lens inspects:** navigate → snapshot → screenshot (3 viewports) → analyze → interact
+6. **State Matrix (mandatory for stateful components):**
+   Before Lens inspects, identify all enumerated parent states the new/changed
+   component reacts to (e.g., sidebar: open/collapsed/pill). Lens MUST cycle
+   through every parent state × feature state combination. Don't test only the
+   default — test the full cross-product. Include this matrix in the Lens prompt
+   so it toggles each state and screenshots each combination.
 
-7. **Handle results:**
+7. **Lens inspects:** navigate → snapshot → screenshot (3 viewports) → analyze → interact
+
+8. **Handle results:**
 
    ### VISUAL PASS
    - Update `visualVerification` in session JSON: `{ status: "pass", routes: [...], backend: "...", timestamp: "..." }`

@@ -1,10 +1,10 @@
 ---
 name: team:recruit
-description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, or focused coding job. Spawns a Spark agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer'). Also use when user says 'spawn an agent', 'I need help with', 'get someone to', or 'specialist for'."
+description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, audit, or focused coding job. Spawns a Spark agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer', 'accessibility expert', 'performance auditor', 'security reviewer'). Also use when user says 'spawn an agent', 'I need help with', 'get someone to', 'specialist for', 'expert on', or 'audit this'."
 argument-hint: "<role-focus>"
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
 # /team:recruit $ARGUMENTS
 

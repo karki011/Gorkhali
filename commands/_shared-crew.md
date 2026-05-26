@@ -25,7 +25,7 @@ Agents load ONLY what they need — Cortex holds the full picture.
 |----------|------|-------------|
 | **Cortex** | All shared tiers + all learnings + decisions.ndjson (last 50) | — |
 | **Spark** | Persona + ROLE FOCUS + contract + CLAUDE.md + domain learnings + Anti-Repetition Block | _shared-crew, _shared-contracts, _shared-board |
-| **Sentinel** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | Board, superpowers tiers |
+| **Sentinel** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | Board, discipline tiers |
 | **Prism** | Persona + full diff + `coding-principles.md` | Board tier |
 | **Oracle** | Decision context passed by Spark only | Everything — never loads files |
 | **Lens** | Persona + Figma specs (extraction) or route list (verification) | Full shared context |

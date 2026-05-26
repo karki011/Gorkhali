@@ -1,6 +1,6 @@
 ---
 name: team:wrap
-description: "Use when work is done, ready to create PR, finishing a session, or shutting down. Runs crew eval, saves learnings, creates PR or pushes branch."
+description: "Use when work is DONE — finalizing a session, creating a PR, recording learnings, or opening a pull request. Also use when user says 'wrap up', 'we're done', 'ship it', 'create the PR', 'open PR', 'finalize', 'finish up', 'record what we learned', 'commit my work', or 'submit'. NOT for bare git push. Runs crew eval, saves learnings, creates PR."
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts
@@ -140,9 +140,12 @@ If not triggered (< 3 agent-changed files): skip silently.
 
 16. **Jira transition** (non-blocking):
     - If Atlassian MCP available AND TICKET matches `[A-Z]+-\d+`:
-      - Transition {TICKET} to "Review" (or "In Review")
-      - Add comment: "PR #{number}: {url}"
-    - If unavailable: skip silently
+      a. Get available transitions: `mcp__atlassian__getTransitionsForJiraIssue({ issueIdOrKey: "{TICKET}" })`
+      b. Find transition matching: "Review", "In Review", "Reviewing", "Ready for Review", or "Code Review" (case-insensitive)
+      c. If found: `mcp__atlassian__transitionJiraIssue({ issueIdOrKey: "{TICKET}", transitionId: "{id}" })`
+      d. Add PR link as comment: `mcp__atlassian__addCommentToJiraIssue({ issueIdOrKey: "{TICKET}", body: "PR #{number}: {url}" })`
+      e. If no matching transition found: log warning, skip silently (ticket may already be in review or workflow differs)
+    - If Atlassian MCP unavailable: skip silently
 </ship_ceremony>
 
 <output_format>

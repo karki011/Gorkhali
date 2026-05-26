@@ -1,6 +1,6 @@
 ---
 name: team:fix
-description: "Use when verification failed, tests broke, build errors occurred, or lint issues found. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
+description: "Use when verification failed, tests broke, build errors occurred, lint issues found, or CI is red — and the root cause is known or narrowed down. Also use when user says 'fix it', 'it's broken', 'tests failing', 'build failed', 'errors', 'something broke', or 'make it pass'. NOT for investigation — use team:detective when you need to find the cause first. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
@@ -13,7 +13,7 @@ Fix loop from latest failed verification.
 
 1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/team:verify` first).
 2. **Check loop count** — if >= 3, go straight to structured escalation (step 10).
-3. **Debugging discipline** — call `Skill(skill="superpowers:systematic-debugging")` before triage. Do not inline rules.
+3. **Debugging discipline** — reproduce issue, trace exact code path, confirm root cause BEFORE writing any fix. Never stack patches on a wrong hypothesis. If loop 2+, trigger detective escalation (step 3.5).
 3.5. **Detective escalation (loop 2+ only)** — if this is the 2nd+ attempt with the same failure class, trigger deep investigation before retrying (see below).
 4. **Triage** — spawn **Cortex** (model: sonnet) to:
    - Read failure details from the loaded artifact

@@ -4,7 +4,7 @@ description: "Use when you need to define scope, write an interface contract, or
 argument-hint: "<type>"
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
 # /team:contract $ARGUMENTS
 

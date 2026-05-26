@@ -1,6 +1,6 @@
 ---
 name: team:scout
-description: "Use when you need more context, want to explore the codebase, understand dependencies, or gather background information before planning. Spawns parallel background agents to research design patterns, API contracts, test coverage, or dependency relationships. Also use when user says 'what does this do', 'how does this work', 'find related code', or 'explore'."
+description: "Use when you need context before planning — explore the codebase, understand how something is implemented, map dependencies, or find patterns. Also use when user says 'how is X implemented', 'before we build', 'what does this do', 'how does this work', 'find related code', 'explore', or 'gather context'. NOT for implementation — use team:start."
 argument-hint: "[area]"
 ---
 

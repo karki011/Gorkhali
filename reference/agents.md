@@ -12,6 +12,7 @@
 | Lens | sonnet | Visual — browser verification, screenshots | agents/lens.md |
 | Hawkeye | opus | Cross-file — cache coherence, regression, dead code | agents/hawkeye.md |
 | Devil's Advocate | opus | Plan challenger — 5 categories, verdict | agents/devils-advocate.md |
+| Plan Checker | sonnet | Pre-execution validator — learnings, blast radius, coverage, scope, deps | agents/plan-checker.md |
 
 ## Spawning Rules
 

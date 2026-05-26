@@ -1,6 +1,6 @@
 ---
 name: team:detective
-description: "Use when investigating bugs, tracing root causes, debugging unknown failures, or performing forensic code analysis. Also auto-triggered by start.md (bug reports), verify.md (failures), and fix.md (loop 2+). Produces HTML investigation reports."
+description: "Use when investigating unknown bugs, regressions, or mysterious failures — something broke after a deploy, wrong output with no error, or root cause is unknown. Also use when user says 'investigate why', 'I suspect', 'started happening after', or 'no error but something is wrong'. NOT for known failures — use team:fix. Produces HTML forensic reports."
 argument-hint: "<symptoms or file paths>"
 ---
 

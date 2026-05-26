@@ -1,0 +1,82 @@
+{
+  "$schema": "Hook registry for team skill. Consumed by hook-router.js.",
+  "hooks": [
+    {
+      "name": "feature-branch-gate",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "script": "hooks/feature-branch-gate.sh",
+      "enabled": true,
+      "once": false,
+      "priority": 10,
+      "input": "arg1-json",
+      "description": "Blocks edits on main/master/develop branches"
+    },
+    {
+      "name": "cortex-subagent-law",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "script": "hooks/cortex-subagent-driven-law.sh",
+      "enabled": true,
+      "once": false,
+      "priority": 20,
+      "input": "stdin-json",
+      "description": "Audits/blocks direct Cortex edits (subagent enforcement)"
+    },
+    {
+      "name": "pre-phase-context",
+      "event": "PreToolUse",
+      "matcher": "Agent|Skill",
+      "script": "hooks/pre-phase-context.js",
+      "enabled": true,
+      "once": false,
+      "priority": 50,
+      "input": "arg2-json",
+      "description": "Injects reference content for current session phase"
+    },
+    {
+      "name": "validate-artifact",
+      "event": "PostToolUse",
+      "matcher": "Write|Edit",
+      "script": "hooks/validate-artifact.js",
+      "enabled": true,
+      "once": false,
+      "priority": 30,
+      "input": "arg2-json",
+      "description": "Validates _meta headers in session artifact JSON"
+    },
+    {
+      "name": "observation-capture",
+      "event": "PostToolUse",
+      "matcher": "Read|Edit|Write|Bash|Grep|Glob",
+      "script": "hooks/observation-capture.js",
+      "enabled": true,
+      "once": false,
+      "priority": 100,
+      "input": "arg2-json",
+      "description": "Captures structural file observations to NDJSON"
+    },
+    {
+      "name": "board-event-log",
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "script": "hooks/board-event-log.js",
+      "enabled": true,
+      "once": false,
+      "priority": 110,
+      "input": "stdin-json",
+      "description": "Appends raw tool events to NDJSON event log"
+    },
+    {
+      "name": "context-compact-guide",
+      "event": "PreCompact",
+      "matcher": ".*",
+      "script": "hooks/context-compact-guide.sh",
+      "enabled": true,
+      "once": false,
+      "priority": 50,
+      "input": "stdin-json",
+      "description": "Outputs compact guidance before context compaction"
+    }
+  ]
+}

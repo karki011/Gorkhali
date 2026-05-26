@@ -4,12 +4,12 @@ description: "Use when starting any new feature, bug fix, refactor, or task. Als
 argument-hint: "<requirement>"
 ---
 
-> **Preamble Tier: T4** (full orchestration — loads ALL shared contexts)
-> See `_shared.md` § Preamble Tiers for the tier system.
+> **Preamble Tier: T4** (full orchestration -- loads ALL shared contexts)
+> See `_shared.md` SS Preamble Tiers for the tier system.
 
 # /team:start "$ARGUMENTS"
 
-Router: context → plan → execute → verify → wrap.
+Adaptive router: context → classify → route(DIRECT|PLAN|BRAINSTORM|FULL) → verify.
 Each phase reads/writes artifacts in `state/sessions/{TICKET}/`.
 No git operations until wrap. All work is local.
 
@@ -19,87 +19,109 @@ No git operations until wrap. All work is local.
 
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current`
 2. Create `state/sessions/{TICKET}/` directory
-3. Check for existing artifacts — if found, ask: resume or fresh?
+3. Check for existing artifacts -- if found, ask: resume or fresh?
 4. If Jira MCP available: fetch ticket, extract acceptance criteria
 5. Load `learnings/INDEX.md`, scan for relevant corrections
 6. If Phantom MCP available: call `phantom_before_edit` for blast radius (non-blocking)
 7. Write `state/sessions/{TICKET}/context.json` with `_meta` header
 8. Activate cortex hook: `touch ~/.claude/team/.cortex-active`
-9. **Detective check** — classify input as bug vs feature (see below)
+9. **Detective check** -- classify input as bug vs feature (see below)
 
 </phase_a_context>
 
 <detective_pre_scan>
 
-## Phase A.5: Detective Pre-Scan (auto, bugs only)
+## Phase A.5: Detective Pre-Scan (bugs only)
 
-Classify input as bug report if ANY match:
-- Keywords in description: `bug`, `broken`, `regression`, `error`, `crash`, `failing`, `doesn't work`, `TypeError`, `undefined`, `null pointer`, `500`, `timeout`, `flaky`
-- Jira issue type: Bug, Defect, Incident
-- Branch prefix: `fix/`, `bugfix/`, `hotfix/`, `patch/`
+Trigger: keywords (`bug`, `broken`, `regression`, `error`, `crash`, `failing`, `TypeError`),
+Jira type (Bug/Defect/Incident), or branch prefix (`fix/`, `bugfix/`, `hotfix/`).
 
-If classified as bug → run lightweight detective pre-scan:
-
-1. Identify suspect files from ticket description or error output
-2. Run hotspot check: `git log --format=format: --name-only --since="6.months" -- {suspects} | sort | uniq -c | sort -rn`
-3. Run ownership check: `git shortlog -sn --no-merges -- {suspects}` (top 3 files)
-4. Add `detective` field to `context.json` (schema in `reference/detective-protocol.md`)
-5. Report findings in 2-3 lines: "Detective pre-scan: {file} is a hotspot ({N} changes, bus factor {M})"
-
-If NOT a bug → skip silently. No token cost for feature work.
-
-If mixed signals → ask: "This might be a bug investigation. Run detective pre-scan first?"
-
-Pre-scan feeds into Phase B planning — the plan accounts for hotspot risk and ownership data.
+If bug → hotspot + ownership check on suspect files, add `detective` field to context.json.
+See `reference/detective-protocol.md` for full protocol. Skip silently for features.
 
 </detective_pre_scan>
 
-<phase_b_plan>
+<phase_b_classify_route>
 
-## Phase B: Plan
+## Phase B: Classify + Route
 
-1. Capture Intent — ask user or derive from Jira AC
-   READ `reference/planning.md` for Intent format and protocol
-2. Write `state/sessions/{TICKET}/intent.json`
-3. Spawn Explore + Plan agents (opus) for codebase research
-4. Scan `learnings/INDEX.md` for anti-repetition matches
-5. Produce plan with SOLO/CREW routing (READ `reference/agents.md`)
-6. Spawn Devil's Advocate (opus, blocking) — must reach PROCEED (max 2 rounds)
-7. Write `state/sessions/{TICKET}/plan.json` with `devilsAdvocateVerdict`
-8. Get user approval via ExitPlanMode
+READ `reference/router.md` for full classification algorithm, signal definitions, and route specs.
 
-</phase_b_plan>
+### B.1 Gather Signals (parallel, <5s)
 
-<phase_c_contracts>
+Parallel: blast radius (1 MCP), competing patterns (1 MCP), domain novelty + routing history (2 file reads), ambiguity markers + AC (free string matching).
 
-## Phase C: Contracts
+### B.2 Classify
 
-1. READ `reference/contracts.md` for templates
-2. Create contracts → `state/sessions/{TICKET}/contracts/`
+Run algorithm from `reference/router.md`: hard overrides → uncertainty score → scope score → learnings correction → route selection.
 
-</phase_c_contracts>
+### B.3 Write Route Decision
 
-<phase_d_execute>
+Write `state/sessions/{TICKET}/route-decision.json` (schema in router.md).
+Report to human: `"[{ROUTE}] {rationale} — {expected files}"`
 
-## Phase D: Execute
+### B.4 Branch to route below.
 
-1. READ `reference/agents.md` for spawn patterns
-2. Dispatch agents per plan.json (SOLO: 1 spark. CREW: parallel with worktree isolation)
-3. Agent results → `state/sessions/{TICKET}/agent-outputs/` (summary to conversation)
-4. Write `state/sessions/{TICKET}/execution.json`
-5. No git operations. All work is local.
+</phase_b_classify_route>
 
-</phase_d_execute>
+<route_direct>
 
-<phase_e_verify_ship>
+## Route: DIRECT (0 human gates)
 
-## Phase E: Verify + Ship
+READ `reference/router.md` SS DIRECT for guardrails.
 
-1. `Skill(skill="team:verify")` — writes verification.json
-2. If PASS → `Skill(skill="team:wrap")` — ships and archives
-3. If FAIL → `Skill(skill="team:fix")` → loop: fix → verify → wrap on pass
+1. Write minimal `intent.json` (goal + done-when from Jira AC or description)
+2. Spawn Spark agent with task — no planning, no deliberation
+3. `Skill(skill="team:verify")` — writes verification.json
+4. If PASS → `Skill(skill="team:wrap")`
+5. If FAIL → **auto-escalate to PLAN route** (do NOT retry as DIRECT)
+6. If >3 files changed → log routing correction to `learnings/crew.md`
 
-</phase_e_verify_ship>
+</route_direct>
+
+<route_plan>
+
+## Route: PLAN (1 human gate)
+
+READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/planning.md`.
+
+1. Capture Intent → write `intent.json`
+2. Codebase research (Explore + Plan agents, opus) + anti-repetition scan
+3. Produce plan (SOLO/CREW routing per `reference/agents.md`)
+4. **Deliberation**: Planner ↔ Challenger, max 2 rounds (router.md)
+5. Present: consensus → "OK to proceed?" / disagreement → human breaks tie
+6. Write `plan.json` with deliberation verdict
+7. **HUMAN GATE**: user approves plan
+8. Contracts (`reference/contracts.md`)
+9. If plan touches >5 files → `Skill(skill="team:wire")` for topology (informational, no human gate on PLAN route). Otherwise auto-generate lightweight wiring.
+10. Execute: dispatch agents per plan → verify → wrap (or fix loop)
+
+</route_plan>
+
+<route_brainstorm>
+
+## Route: BRAINSTORM (2 human gates)
+
+1. `Skill(skill="team:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
+2. **HUMAN GATE 1**: handled inside brainstorm skill (human picks direction)
+3. Feed locked decision into PLAN route as scope anchor (steps 1-9 above)
+4. **HUMAN GATE 2**: approve plan
+
+</route_brainstorm>
+
+<route_full>
+
+## Route: FULL (3 human gates)
+
+1. `Skill(skill="team:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
+2. **HUMAN GATE 1**: handled inside brainstorm skill (human picks direction)
+3. **Plan**: Intent → Research → Decompose → Deliberate (same as PLAN route)
+4. **HUMAN GATE 2**: approve plan
+5. `Skill(skill="team:wire")` — dependency topology, wave assignments, integration points, risk points
+6. **HUMAN GATE 3**: approve wiring (presented by wire skill)
+7. Execute in waves per wiring.json → verify → wrap (or fix loop)
+
+</route_full>
 
 <context_management>
 
@@ -107,5 +129,6 @@ Pre-scan feeds into Phase B planning — the plan accounts for hotspot risk and 
 
 Between any phase: if context is heavy, run `Skill(skill="team:pause")`.
 User runs `/clear` then `/team:resume {TICKET}` to continue from the last artifact.
+Resume reads `route-decision.json` to know which flow to continue.
 
 </context_management>

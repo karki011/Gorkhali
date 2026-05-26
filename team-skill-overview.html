@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Team Skill System — Overview</title>
+<title>Team Skill System v3 — Adaptive Cognitive Router</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -60,6 +60,18 @@
     color: var(--text-muted);
     margin-top: 0.5rem;
   }
+  header .badge {
+    display: inline-block;
+    margin-top: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(63,185,80,0.15);
+    color: var(--green);
+    border: 1px solid rgba(63,185,80,0.3);
+  }
 
   h2 {
     font-size: 1.15rem;
@@ -70,10 +82,15 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
+  h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin: 1.25rem 0 0.75rem;
+  }
 
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
   }
@@ -96,7 +113,154 @@
     letter-spacing: 0.05em;
   }
 
-  /* Flow diagram */
+  /* Router diagram */
+  .router-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .router-entry {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .router-box {
+    background: var(--surface-2);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 0.6rem 1.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 0.9rem;
+  }
+  .router-arrow-down {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    margin: 0.75rem 0;
+  }
+  .route-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+  .route-card {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    position: relative;
+  }
+  .route-card .route-name {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .route-card .route-gates {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    margin-bottom: 0.5rem;
+  }
+  .route-card .route-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: left;
+    line-height: 1.4;
+  }
+  .route-card .route-when {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    text-align: left;
+  }
+  .route-direct { border-color: var(--green); }
+  .route-direct .route-name { color: var(--green); }
+  .route-direct .route-gates { color: var(--green); }
+  .route-plan { border-color: var(--accent); }
+  .route-plan .route-name { color: var(--accent); }
+  .route-plan .route-gates { color: var(--accent); }
+  .route-brainstorm { border-color: var(--yellow); }
+  .route-brainstorm .route-name { color: var(--yellow); }
+  .route-brainstorm .route-gates { color: var(--yellow); }
+  .route-full { border-color: var(--purple); }
+  .route-full .route-name { color: var(--purple); }
+  .route-full .route-gates { color: var(--purple); }
+
+  .route-flow-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .route-step {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .route-step-arrow {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 0 0.15rem;
+  }
+
+  /* Deliberation box */
+  .deliberation-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--orange);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-top: 1rem;
+  }
+  .deliberation-box h3 {
+    color: var(--orange);
+    font-size: 0.9rem;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+  }
+  .deliberation-box p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .deliberation-flow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+  .delib-node {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .delib-arrow {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* Flow diagram (legacy) */
   .flow {
     display: flex;
     align-items: center;
@@ -231,6 +395,19 @@
     font-size: 0.85rem;
     color: var(--text-muted);
   }
+  .agent-card.new-agent {
+    border-color: var(--cyan);
+  }
+  .agent-card .new-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(57,210,192,0.15);
+    color: var(--cyan);
+    margin-left: 0.35rem;
+    vertical-align: middle;
+  }
 
   /* Auto-triggers */
   .trigger-list {
@@ -319,28 +496,143 @@
     color: var(--text-muted);
   }
 
-  /* Iron Laws */
-  .laws-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 0.5rem;
-  }
-  .law {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.75rem;
-    background: var(--surface);
-    border-radius: 6px;
+  /* Core Disciplines (was Iron Laws) */
+  .discipline-table {
+    width: 100%;
+    border-collapse: collapse;
     font-size: 0.85rem;
   }
-  .law .num {
-    font-family: var(--font-mono);
+  .discipline-table th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-muted);
     font-size: 0.75rem;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+  .discipline-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .discipline-table tr:hover td { background: var(--surface); }
+  .discipline-table .num {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
     color: var(--orange);
     font-weight: 700;
-    min-width: 1.5rem;
+    white-space: nowrap;
   }
+  .discipline-table .why {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  /* Reference / Inventory grid */
+  .inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.75rem;
+  }
+  .inv-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+  }
+  .inv-card .inv-file {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--cyan);
+    margin-bottom: 0.25rem;
+  }
+  .inv-card .inv-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .inv-card .inv-new {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(57,210,192,0.15);
+    color: var(--cyan);
+    margin-left: 0.35rem;
+  }
+
+  /* Scripts and Evals section */
+  .infra-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+  .infra-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .infra-card h3 {
+    font-size: 0.9rem;
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+  }
+  .infra-card .infra-item {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--surface-2);
+    border-radius: 4px;
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--text-muted);
+  }
+  .infra-card .infra-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+
+  /* Independence status */
+  .independence-box {
+    background: var(--surface);
+    border: 1px solid rgba(63,185,80,0.3);
+    border-left: 3px solid var(--green);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .independence-box h3 {
+    color: var(--green);
+    font-size: 0.9rem;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+  }
+  .independence-box p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .dep-list {
+    list-style: none;
+    padding: 0;
+  }
+  .dep-list li {
+    font-size: 0.8rem;
+    padding: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .dep-status {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .dep-removed { background: rgba(63,185,80,0.15); color: var(--green); }
+  .dep-absorbed { background: rgba(57,210,192,0.15); color: var(--cyan); }
 
   .footer {
     margin-top: 3rem;
@@ -351,9 +643,25 @@
     text-align: center;
   }
 
+  /* Collapsible sections */
+  details {
+    margin-bottom: 0.5rem;
+  }
+  details summary {
+    cursor: pointer;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  details summary:hover {
+    color: var(--accent);
+  }
+
   @media (max-width: 768px) {
     body { padding: 1rem; }
     .tier-diagram { grid-template-columns: 1fr 1fr; }
+    .route-grid { grid-template-columns: 1fr 1fr; }
     .flow { flex-direction: column; }
     .flow-arrow { transform: rotate(90deg); }
   }
@@ -364,60 +672,251 @@
 <header>
   <h1>Team Skill System</h1>
   <div class="subtitle">Multi-agent orchestrated development for Claude Code</div>
-  <div class="version">v2.1 &middot; Detective Mode &middot; 2026-05-23 &middot; Author: Subash Karki</div>
+  <div class="version">v3 &middot; Adaptive Cognitive Router &middot; 2026-05-23 &middot; Author: Subash Karki</div>
+  <div class="badge">Zero External Dependencies</div>
 </header>
 
 <!-- Stats -->
 <div class="stat-grid">
   <div class="stat-card">
-    <div class="number" style="color: var(--accent)">22</div>
+    <div class="number" style="color: var(--accent)">21</div>
     <div class="label">Commands</div>
   </div>
   <div class="stat-card">
-    <div class="number" style="color: var(--purple)">8</div>
-    <div class="label">Crew Agents</div>
+    <div class="number" style="color: var(--purple)">11</div>
+    <div class="label">Agent Files</div>
   </div>
   <div class="stat-card">
-    <div class="number" style="color: var(--green)">9</div>
+    <div class="number" style="color: var(--green)">10</div>
     <div class="label">Shared Contexts</div>
   </div>
   <div class="stat-card">
+    <div class="number" style="color: var(--cyan)">16</div>
+    <div class="label">Reference Files</div>
+  </div>
+  <div class="stat-card">
     <div class="number" style="color: var(--orange)">13</div>
-    <div class="label">Iron Laws</div>
+    <div class="label">Core Disciplines</div>
   </div>
   <div class="stat-card">
     <div class="number" style="color: var(--yellow)">4</div>
     <div class="label">Preamble Tiers</div>
   </div>
   <div class="stat-card">
-    <div class="number" style="color: var(--red)">3</div>
-    <div class="label">Auto-Triggers</div>
+    <div class="number" style="color: var(--pink)">30</div>
+    <div class="label">Eval Cases</div>
+  </div>
+  <div class="stat-card">
+    <div class="number" style="color: var(--red)">4</div>
+    <div class="label">Scripts</div>
   </div>
 </div>
 
-<h2>Main Workflow</h2>
+<!-- HERO: Adaptive Cognitive Router -->
+<h2>Adaptive Cognitive Router</h2>
+<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+  The old linear Phase A&rarr;B&rarr;C&rarr;D&rarr;E pipeline is replaced with adaptive routing.
+  Human intervention scales with <strong>uncertainty</strong>, not task size.
+  The router classifies tasks into the minimum-viable cognitive route in under 5 seconds (2 MCP calls + 2 file reads).
+</p>
+
+<div class="router-container">
+  <!-- Entry -->
+  <div class="router-entry">
+    <div class="router-box">/team:start</div>
+    <span style="color: var(--text-muted); font-size: 0.85rem; padding: 0 0.75rem;">&rarr;</span>
+    <div class="router-box" style="border-color: var(--yellow);">Phase A: Context</div>
+    <span style="color: var(--text-muted); font-size: 0.85rem; padding: 0 0.75rem;">&rarr;</span>
+    <div class="router-box" style="border-color: var(--orange);">Phase B: Classify</div>
+  </div>
+
+  <div class="router-arrow-down">&darr; route decision</div>
+
+  <!-- 4 route cards -->
+  <div class="route-grid">
+    <div class="route-card route-direct">
+      <div class="route-name">DIRECT</div>
+      <div class="route-gates">0 human gates</div>
+      <div class="route-desc">
+        Trivial tasks. Skip planning entirely. Spawn Spark, verify, done.
+        Auto-escalates to PLAN on failure.
+      </div>
+      <div class="route-when">
+        <strong>When:</strong> confidence &ge;0.9, &le;3 files, known pattern
+      </div>
+      <div class="route-flow-steps">
+        <span class="route-step">Spark</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Verify</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Done</span>
+      </div>
+    </div>
+
+    <div class="route-card route-plan">
+      <div class="route-name">PLAN</div>
+      <div class="route-gates">1 human gate</div>
+      <div class="route-desc">
+        Clear scope. Deliberative planning: Planner and Challenger discuss, human approves consensus or breaks tie.
+      </div>
+      <div class="route-when">
+        <strong>When:</strong> confidence &ge;0.7, 3&ndash;10 files, clear approach
+      </div>
+      <div class="route-flow-steps">
+        <span class="route-step">Intent</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Research</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Plan</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--orange);">Deliberate</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Approve</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Execute</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Verify</span>
+      </div>
+    </div>
+
+    <div class="route-card route-brainstorm">
+      <div class="route-name">BRAINSTORM</div>
+      <div class="route-gates">2 human gates</div>
+      <div class="route-desc">
+        Ambiguous scope. Diverge/converge first: explore 2&ndash;3 approaches, then feed chosen direction into PLAN.
+      </div>
+      <div class="route-when">
+        <strong>When:</strong> confidence &lt;0.7, new domain, competing patterns
+      </div>
+      <div class="route-flow-steps">
+        <span class="route-step">Diverge</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Converge</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Pick</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Plan</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--orange);">Deliberate</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Approve</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Execute</span>
+      </div>
+    </div>
+
+    <div class="route-card route-full">
+      <div class="route-name">FULL</div>
+      <div class="route-gates">3 human gates</div>
+      <div class="route-desc">
+        Multi-component, cross-layer. Adds wiring mode: explicit dependency topology mapping between plan and execute.
+      </div>
+      <div class="route-when">
+        <strong>When:</strong> 10+ files, 3+ packages, security, schema, public API
+      </div>
+      <div class="route-flow-steps">
+        <span class="route-step">Brainstorm</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Pick</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Plan</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Approve</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--purple);">Wire</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step" style="color: var(--yellow);">Approve</span>
+        <span class="route-step-arrow">&rarr;</span>
+        <span class="route-step">Execute</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Deliberation + Wiring detail boxes -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+  <div class="deliberation-box">
+    <h3>Deliberation Protocol</h3>
+    <p>Agents discuss among themselves. Human only approves consensus or breaks ties.</p>
+    <div class="deliberation-flow">
+      <div class="delib-node" style="color: var(--accent);">Planner (Cortex)</div>
+      <span class="delib-arrow">&harr;</span>
+      <div class="delib-node" style="color: var(--orange);">Challenger (DA)</div>
+      <span class="delib-arrow">&rarr;</span>
+      <div class="delib-node" style="color: var(--text-muted);">max 2 rounds</div>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem;">
+      <strong>PROCEED:</strong> unified plan shown to human<br>
+      <strong>REVISE:</strong> annotated concerns, human decides per point<br>
+      <strong>RETHINK:</strong> two approaches side-by-side, human picks
+    </div>
+  </div>
+
+  <div class="deliberation-box" style="border-left-color: var(--purple);">
+    <h3 style="color: var(--purple);">Wiring Mode (Novel)</h3>
+    <p>Dependency topology mapping between plan and execute. No other agent system has this.</p>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+      For each task: what it <strong>produces</strong> and what it <strong>consumes</strong>.<br>
+      Topological sort into parallel <strong>waves</strong>.<br>
+      Flag <strong>risk points</strong>: merge conflicts, interface locks, cycles.
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+      Artifact: <span style="font-family: var(--font-mono); color: var(--cyan);">wiring.json</span> &mdash; dependencies, waves, riskPoints
+    </div>
+  </div>
+</div>
+
+<!-- Classification Signals -->
+<details style="margin-top: 1.25rem;">
+  <summary>Classification Algorithm Details</summary>
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 0.5rem;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div>
+        <h3 style="color: var(--green); margin-top: 0;">Scope Signals</h3>
+        <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.25rem;">
+          <li><strong>file_count_estimate</strong> &mdash; graph blast radius</li>
+          <li><strong>package_span</strong> &mdash; how many packages touched</li>
+          <li><strong>layer_span</strong> &mdash; FE / BE / cross-layer</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color: var(--yellow); margin-top: 0;">Uncertainty Signals</h3>
+        <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.25rem;">
+          <li><strong>domain_novelty</strong> &mdash; no learnings matches</li>
+          <li><strong>ambiguity_markers</strong> &mdash; "should we", "might", "explore"</li>
+          <li><strong>competing_patterns</strong> &mdash; 2+ ways in codebase</li>
+          <li><strong>missing_acceptance_criteria</strong> &mdash; vague Jira AC</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color: var(--red); margin-top: 0;">Hard Overrides &rarr; FULL</h3>
+        <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.25rem;">
+          <li>Security-sensitive (auth, secrets, RBAC)</li>
+          <li>Schema migration + app code</li>
+          <li>Public API contract changes</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="color: var(--accent); margin-top: 0;">Confidence &rarr; route DOWN</h3>
+        <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.25rem;">
+          <li><strong>known_pattern</strong> &mdash; learnings [validated:5+]</li>
+          <li><strong>clear_spec</strong> &mdash; Jira AC present</li>
+          <li><strong>single_concern</strong> &mdash; one thing</li>
+          <li><strong>past_routing_success</strong> &mdash; crew.md history</li>
+        </ul>
+      </div>
+    </div>
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+      <strong>Learning loop:</strong> Session completes &rarr; compare planned route vs actual &rarr;
+      SUCCESS / ESCALATED (+bias) / OVERKILL (-bias) &rarr; next similar task applies correction.
+    </div>
+  </div>
+</details>
+
+<!-- Verify/Fix loop -->
+<h2>Verification + Fix Loop</h2>
 <div class="flow">
-  <div class="flow-node active">
-    <div class="cmd">/team:start</div>
-    <div class="desc">Context + Plan</div>
-  </div>
-  <div class="flow-arrow">&rarr;</div>
-  <div class="flow-node detective">
-    <div class="cmd">Detective?</div>
-    <div class="desc">Bug auto-detect</div>
-  </div>
-  <div class="flow-arrow">&rarr;</div>
-  <div class="flow-node">
-    <div class="cmd">/team:contract</div>
-    <div class="desc">Interface scope</div>
-  </div>
-  <div class="flow-arrow">&rarr;</div>
-  <div class="flow-node">
-    <div class="cmd">/team:execute</div>
-    <div class="desc">Dispatch agents</div>
-  </div>
-  <div class="flow-arrow">&rarr;</div>
-  <div class="flow-node">
+  <div class="flow-node" style="border-color: var(--green)">
     <div class="cmd">/team:verify</div>
     <div class="desc">Tests + review</div>
   </div>
@@ -446,7 +945,7 @@
   </div>
 </div>
 
-<h2>All Commands</h2>
+<h2>All Commands (21)</h2>
 <table class="cmd-table">
   <thead>
     <tr><th>Command</th><th>Tier</th><th>Purpose</th><th>User Keywords</th></tr>
@@ -455,7 +954,7 @@
     <tr>
       <td class="cmd-name">/team:start</td>
       <td><span class="tier tier-4">T4</span></td>
-      <td>Full orchestration: context, plan, execute, verify, ship</td>
+      <td>Adaptive router: context &rarr; classify &rarr; route (DIRECT|PLAN|BRAINSTORM|FULL) &rarr; verify</td>
       <td><div class="keywords"><span class="kw">implement</span><span class="kw">build</span><span class="kw">fix</span><span class="kw">work on</span><span class="kw">CP-*</span><span class="kw">CLOUD-*</span></div></td>
     </tr>
     <tr>
@@ -467,7 +966,7 @@
     <tr>
       <td class="cmd-name">/team:verify</td>
       <td><span class="tier tier-2">T2</span></td>
-      <td>Lint + build + tests + temperature review</td>
+      <td>Lint + build + tests + simplify + temperature review</td>
       <td><div class="keywords"><span class="kw">run tests</span><span class="kw">check build</span><span class="kw">lint it</span><span class="kw">does it pass</span><span class="kw">is it working</span></div></td>
     </tr>
     <tr>
@@ -545,7 +1044,7 @@
     <tr>
       <td class="cmd-name">/team:resume</td>
       <td><span class="tier tier-4">T4</span></td>
-      <td>Restore context from paused session</td>
+      <td>Restore context from paused session (reads route-decision.json)</td>
       <td><div class="keywords"><span class="kw">continue</span><span class="kw">pick up</span><span class="kw">where I left off</span></div></td>
     </tr>
     <tr>
@@ -581,12 +1080,17 @@
   </tbody>
 </table>
 
-<h2>Crew Agents</h2>
+<h2>Crew Agents (11 files)</h2>
 <div class="crew-grid">
+  <div class="agent-card">
+    <div class="name">_base-agent</div>
+    <span class="model" style="background: rgba(210,153,34,0.15); color: var(--yellow);">template</span>
+    <div class="role">Base agent template. Project inheritance, learnings protocol, Oracle escalation. All agents extend this.</div>
+  </div>
   <div class="agent-card">
     <div class="name">Cortex</div>
     <span class="model model-opus">opus</span>
-    <div class="role">Team lead. Plans, decomposes, coordinates, self-challenges. Never implements directly.</div>
+    <div class="role">Team lead. Plans, decomposes, coordinates, self-challenges. Never implements directly. Routes via adaptive classifier.</div>
   </div>
   <div class="agent-card">
     <div class="name">Spark</div>
@@ -596,7 +1100,7 @@
   <div class="agent-card">
     <div class="name">Sentinel</div>
     <span class="model model-sonnet">sonnet</span>
-    <div class="role">QA and build verification. Tests, lint, typecheck, build. Witness regression markers.</div>
+    <div class="role">QA and build verification. Tests, lint, typecheck, build. Evidence-before-assertions.</div>
   </div>
   <div class="agent-card">
     <div class="name">Hawkeye</div>
@@ -614,6 +1118,11 @@
     <div class="role">Advisory only, no tools. On-demand guidance for Spark agents. Max 3 consultations per session.</div>
   </div>
   <div class="agent-card">
+    <div class="name">Devil's Advocate</div>
+    <span class="model model-opus">opus</span>
+    <div class="role">Challenger in deliberation. No tools. Max 5 challenges per round. Cite specifics or get rejected.</div>
+  </div>
+  <div class="agent-card">
     <div class="name">Lens</div>
     <span class="model model-sonnet">sonnet</span>
     <div class="role">Visual verification. Browser-based UI inspection with structured fix packets.</div>
@@ -623,9 +1132,14 @@
     <span class="model model-opus">opus</span>
     <div class="role">Forensic investigator. Traces symptoms to root causes via git history, hotspot analysis, coupling detection.</div>
   </div>
+  <div class="agent-card new-agent">
+    <div class="name">Simplifier <span class="new-badge">NEW</span></div>
+    <span class="model model-sonnet">sonnet</span>
+    <div class="role">Code simplification specialist. Absorbed from code-simplifier plugin. Clarity, consistency, maintainability. Preserves functionality.</div>
+  </div>
 </div>
 
-<h2>Detective Mode — Auto-Triggers</h2>
+<h2>Detective Mode &mdash; Auto-Triggers</h2>
 <ul class="trigger-list">
   <li>
     <div class="trigger-icon start">A</div>
@@ -659,17 +1173,85 @@
   </li>
 </ul>
 
+<h2>Reference Files (16)</h2>
+<div class="inventory-grid">
+  <div class="inv-card">
+    <div class="inv-file">router.md <span class="inv-new">NEW</span></div>
+    <div class="inv-desc">Classification algorithm, signal dimensions, route flows, deliberation protocol, learning integration</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">brainstorm.md <span class="inv-new">NEW</span></div>
+    <div class="inv-desc">Diverge/converge protocol, question-asking rules, exploration format, anti-patterns</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">wiring.md <span class="inv-new">NEW</span></div>
+    <div class="inv-desc">Dependency topology mapping, wave assignment, integration risk points, validation rules</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">planning.md <span class="inv-new">ENHANCED</span></div>
+    <div class="inv-desc">Machine-checkable AC, anti-placeholder rules, banned forms, task structure template</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">agents.md</div>
+    <div class="inv-desc">SOLO vs CREW routing table, tier classification, GOAP precondition/effect modeling</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">artifact-schemas.md</div>
+    <div class="inv-desc">JSON schemas for all session artifacts (context, intent, plan, wiring, verification, etc.)</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">coding-principles.md</div>
+    <div class="inv-desc">Default coding principles (KISS, DRY, YAGNI, SOLID, SoC) when repo has none</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">contracts.md</div>
+    <div class="inv-desc">Contract templates: feature, api, testing, ui, fix</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">detective-protocol.md</div>
+    <div class="inv-desc">Full 7-step forensic investigation protocol with HTML report generation</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">evolution.md</div>
+    <div class="inv-desc">Learnings promotion, distillation, and knowledge system maintenance</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">governance.md</div>
+    <div class="inv-desc">Enforcement details for Core Disciplines, output style rules</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">learning-system.md</div>
+    <div class="inv-desc">Domain detection, smart loading, INDEX.md format, correction lifecycle</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">smart-auth.md</div>
+    <div class="inv-desc">MCP authentication patterns for Jira, GitHub, Slack</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">temperature-review.md</div>
+    <div class="inv-desc">Post-verification quality review protocol</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">verification.md</div>
+    <div class="inv-desc">Evidence-based verification protocol, Sentinel workflow</div>
+  </div>
+  <div class="inv-card">
+    <div class="inv-file">xml-conventions.md</div>
+    <div class="inv-desc">Hybrid XML/markdown format for skill files: XML compartment boundaries, markdown inside</div>
+  </div>
+</div>
+
 <h2>Preamble Tiers</h2>
 <div class="tier-diagram">
   <div class="tier-col">
-    <h3 style="color: var(--green);">T1 — Leaf</h3>
+    <h3 style="color: var(--green);">T1 &mdash; Leaf</h3>
     <span class="ctx-file loaded">_shared.md</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
       status, sessions, health, learn, scout, evolve
     </div>
   </div>
   <div class="tier-col">
-    <h3 style="color: var(--accent);">T2 — Verify</h3>
+    <h3 style="color: var(--accent);">T2 &mdash; Verify</h3>
     <span class="ctx-file loaded">_shared.md</span>
     <span class="ctx-file loaded">_shared-repo-detection.md</span>
     <span class="ctx-file loaded">_shared-auto-learning.md</span>
@@ -679,18 +1261,19 @@
     </div>
   </div>
   <div class="tier-col">
-    <h3 style="color: var(--yellow);">T3 — Plan</h3>
+    <h3 style="color: var(--yellow);">T3 &mdash; Plan</h3>
     <span class="ctx-file loaded">+ _shared-crew.md</span>
-    <span class="ctx-file loaded">+ _shared-superpowers.md</span>
+    <span class="ctx-file loaded">+ _shared-discipline.md</span>
     <span class="ctx-file loaded">+ _shared-contracts.md</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
       review, contract, recruit, visual
     </div>
   </div>
   <div class="tier-col">
-    <h3 style="color: var(--purple);">T4 — Full</h3>
+    <h3 style="color: var(--purple);">T4 &mdash; Full</h3>
     <span class="ctx-file loaded">+ _shared-board.md</span>
-    <span class="ctx-file loaded">+ _shared-phantom.md</span>
+    <span class="ctx-file loaded">+ _shared-phantom-integration.md</span>
+    <span class="ctx-file loaded">+ _shared-hawkeye.md</span>
     <span class="ctx-file loaded">+ _shared-detective.md</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
       start, execute, wrap, resume, pause
@@ -698,46 +1281,264 @@
   </div>
 </div>
 <div style="font-size: 0.75rem; color: var(--text-muted);">
-  * _shared-detective.md loaded on-demand at T2 only when detective mode triggers
+  * _shared-detective.md loaded on-demand at T2 only when detective mode triggers.
+  <strong>_shared-discipline.md</strong> replaces the former _shared-superpowers.md &mdash; no external plugin dependencies.
 </div>
 
-<h2>Iron Laws</h2>
-<div class="laws-grid">
-  <div class="law"><span class="num">#1</span> Feature branch — never commit on main/develop/master</div>
-  <div class="law"><span class="num">#2</span> Verification mandatory — Sentinel confirms pass</div>
-  <div class="law"><span class="num">#3</span> Anti-repetition — scan learnings before any approach</div>
-  <div class="law"><span class="num">#4</span> Devil's Advocate — every plan challenged</div>
-  <div class="law"><span class="num">#5</span> Simplify always runs — after verify pass</div>
-  <div class="law"><span class="num">#6</span> Intent check — diff vs contract intent</div>
-  <div class="law"><span class="num">#7</span> Smart PR — UI = branch only, no UI = draft PR</div>
-  <div class="law"><span class="num">#8</span> Jira auto-transition — after push/PR</div>
-  <div class="law"><span class="num">#9</span> Learnings — every session reads and writes</div>
-  <div class="law"><span class="num">#10</span> Auto-CREW — 4+ files, cross-cutting = CREW</div>
-  <div class="law"><span class="num">#11</span> Root cause or nothing — reproduce, trace, confirm, fix</div>
-  <div class="law"><span class="num">#12</span> Parallel agents — 2+ independent files = parallel</div>
-  <div class="law"><span class="num">#13</span> Subagent-driven — all implementation through Agent tool</div>
+<h2>Shared Context Files (10)</h2>
+<div class="shared-grid">
+  <div class="shared-card">
+    <div class="filename">_shared.md</div>
+    <div class="purpose">Core governance, Core Disciplines, paths, context management, preamble tier system</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-repo-detection.md</div>
+    <div class="purpose">Stack detection, verification command discovery</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-auto-learning.md</div>
+    <div class="purpose">Smart learnings loading, domain detection, INDEX.md protocol</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-crew.md</div>
+    <div class="purpose">Agent spawning, crew roles, three-tier model routing</div>
+  </div>
+  <div class="shared-card" style="border-color: var(--cyan);">
+    <div class="filename">_shared-discipline.md <span style="font-size: 0.65rem; color: var(--cyan);">REPLACES _shared-superpowers.md</span></div>
+    <div class="purpose">Plan/execution discipline. Self-contained: references team skill's own agents and docs. No external plugin deps.</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-contracts.md</div>
+    <div class="purpose">Contract templates, hooks, interface scope</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-detective.md</div>
+    <div class="purpose">Forensic analysis protocol (loaded on detective trigger)</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-board.md</div>
+    <div class="purpose">Event log, session state tracking</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-phantom-integration.md</div>
+    <div class="purpose">Phantom graph intelligence integration (optional)</div>
+  </div>
+  <div class="shared-card">
+    <div class="filename">_shared-hawkeye.md</div>
+    <div class="purpose">Hawkeye cross-file review integration</div>
+  </div>
 </div>
 
-<h2>Session Artifact Pipeline</h2>
-<table class="cmd-table">
+<h2>Core Disciplines (with WHY)</h2>
+<table class="discipline-table">
   <thead>
-    <tr><th>Phase</th><th>Artifact</th><th>Path</th></tr>
+    <tr><th>#</th><th>Discipline</th><th>Why</th></tr>
   </thead>
   <tbody>
-    <tr><td>A — Context</td><td>context.json</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>A.5 — Detective</td><td>context.json + detective field</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>B — Plan</td><td>intent.json, plan.json</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>C — Contracts</td><td>contracts/*.md</td><td>state/sessions/{TICKET}/contracts/</td></tr>
-    <tr><td>D — Execute</td><td>agent-outputs/*.md, execution.json</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>E — Verify</td><td>verification.json + detective field</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td style="color: var(--purple);">Detective</td><td style="color: var(--purple);">investigation.html</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>Wrap</td><td>wrap.json, decisions.md, learnings</td><td>state/sessions/{TICKET}/</td></tr>
-    <tr><td>Archive</td><td>full session copy</td><td>state/completed/{TICKET}/</td></tr>
+    <tr>
+      <td class="num">#1</td>
+      <td><strong>Feature branch</strong> &mdash; never commit on main/develop/master</td>
+      <td class="why">Protects shared branches from half-finished work. Broken main blocks the entire team.</td>
+    </tr>
+    <tr>
+      <td class="num">#2</td>
+      <td><strong>Verification mandatory</strong> &mdash; Sentinel runs commands, reads output, confirms pass</td>
+      <td class="why">"Tests pass" without evidence is the #1 agent failure mode. Evidence-before-assertions.</td>
+    </tr>
+    <tr>
+      <td class="num">#3</td>
+      <td><strong>Anti-repetition</strong> &mdash; scan learnings/INDEX.md before any approach</td>
+      <td class="why">Without this, the same mistake repeats across sessions. Prior failures inform better plans.</td>
+    </tr>
+    <tr>
+      <td class="num">#4</td>
+      <td><strong>Devil's Advocate</strong> &mdash; every plan challenged, PROCEED/REVISE/RETHINK</td>
+      <td class="why">Catches wrong assumptions before expensive implementation. Cheap insurance.</td>
+    </tr>
+    <tr>
+      <td class="num">#5</td>
+      <td><strong>Simplify always runs</strong> &mdash; after verify pass</td>
+      <td class="why">Code grows complex during implementation. Simplify catches accidental complexity while context is fresh.</td>
+    </tr>
+    <tr>
+      <td class="num">#6</td>
+      <td><strong>Intent check</strong> &mdash; diff vs contract intent. Tests passing is not problem solved</td>
+      <td class="why">Tests verify code correctness, not feature correctness. Diff must match what user actually asked for.</td>
+    </tr>
+    <tr>
+      <td class="num">#7</td>
+      <td><strong>Smart PR</strong> &mdash; UI touched = branch only. No UI = draft PR</td>
+      <td class="why">UI changes need visual verification before PR. API/backend changes can go straight to review.</td>
+    </tr>
+    <tr>
+      <td class="num">#8</td>
+      <td><strong>Jira auto-transition</strong> &mdash; after push/PR</td>
+      <td class="why">Keeps project tracking in sync without manual overhead. Stakeholders see real-time progress.</td>
+    </tr>
+    <tr>
+      <td class="num">#9</td>
+      <td><strong>Learnings</strong> &mdash; every session reads and writes</td>
+      <td class="why">The knowledge system only works if fed. Reading prevents repeated mistakes; writing prevents knowledge loss.</td>
+    </tr>
+    <tr>
+      <td class="num">#10</td>
+      <td><strong>Auto-CREW trigger</strong> &mdash; 4+ files, 2+ packages, cross-cutting</td>
+      <td class="why">Large changes benefit from parallel agents. Single agent doing 10 sequential edits wastes time and context.</td>
+    </tr>
+    <tr>
+      <td class="num">#11</td>
+      <td><strong>Root cause or nothing</strong> &mdash; reproduce, trace, confirm, fix</td>
+      <td class="why">Stacking patches on a wrong hypothesis makes the real problem harder to find. Diagnosis before treatment.</td>
+    </tr>
+    <tr>
+      <td class="num">#12</td>
+      <td><strong>Parallel agents</strong> &mdash; 2+ independent files = parallel spawn</td>
+      <td class="why">Independent work should run concurrently. Sequential when parallel is possible wastes wall-clock time.</td>
+    </tr>
+    <tr>
+      <td class="num">#13</td>
+      <td><strong>Subagent-driven always</strong> &mdash; all implementation through Agent tool</td>
+      <td class="why">Keeps Cortex context clean for coordination. Implementation details in subagents don't pollute the orchestrator.</td>
+    </tr>
   </tbody>
 </table>
 
+<h2>Infrastructure</h2>
+<div class="infra-grid">
+  <div class="infra-card">
+    <h3 style="color: var(--cyan);">Scripts (4)</h3>
+    <span class="infra-item">check-learnings-index.js</span>
+    <span class="infra-item">preamble-tier.js</span>
+    <span class="infra-item">session-health.sh</span>
+    <span class="infra-item">validate-artifact.js</span>
+    <div class="infra-note">Runtime utilities for session health, artifact validation, and preamble tier calculation.</div>
+  </div>
+  <div class="infra-card">
+    <h3 style="color: var(--pink);">Eval Suite (30 cases)</h3>
+    <span class="infra-item">evals/evals.json</span>
+    <div class="infra-note">
+      30 test cases across 10 commands. Each case has: prompt, should_trigger (true/false), expected_behavior.
+      Tests both positive routing and negative routing (e.g., "fix the bug" should NOT trigger detective).
+    </div>
+    <div style="margin-top: 0.5rem;">
+      <span style="font-family: var(--font-mono); font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(63,185,80,0.15); color: var(--green); border-radius: 3px;">20 positive</span>
+      <span style="font-family: var(--font-mono); font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(248,81,73,0.15); color: var(--red); border-radius: 3px; margin-left: 0.35rem;">10 negative</span>
+    </div>
+  </div>
+  <div class="infra-card">
+    <h3 style="color: var(--green);">Session Artifact Pipeline</h3>
+    <span class="infra-item">context.json</span>
+    <span class="infra-item">route-decision.json</span>
+    <span class="infra-item">intent.json</span>
+    <span class="infra-item">plan.json</span>
+    <span class="infra-item">deliberation.json</span>
+    <span class="infra-item">brainstorm.json</span>
+    <span class="infra-item">decisions.json</span>
+    <span class="infra-item">wiring.json</span>
+    <span class="infra-item">contracts/*.md</span>
+    <span class="infra-item">execution.json</span>
+    <span class="infra-item">verification.json</span>
+    <span class="infra-item">investigation.html</span>
+    <span class="infra-item">wrap.json</span>
+    <div class="infra-note">All artifacts written to <span style="font-family: var(--font-mono);">state/sessions/{TICKET}/</span></div>
+  </div>
+</div>
+
+<!-- Independence Status -->
+<h2>Independence Status</h2>
+<div class="independence-box">
+  <h3>Zero External Plugin Dependencies</h3>
+  <p>
+    The team skill is fully self-contained. The <strong>superpowers plugin</strong> has been disabled and all references removed.
+    The <strong>code-simplifier plugin</strong> has been absorbed into <span style="font-family: var(--font-mono);">agents/simplifier.md</span>.
+  </p>
+  <ul class="dep-list">
+    <li>
+      <span class="dep-status dep-removed">REMOVED</span>
+      <span>superpowers plugin &mdash; replaced by <span style="font-family: var(--font-mono);">_shared-discipline.md</span> (self-contained discipline enforcement)</span>
+    </li>
+    <li>
+      <span class="dep-status dep-absorbed">ABSORBED</span>
+      <span>code-simplifier plugin &mdash; internalized as <span style="font-family: var(--font-mono);">agents/simplifier.md</span> (ready to disable plugin)</span>
+    </li>
+    <li>
+      <span class="dep-status" style="background: rgba(210,153,34,0.15); color: var(--yellow);">OPTIONAL</span>
+      <span>Phantom AI MCP &mdash; graph intelligence, non-blocking, graceful fallback if unavailable</span>
+    </li>
+    <li>
+      <span class="dep-status" style="background: rgba(210,153,34,0.15); color: var(--yellow);">OPTIONAL</span>
+      <span>Jira MCP &mdash; ticket context, auto-transition. Skipped silently if unavailable</span>
+    </li>
+  </ul>
+</div>
+
+<!-- v2 to v3 changelog -->
+<h2>v2 &rarr; v3 Changelog</h2>
+<details>
+  <summary>What changed from v2.1 (Detective Mode) to v3 (Adaptive Cognitive Router)</summary>
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 0.5rem;">
+    <table class="cmd-table">
+      <thead>
+        <tr><th>Area</th><th>v2.1</th><th>v3</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight: 600;">Workflow</td>
+          <td style="color: var(--text-muted);">Linear: Phase A&rarr;B&rarr;C&rarr;D&rarr;E always</td>
+          <td>Adaptive: 4 routes (DIRECT/PLAN/BRAINSTORM/FULL) based on signals</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Planning</td>
+          <td style="color: var(--text-muted);">Cortex plans, DA challenges, human reviews</td>
+          <td>Deliberation: agents discuss among themselves, human approves consensus or breaks tie</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Wiring</td>
+          <td style="color: var(--text-muted);">Not present</td>
+          <td>Explicit dependency topology mapping (produces/consumes, waves, risk points)</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Dependencies</td>
+          <td style="color: var(--text-muted);">Required: superpowers plugin, code-simplifier plugin</td>
+          <td>Zero external deps. Superpowers removed. Code-simplifier absorbed.</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Disciplines</td>
+          <td style="color: var(--text-muted);">Iron Laws (name + rule only)</td>
+          <td>Core Disciplines (name + rule + WHY column explaining the failure mode it prevents)</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Planning quality</td>
+          <td style="color: var(--text-muted);">Free-form acceptance criteria</td>
+          <td>Machine-checkable AC, banned placeholder forms, requirement coverage tracing</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Agents</td>
+          <td style="color: var(--text-muted);">8 agents</td>
+          <td>11 agent files (added simplifier, _base-agent, devils-advocate)</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Infrastructure</td>
+          <td style="color: var(--text-muted);">No scripts, no evals</td>
+          <td>4 scripts (health, validation, tiers) + 30-case eval suite</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Reference files</td>
+          <td style="color: var(--text-muted);">12 files</td>
+          <td>16 files (+router.md, +brainstorm.md, +wiring.md, enhanced planning.md)</td>
+        </tr>
+        <tr>
+          <td style="font-weight: 600;">Routing learning</td>
+          <td style="color: var(--text-muted);">None</td>
+          <td>Routing history + correction bias: SUCCESS / ESCALATED / OVERKILL feedback loop</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
 <div class="footer">
-  Team Skill System v2.1 &middot; Detective Mode &middot; Author: Subash Karki &middot; Generated 2026-05-23
+  Team Skill System v3 &middot; Adaptive Cognitive Router &middot; Author: Subash Karki &middot; Generated 2026-05-23
 </div>
 
 </body>

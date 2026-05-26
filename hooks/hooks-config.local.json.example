@@ -1,0 +1,21 @@
+{
+  "$schema": "Personal overrides — copy to hooks-config.local.json (gitignored). Merges on top of hooks-config.json by name.",
+  "hooks": [
+    {
+      "name": "observation-capture",
+      "enabled": false,
+      "_comment": "Disable observation capture for lightweight sessions"
+    },
+    {
+      "name": "my-custom-hook",
+      "event": "PostToolUse",
+      "matcher": "Bash",
+      "script": "hooks/my-custom-hook.sh",
+      "enabled": true,
+      "once": false,
+      "priority": 200,
+      "input": "arg1-json",
+      "description": "Example local-only hook"
+    }
+  ]
+}

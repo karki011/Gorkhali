@@ -1,6 +1,6 @@
 ---
 name: team:resume
-description: "Use when continuing previous work, picking up where left off, or resuming a paused session. Restores full context, contracts, and learnings."
+description: "Use when continuing previous work or picking up from where you stopped. Also use when user says 'resume', 'continue', 'pick up where we left off', 'I'm back', 'was in the middle of', 'stopped yesterday', 'continue from where we stopped', or 'restore context'. NOT if adding new scope — use team:start. Restores full context and plan."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (artifacts provide the rest)

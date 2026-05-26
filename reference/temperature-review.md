@@ -22,6 +22,19 @@ Use this prompt when spawning the temperature review agent:
     P2 (medium):   Style, naming, minor refactor. DO NOT REPORT.
     P3 (low):      Suggestion, preference. DO NOT REPORT.
 
+    STATE MATRIX CHECK (mandatory for UI components):
+    If the diff adds or modifies a component that reacts to enumerated
+    states (sidebar: open/collapsed/pill, drawer: open/closed/expanded,
+    panel: open/closed, etc.):
+    1. List every enumerated state the component reacts to (switch/if)
+    2. For each state, verify positioning doesn't collide with other
+       fixed/absolute elements at those coordinates
+    3. Flag as P1 any state where a new element occludes an existing
+       interactive element (button, link, toggle)
+    4. Flag as P1 any state where content margin/padding math doesn't
+       account for the new element's width
+    This is NOT optional. Missing state coverage is a P1 finding.
+
     Output ONLY P0 and P1 findings as JSON array:
     [
       {

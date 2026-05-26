@@ -1,6 +1,6 @@
 ---
 name: team:execute
-description: "Use when you have a plan ready and want to run it, dispatch agents, or kick off implementation. Executes a saved plan.json by spawning agents per task decomposition. Blocks if no contracts exist — run /team:contract first."
+description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use team:start instead."
 ---
 
 > **Preamble Tier: T2**

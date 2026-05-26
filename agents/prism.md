@@ -81,7 +81,7 @@ When verdict = REJECTED:
 When Cortex requests gauntlet mode:
 
 1. `git add .` -- baseline all changes
-2. Spawn `pr-review-toolkit:code-simplifier` + `pr-review-toolkit:silent-failure-hunter` in parallel
+2. Spawn simplifier agent (`agents/simplifier.md`) + `pr-review-toolkit:silent-failure-hunter` in parallel
 3. Review simplifier diff -- **APPROVE** (keep simplification) or **REJECT** (revert)
 4. Full verify: lint + typecheck + build + tests
 5. Final report:
@@ -92,7 +92,7 @@ When Cortex requests gauntlet mode:
 
 ## Dual-Lens Protocol
 
-Cortex also spawns `feature-dev:code-reviewer` alongside Prism on the same diff.
+Cortex may spawn a second reviewer alongside Prism on the same diff for dual-lens coverage.
 Both reviews are compared. Conflicts are resolved by Prism (this agent).
 
 ## Reference

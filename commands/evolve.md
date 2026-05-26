@@ -7,16 +7,42 @@ description: "Use when learnings files are getting large, patterns should be pro
 
 # /team:evolve
 
-Run the evolution pipeline manually (normally runs at wrap time).
+Run the 3-tier evolution pipeline on the learnings system.
 
-1. READ `reference/evolution.md` for protocol
-2. Spawn Haiku agent to scan `learnings/INDEX.md`:
-   - `[validated:5+]` → Tier 1 candidates
-   - `[failed]` corrections ×3+ → Tier 2 candidates
-   - Repeated patterns → Tier 3 candidates
-3. Present candidates to user
-4. On approval: apply changes, log to `state/evolution-log.json`
-5. Check file size caps (reference: 100, commands: 80, INDEX: 80 entries, domain: 50)
-6. If oversized: offer distillation via Haiku
+## Steps
 
-Also: staleness check — learnings entries 30+ days old → mark `[stale]`.
+1. **Invoke the runner:**
+   ```bash
+   node ~/.claude/team/scripts/evolution-runner.js
+   ```
+   For preview without changes:
+   ```bash
+   node ~/.claude/team/scripts/evolution-runner.js --dry-run
+   ```
+
+2. **Review output** — the runner prints:
+   - Tier 1: Stale entries (30+ days) and removable entries (60+ days)
+   - Tier 2: Patterns promoted to `global/patterns/` (those with `[validated:5+]`)
+   - Tier 3: Domains exceeding 50-entry cap (need manual distillation)
+
+3. **Handle Tier 3 (if any):** For oversized domains, manually distill:
+   - Merge entries that say the same thing differently
+   - Remove entries absorbed into reference/ or skill files
+   - Sharpen: strip session-specific context, keep the rule
+   - Preserve `[validated:N]` counts (merge = sum counts)
+   - Never delete `[failed]` entries unless explicitly overridden
+
+4. **Verify log:** Check `state/evolution-log.json` for the new entry.
+
+## Flags
+
+| Flag | Effect |
+|------|--------|
+| `--dry-run` | Preview changes without writing any files |
+
+## When to Run
+
+- After 5+ sessions (routine maintenance)
+- When `learnings/INDEX.md` feels bloated
+- Before archiving a milestone
+- At `/team:wrap` time (evolution check in wrap protocol)

@@ -1,6 +1,6 @@
 ---
 name: team:pause
-description: "Use when stepping away, switching context, taking a break, or saving progress. Saves session state, learnings, and resume notes."
+description: "Use when stepping away, going to a meeting, or saving progress mid-session. Also use when user says 'pause', 'I gotta jump to a meeting', 'save where we are', 'checkpoint', 'done for today', 'I'll come back', 'context switch', or 'save state'. No git ops — just saves artifacts. Use team:wrap to ship."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only

@@ -6,6 +6,18 @@ Investigation protocol details and HTML report template for detective mode.
 
 ---
 
+## Table of Contents
+
+1. [Investigation Depth Levels](#investigation-depth-levels) — Pre-scan vs failure scan vs full investigation
+2. [Bug Report Detection Heuristics](#bug-report-detection-heuristics-for-startmd) — Keyword/branch/Jira signals for auto-classification
+3. [Pre-scan Output Schema](#pre-scan-output-schema-for-contextjson) — JSON structure for context.json detective field
+4. [Failure Scan Output Schema](#failure-scan-output-schema-for-verificationjson) — JSON structure for verification.json detective field
+5. [HTML Investigation Report Template](#html-investigation-report-template) — Full template with 7-step protocol (largest section)
+6. [Placeholder Reference](#placeholder-reference) — Template variable substitutions
+7. [Confidence Thresholds](#confidence-thresholds) — Score ranges and what they mean
+
+---
+
 ## Investigation Depth Levels
 
 | Depth | Steps | Git Commands | Output | Trigger |

@@ -1,9 +1,9 @@
 ---
 name: team:review
-description: "Use when you want a code review, quality check, or second opinion on current changes. Spawns Prism for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review this', 'check my code', 'is this good', or 'code quality'."
+description: "Use when you want a code review, quality check, or second opinion on current changes. Spawns Prism for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review this', 'check my code', 'second opinion', 'is this good', or 'code quality'. NOT for test/build checks — use team:verify."
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-superpowers.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
 # /team:review
 
