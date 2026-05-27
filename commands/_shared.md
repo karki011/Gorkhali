@@ -51,7 +51,7 @@ These exist because each one prevents a specific, observed failure mode.
 | 7 | **Smart PR** — Draft PR by default for any code changes. Skip only for: on-main, no-code, user override | Code should be visible to the team as soon as it's committed. Decision based on what happened, not the route. See `wrap.md` step 14. |
 | 8 | **Jira auto-transition** — after push/PR: transition + comment | Keeps project tracking in sync without manual overhead. Stakeholders see real-time progress. |
 | 9 | **Learnings** — every session reads and writes learnings | The knowledge system only works if it's fed. Reading prevents repeated mistakes; writing prevents knowledge loss. |
-| 10 | **Auto-CREW trigger** — 4+ files, 2+ packages, cross-cutting → CREW | Large changes benefit from parallel agents. A single agent doing 10 file edits sequentially wastes time and context. |
+| 10 | **Auto-SHADOWS trigger** — 4+ files, 2+ packages, cross-cutting → SHADOWS | Large changes benefit from parallel agents. A single agent doing 10 file edits sequentially wastes time and context. |
 | 11 | **Root cause or nothing** — reproduce → trace → confirm → fix | Stacking patches on a wrong hypothesis makes the real problem harder to find. Diagnosis before treatment. |
 | 12 | **Parallel agents** — 2+ independent files → parallel spawn | Independent work should run concurrently. Sequential when parallel is possible wastes wall-clock time. |
 | 13 | **Subagent-driven always** — all implementation through Agent tool | Keeps Apex context clean for coordination. Implementation details in subagents don't pollute the orchestrator. |

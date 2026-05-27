@@ -24,7 +24,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 5. **Dispatch per plan**:
    - READ `reference/agents.md` for spawn patterns
    - SOLO route: spawn 1 Blade with full task scope
-   - CREW route: spawn parallel Sparks with `isolation: "worktree"`
+   - SHADOWS route: spawn parallel Blades with `isolation: "worktree"`
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - Agent results → `state/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)

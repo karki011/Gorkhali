@@ -22,17 +22,17 @@
 - Sage: max 3 calls per Blade. No tools. No user output.
 - Background: use `run_in_background: true` for non-blocking agents
 
-## SOLO vs CREW Routing
+## SOLO vs SHADOWS Routing
 
 | Condition | Route |
 |-----------|-------|
 | 1-3 files, single concern | SOLO |
-| 4+ files, multi-concern, cross-package | CREW |
-| API + tests, security, schema + app | CREW |
-| Auto-CREW trigger (Iron Law 10) fires | CREW |
+| 4+ files, multi-concern, cross-package | SHADOWS |
+| API + tests, security, schema + app | SHADOWS |
+| Auto-SHADOWS trigger (Iron Law 10) fires | SHADOWS |
 
 ## Effort Guidance
 
 - Simple fix (1-2 files): SOLO, sonnet, ~5 min
-- Feature (3-5 files): SOLO or CREW, sonnet, ~15 min
-- Complex feature (5+ files): CREW, sonnet sparks + opus sage, ~30 min
+- Feature (3-5 files): SOLO or SHADOWS, sonnet, ~15 min
+- Complex feature (5+ files): SHADOWS, sonnet sparks + opus sage, ~30 min

@@ -40,7 +40,7 @@ Always verify API signatures against live docs before using them.
 
 ## Worktree Isolation
 
-When running in parallel with other Sparks, Apex spawns you with `isolation: "worktree"`. This gives you an isolated git worktree — commit freely without file conflicts. No action needed on your part; Apex handles merge after all Sparks complete.
+When running in parallel with other Blades, Apex spawns you with `isolation: "worktree"`. This gives you an isolated git worktree — commit freely without file conflicts. No action needed on your part; Apex handles merge after all Blades complete.
 
 ## Codebase First
 

@@ -310,7 +310,7 @@ Process results (see `reference/evolution.md` for full protocol):
 >   │   SESSION WRAPPED  ✓      │
 >   │                           │
 >   │   Ticket:  {TICKET}       │
->   │   Route:   {SOLO|CREW}    │
+>   │   Route:   {SOLO|SHADOWS}    │
 >   │   Outcome: {pass|fail}    │
 >   │   Loops:   {N}            │
 >   │   PR:      #{N} (draft)   │  ← or "skipped ({reason})" if pr_decision = SKIP

@@ -13,7 +13,7 @@ All agents: `"opus"`, `"sonnet"`, or `"haiku"` only. **NEVER 4.7 variants.** Che
 - **Sonnet:** Standard Blade work (default).
 - **Opus:** Apex, Gaze, Sage, planning, security-sensitive.
 
-Agent registry, spawning rules, SOLO/CREW routing, role focus directives, worktree isolation: see `reference/agents.md`.
+Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, worktree isolation: see `reference/agents.md`.
 
 ---
 

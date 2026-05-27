@@ -87,7 +87,7 @@ READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/p
 
 1. Capture Intent → write `intent.json`
 2. Codebase research (Explore + Plan agents, opus) + anti-repetition scan
-3. Produce plan (SOLO/CREW routing per `reference/agents.md`)
+3. Produce plan (SOLO/SHADOWS routing per `reference/agents.md`)
 4. **Deliberation**: Planner ↔ Challenger, max 2 rounds (router.md)
 5. Present: consensus → "OK to proceed?" / disagreement → human breaks tie
 6. Write `plan.json` with deliberation verdict

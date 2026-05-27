@@ -37,7 +37,7 @@ Before finalizing plan:
 2. `[failed]` entries → acknowledge, explain difference, or choose alternative
 3. Log matches in plan under anti-repetition notes
 
-## SOLO vs CREW Decision
+## SOLO vs SHADOWS Decision
 
 See `reference/agents.md` for routing table.
 

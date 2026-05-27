@@ -13,7 +13,7 @@
 | 7 | Smart PR | wrap step 14 `<pr_decision>` — Draft PR default, skip only for on-main/no-code/user-override |
 | 8 | Jira transition | wrap step (structural) |
 | 9 | Learnings | wrap step (structural) |
-| 10 | Auto-CREW | plan.json routing logic |
+| 10 | Auto-SHADOWS | plan.json routing logic |
 | 11 | Root cause | fix.md structure |
 | 12 | Parallel agents | plan.json dependency graph |
 | 13 | Subagent-driven | Existing hook |
