@@ -13,7 +13,7 @@ it consumes, and which tasks can run in parallel.
 FULL route only (multi-component, cross-cutting tasks). Sequence:
 
 ```
-plan.json written → Devil's Advocate PROCEED → [WIRING] → Phase C execute
+plan.json written → Rival PROCEED → [WIRING] → Phase C execute
 ```
 
 Solo route: skip wiring. Task count ≤ 2 with no shared files: skip wiring.
@@ -69,7 +69,7 @@ Write to `state/sessions/{TICKET}/wiring.json` before spawning agents:
     "gitHead": "abc1234",
     "gitBranch": "feat/eng-1234",
     "phase": "B",
-    "skill": "team:start",
+    "skill": "phantom:start",
     "version": 1
   },
   "dependencies": [

@@ -1,6 +1,6 @@
-# Team Skill Evals
+# Phantom Evals
 
-Test cases verifying that each team skill triggers correctly and produces expected behavior.
+Test cases verifying that each Phantom triggers correctly and produces expected behavior.
 
 ## Structure
 
@@ -17,7 +17,7 @@ Each eval entry:
 | Field | Description |
 |---|---|
 | `id` | Unique integer |
-| `skill` | Skill name (e.g., `team:start`) |
+| `skill` | Skill name (e.g., `phantom:start`) |
 | `prompt` | Realistic user message |
 | `should_trigger` | `true` = skill should activate, `false` = near-miss |
 | `expected_behavior` | What the skill should do when triggered |
@@ -26,16 +26,16 @@ Each eval entry:
 
 | Skill | IDs | Trigger | No-Trigger |
 |---|---|---|---|
-| `team:start` | 1–3 | 1, 2 | 3 |
-| `team:verify` | 4–6 | 4, 5 | 6 |
-| `team:fix` | 7–9 | 7, 8 | 9 |
-| `team:review` | 10–12 | 10, 11 | 12 |
-| `team:detective` | 13–15 | 13, 14 | 15 |
-| `team:wrap` | 16–18 | 16, 17 | 18 |
-| `team:scout` | 19–21 | 19, 20 | 21 |
-| `team:recruit` | 22–24 | 22, 23 | 24 |
-| `team:pause` | 25–27 | 25, 26 | 27 |
-| `team:resume` | 28–30 | 28, 29 | 30 |
+| `phantom:start` | 1–3 | 1, 2 | 3 |
+| `phantom:verify` | 4–6 | 4, 5 | 6 |
+| `phantom:fix` | 7–9 | 7, 8 | 9 |
+| `phantom:review` | 10–12 | 10, 11 | 12 |
+| `phantom:hound` | 13–15 | 13, 14 | 15 |
+| `phantom:wrap` | 16–18 | 16, 17 | 18 |
+| `phantom:scout` | 19–21 | 19, 20 | 21 |
+| `phantom:arise` | 22–24 | 22, 23 | 24 |
+| `phantom:pause` | 25–27 | 25, 26 | 27 |
+| `phantom:resume` | 28–30 | 28, 29 | 30 |
 
 ## How to Run
 

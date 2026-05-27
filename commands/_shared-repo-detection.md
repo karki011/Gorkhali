@@ -1,4 +1,4 @@
-# Team Skill Crew -- Repo Detection Context
+# Phantom Shadows -- Repo Detection Context
 
 > Loaded by commands that need repo-aware verification or stack-specific behavior.
 > Always load `_shared.md` first.
@@ -56,7 +56,7 @@ Order of precedence (first match wins):
 3. Stack defaults (see `reference/verification.md` for full table)
 4. Monorepo: Nx `affected`, Turborepo `--filter`
 
-Sentinel verification protocol: see `reference/verification.md`.
+Ward verification protocol: see `reference/verification.md`.
 
 ---
 

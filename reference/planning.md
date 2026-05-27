@@ -15,9 +15,9 @@ Done When sourcing:
 2. Ask user explicitly → required if no Jira
 3. Format as verifiable predicates ("tests pass", "lint clean", "endpoint returns 200")
 
-## Devil's Advocate (mandatory, every plan)
+## Rival (mandatory, every plan)
 
-Spawn oracle agent (opus, no tools, blocking):
+Spawn sage agent (opus, no tools, blocking):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict
 - PROCEED → continue. REVISE → address + re-run. RETHINK → back to research.
@@ -37,7 +37,7 @@ Before finalizing plan:
 2. `[failed]` entries → acknowledge, explain difference, or choose alternative
 3. Log matches in plan under anti-repetition notes
 
-## SOLO vs CREW Decision
+## SOLO vs SHADOWS Decision
 
 See `reference/agents.md` for routing table.
 
@@ -84,7 +84,7 @@ A `doneWhen` with no matching task is a coverage gap — it will not be verified
 
 ### Placeholder Prohibition
 
-The cortex agent MUST reject `plan.json` with `verdict: REVISE` if:
+The apex agent MUST reject `plan.json` with `verdict: REVISE` if:
 - Any task `description` contains banned terms above
 - Any `doneWhen` is not independently verifiable (no command, no file, no grep)
 - Any task has `files: []` (every task must touch at least one file)
@@ -124,8 +124,8 @@ Each entry in `plan.json → tasks[]` must follow this shape (see `artifact-sche
 | `read_first` | Files the agent reads BEFORE writing. Prevents blind edits. |
 | `acceptance_criteria` | Each item is a shell command or observable fact. Never prose. |
 | `action` | One sentence. Subject = what file. Verb = what operation. No "etc." |
-| `verify` | Single command that exits 0 on success. Must be runnable by Sentinel. |
+| `verify` | Single command that exits 0 on success. Must be runnable by Ward. |
 | `files` | Non-empty. Files agent is expected to create or modify. |
 
 > `read_first` and `acceptance_criteria` are extensions to the base `plan.json` schema.
-> Agents read them from the task object; Sentinel reads `acceptance_criteria` to validate task completion.
+> Agents read them from the task object; Ward reads `acceptance_criteria` to validate task completion.

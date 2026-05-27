@@ -1,12 +1,12 @@
 ---
-name: team:detective
-description: "Use when investigating unknown bugs, regressions, or mysterious failures — something broke after a deploy, wrong output with no error, or root cause is unknown. Also use when user says 'investigate why', 'I suspect', 'started happening after', or 'no error but something is wrong'. NOT for known failures — use team:fix. Produces HTML forensic reports."
+name: phantom:hound
+description: "Use when investigating unknown bugs, regressions, or mysterious failures — something broke after a deploy, wrong output with no error, or root cause is unknown. Also use when user says 'investigate why', 'I suspect', 'started happening after', or 'no error but something is wrong'. NOT for known failures — use phantom:fix. Produces HTML forensic reports."
 argument-hint: "<symptoms or file paths>"
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-detective.md`
+> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-hound.md`
 
-# /team:detective "$ARGUMENTS"
+# /phantom:hound "$ARGUMENTS"
 
 Forensic investigation engine. Traces symptoms to root causes using git history, file relationships, and code structure. Produces an HTML investigation report.
 
@@ -42,7 +42,7 @@ Identify the suspect commit range. If clear breakpoint → note the commit SHA.
 
 ### Step 3: SUSPECTS
 
-Run hotspot analysis on suspect files. Use recipes from `_shared-detective.md`.
+Run hotspot analysis on suspect files. Use recipes from `_shared-hound.md`.
 
 For each suspect file, collect:
 - Change frequency (from hotspot recipe)
@@ -96,7 +96,7 @@ Compile the proof:
 - Specific line numbers where the bug manifests
 - Test cases that confirm/deny the hypothesis
 - Coupling violations (files that should have co-changed)
-- Research benchmarks exceeded (cite from `_shared-detective.md`)
+- Research benchmarks exceeded (cite from `_shared-hound.md`)
 
 </instructions>
 
@@ -104,7 +104,7 @@ Compile the proof:
 
 ## Output: HTML Investigation Report
 
-Write `state/sessions/{TICKET}/investigation.html` using the template from `reference/detective-protocol.md`.
+Write `state/sessions/{TICKET}/investigation.html` using the template from `reference/hound-protocol.md`.
 
 The HTML report includes:
 - Case header (ticket, date, investigator)
@@ -130,7 +130,7 @@ Also write a **conversation summary** (3-5 bullets):
 
 ## Auto-Trigger Integration
 
-This command is also invoked automatically by other team skills:
+This command is also invoked automatically by other Phantoms:
 
 | Caller | When | Depth | What happens |
 |--------|------|-------|-------------|
@@ -162,7 +162,7 @@ If Phantom MCP available:
 - Call `phantom_graph_related` to discover files involved in the same feature
 - Use graph data to inform coupling analysis (supplements git-based temporal coupling)
 
-If unavailable → skip silently. Detective mode works without Phantom.
+If unavailable → skip silently. Hound mode works without Phantom.
 
 </phantom_integration>
 
@@ -171,7 +171,7 @@ If unavailable → skip silently. Detective mode works without Phantom.
 ## Rules
 
 - Evidence before conclusions. Always.
-- Use git recipes from `_shared-detective.md`. Do not invent variations.
+- Use git recipes from `_shared-hound.md`. Do not invent variations.
 - Cite research benchmarks when thresholds exceeded.
 - One hypothesis at a time. If multiple theories, rank by confidence and present highest first.
 - If Phantom MCP available, use it. If not, degrade gracefully.

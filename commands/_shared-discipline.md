@@ -1,4 +1,4 @@
-# Team Skill Crew -- Discipline Enforcement Context
+# Phantom Shadows -- Discipline Enforcement Context
 
 > Loaded by commands that benefit from discipline enforcement at workflow phases.
 > Always load `_shared.md` first.
@@ -7,18 +7,18 @@
 
 ## Discipline Integration Map
 
-These disciplines are enforced at specific workflow phases by the team skill's own agents and references.
+These disciplines are enforced at specific workflow phases by the Phantom's own agents and references.
 No external plugins required.
 
 | Phase | Discipline | Enforced By | Reference |
 |-------|-----------|-------------|-----------|
-| **B (Planning)** | Structured planning with decomposition | Cortex agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
-| **B (Planning)** | Brainstorming for ambiguous scope | Cortex detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
-| **B (Planning)** | Adversarial challenge | Devil's Advocate agent (opus, no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
+| **B (Planning)** | Structured planning with decomposition | Apex agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
+| **B (Planning)** | Brainstorming for ambiguous scope | Apex detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
+| **B (Planning)** | Adversarial challenge | Rival agent (opus, no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
-| **D (Dispatch)** | Spec-compliance enforcement | Spark agents check contracts before writing code | `reference/contracts.md` |
-| **D→Fix** | Systematic debugging | Detective agent + `reference/detective-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
-| **Verify** | Evidence-before-assertions | Sentinel agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
+| **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
+| **D→Fix** | Systematic debugging | Hound agent + `reference/hound-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
+| **Verify** | Evidence-before-assertions | Ward agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
 
 ## Key Principles (why, not just what)
 

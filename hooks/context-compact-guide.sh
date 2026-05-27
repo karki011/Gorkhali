@@ -26,7 +26,7 @@ cat <<'GUIDANCE'
 
 **Examples:**
 - `/compact focus on the auth refactor and failing test in user-service, drop the initial exploration and file reads`
-- `/compact focus on CP-41171 implementation — keep contracts, intent, and current spark output`
+- `/compact focus on CP-41171 implementation — keep contracts, intent, and current blade output`
 - `/compact focus on debugging the hydration error, drop the earlier research phase`
 
 **Context budget rules:**

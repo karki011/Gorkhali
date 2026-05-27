@@ -1,11 +1,11 @@
 ---
-name: team:evolve
+name: phantom:evolve
 description: "Use when learnings files are getting large, patterns should be promoted to global, or the knowledge system needs maintenance. Scans learnings, proposes promotions to global patterns, distills oversized files, and cleans stale entries. Also use when user says 'clean up learnings', 'promote patterns', 'knowledge maintenance', or 'evolve the system'."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only
 
-# /team:evolve
+# /phantom:evolve
 
 Run the 3-tier evolution pipeline on the learnings system.
 
@@ -45,4 +45,4 @@ Run the 3-tier evolution pipeline on the learnings system.
 - After 5+ sessions (routine maintenance)
 - When `learnings/INDEX.md` feels bloated
 - Before archiving a milestone
-- At `/team:wrap` time (evolution check in wrap protocol)
+- At `/phantom:wrap` time (evolution check in wrap protocol)

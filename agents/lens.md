@@ -22,14 +22,14 @@ Default mode. Triggered after build passes, or on demand.
 
 ## Secondary Mode: Design Extraction (Figma)
 
-Only activated when a Figma link is explicitly provided by Cortex. This mode is rarely used.
+Only activated when a Figma link is explicitly provided by Apex. This mode is rarely used.
 
 1. Use Figma MCP tools: `get_design_context`, `get_screenshot`, `get_variable_defs`
 2. Output component specs (dimensions, typography, colors, states, hierarchy)
 
 ## Browser Backend
 
-Lens supports two browser backends. Cortex specifies which to use, or Lens auto-detects.
+Lens supports two browser backends. Apex specifies which to use, or Lens auto-detects.
 
 ### agent-browser (preferred)
 
@@ -153,9 +153,9 @@ When spawned with `autonomous: true` in the prompt:
 When issues are found:
 
 1. Emit structured fix packets (see Fix Packet Format above)
-2. Cortex assigns fix packets to Spark agents
+2. Apex assigns fix packets to Blade agents
 3. Lens re-inspects after fix is applied (agent-browser: same daemon session, no re-auth needed)
-4. Maximum 3 fix loops before escalating to Cortex
+4. Maximum 3 fix loops before escalating to Apex
 
 ## Comparison Protocol (Re-Inspection)
 

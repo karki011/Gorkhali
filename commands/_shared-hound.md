@@ -1,24 +1,24 @@
-# Team Skill Crew -- Detective Mode Context
+# Phantom Shadows -- Hound Mode Context
 
-> Loaded at T2+ when detective mode activates.
-> Skip entirely if not in a detective flow (bug investigation, verify failure, fix loop 2+).
+> Loaded at T2+ when hound mode activates.
+> Skip entirely if not in a hound flow (bug investigation, verify failure, fix loop 2+).
 
 ---
 
 <detective_triggers>
 
-## When Detective Mode Activates
+## When Hound Mode Activates
 
 | Trigger | Source | Depth |
 |---------|--------|-------|
 | Bug report detected in `start.md` Phase A | Keywords, Jira type, branch prefix | Pre-scan (lightweight) |
 | Verification failure in `verify.md` | Any correctness check fails | Failure scan (targeted) |
 | Fix loop 2+ in `fix.md` | Same failure class repeats | Deep investigation (full) |
-| Explicit `/team:detective` | User invocation | Full investigation |
+| Explicit `/phantom:hound` | User invocation | Full investigation |
 
 **Depth levels:**
-- **Pre-scan** — hotspot check + ownership on suspect files only. 2-3 git commands. Adds `detective` field to context.json.
-- **Failure scan** — hotspot + coupling on failing files. 4-5 git commands. Adds `detective` field to verification.json.
+- **Pre-scan** — hotspot check + ownership on suspect files only. 2-3 git commands. Adds `hound` field to context.json.
+- **Failure scan** — hotspot + coupling on failing files. 4-5 git commands. Adds `hound` field to verification.json.
 - **Deep investigation** — full 7-step protocol. Produces standalone `investigation.html`.
 
 </detective_triggers>
@@ -109,6 +109,6 @@ Complexity Proxy = line_count × (1 + branch_density)
 
 Use this structure when generating `investigation.html`. Adapt content sections based on investigation depth.
 
-READ `reference/detective-protocol.md` for the full HTML template and field definitions.
+READ `reference/hound-protocol.md` for the full HTML template and field definitions.
 
 </html_template>

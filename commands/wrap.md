@@ -1,6 +1,6 @@
 ---
-name: team:wrap
-description: "Use when work is DONE — finalizing a session, creating a PR, recording learnings, or opening a pull request. Also use when user says 'wrap up', 'we're done', 'ship it', 'create the PR', 'open PR', 'finalize', 'finish up', 'record what we learned', 'commit my work', or 'submit'. NOT for bare git push. Runs crew eval, saves learnings, creates PR."
+name: phantom:wrap
+description: "Use when work is DONE — finalizing a session, creating a PR, recording learnings, or opening a pull request. Also use when user says 'wrap up', 'we're done', 'ship it', 'create the PR', 'open PR', 'finalize', 'finish up', 'record what we learned', 'commit my work', or 'submit'. NOT for bare git push. Runs shadows eval, saves learnings, creates PR."
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts
@@ -19,17 +19,17 @@ Nothing ships without passing verification. No "proceed at your own risk" option
    | `verdict: "pass"` BUT `_meta.gitHead` ≠ current `git rev-parse HEAD` | Stale — auto-run verify (step 2) |
    | `verdict: "pass"` AND `_meta.gitHead` = current HEAD | Current — proceed to wrap |
 
-2. **Auto-run**: Report status, then run `Skill(skill="team:verify")`:
+2. **Auto-run**: Report status, then run `Skill(skill="phantom:verify")`:
    - Missing: `"No verification found — running quality gates (lint → build → tests → simplify → review)..."`
    - Failed: `"Previous verification failed — re-running quality gates..."`
    - Stale: `"Files changed since last verification (HEAD moved) — re-running quality gates..."`
 
 3. **Gate result**:
    - verify passes → proceed with wrap
-   - verify fails → **STOP**. Print failures. Suggest `/team:fix` then `/team:wrap` again. Do not continue to ship ceremony.
+   - verify fails → **STOP**. Print failures. Suggest `/phantom:fix` then `/phantom:wrap` again. Do not continue to ship ceremony.
 </precondition>
 
-# /team:wrap
+# /phantom:wrap
 
 Single ship ceremony. All git operations happen here — no commits, pushes, or PRs before wrap.
 
@@ -37,12 +37,12 @@ Single ship ceremony. All git operations happen here — no commits, pushes, or 
 Full shutdown:
 
 1. **Run Pre-Wrap Hook** -- verify implementation, test, and review status is recorded
-2. `TaskCreate({ subject: "[Cortex] SESSION:wrap" })` — hook handles archival + cleanup
+2. `TaskCreate({ subject: "[Apex] SESSION:wrap" })` — hook handles archival + cleanup
 3. **Diff-against-main review** (scope creep detection):
    Before creating PR or pushing branch:
    a. Run `git diff main...HEAD --stat` to see all changed files
    b. Run `git diff main...HEAD` for full diff
-   c. Cortex reviews: "Do these changes align with the contract scope?"
+   c. Apex reviews: "Do these changes align with the contract scope?"
    
    Check for:
    - Files changed that aren't in the contract scope → flag as scope creep
@@ -61,27 +61,27 @@ Full shutdown:
 **Condition:** 3+ files changed by agents during this session.
 
 If triggered:
-1. Run `Skill(skill="team:grill", args="--quick")` — 3-question rapid grill
+1. Run `Skill(skill="phantom:grill", args="--quick")` — 3-question rapid grill
 2. **SHIP IT** verdict → proceed to PR creation
-3. **NOT YET** verdict → block PR, show gaps, user must address and re-run `/team:grill`
+3. **NOT YET** verdict → block PR, show gaps, user must address and re-run `/phantom:grill`
 
 If not triggered (< 3 agent-changed files): skip silently.
 
-**Override:** User can skip with `--skip-grill` flag on `/team:wrap`.
+**Override:** User can skip with `--skip-grill` flag on `/phantom:wrap`.
 
 4. Write session file to `sessions/{ticket}/{date}_{label}.md`
 5. Write new decisions to the correct file:
    - **Feature-specific** -> `sessions/{ticket}/decisions.md`
    - **Cross-cutting** -> `decisions/global.md`
    - When in doubt, put it in the session
-6. **Run crew evaluation** (see `/team:eval`) -- record scores in session file
-7. Update learnings — append to the relevant **domain file** in `learnings/` (ui.md, data.md, auth.md, testing.md, crew.md, migration.md, tooling.md):
+6. **Run shadows evaluation** (see `/phantom:eval`) -- record scores in session file
+7. Update learnings — append to the relevant **domain file** in `learnings/` (ui.md, data.md, auth.md, testing.md, shadows.md, migration.md, tooling.md):
    - New patterns → under `## Patterns` with `[proposed]` or `[validated:1]` lifecycle tag
    - New corrections → under `## Corrections` with `[failed]` tag + approach signature format: `CORRECTION [{keyword}]: [{failure}] — [{alternative}] [failed] ({date})`
    - New habits → under `## Habits` with `[validated:1]` tag
    - If a new entry doesn't fit an existing domain, create a new `learnings/{domain}.md` with all 3 sections
 8. Update `learnings/INDEX.md` quick reference with one-liners for any new entries (include lifecycle tag)
-8b. **Increment validation counters** — for each pattern in INDEX.md that was successfully used during this session (Cortex explicitly relied on it, or Spark followed it without issues), increment `[validated:N]` → `[validated:N+1]`. This builds confidence signal over time.
+8b. **Increment validation counters** — for each pattern in INDEX.md that was successfully used during this session (Apex explicitly relied on it, or Blade followed it without issues), increment `[validated:N]` → `[validated:N+1]`. This builds confidence signal over time.
 8c. **Promotion check** — for any pattern with `[validated:5+]` that is technology-generic (not repo-specific), offer to promote to `~/.claude/team/global/patterns/INDEX.md` with `[scope:global] derived_from:{REPO_NAME}` tag. Global entry starts at `[validated:1]` regardless of source count.
 9. **Caveman-compress updated learnings** — for each learnings file that was modified this session, run:
    ```bash
@@ -89,7 +89,7 @@ If not triggered (< 3 agent-changed files): skip silently.
    ```
    Skip `INDEX.md` (already terse). This keeps learnings compressed for future sessions.
 9b. **Phantom outcome feedback** (if phantom available):
-   - Call `phantom_evaluate_output` with verification summary + Prism verdict as output, original goal as context
+   - Call `phantom_evaluate_output` with verification summary + Gaze verdict as output, original goal as context
    - This closes phantom's learning loop — the orchestrator records success/failure and adjusts strategy weights for similar future goals
    - If verification failed: phantom records failure reason, penalizing the strategy for similar goals going forward
 9c. **Auto-learning trigger 3:**
@@ -212,7 +212,7 @@ If not triggered (< 3 agent-changed files): skip silently.
         "gitHead": "{new HEAD after commit}",
         "gitBranch": "{branch}",
         "phase": "wrap",
-        "skill": "team:wrap",
+        "skill": "phantom:wrap",
         "version": 1
       },
       "pr": { "number": N, "url": "...", "status": "draft|skipped", "skipReason": "on-main|no-code|user-override|null" },
@@ -276,29 +276,29 @@ Process results (see `reference/evolution.md` for full protocol):
       If exists → update the existing file instead of creating a duplicate.
    
    d. **Why this matters:** Claude's auto-memory loads at session start regardless of
-      whether the team skill is invoked. Critical corrections and validated patterns
-      survive even in quick sessions that don't load the full team skill.
+      whether the Phantom is invoked. Critical corrections and validated patterns
+      survive even in quick sessions that don't load the full Phantom.
 20. Update auto-memory (`project_*.md` in memory dir)
-21. **Iron Law #13 audit report** — scan `~/.claude/team/audit/cortex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+21. **Iron Law #13 audit report** — scan `~/.claude/team/audit/apex-edits-$(date +%Y-%m-%d).jsonl` for this session:
     ```bash
-    grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/cortex-edits-*.jsonl 2>/dev/null
+    grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/apex-edits-*.jsonl 2>/dev/null
     ```
     - If no entries → ✓ Iron Law #13 held (subagent-driven was respected)
     - If entries found → ✗ violations occurred. Report in wrap summary:
       - Count of violations
       - Files touched directly
-      - Append summary to `learnings/crew.md ## Corrections`: `CORRECTION [subagent-driven]: Cortex edited {N} files directly — should have spawned Spark [failed] ({date})`
+      - Append summary to `learnings/shadows.md ## Corrections`: `CORRECTION [subagent-driven]: Apex edited {N} files directly — should have spawned Blade [failed] ({date})`
     - This is informational for Option C mode. If Option A (hard block) was active, violations wouldn't have been possible.
-22. **Deactivate cortex hook sentinel:**
+22. **Deactivate apex hook ward:**
     ```
-    rm -f ~/.claude/team/.cortex-active
+    rm -f ~/.claude/team/.apex-active
     ```
 23. **Clear native `/goal` if still active:**
     ```
     /goal clear
     ```
     Safe to run even if no goal is active — it's a no-op. Prevents a lingering goal from auto-triggering turns after wrap.
-24. Shut down crew
+24. Shut down shadows
 </archive_and_shutdown>
 
 ---
@@ -310,7 +310,7 @@ Process results (see `reference/evolution.md` for full protocol):
 >   │   SESSION WRAPPED  ✓      │
 >   │                           │
 >   │   Ticket:  {TICKET}       │
->   │   Route:   {SOLO|CREW}    │
+>   │   Route:   {SOLO|SHADOWS}    │
 >   │   Outcome: {pass|fail}    │
 >   │   Loops:   {N}            │
 >   │   PR:      #{N} (draft)   │  ← or "skipped ({reason})" if pr_decision = SKIP
@@ -320,4 +320,4 @@ Process results (see `reference/evolution.md` for full protocol):
 >   │                           │
 >   ╰───────────────────────────╯
 > ```
-> Fun sign-off (random): "Cortex out. Mic drop." | "Learnings saved. Brain bigger." | "Session archived. History written." | "Until next time, crew." | "Patterns locked. Mistakes noted. Moving on."
+> Fun sign-off (random): "Apex out. Mic drop." | "Learnings saved. Brain bigger." | "Session archived. History written." | "Until next time, shadows." | "Patterns locked. Mistakes noted. Moving on."

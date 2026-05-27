@@ -1,21 +1,21 @@
 ---
-name: team:fix
-description: "Use when verification failed, tests broke, build errors occurred, lint issues found, or CI is red — and the root cause is known or narrowed down. Also use when user says 'fix it', 'it's broken', 'tests failing', 'build failed', 'errors', 'something broke', or 'make it pass'. NOT for investigation — use team:detective when you need to find the cause first. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
+name: phantom:fix
+description: "Use when verification failed, tests broke, build errors occurred, lint issues found, or CI is red — and the root cause is known or narrowed down. Also use when user says 'fix it', 'it's broken', 'tests failing', 'build failed', 'errors', 'something broke', or 'make it pass'. NOT for investigation — use phantom:hound when you need to find the cause first. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
 
-# /team:fix
+# /phantom:fix
 
 Fix loop from latest failed verification.
 
 <instructions>
 
-1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/team:verify` first).
+1. **Load failures** — read from `state/sessions/{TICKET}/verification.json` if present, else fall back to session JSON. **BLOCK if no failures recorded** (must run `/phantom:verify` first).
 2. **Check loop count** — if >= 3, go straight to structured escalation (step 10).
-3. **Debugging discipline** — reproduce issue, trace exact code path, confirm root cause BEFORE writing any fix. Never stack patches on a wrong hypothesis. If loop 2+, trigger detective escalation (step 3.5).
-3.5. **Detective escalation (loop 2+ only)** — if this is the 2nd+ attempt with the same failure class, trigger deep investigation before retrying (see below).
-4. **Triage** — spawn **Cortex** (model: sonnet) to:
+3. **Debugging discipline** — reproduce issue, trace exact code path, confirm root cause BEFORE writing any fix. Never stack patches on a wrong hypothesis. If loop 2+, trigger hound escalation (step 3.5).
+3.5. **Hound escalation (loop 2+ only)** — if this is the 2nd+ attempt with the same failure class, trigger deep investigation before retrying (see below).
+4. **Triage** — spawn **Apex** (model: sonnet) to:
    - Read failure details from the loaded artifact
    - Classify each failure (build/type/contract/ui/a11y/test/performance/docs/integration)
    - Create fix packet with assigned owners and scoped repairs
@@ -23,7 +23,7 @@ Fix loop from latest failed verification.
 6. On approval:
    - Update board with fix loop task
    - Spawn only the assigned repair agents (scoped to failing files)
-   - After repairs, call `Skill(skill="team:verify")` — verify handles temperature review internally
+   - After repairs, call `Skill(skill="phantom:verify")` — verify handles power level internally
 7. If re-verify passes → exit loop, proceed to wrap.
 8. If re-verify fails:
    - Compare failure class to **all** previous iterations (not just N-1)
@@ -33,10 +33,10 @@ Fix loop from latest failed verification.
 
 <detective_deep_investigation>
 
-8.5. **Detective deep investigation** (same failure class on loop 2+):
+8.5. **Hound deep investigation** (same failure class on loop 2+):
    The previous approach failed. Before scrap-and-redo, gather forensic evidence.
    
-   Load `_shared-detective.md` context. Run full 7-step investigation:
+   Load `_shared-hound.md` context. Run full 7-step investigation:
    1. Collect all error messages from both failed attempts
    2. Timeline: `git log --oneline --since="2.weeks"` on failing files
    3. Hotspot analysis on failing files (change frequency × complexity)
@@ -45,7 +45,7 @@ Fix loop from latest failed verification.
    6. Hypothesis with confidence level
    7. Evidence trail (specific commits, line numbers)
    
-   Write `state/sessions/{TICKET}/investigation.html` using template from `reference/detective-protocol.md`.
+   Write `state/sessions/{TICKET}/investigation.html` using template from `reference/hound-protocol.md`.
    
    Feed hypothesis and evidence into step 9 (scrap-and-redo) — the fresh agent gets the forensic report, not just "try again."
 
@@ -57,7 +57,7 @@ Fix loop from latest failed verification.
    - **Synthesize** — agent documents what was learned: edge cases, real API behavior, why approaches failed
    - **Revert** — `git checkout -- <all files touched by fix attempts>`
    - **Rebuild** — spawn fresh agent: "You tried [X] and [Y], which failed because [Z]. Knowing this, implement the elegant solution from scratch." Pass synthesized learnings, not failed code.
-   - **Verify** — run `team:verify` on fresh implementation
+   - **Verify** — run `phantom:verify` on fresh implementation
 
 </scrap_and_redo>
 
@@ -74,7 +74,7 @@ Fix loop from latest failed verification.
     3. Loop 3: [{approach}] → [{result}]
 
     ### Root cause hypothesis
-    [{Cortex's best theory based on all 3 attempts}]
+    [{Apex's best theory based on all 3 attempts}]
 
     ### Options
     A. **Pivot approach**: [{specific alternative not yet tried}]

@@ -1,6 +1,6 @@
 # Solo Executor Prompt Template
 
-> Injected by Cortex when spawning a SOLO-route Spark agent.
+> Injected by Apex when spawning a SOLO-route Blade agent.
 > Variables in `{braces}` are filled at spawn time.
 
 ---
@@ -21,14 +21,14 @@ Read CLAUDE.md first. Follow 5 core principles: KISS, DRY, YAGNI, SRP, Meaningfu
 
 Before implementing, verify your approach does NOT match any listed prior failure.
 If it does: STOP, explain why this time is different, or choose the alternative.
-If your approach matches a known failure and you cannot justify the difference, escalate to Oracle.
+If your approach matches a known failure and you cannot justify the difference, escalate to Sage.
 Report which corrections you checked and your mitigation in output.
 
-## Oracle Escalation Protocol
+## Sage Escalation Protocol
 When you hit a HARD decision you cannot resolve confidently, spawn an Opus advisor:
 ```
 Agent({
-  description: 'Oracle: [your specific question]',
+  description: 'Sage: [your specific question]',
   model: 'opus',
   subagent_type: 'advisor',
   prompt: '[decision context + your tentative approach + specific question]. Respond: Action (plan|correct|proceed|stop), Confidence, Guidance (<100 words enumerated steps). OUTPUT: Caveman-full.'
@@ -41,7 +41,7 @@ Escalate when:
 - Change touches 3+ files outside your expected scope
 
 Do NOT escalate for: routine implementation, obvious patterns, things CLAUDE.md already answers.
-Max 3 Oracle calls. If still stuck after 3 → report what's blocking and stop.
+Max 3 Sage calls. If still stuck after 3 → report what's blocking and stop.
 
 ## Step-by-Step Execution
 
@@ -66,5 +66,5 @@ After implementation, run these yourself:
 If any fail, fix them. If you cannot fix after 2 attempts, stop and report.
 
 ## Output
-Report: files changed, what you built, Oracle calls made (if any), verification results.
+Report: files changed, what you built, Sage calls made (if any), verification results.
 OUTPUT: Caveman-full.

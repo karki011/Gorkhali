@@ -3,7 +3,7 @@
 // Phantom Works — Append-Only Event Logger
 // Author: Subash Karki
 //
-// Captures raw TaskCreate/TaskUpdate/CortexDecision events as NDJSON.
+// Captures raw TaskCreate/TaskUpdate/ApexDecision events as NDJSON.
 // Zero translation — stores exactly what Claude reports.
 // Decision events enable strategy performance tracking and anti-repetition.
 // Replaces the 944-line board-sync.js.
@@ -50,12 +50,12 @@ process.stdin.on('end', () => {
 
     fs.appendFileSync(path.join(dir, 'task-events.ndjson'), JSON.stringify(event) + '\n')
 
-    // Extract Cortex decision events from TaskCreate subjects
+    // Extract Apex decision events from TaskCreate subjects
     const subject = (data.tool_input?.subject ?? '')
-    if (subject.startsWith('[Cortex] DECISION:')) {
+    if (subject.startsWith('[Apex] DECISION:')) {
       const decisionEvent = {
         ts: new Date().toISOString(),
-        tool: 'CortexDecision',
+        tool: 'ApexDecision',
         input: data.tool_input ?? {},
         result: data.tool_result ?? null,
       }

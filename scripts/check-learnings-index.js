@@ -29,7 +29,7 @@ if (!fs.existsSync(indexPath)) {
 const indexContent = fs.readFileSync(indexPath, 'utf8');
 
 // Known domain files per learning-system.md routing table
-const KNOWN_DOMAINS = ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'crew.md'];
+const KNOWN_DOMAINS = ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'shadows.md'];
 
 // Parse INDEX.md: look for lines that reference domain files
 // Format: `{one-liner} [{lifecycle-tag}] v:{validations} q:{quality} u:{date}`

@@ -10,12 +10,12 @@ slack:
   enabled: false
 
 models:
-  spark: sonnet                # Implementation agents
-  cortex: opus                 # Orchestrator
-  prism: opus                  # Quality gate
-  sentinel: sonnet             # Verification
+  blade: sonnet                # Implementation agents
+  apex: opus                 # Orchestrator
+  gaze: opus                  # Quality gate
+  ward: sonnet             # Verification
   plan_checker: sonnet         # Pre-execution plan validation
-  simplifier: sonnet           # Code simplification
+  sweep: sonnet           # Code simplification
 
 integrations:
   atlassian_mcp: false         # Auto-detected by setup.sh

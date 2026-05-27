@@ -1,13 +1,13 @@
 ---
-name: team:verify
-description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Also use when user says 'does it pass', 'run tests', 'check the build', 'lint it', 'is it working', or 'test this'. Runs correctness checks (lint + build + tests) then a temperature review for quality."
+name: phantom:verify
+description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Also use when user says 'does it pass', 'run tests', 'check the build', 'lint it', 'is it working', or 'test this'. Runs correctness checks (lint + build + tests) then a power level for quality."
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
 
-# /team:verify
+# /phantom:verify
 
-Three-step verification: correctness commands → temperature review → auto-address.
+Three-step verification: correctness commands → power level → auto-address.
 
 <instructions>
 
@@ -21,15 +21,15 @@ Run each command. Read full output. Report:
 - build: pass/fail
 - tests: pass/fail
 
-If ANY fail → run detective failure scan (see below), then print failures, suggest `/team:fix`. Stop here.
+If ANY fail → run hound failure scan (see below), then print failures, suggest `/phantom:fix`. Stop here.
 
-Spawn simplifier agent (model: sonnet, mode: bypassPermissions) on changed files using `agents/simplifier.md` persona. If changes produced → re-run correctness.
+Spawn sweep agent (model: sonnet, mode: bypassPermissions) on changed files using `agents/sweep.md` persona. If changes produced → re-run correctness.
 
-## Step 2: Temperature Review (1 agent)
+## Step 2: Power Level (1 agent)
 
 Spawn ONE review agent (model: sonnet, mode: bypassPermissions):
 - Input: `git diff main...HEAD` + intent from `state/sessions/{TICKET}/intent.json` (if exists) or conversation context
-- Prompt: load from `reference/temperature-review.md` — the "Review Agent Prompt" section
+- Prompt: load from `reference/power-level.md` — the "Review Agent Prompt" section
 - Output: JSON array of P0/P1 findings (P2/P3 dropped by the agent)
 
 If output is `[]` → verdict: pass. Skip to Write Artifact.
@@ -51,16 +51,16 @@ If output is `[]` → verdict: pass. Skip to Write Artifact.
 
 <detective_failure_scan>
 
-## Detective Failure Scan (auto, on correctness failure)
+## Hound Failure Scan (auto, on correctness failure)
 
-When Step 1 correctness fails, before suggesting `/team:fix`:
+When Step 1 correctness fails, before suggesting `/phantom:fix`:
 
 1. Extract failing file paths from test/build/lint output
 2. Run hotspot check on failing files: `git log --format=format: --name-only --since="6.months" -- {failing_files} | sort | uniq -c | sort -rn`
 3. Run coupling check: find files that frequently co-change with the failing files
 4. Check recent changes: `git log --oneline --since="2.weeks" -- {failing_files}`
-5. Add `detective` field to verification.json (schema in `reference/detective-protocol.md`)
-6. Report: "Detective scan: {file} has {N} changes in 6mo, coupled with {other_file} (strength {S}). Recent change by {author} on {date} may be relevant."
+5. Add `hound` field to verification.json (schema in `reference/hound-protocol.md`)
+6. Report: "Hound scan: {file} has {N} changes in 6mo, coupled with {other_file} (strength {S}). Recent change by {author} on {date} may be relevant."
 
 This scan adds ~5 seconds but gives fix.md structured evidence to work with instead of raw error output.
 
@@ -79,7 +79,7 @@ Write `state/sessions/{TICKET}/verification.json`:
     "gitHead": "{HEAD sha}",
     "gitBranch": "{branch}",
     "phase": "verify",
-    "skill": "team:verify",
+    "skill": "phantom:verify",
     "version": 1
   },
   "correctness": {
@@ -104,5 +104,5 @@ Write `state/sessions/{TICKET}/verification.json`:
 
 ## Result
 
-- **PASS** → print summary, proceed to `/team:wrap`
-- **FAIL** → print failures, suggest `/team:fix`
+- **PASS** → print summary, proceed to `/phantom:wrap`
+- **FAIL** → print failures, suggest `/phantom:fix`

@@ -8,7 +8,7 @@ TEAM_DIR="$HOME/.claude/team"
 COMMANDS_LINK="$HOME/.claude/commands/team"
 
 echo ""
-echo "  Phantom Works — Agent Crew Setup"
+echo "  Phantom Works — Agent Shadows Setup"
 echo "  ─────────────────────────────────"
 echo ""
 
@@ -57,8 +57,8 @@ JIRA_PROJECT="${JIRA_PROJECT:-}"
 read -rp "  ? Slack DM channel ID for notifications [skip]: " SLACK_CHANNEL
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 
-# Default Spark model
-read -rp "  ? Default model for Spark agents (sonnet/haiku) [sonnet]: " SPARK_MODEL
+# Default Blade model
+read -rp "  ? Default model for Blade agents (sonnet/haiku) [sonnet]: " SPARK_MODEL
 SPARK_MODEL="${SPARK_MODEL:-sonnet}"
 
 # 5. Auto-detect integrations
@@ -127,10 +127,10 @@ slack:
   enabled: ${SLACK_AVAILABLE}
 
 models:
-  spark: ${SPARK_MODEL}
-  cortex: opus
-  prism: opus
-  sentinel: sonnet
+  blade: ${SPARK_MODEL}
+  apex: opus
+  gaze: opus
+  ward: sonnet
 
 integrations:
   atlassian_mcp: ${ATLASSIAN_AVAILABLE}
@@ -188,7 +188,7 @@ cat > "$HOOK_FILE" << 'HOOKEOF'
 #!/bin/bash
 # Phantom Works — Agent Spawn Validator (PreToolUse hook for Agent tool)
 # Keeps main context clean by forcing agents to run in background.
-# Whitelisted agents (oracle, devils-advocate, Plan, Explore) may block.
+# Whitelisted agents (sage, rival, Plan, Explore) may block.
 
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
@@ -218,13 +218,13 @@ fi
 
 # Block: must run in background (unless whitelisted)
 BLOCKING_ALLOWED="false"
-for allowed in oracle "devils-advocate" "devil" "Plan" "Explore" "statusline"; do
+for allowed in sage "rival" "devil" "Plan" "Explore" "statusline"; do
   case "$SUBAGENT_LC" in *"$(to_lower "$allowed")"*) BLOCKING_ALLOWED="true"; break ;; esac
   case "$DESCRIPTION_LC" in *"$(to_lower "$allowed")"*) BLOCKING_ALLOWED="true"; break ;; esac
 done
 
 if [ "$BACKGROUND" != "true" ] && [ "$BLOCKING_ALLOWED" != "true" ]; then
-  BLOCKS="${BLOCKS}\n  BLOCK: run_in_background must be true (got: ${BACKGROUND}). Only oracle/devils-advocate/Plan/Explore may block."
+  BLOCKS="${BLOCKS}\n  BLOCK: run_in_background must be true (got: ${BACKGROUND}). Only sage/rival/Plan/Explore may block."
 fi
 
 # Warn: prompt should reference project rules
@@ -295,14 +295,14 @@ fi
 
 echo ""
 echo "  ─────────────────────────────────"
-echo "  Ready! Run /team:start \"your task\" in any repo."
+echo "  Ready! Run /phantom:start \"your task\" in any repo."
 echo ""
 echo "  Quick start:"
-echo "    /team:start \"CP-41171\"          # with Jira ticket"
-echo "    /team:start \"fix the auth bug\"  # free text"
-echo "    /team:brainstorm \"approaches\"   # diverge/converge"
-echo "    /team:wire                      # dependency topology"
-echo "    /team:verify                    # run quality gate"
-echo "    /team:evolve                    # run evolution pipeline"
-echo "    /team:pause                     # save & step away"
+echo "    /phantom:start \"CP-41171\"          # with Jira ticket"
+echo "    /phantom:start \"fix the auth bug\"  # free text"
+echo "    /phantom:brainstorm \"approaches\"   # diverge/converge"
+echo "    /phantom:wire                      # dependency topology"
+echo "    /phantom:verify                    # run quality gate"
+echo "    /phantom:evolve                    # run evolution pipeline"
+echo "    /phantom:pause                     # save & step away"
 echo ""

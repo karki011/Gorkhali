@@ -1,16 +1,16 @@
 ---
-name: team:resume
-description: "Use when continuing previous work or picking up from where you stopped. Also use when user says 'resume', 'continue', 'pick up where we left off', 'I'm back', 'was in the middle of', 'stopped yesterday', 'continue from where we stopped', or 'restore context'. NOT if adding new scope — use team:start. Restores full context and plan."
+name: phantom:resume
+description: "Use when continuing previous work or picking up from where you stopped. Also use when user says 'resume', 'continue', 'pick up where we left off', 'I'm back', 'was in the middle of', 'stopped yesterday', 'continue from where we stopped', or 'restore context'. NOT if adding new scope — use phantom:start. Restores full context and plan."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (artifacts provide the rest)
 
-# /team:resume "$ARGUMENTS"
+# /phantom:resume "$ARGUMENTS"
 
 Resume from a paused session by reading the state artifact.
 
 <instructions>
-1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/team:resume CP-41606`)
+1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/phantom:resume CP-41606`)
 
 2. **Read state artifact**: `state/sessions/{TICKET}/pause-state.json`
    - If missing: list available sessions in `state/sessions/`, ask user to pick

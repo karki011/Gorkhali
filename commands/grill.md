@@ -1,12 +1,12 @@
 ---
-name: team:grill
-description: "Use when you want a Socratic challenge on your own changes — test your understanding, stress-test your reasoning, or quiz yourself before shipping. Also use when user says 'grill me', 'quiz me', 'test my understanding', 'challenge me on this', or 'play devil's advocate'. NOT for code review — use team:review."
+name: phantom:grill
+description: "Use when you want a Socratic challenge on your own changes — test your understanding, stress-test your reasoning, or quiz yourself before shipping. Also use when user says 'grill me', 'quiz me', 'test my understanding', 'challenge me on this', or 'play devil's advocate'. NOT for code review — use phantom:review."
 argument-hint: "[--hard] [--quick]"
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only
 
-# /team:grill
+# /phantom:grill
 
 Role reversal: Claude becomes the interviewer. You prove you understand your own code.
 
@@ -97,14 +97,14 @@ After all questions:
   
   Recommendation: {investigate/add test/add comment/rethink}
   
-  Run /team:grill again after addressing these.
+  Run /phantom:grill again after addressing these.
 ```
 
 ## Integration with Team Workflow
 
-This command is called automatically by `/team:wrap` BEFORE PR creation when the session had significant AI-generated code (3+ files changed by agents).
+This command is called automatically by `/phantom:wrap` BEFORE PR creation when the session had significant AI-generated code (3+ files changed by agents).
 
-It can also be called manually at any time: `/team:grill` or `/team:grill --hard`.
+It can also be called manually at any time: `/phantom:grill` or `/phantom:grill --hard`.
 
 The grill verdict is logged to the session event log for audit.
 

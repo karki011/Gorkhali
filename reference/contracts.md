@@ -13,7 +13,7 @@
 
 | Hook | When | Key Checks |
 |------|------|------------|
-| **Pre-Plan** | Before planning | Task type, missing context, scout needs, Prism gate |
+| **Pre-Plan** | Before planning | Task type, missing context, scout needs, Gaze gate |
 | **Pre-Execute** | Before execution | Contracts exist, owners assigned, interfaces defined. **BLOCK if critical interfaces undefined.** |
 | **Post-Agent** | After each agent | Validate output format, capture handoff, list files, unblock downstream |
 | **Post-Verify** | After verification | Capture result in session JSON. PASS → wrap. FAIL → fix loop (max 3). Same failure twice → escalate. |
@@ -27,4 +27,4 @@ A task is done when:
 3. Verification passed or failures explicitly documented
 4. Fix loop completed (if triggered) or escalated with documented reason
 5. Quality review complete for the chosen risk level
-6. Crew evaluation recorded (for wrap)
+6. Shadows evaluation recorded (for wrap)

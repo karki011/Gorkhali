@@ -1,18 +1,18 @@
 ---
-name: team:visual
+name: phantom:visual
 description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
 argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright] [--autonomous] [--no-fix]"
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-crew.md' + '_shared-discipline.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
-# /team:visual $ARGUMENTS
+# /phantom:visual $ARGUMENTS
 
-Visual verification pipeline — runs standalone or auto-triggered by `/team:verify` for UI tasks.
+Visual verification pipeline — runs standalone or auto-triggered by `/phantom:verify` for UI tasks.
 
 ## Modes
 
-- **Standalone** (user runs `/team:visual`): interactive, shows results, asks before fixing
+- **Standalone** (user runs `/phantom:visual`): interactive, shows results, asks before fixing
 - **Autonomous** (`--autonomous` flag, set by verify/start): runs fix loop without user approval, max 3 iterations
 - **Inspect only** (`--no-fix`): screenshot and report, no fix loop
 
@@ -90,13 +90,13 @@ Visual verification pipeline — runs standalone or auto-triggered by `/team:ver
         - Expected vs actual
         - Affected file (inferred from component tree)
 
-     b. Cortex auto-dispatches Spark (UI Engineering focus):
+     b. Apex auto-dispatches Blade (UI Engineering focus):
         - Scoped to affected files only
         - Fix packet as input (NOT the full Lens report)
         - "Fix this visual issue. Do not change behavior, only appearance."
 
-     c. Re-run Sentinel on fixed files (code must still pass)
-        - If Sentinel fails → revert visual fix, mark issue as "needs manual fix"
+     c. Re-run Ward on fixed files (code must still pass)
+        - If Ward fails → revert visual fix, mark issue as "needs manual fix"
 
      d. Re-spawn Lens on same routes:
         - agent-browser: same `lens-qa` session (no re-auth)

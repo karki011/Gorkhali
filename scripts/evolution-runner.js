@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// Evolution Runner — 3-tier distillation engine for team skill learnings
+// Evolution Runner — 3-tier distillation engine for Phantom learnings
 // Usage: node evolution-runner.js [--dry-run]
 
 const fs = require('fs');

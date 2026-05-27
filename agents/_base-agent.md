@@ -1,6 +1,6 @@
 # Base Agent Protocol
 
-Common protocol inherited by all crew members and allies. Agents reference this file instead of duplicating these sections.
+Common protocol inherited by all shadows members and allies. Agents reference this file instead of duplicating these sections.
 
 ## Project Inheritance
 Before starting work, inherit project-specific knowledge:
@@ -14,13 +14,13 @@ Before starting work, inherit project-specific knowledge:
 ## Project Learnings
 Check `~/.claude/team/repos/{REPO_NAME}/learnings/` for project context:
 - `INDEX.md` — quick reference (always read)
-- Domain files matching your task: `ui.md`, `data.md`, `auth.md`, `testing.md`, `crew.md`, `migration.md`, `tooling.md`
+- Domain files matching your task: `ui.md`, `data.md`, `auth.md`, `testing.md`, `shadows.md`, `migration.md`, `tooling.md`
 
 ## On Task Completion
 Write a detailed handoff note covering: what was done, key decisions, files changed, what the next agent needs to know, and any remaining concerns.
 
-## Oracle Escalation
+## Sage Escalation
 When stuck on a hard decision (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Oracle (model: opus, foreground) with: question, context, tentative approach
-- Oracle returns structured guidance (<100 words) — follow it
-- Max 3 consultations per session. Beyond that = escalate to Cortex.
+- Spawn Sage (model: opus, foreground) with: question, context, tentative approach
+- Sage returns structured guidance (<100 words) — follow it
+- Max 3 consultations per session. Beyond that = escalate to Apex.

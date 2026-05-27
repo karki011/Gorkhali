@@ -1,12 +1,12 @@
 ---
-name: team:scout
-description: "Use when you need context before planning — explore the codebase, understand how something is implemented, map dependencies, or find patterns. Also use when user says 'how is X implemented', 'before we build', 'what does this do', 'how does this work', 'find related code', 'explore', or 'gather context'. NOT for implementation — use team:start."
+name: phantom:scout
+description: "Use when you need context before planning — explore the codebase, understand how something is implemented, map dependencies, or find patterns. Also use when user says 'how is X implemented', 'before we build', 'what does this do', 'how does this work', 'find related code', 'explore', or 'gather context'. NOT for implementation — use phantom:start."
 argument-hint: "[area]"
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
 
-# /team:scout $ARGUMENTS
+# /phantom:scout $ARGUMENTS
 
 Run background scouts to fill context gaps. Areas: `design`, `api`, `patterns`, `deps`, `tests`.
 

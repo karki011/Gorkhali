@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Team Skill System v3 — Adaptive Cognitive Router</title>
+<title>Phantom v4 — Adaptive Cognitive Router</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -291,7 +291,7 @@
     margin-top: 0.25rem;
   }
   .flow-node.active { border-color: var(--green); }
-  .flow-node.detective { border-color: var(--purple); }
+  .flow-node.hound { border-color: var(--purple); }
   .flow-arrow {
     color: var(--text-muted);
     font-size: 1.2rem;
@@ -364,8 +364,8 @@
     color: var(--text-muted);
   }
 
-  /* Crew agents */
-  .crew-grid {
+  /* Shadows agents */
+  .shadows-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
@@ -496,7 +496,7 @@
     color: var(--text-muted);
   }
 
-  /* Core Disciplines (was Iron Laws) */
+  /* Core Disciplines (was Core Rules) */
   .discipline-table {
     width: 100%;
     border-collapse: collapse;
@@ -670,9 +670,9 @@
 <body>
 
 <header>
-  <h1>Team Skill System</h1>
-  <div class="subtitle">Multi-agent orchestrated development for Claude Code</div>
-  <div class="version">v3 &middot; Adaptive Cognitive Router &middot; 2026-05-23 &middot; Author: Subash Karki</div>
+  <h1>PHANTOM</h1>
+  <div class="subtitle">Your shadow army of AI agents</div>
+  <div class="version">v4 &middot; Shadow Army &middot; 2026-05-23 &middot; Author: Subash Karki</div>
   <div class="badge">Zero External Dependencies</div>
 </header>
 
@@ -723,7 +723,7 @@
 <div class="router-container">
   <!-- Entry -->
   <div class="router-entry">
-    <div class="router-box">/team:start</div>
+    <div class="router-box">/phantom:start</div>
     <span style="color: var(--text-muted); font-size: 0.85rem; padding: 0 0.75rem;">&rarr;</span>
     <div class="router-box" style="border-color: var(--yellow);">Phase A: Context</div>
     <span style="color: var(--text-muted); font-size: 0.85rem; padding: 0 0.75rem;">&rarr;</span>
@@ -738,14 +738,14 @@
       <div class="route-name">DIRECT</div>
       <div class="route-gates">0 human gates</div>
       <div class="route-desc">
-        Trivial tasks. Skip planning entirely. Spawn Spark, verify, done.
+        Trivial tasks. Skip planning entirely. Spawn Blade, verify, done.
         Auto-escalates to PLAN on failure.
       </div>
       <div class="route-when">
         <strong>When:</strong> confidence &ge;0.9, &le;3 files, known pattern
       </div>
       <div class="route-flow-steps">
-        <span class="route-step">Spark</span>
+        <span class="route-step">Blade</span>
         <span class="route-step-arrow">&rarr;</span>
         <span class="route-step">Verify</span>
         <span class="route-step-arrow">&rarr;</span>
@@ -839,7 +839,7 @@
     <h3>Deliberation Protocol</h3>
     <p>Agents discuss among themselves. Human only approves consensus or breaks ties.</p>
     <div class="deliberation-flow">
-      <div class="delib-node" style="color: var(--accent);">Planner (Cortex)</div>
+      <div class="delib-node" style="color: var(--accent);">Planner (Apex)</div>
       <span class="delib-arrow">&harr;</span>
       <div class="delib-node" style="color: var(--orange);">Challenger (DA)</div>
       <span class="delib-arrow">&rarr;</span>
@@ -902,7 +902,7 @@
           <li><strong>known_pattern</strong> &mdash; learnings [validated:5+]</li>
           <li><strong>clear_spec</strong> &mdash; Jira AC present</li>
           <li><strong>single_concern</strong> &mdash; one thing</li>
-          <li><strong>past_routing_success</strong> &mdash; crew.md history</li>
+          <li><strong>past_routing_success</strong> &mdash; shadows.md history</li>
         </ul>
       </div>
     </div>
@@ -917,13 +917,13 @@
 <h2>Verification + Fix Loop</h2>
 <div class="flow">
   <div class="flow-node" style="border-color: var(--green)">
-    <div class="cmd">/team:verify</div>
+    <div class="cmd">/phantom:verify</div>
     <div class="desc">Tests + review</div>
   </div>
   <div class="flow-arrow">&rarr;</div>
   <div class="flow-branch">
     <div class="flow-node" style="border-color: var(--green)">
-      <div class="cmd">/team:wrap</div>
+      <div class="cmd">/phantom:wrap</div>
       <div class="desc">PR + ship</div>
     </div>
     <div class="branch-label">pass</div>
@@ -931,12 +931,12 @@
 </div>
 <div class="flow" style="padding-top: 0; justify-content: center;">
   <div class="flow-node" style="border-color: var(--red); opacity: 0.8;">
-    <div class="cmd">/team:fix</div>
+    <div class="cmd">/phantom:fix</div>
     <div class="desc">Triage + repair</div>
   </div>
   <div class="flow-arrow">&rarr;</div>
-  <div class="flow-node detective" style="opacity: 0.8;">
-    <div class="cmd">Detective?</div>
+  <div class="flow-node hound" style="opacity: 0.8;">
+    <div class="cmd">Hound?</div>
     <div class="desc">Loop 2+ forensics</div>
   </div>
   <div class="flow-arrow">&rarr;</div>
@@ -952,127 +952,127 @@
   </thead>
   <tbody>
     <tr>
-      <td class="cmd-name">/team:start</td>
+      <td class="cmd-name">/phantom:start</td>
       <td><span class="tier tier-4">T4</span></td>
       <td>Adaptive router: context &rarr; classify &rarr; route (DIRECT|PLAN|BRAINSTORM|FULL) &rarr; verify</td>
       <td><div class="keywords"><span class="kw">implement</span><span class="kw">build</span><span class="kw">fix</span><span class="kw">work on</span><span class="kw">CP-*</span><span class="kw">CLOUD-*</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:execute</td>
+      <td class="cmd-name">/phantom:execute</td>
       <td><span class="tier tier-4">T4</span></td>
       <td>Dispatch agents from saved plan.json</td>
       <td><div class="keywords"><span class="kw">run it</span><span class="kw">kick off</span><span class="kw">dispatch</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:verify</td>
+      <td class="cmd-name">/phantom:verify</td>
       <td><span class="tier tier-2">T2</span></td>
-      <td>Lint + build + tests + simplify + temperature review</td>
+      <td>Lint + build + tests + simplify + power level</td>
       <td><div class="keywords"><span class="kw">run tests</span><span class="kw">check build</span><span class="kw">lint it</span><span class="kw">does it pass</span><span class="kw">is it working</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:fix</td>
+      <td class="cmd-name">/phantom:fix</td>
       <td><span class="tier tier-2">T2</span></td>
       <td>Triage failures, scoped repair, max 3 loops</td>
       <td><div class="keywords"><span class="kw">tests broke</span><span class="kw">build error</span><span class="kw">lint failed</span><span class="kw">verification failed</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:detective</td>
+      <td class="cmd-name">/phantom:hound</td>
       <td><span class="tier tier-2">T2</span></td>
       <td>Forensic investigation: 7-step protocol, HTML reports</td>
       <td><div class="keywords"><span class="kw">investigate</span><span class="kw">debug</span><span class="kw">root cause</span><span class="kw">trace</span><span class="kw">why is it broken</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:wrap</td>
+      <td class="cmd-name">/phantom:wrap</td>
       <td><span class="tier tier-4">T4</span></td>
       <td>Ship: eval, learnings, commit, PR, Jira, archive</td>
       <td><div class="keywords"><span class="kw">done</span><span class="kw">create PR</span><span class="kw">ship it</span><span class="kw">finishing</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:review</td>
+      <td class="cmd-name">/phantom:review</td>
       <td><span class="tier tier-3">T3</span></td>
-      <td>Prism quality gate: KISS/DRY, architecture</td>
+      <td>Gaze quality gate: KISS/DRY, architecture</td>
       <td><div class="keywords"><span class="kw">review this</span><span class="kw">check my code</span><span class="kw">is this good</span><span class="kw">code quality</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:scout</td>
+      <td class="cmd-name">/phantom:scout</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Background agents for context gathering</td>
       <td><div class="keywords"><span class="kw">explore</span><span class="kw">how does this work</span><span class="kw">find related</span><span class="kw">what does this do</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:grill</td>
+      <td class="cmd-name">/phantom:grill</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Human understanding verification before shipping</td>
       <td><div class="keywords"><span class="kw">grill me</span><span class="kw">quiz me</span><span class="kw">do I understand</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:contract</td>
+      <td class="cmd-name">/phantom:contract</td>
       <td><span class="tier tier-3">T3</span></td>
       <td>Create interface contracts (feature/api/testing/ui/fix)</td>
       <td><div class="keywords"><span class="kw">scope this</span><span class="kw">define interface</span><span class="kw">requirements</span><span class="kw">acceptance criteria</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:validate</td>
+      <td class="cmd-name">/phantom:validate</td>
       <td><span class="tier tier-2">T2</span></td>
       <td>Check plan/output/session completeness</td>
       <td><div class="keywords"><span class="kw">is this complete</span><span class="kw">sanity check</span><span class="kw">audit</span><span class="kw">did we miss anything</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:visual</td>
+      <td class="cmd-name">/phantom:visual</td>
       <td><span class="tier tier-3">T3</span></td>
       <td>Browser-based UI inspection via Lens</td>
       <td><div class="keywords"><span class="kw">does it look right</span><span class="kw">screenshot</span><span class="kw">visual check</span><span class="kw">check the UI</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:status</td>
+      <td class="cmd-name">/phantom:status</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Current task board and progress</td>
       <td><div class="keywords"><span class="kw">where are we</span><span class="kw">show progress</span><span class="kw">task list</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:sessions</td>
+      <td class="cmd-name">/phantom:sessions</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>List past sessions with status</td>
       <td><div class="keywords"><span class="kw">show history</span><span class="kw">past sessions</span><span class="kw">what did we do</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:pause</td>
+      <td class="cmd-name">/phantom:pause</td>
       <td><span class="tier tier-4">T4</span></td>
       <td>Save state and resume notes for later</td>
       <td><div class="keywords"><span class="kw">stepping away</span><span class="kw">save progress</span><span class="kw">taking a break</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:resume</td>
+      <td class="cmd-name">/phantom:resume</td>
       <td><span class="tier tier-4">T4</span></td>
       <td>Restore context from paused session (reads route-decision.json)</td>
       <td><div class="keywords"><span class="kw">continue</span><span class="kw">pick up</span><span class="kw">where I left off</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:learn</td>
+      <td class="cmd-name">/phantom:learn</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Record corrections and patterns</td>
       <td><div class="keywords"><span class="kw">remember this</span><span class="kw">note that</span><span class="kw">don't do that again</span><span class="kw">correction</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:eval</td>
+      <td class="cmd-name">/phantom:eval</td>
       <td><span class="tier tier-2">T2</span></td>
-      <td>Score crew performance with rubric</td>
+      <td>Score shadows performance with rubric</td>
       <td><div class="keywords"><span class="kw">how did that go</span><span class="kw">rate the work</span><span class="kw">score this</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:recruit</td>
+      <td class="cmd-name">/phantom:arise</td>
       <td><span class="tier tier-3">T3</span></td>
-      <td>Spawn specialist Spark agent</td>
+      <td>Spawn specialist Blade agent</td>
       <td><div class="keywords"><span class="kw">spawn agent</span><span class="kw">I need help with</span><span class="kw">specialist for</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:evolve</td>
+      <td class="cmd-name">/phantom:evolve</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Promote patterns, distill learnings</td>
       <td><div class="keywords"><span class="kw">clean up learnings</span><span class="kw">promote patterns</span><span class="kw">knowledge maintenance</span></div></td>
     </tr>
     <tr>
-      <td class="cmd-name">/team:health</td>
+      <td class="cmd-name">/phantom:health</td>
       <td><span class="tier tier-1">T1</span></td>
       <td>Diagnose system health, fix corrupted state</td>
       <td><div class="keywords"><span class="kw">something is wrong</span><span class="kw">check health</span><span class="kw">diagnose</span></div></td>
@@ -1080,45 +1080,45 @@
   </tbody>
 </table>
 
-<h2>Crew Agents (11 files)</h2>
-<div class="crew-grid">
+<h2>Shadows Agents (11 files)</h2>
+<div class="shadows-grid">
   <div class="agent-card">
     <div class="name">_base-agent</div>
     <span class="model" style="background: rgba(210,153,34,0.15); color: var(--yellow);">template</span>
-    <div class="role">Base agent template. Project inheritance, learnings protocol, Oracle escalation. All agents extend this.</div>
+    <div class="role">Base agent template. Project inheritance, learnings protocol, Sage escalation. All agents extend this.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Cortex</div>
+    <div class="name">Apex</div>
     <span class="model model-opus">opus</span>
     <div class="role">Team lead. Plans, decomposes, coordinates, self-challenges. Never implements directly. Routes via adaptive classifier.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Spark</div>
+    <div class="name">Blade</div>
     <span class="model model-sonnet">sonnet</span>
     <div class="role">Implementation engine. Spawned with ROLE FOCUS directives (React, Go, tests, etc.). Max 5 concurrent.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Sentinel</div>
+    <div class="name">Ward</div>
     <span class="model model-sonnet">sonnet</span>
     <div class="role">QA and build verification. Tests, lint, typecheck, build. Evidence-before-assertions.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Hawkeye</div>
+    <div class="name">Archer</div>
     <span class="model model-opus">opus</span>
     <div class="role">Cross-file reviewer. Cache coherence, regressions, dead code, convention deviations.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Prism</div>
+    <div class="name">Gaze</div>
     <span class="model model-opus">opus</span>
-    <div class="role">Quality gate. KISS/DRY enforcement, simplifier gauntlet, architecture review.</div>
+    <div class="role">Quality gate. KISS/DRY enforcement, sweep gauntlet, architecture review.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Oracle</div>
+    <div class="name">Sage</div>
     <span class="model model-opus">opus</span>
-    <div class="role">Advisory only, no tools. On-demand guidance for Spark agents. Max 3 consultations per session.</div>
+    <div class="role">Advisory only, no tools. On-demand guidance for Blade agents. Max 3 consultations per session.</div>
   </div>
   <div class="agent-card">
-    <div class="name">Devil's Advocate</div>
+    <div class="name">Rival</div>
     <span class="model model-opus">opus</span>
     <div class="role">Challenger in deliberation. No tools. Max 5 challenges per round. Cite specifics or get rejected.</div>
   </div>
@@ -1128,18 +1128,18 @@
     <div class="role">Visual verification. Browser-based UI inspection with structured fix packets.</div>
   </div>
   <div class="agent-card" style="border-color: var(--purple);">
-    <div class="name" style="color: var(--purple);">Detective</div>
+    <div class="name" style="color: var(--purple);">Hound</div>
     <span class="model model-opus">opus</span>
     <div class="role">Forensic investigator. Traces symptoms to root causes via git history, hotspot analysis, coupling detection.</div>
   </div>
   <div class="agent-card new-agent">
-    <div class="name">Simplifier <span class="new-badge">NEW</span></div>
+    <div class="name">Sweep <span class="new-badge">NEW</span></div>
     <span class="model model-sonnet">sonnet</span>
-    <div class="role">Code simplification specialist. Absorbed from code-simplifier plugin. Clarity, consistency, maintainability. Preserves functionality.</div>
+    <div class="role">Code simplification specialist. Absorbed from code-sweep plugin. Clarity, consistency, maintainability. Preserves functionality.</div>
   </div>
 </div>
 
-<h2>Detective Mode &mdash; Auto-Triggers</h2>
+<h2>Hound Mode &mdash; Auto-Triggers</h2>
 <ul class="trigger-list">
   <li>
     <div class="trigger-icon start">A</div>
@@ -1147,7 +1147,7 @@
       <strong>Bug Report Detection</strong> &mdash; <span class="trigger-source">start.md Phase A.5</span>
       <div style="color: var(--text-muted); font-size: 0.85rem;">
         Keywords: bug, broken, regression, error, crash, failing. Jira type: Bug. Branch: fix/*, hotfix/*<br>
-        Depth: <strong>Pre-scan</strong> (2-3 git commands, adds detective field to context.json)
+        Depth: <strong>Pre-scan</strong> (2-3 git commands, adds hound field to context.json)
       </div>
     </div>
   </li>
@@ -1157,7 +1157,7 @@
       <strong>Verification Failure</strong> &mdash; <span class="trigger-source">verify.md Step 1 failure</span>
       <div style="color: var(--text-muted); font-size: 0.85rem;">
         When lint, build, or tests fail, scan failing files before routing to fix<br>
-        Depth: <strong>Failure scan</strong> (4-5 git commands, adds detective field to verification.json)
+        Depth: <strong>Failure scan</strong> (4-5 git commands, adds hound field to verification.json)
       </div>
     </div>
   </li>
@@ -1193,7 +1193,7 @@
   </div>
   <div class="inv-card">
     <div class="inv-file">agents.md</div>
-    <div class="inv-desc">SOLO vs CREW routing table, tier classification, GOAP precondition/effect modeling</div>
+    <div class="inv-desc">SOLO vs SHADOWS routing table, tier classification, GOAP precondition/effect modeling</div>
   </div>
   <div class="inv-card">
     <div class="inv-file">artifact-schemas.md</div>
@@ -1208,7 +1208,7 @@
     <div class="inv-desc">Contract templates: feature, api, testing, ui, fix</div>
   </div>
   <div class="inv-card">
-    <div class="inv-file">detective-protocol.md</div>
+    <div class="inv-file">hound-protocol.md</div>
     <div class="inv-desc">Full 7-step forensic investigation protocol with HTML report generation</div>
   </div>
   <div class="inv-card">
@@ -1228,12 +1228,12 @@
     <div class="inv-desc">MCP authentication patterns for Jira, GitHub, Slack</div>
   </div>
   <div class="inv-card">
-    <div class="inv-file">temperature-review.md</div>
+    <div class="inv-file">power-level.md</div>
     <div class="inv-desc">Post-verification quality review protocol</div>
   </div>
   <div class="inv-card">
     <div class="inv-file">verification.md</div>
-    <div class="inv-desc">Evidence-based verification protocol, Sentinel workflow</div>
+    <div class="inv-desc">Evidence-based verification protocol, Ward workflow</div>
   </div>
   <div class="inv-card">
     <div class="inv-file">xml-conventions.md</div>
@@ -1255,14 +1255,14 @@
     <span class="ctx-file loaded">_shared.md</span>
     <span class="ctx-file loaded">_shared-repo-detection.md</span>
     <span class="ctx-file loaded">_shared-auto-learning.md</span>
-    <span class="ctx-file">_shared-detective.md *</span>
+    <span class="ctx-file">_shared-hound.md *</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-      verify, fix, validate, eval, detective
+      verify, fix, validate, eval, hound
     </div>
   </div>
   <div class="tier-col">
     <h3 style="color: var(--yellow);">T3 &mdash; Plan</h3>
-    <span class="ctx-file loaded">+ _shared-crew.md</span>
+    <span class="ctx-file loaded">+ _shared-shadows.md</span>
     <span class="ctx-file loaded">+ _shared-discipline.md</span>
     <span class="ctx-file loaded">+ _shared-contracts.md</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
@@ -1273,15 +1273,15 @@
     <h3 style="color: var(--purple);">T4 &mdash; Full</h3>
     <span class="ctx-file loaded">+ _shared-board.md</span>
     <span class="ctx-file loaded">+ _shared-phantom-integration.md</span>
-    <span class="ctx-file loaded">+ _shared-hawkeye.md</span>
-    <span class="ctx-file loaded">+ _shared-detective.md</span>
+    <span class="ctx-file loaded">+ _shared-archer.md</span>
+    <span class="ctx-file loaded">+ _shared-hound.md</span>
     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
       start, execute, wrap, resume, pause
     </div>
   </div>
 </div>
 <div style="font-size: 0.75rem; color: var(--text-muted);">
-  * _shared-detective.md loaded on-demand at T2 only when detective mode triggers.
+  * _shared-hound.md loaded on-demand at T2 only when hound mode triggers.
   <strong>_shared-discipline.md</strong> replaces the former _shared-superpowers.md &mdash; no external plugin dependencies.
 </div>
 
@@ -1300,20 +1300,20 @@
     <div class="purpose">Smart learnings loading, domain detection, INDEX.md protocol</div>
   </div>
   <div class="shared-card">
-    <div class="filename">_shared-crew.md</div>
-    <div class="purpose">Agent spawning, crew roles, three-tier model routing</div>
+    <div class="filename">_shared-shadows.md</div>
+    <div class="purpose">Agent spawning, shadows roles, three-tier model routing</div>
   </div>
   <div class="shared-card" style="border-color: var(--cyan);">
     <div class="filename">_shared-discipline.md <span style="font-size: 0.65rem; color: var(--cyan);">REPLACES _shared-superpowers.md</span></div>
-    <div class="purpose">Plan/execution discipline. Self-contained: references team skill's own agents and docs. No external plugin deps.</div>
+    <div class="purpose">Plan/execution discipline. Self-contained: references Phantom's own agents and docs. No external plugin deps.</div>
   </div>
   <div class="shared-card">
     <div class="filename">_shared-contracts.md</div>
     <div class="purpose">Contract templates, hooks, interface scope</div>
   </div>
   <div class="shared-card">
-    <div class="filename">_shared-detective.md</div>
-    <div class="purpose">Forensic analysis protocol (loaded on detective trigger)</div>
+    <div class="filename">_shared-hound.md</div>
+    <div class="purpose">Forensic analysis protocol (loaded on hound trigger)</div>
   </div>
   <div class="shared-card">
     <div class="filename">_shared-board.md</div>
@@ -1324,8 +1324,8 @@
     <div class="purpose">Phantom graph intelligence integration (optional)</div>
   </div>
   <div class="shared-card">
-    <div class="filename">_shared-hawkeye.md</div>
-    <div class="purpose">Hawkeye cross-file review integration</div>
+    <div class="filename">_shared-archer.md</div>
+    <div class="purpose">Archer cross-file review integration</div>
   </div>
 </div>
 
@@ -1342,7 +1342,7 @@
     </tr>
     <tr>
       <td class="num">#2</td>
-      <td><strong>Verification mandatory</strong> &mdash; Sentinel runs commands, reads output, confirms pass</td>
+      <td><strong>Verification mandatory</strong> &mdash; Ward runs commands, reads output, confirms pass</td>
       <td class="why">"Tests pass" without evidence is the #1 agent failure mode. Evidence-before-assertions.</td>
     </tr>
     <tr>
@@ -1352,7 +1352,7 @@
     </tr>
     <tr>
       <td class="num">#4</td>
-      <td><strong>Devil's Advocate</strong> &mdash; every plan challenged, PROCEED/REVISE/RETHINK</td>
+      <td><strong>Rival</strong> &mdash; every plan challenged, PROCEED/REVISE/RETHINK</td>
       <td class="why">Catches wrong assumptions before expensive implementation. Cheap insurance.</td>
     </tr>
     <tr>
@@ -1382,7 +1382,7 @@
     </tr>
     <tr>
       <td class="num">#10</td>
-      <td><strong>Auto-CREW trigger</strong> &mdash; 4+ files, 2+ packages, cross-cutting</td>
+      <td><strong>Auto-SHADOWS trigger</strong> &mdash; 4+ files, 2+ packages, cross-cutting</td>
       <td class="why">Large changes benefit from parallel agents. Single agent doing 10 sequential edits wastes time and context.</td>
     </tr>
     <tr>
@@ -1398,7 +1398,7 @@
     <tr>
       <td class="num">#13</td>
       <td><strong>Subagent-driven always</strong> &mdash; all implementation through Agent tool</td>
-      <td class="why">Keeps Cortex context clean for coordination. Implementation details in subagents don't pollute the orchestrator.</td>
+      <td class="why">Keeps Apex context clean for coordination. Implementation details in subagents don't pollute the orchestrator.</td>
     </tr>
   </tbody>
 </table>
@@ -1418,7 +1418,7 @@
     <span class="infra-item">evals/evals.json</span>
     <div class="infra-note">
       30 test cases across 10 commands. Each case has: prompt, should_trigger (true/false), expected_behavior.
-      Tests both positive routing and negative routing (e.g., "fix the bug" should NOT trigger detective).
+      Tests both positive routing and negative routing (e.g., "fix the bug" should NOT trigger hound).
     </div>
     <div style="margin-top: 0.5rem;">
       <span style="font-family: var(--font-mono); font-size: 0.7rem; padding: 0.15rem 0.4rem; background: rgba(63,185,80,0.15); color: var(--green); border-radius: 3px;">20 positive</span>
@@ -1449,8 +1449,8 @@
 <div class="independence-box">
   <h3>Zero External Plugin Dependencies</h3>
   <p>
-    The team skill is fully self-contained. The <strong>superpowers plugin</strong> has been disabled and all references removed.
-    The <strong>code-simplifier plugin</strong> has been absorbed into <span style="font-family: var(--font-mono);">agents/simplifier.md</span>.
+    The Phantom is fully self-contained. The <strong>superpowers plugin</strong> has been disabled and all references removed.
+    The <strong>code-sweep plugin</strong> has been absorbed into <span style="font-family: var(--font-mono);">agents/sweep.md</span>.
   </p>
   <ul class="dep-list">
     <li>
@@ -1459,7 +1459,7 @@
     </li>
     <li>
       <span class="dep-status dep-absorbed">ABSORBED</span>
-      <span>code-simplifier plugin &mdash; internalized as <span style="font-family: var(--font-mono);">agents/simplifier.md</span> (ready to disable plugin)</span>
+      <span>code-sweep plugin &mdash; internalized as <span style="font-family: var(--font-mono);">agents/sweep.md</span> (ready to disable plugin)</span>
     </li>
     <li>
       <span class="dep-status" style="background: rgba(210,153,34,0.15); color: var(--yellow);">OPTIONAL</span>
@@ -1475,7 +1475,7 @@
 <!-- v2 to v3 changelog -->
 <h2>v2 &rarr; v3 Changelog</h2>
 <details>
-  <summary>What changed from v2.1 (Detective Mode) to v3 (Adaptive Cognitive Router)</summary>
+  <summary>What changed from v2.1 (Hound Mode) to v3 (Adaptive Cognitive Router)</summary>
   <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 0.5rem;">
     <table class="cmd-table">
       <thead>
@@ -1489,7 +1489,7 @@
         </tr>
         <tr>
           <td style="font-weight: 600;">Planning</td>
-          <td style="color: var(--text-muted);">Cortex plans, DA challenges, human reviews</td>
+          <td style="color: var(--text-muted);">Apex plans, DA challenges, human reviews</td>
           <td>Deliberation: agents discuss among themselves, human approves consensus or breaks tie</td>
         </tr>
         <tr>
@@ -1499,12 +1499,12 @@
         </tr>
         <tr>
           <td style="font-weight: 600;">Dependencies</td>
-          <td style="color: var(--text-muted);">Required: superpowers plugin, code-simplifier plugin</td>
-          <td>Zero external deps. Superpowers removed. Code-simplifier absorbed.</td>
+          <td style="color: var(--text-muted);">Required: superpowers plugin, code-sweep plugin</td>
+          <td>Zero external deps. Superpowers removed. Code-sweep absorbed.</td>
         </tr>
         <tr>
           <td style="font-weight: 600;">Disciplines</td>
-          <td style="color: var(--text-muted);">Iron Laws (name + rule only)</td>
+          <td style="color: var(--text-muted);">Core Rules (name + rule only)</td>
           <td>Core Disciplines (name + rule + WHY column explaining the failure mode it prevents)</td>
         </tr>
         <tr>
@@ -1515,7 +1515,7 @@
         <tr>
           <td style="font-weight: 600;">Agents</td>
           <td style="color: var(--text-muted);">8 agents</td>
-          <td>11 agent files (added simplifier, _base-agent, devils-advocate)</td>
+          <td>11 agent files (added sweep, _base-agent, rival)</td>
         </tr>
         <tr>
           <td style="font-weight: 600;">Infrastructure</td>
@@ -1538,7 +1538,7 @@
 </details>
 
 <div class="footer">
-  Team Skill System v3 &middot; Adaptive Cognitive Router &middot; Author: Subash Karki &middot; Generated 2026-05-23
+  Phantom v4 &middot; Shadow Army &middot; Author: Subash Karki &middot; Generated 2026-05-23
 </div>
 
 </body>

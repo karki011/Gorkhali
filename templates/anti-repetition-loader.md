@@ -1,11 +1,11 @@
 # Anti-Repetition Signal Loader
 
-> Shared procedure used by Phase D-Solo and Phase D-Crew before ANY agent spawn.
-> Cortex runs this once, injects the output block into every agent prompt.
+> Shared procedure used by Phase D-Solo and Phase D-Shadows before ANY agent spawn.
+> Apex runs this once, injects the output block into every agent prompt.
 
 ## Steps
 
-1. Identify task domain(s) from the plan (ui, data, auth, testing, migration, tooling, crew)
+1. Identify task domain(s) from the plan (ui, data, auth, testing, migration, tooling, shadows)
 2. For each domain, scan `learnings/{domain}.md` `## Corrections` section
 3. Scan `decisions.ndjson` for past failures on similar goals (if file exists):
    - Read last 50 lines of `~/.claude/team/events/{repo}/decisions.ndjson`

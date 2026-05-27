@@ -25,7 +25,7 @@ try {
     data: ['api', 'fetch', 'axios', 'graphql', 'endpoint', 'route', 'rest', 'http', 'query', 'mutation', 'request', 'response'],
     auth: ['auth', 'jwt', 'token', 'oauth', 'session', 'login', 'password', 'credential', 'permission', 'rbac'],
     testing: ['test', 'spec', 'mock', 'jest', 'vitest', 'mocha', 'assert', 'expect', 'coverage', 'fixture'],
-    crew: ['agent', 'crew', 'skill', 'spawn', 'hook', 'cortex', 'spark', 'oracle', 'sentinel', 'prism', 'hawkeye', 'detective'],
+    shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'apex', 'blade', 'sage', 'ward', 'gaze', 'archer', 'hound'],
     migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
     tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
   };
@@ -37,8 +37,8 @@ try {
     }
   }
 
-  // Default to crew if nothing matched
-  if (matchedDomains.length === 0) matchedDomains.push('crew');
+  // Default to shadows if nothing matched
+  if (matchedDomains.length === 0) matchedDomains.push('shadows');
 
   // --- Step 3: Load INDEX.md and map domains to files ---
   if (!fs.existsSync(INDEX_PATH)) process.exit(0);
@@ -60,7 +60,7 @@ try {
   function findFileForDomain(domain) {
     // Direct match
     if (domainFileMap[domain]) return domainFileMap[domain];
-    // Partial match (e.g., "crew" matches "crew")
+    // Partial match (e.g., "shadows" matches "shadows")
     for (const [key, file] of Object.entries(domainFileMap)) {
       if (key.includes(domain) || domain.includes(key)) return file;
     }

@@ -1,5 +1,5 @@
 {
-  "$schema": "Hook registry for team skill. Consumed by hook-router.js.",
+  "$schema": "Hook registry for Phantom. Consumed by hook-router.js.",
   "hooks": [
     {
       "name": "feature-branch-gate",
@@ -13,15 +13,15 @@
       "description": "Blocks edits on main/master/develop branches"
     },
     {
-      "name": "cortex-subagent-law",
+      "name": "apex-subagent-law",
       "event": "PreToolUse",
       "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-      "script": "hooks/cortex-subagent-driven-law.sh",
+      "script": "hooks/apex-subagent-driven-law.sh",
       "enabled": true,
       "once": false,
       "priority": 20,
       "input": "stdin-json",
-      "description": "Audits/blocks direct Cortex edits (subagent enforcement)"
+      "description": "Audits/blocks direct Apex edits (subagent enforcement)"
     },
     {
       "name": "pre-phase-context",
