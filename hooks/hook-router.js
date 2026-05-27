@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// hook-router.js — Unified entry point for all team skill hooks.
+// hook-router.js — Unified entry point for all Phantom hooks.
 // Usage: node hook-router.js --event=PreToolUse --tool=Edit [--phase=B] [--session-id=xxx]
 //        node hook-router.js --list | --dry-run
 // Env fallbacks: HOOK_EVENT, HOOK_TOOL, HOOK_PHASE, HOOK_SESSION_ID

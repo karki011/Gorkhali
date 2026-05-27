@@ -1,5 +1,5 @@
 ---
-name: team:brainstorm
+name: phantom:brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
 argument-hint: "<requirement or problem statement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
@@ -7,7 +7,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
 
-# /team:brainstorm "$ARGUMENTS"
+# /phantom:brainstorm "$ARGUMENTS"
 
 Diverge → Converge. Output: locked decision in `decisions.json` feeding downstream planning.
 READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns, learnings check).
@@ -19,7 +19,7 @@ READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns,
 1. Resolve TICKET from $ARGUMENTS, session state, or `git branch --show-current`
 2. Ensure `state/sessions/{TICKET}/` exists
 3. Load `learnings/INDEX.md` — scan for `[failed]` and `[validated:5+]` entries matching this domain
-4. Load `context.json` if present (from `team:start`). If absent, write minimal version from $ARGUMENTS.
+4. Load `context.json` if present (from `phantom:start`). If absent, write minimal version from $ARGUMENTS.
 
 </brainstorm_context>
 
@@ -75,7 +75,7 @@ Constraints: never >3 (paralysis), never <2 (false certainty). `[failed]` = excl
     "gitHead": "{HEAD sha}",
     "gitBranch": "{branch}",
     "phase": "brainstorm",
-    "skill": "team:brainstorm",
+    "skill": "phantom:brainstorm",
     "version": 1
   },
   "decisions": [

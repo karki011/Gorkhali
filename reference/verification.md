@@ -25,7 +25,7 @@ HAS_UI = true if any of:
 - src/ contains *.tsx, *.jsx, *.vue, *.svelte files
 - Framework detected: Next.js, Remix, Vite with React
 
-## Sentinel Protocol
+## Ward Protocol
 
 1. Discover commands per tier precedence
 2. Run each command, capture full output

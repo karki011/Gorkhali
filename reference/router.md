@@ -35,13 +35,13 @@ Human intervention scales with **uncertainty**, not task size.
 - **security_sensitive** — auth, secrets, RBAC, input validation → forces FULL
 - **schema_migration** — DB schema changes + application code → forces FULL
 - **public_api_change** — external-facing contract changes → forces FULL
-- **high_churn_files** — files with >20 changes in 6 months (from detective pre-scan)
+- **high_churn_files** — files with >20 changes in 6 months (from hound pre-scan)
 
 ### Confidence Signals (route DOWN)
 - **known_pattern** — learnings have `[validated:5+]` approach for this type
 - **clear_spec** — Jira AC present, explicit "done when"
 - **single_concern** — task addresses exactly one thing
-- **past_routing_success** — similar tasks routed this way succeeded (crew.md routing-history)
+- **past_routing_success** — similar tasks routed this way succeeded (shadows.md routing-history)
 
 ---
 
@@ -69,7 +69,7 @@ Human intervention scales with **uncertainty**, not task size.
    ])
 
 4. Apply learnings correction:
-   correction = lookup routing-history in learnings/crew.md
+   correction = lookup routing-history in learnings/shadows.md
    adjusted_uncertainty = uncertainty * (1 + correction.bias)  // bias: -0.3 to +0.3
 
 5. Route selection:
@@ -93,7 +93,7 @@ Human intervention scales with **uncertainty**, not task size.
 | ambiguity_markers | Regex on task description + Jira body | Free |
 | competing_patterns | `semantic_search_nodes` for task keywords | 1 MCP call |
 | missing_acceptance_criteria | Jira parse result (already in context.json) | Free |
-| past_routing_success | `learnings/crew.md` routing-history section | 1 file read |
+| past_routing_success | `learnings/shadows.md` routing-history section | 1 file read |
 
 **Total cost:** 2-3 MCP calls + 2 file reads. Under 5 seconds.
 
@@ -104,13 +104,13 @@ Human intervention scales with **uncertainty**, not task size.
 ### DIRECT
 
 ```
-Context → Router(DIRECT) → status report → Spawn Spark → Sentinel verify → Done
+Context → Router(DIRECT) → status report → Spawn Blade → Ward verify → Done
 ```
 
 - 0 questions. Human sees: `"[DIRECT] Fix typo in UserProfile.tsx — executing"`
-- Devil's Advocate SKIPPED (known pattern = no value)
+- Rival SKIPPED (known pattern = no value)
 - If verify FAILS → auto-escalate to PLAN (not retry)
-- If >3 files changed → log routing correction to crew.md, bias future similar tasks
+- If >3 files changed → log routing correction to shadows.md, bias future similar tasks
 - Artifacts: context.json, route-decision.json, execution.json, verification.json
 
 ### PLAN
@@ -124,41 +124,41 @@ Context → Router(PLAN) → Capture Intent → Codebase Research
 
 - 1 human gate: approve plan after deliberation
 - Lightweight wiring auto-generated (wave assignments, no separate approval)
-- **Optional wiring**: if plan touches >5 files, invoke `Skill(skill="team:wire")` for topology — no human gate on PLAN route, wiring is informational only
-- Artifacts: + intent.json, plan.json, deliberation.json, wiring.json (auto or via team:wire)
+- **Optional wiring**: if plan touches >5 files, invoke `Skill(skill="phantom:wire")` for topology — no human gate on PLAN route, wiring is informational only
+- Artifacts: + intent.json, plan.json, deliberation.json, wiring.json (auto or via phantom:wire)
 
 ### BRAINSTORM
 
 ```
-Context → Router(BRAINSTORM) → Skill(skill="team:brainstorm")
+Context → Router(BRAINSTORM) → Skill(skill="phantom:brainstorm")
   → Diverge (explore + questions + 2-3 approaches)
   → Converge (human picks direction, decision locked)
 → Standard PLAN flow (decompose → deliberate → approve → execute → verify)
 ```
 
 - 2 human gates: approve direction (in brainstorm) + approve plan
-- Brainstorm phase invoked via `Skill(skill="team:brainstorm")` — see `commands/brainstorm.md`
+- Brainstorm phase invoked via `Skill(skill="phantom:brainstorm")` — see `commands/brainstorm.md`
 - Artifacts: + decisions.json (from brainstorm), intent.json (updated with chosen approach)
 
 ### FULL
 
 ```
-Context → Router(FULL) → Skill(skill="team:brainstorm") (diverge/converge)
+Context → Router(FULL) → Skill(skill="phantom:brainstorm") (diverge/converge)
 → Direction locked → PLAN (decompose/deliberate) → Plan approved
-→ Skill(skill="team:wire") (dependency topology, wave assignments, risk points) → Human approves wiring
+→ Skill(skill="phantom:wire") (dependency topology, wave assignments, risk points) → Human approves wiring
 → EXECUTE (wave-based dispatch) → VERIFY → Done
 ```
 
 - 3 human gates: direction + plan + wiring
-- Brainstorm invoked via `Skill(skill="team:brainstorm")` — see `commands/brainstorm.md`
-- Wiring invoked via `Skill(skill="team:wire")` — see `commands/wire.md` and `reference/wiring.md`
+- Brainstorm invoked via `Skill(skill="phantom:brainstorm")` — see `commands/brainstorm.md`
+- Wiring invoked via `Skill(skill="phantom:wire")` — see `commands/wire.md` and `reference/wiring.md`
 - Artifacts: + decisions.json (from brainstorm), wiring.json (gated)
 
 ---
 
 ## Deliberation Protocol
 
-Planner (Cortex) and Challenger (Devil's Advocate, opus, no tools) deliberate **before** presenting to human.
+Planner (Apex) and Challenger (Rival, opus, no tools) deliberate **before** presenting to human.
 
 ### Round Flow
 - Round 1: Planner sends plan → Challenger returns verdict (PROCEED / REVISE / RETHINK)
@@ -170,7 +170,7 @@ Planner (Cortex) and Challenger (Devil's Advocate, opus, no tools) deliberate **
 ### Presentation to Human
 | Outcome | Human Sees |
 |---------|------------|
-| Consensus (PROCEED) | Unified plan: "Plan reviewed by Devil's Advocate (PROCEED). Ready to execute?" |
+| Consensus (PROCEED) | Unified plan: "Plan reviewed by Rival (PROCEED). Ready to execute?" |
 | Partial (REVISE after R2) | Plan with annotated unresolved concerns. Human decides per point. |
 | Disagreement (RETHINK after R2) | Two approaches side-by-side. Human picks A, B, or "neither." |
 
@@ -212,13 +212,13 @@ For each potential question:
 ## Learning Integration
 
 ### What Gets Recorded (in wrap)
-- Route selected + outcome (SUCCESS / ESCALATED / OVERKILL) → `learnings/crew.md` routing-history
+- Route selected + outcome (SUCCESS / ESCALATED / OVERKILL) → `learnings/shadows.md` routing-history
 - Route escalation (e.g., DIRECT→PLAN) → correction bias for future classification
 - Questions asked vs auto-resolved → expand auto-resolve patterns
 - Deliberation challenges that caught real issues → `[devil-advocate:validated]`
-- Wiring risk points that materialized → crew.md wiring-risk section
+- Wiring risk points that materialized → shadows.md wiring-risk section
 
-### Routing History Format (in crew.md)
+### Routing History Format (in shadows.md)
 ```
 ## Routing History
 

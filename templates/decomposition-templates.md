@@ -1,6 +1,6 @@
 # Subtask Decomposition Templates
 
-Standard subtask graphs for recurring task types. Cortex picks the matching template during Phase B and fills in specifics.
+Standard subtask graphs for recurring task types. Apex picks the matching template during Phase B and fills in specifics.
 
 ## Feature (new functionality)
 
@@ -71,7 +71,7 @@ Subtask 4: Verify — config loads correctly, consumers work
 
 ## Usage
 
-Cortex selects the matching template, adjusts subtask count and specifics for the task, then creates TaskCreate entries for each subtask during Phase D dispatch.
+Apex selects the matching template, adjusts subtask count and specifics for the task, then creates TaskCreate entries for each subtask during Phase D dispatch.
 
 For tasks that don't fit any template, decompose ad-hoc following the same principles:
 - One concern per subtask

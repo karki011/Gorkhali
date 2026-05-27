@@ -1,20 +1,20 @@
 ---
-name: team:validate
-description: "Use when you want to check plan completeness, verify outputs match contracts, or audit whether the session covered all requirements. Also use when user says 'is this complete', 'did we miss anything', 'sanity check', or 'check against requirements'. NOT for code quality review (use team:review) or test runs (use team:verify)."
+name: phantom:validate
+description: "Use when you want to check plan completeness, verify outputs match contracts, or audit whether the session covered all requirements. Also use when user says 'is this complete', 'did we miss anything', 'sanity check', or 'check against requirements'. NOT for code quality review (use phantom:review) or test runs (use phantom:verify)."
 argument-hint: "[layer]"
 ---
 
 > **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'
 
-# /team:validate $ARGUMENTS
+# /phantom:validate $ARGUMENTS
 
-Run validation scripts to check crew guidance compliance. Layers: `plan`, `output`, `session`, `all`.
+Run validation scripts to check shadows guidance compliance. Layers: `plan`, `output`, `session`, `all`.
 
 **Scripts location:** `~/.claude/team/scripts/`
 
 ---
 
-## /team:validate plan
+## /phantom:validate plan
 
 Validates the session JSON plan before execution:
 
@@ -22,11 +22,11 @@ Validates the session JSON plan before execution:
 ~/.claude/team/scripts/validate-plan.sh ~/.claude/team/repos/{REPO_NAME}/state/sessions/{TICKET}.json
 ```
 
-Checks: phase order (Prism -> Sentinel -> Prism (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
+Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
 
 ---
 
-## /team:validate output <agent-name> <owned-files>
+## /phantom:validate output <agent-name> <owned-files>
 
 Validates agent output after completion:
 
@@ -38,7 +38,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 
 ---
 
-## /team:validate session
+## /phantom:validate session
 
 Validates session JSON integrity at checkpoints:
 
@@ -50,7 +50,7 @@ Checks: required fields, phase/task status enums, verification block after verif
 
 ---
 
-## /team:validate all
+## /phantom:validate all
 
 Runs all three validators in sequence. Summarizes combined results.
 
@@ -59,6 +59,6 @@ Runs all three validators in sequence. Summarizes combined results.
 ## Automatic Validation (built into execution flow)
 
 - **PreToolUse hook** on Agent calls validates `mode: "bypassPermissions"`, `run_in_background: true`, model tier, and prompt content. BLOCKs bad spawns automatically.
-- **Cortex** runs `validate-plan.sh` before Phase C execution starts.
-- **Cortex** runs `validate-output.sh` after each agent completes (with that agent's owned files).
-- **Cortex** runs `validate-session.sh` at phase transitions and after verify/fix loops.
+- **Apex** runs `validate-plan.sh` before Phase C execution starts.
+- **Apex** runs `validate-output.sh` after each agent completes (with that agent's owned files).
+- **Apex** runs `validate-session.sh` at phase transitions and after verify/fix loops.

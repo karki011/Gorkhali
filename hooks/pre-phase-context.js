@@ -13,7 +13,7 @@ const PHASE_REFS = {
   'B': ['agents.md', 'contracts.md', 'governance.md'],
   'C': ['contracts.md'],
   'D': ['agents.md'],
-  'verify': ['verification.md', 'temperature-review.md'],
+  'verify': ['verification.md', 'power-level.md'],
   'wrap': ['governance.md']
 };
 

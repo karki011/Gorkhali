@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Auto-archives stale team skill sessions.
+// Auto-archives stale Phantom sessions.
 // Scans state/sessions/*/context.json for timestamps; moves stale sessions
 // to state/completed/{TICKET}/ with an archive-summary.json.
 //

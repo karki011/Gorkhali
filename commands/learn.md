@@ -1,16 +1,16 @@
 ---
-name: team:learn
+name: phantom:learn
 description: "Use when you discover something worth remembering, want to record a correction, save a pattern, or note a gotcha for future sessions. Captures learnings to the domain knowledge files so future work benefits. Also use when user says 'remember this', 'note that', 'don't do that again', 'save this pattern', or 'correction'."
 argument-hint: "<correction>"
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
 
-# /team:learn "$ARGUMENTS"
+# /phantom:learn "$ARGUMENTS"
 
 Categorize the learning and route to the correct domain file:
 
-1. **Identify the domain**: ui, data, auth, testing, crew, migration, or tooling
+1. **Identify the domain**: ui, data, auth, testing, shadows, migration, or tooling
 2. **Identify the type**: Pattern, Correction, or Habit
 3. **Assign lifecycle tag**:
    - Pattern → `[proposed]` (new, untested) or `[validated:1]` (if captured from a successful session outcome)

@@ -1,135 +1,135 @@
 {
-  "skill_name": "team-skill",
+  "skill_name": "phantom",
   "version": "2.0",
   "created": "2026-05-23",
   "evals": [
     {
       "id": 1,
-      "skill": "team:start",
+      "skill": "phantom:start",
       "prompt": "ok so I need to add a date picker to the settings page, the Jira ticket is CP-4521 and the PM wants it by Thursday",
       "should_trigger": true,
-      "expected_behavior": "Parse CP-4521, fetch Jira ticket, create session state, decompose into phases, spawn crew agents for implementation"
+      "expected_behavior": "Parse CP-4521, fetch Jira ticket, create session state, decompose into phases, spawn shadows agents for implementation"
     },
     {
       "id": 2,
-      "skill": "team:start",
+      "skill": "phantom:start",
       "prompt": "Please implement the multi-currency support feature described in CLOUD-8834. It affects the billing module and we need to handle EUR, GBP, and JPY alongside USD.",
       "should_trigger": true,
-      "expected_behavior": "Parse CLOUD-8834, load Jira context, detect feature (not bug), create plan with blast radius check on billing module, execute multi-agent crew"
+      "expected_behavior": "Parse CLOUD-8834, load Jira context, detect feature (not bug), create plan with blast radius check on billing module, execute multi-agent shadows"
     },
     {
       "id": 3,
-      "skill": "team:start",
+      "skill": "phantom:start",
       "prompt": "what's the status of the CP-4521 work?",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:status — user wants current state, not to start new work. team:start would create a new session when one already exists."
+      "expected_behavior": "Should route to phantom:status — user wants current state, not to start new work. phantom:start would create a new session when one already exists."
     },
 
     {
       "id": 4,
-      "skill": "team:verify",
+      "skill": "phantom:verify",
       "prompt": "does it pass? run the tests and lint before I push",
       "should_trigger": true,
-      "expected_behavior": "Discover verify commands from repo CLAUDE.md or package.json, run lint + build + tests, report pass/fail, run temperature review if all pass"
+      "expected_behavior": "Discover verify commands from repo CLAUDE.md or package.json, run lint + build + tests, report pass/fail, run power level if all pass"
     },
     {
       "id": 5,
-      "skill": "team:verify",
+      "skill": "phantom:verify",
       "prompt": "Please run the full verification suite against the changes I just made to the billing module. I need lint, typecheck, and unit tests to all be green before we proceed.",
       "should_trigger": true,
-      "expected_behavior": "Run repo verification commands (pnpm lint, pnpm typecheck:tsc, pnpm test), run simplify on changed files, spawn temperature review agent on pass"
+      "expected_behavior": "Run repo verification commands (pnpm lint, pnpm typecheck:tsc, pnpm test), run simplify on changed files, spawn power level agent on pass"
     },
     {
       "id": 6,
-      "skill": "team:verify",
+      "skill": "phantom:verify",
       "prompt": "can you fix the test that's failing in billing.test.ts?",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:fix — user wants repair, not verification. Verify reports status; fix repairs failures."
+      "expected_behavior": "Should route to phantom:fix — user wants repair, not verification. Verify reports status; fix repairs failures."
     },
 
     {
       "id": 7,
-      "skill": "team:fix",
+      "skill": "phantom:fix",
       "prompt": "tests are failing, build is broken — fix it",
       "should_trigger": true,
-      "expected_behavior": "Load failure details from verification.json, triage failures by type, spawn scoped repair agents, re-run team:verify after repairs"
+      "expected_behavior": "Load failure details from verification.json, triage failures by type, spawn scoped repair agents, re-run phantom:verify after repairs"
     },
     {
       "id": 8,
-      "skill": "team:fix",
+      "skill": "phantom:fix",
       "prompt": "The TypeScript build errors from the last verify run need to be addressed. There are 3 type errors in packages/billing/src/currency.ts and a lint violation in apps/dashboard/src/components/CurrencyPicker.tsx",
       "should_trigger": true,
       "expected_behavior": "Load verification artifact, classify as type + lint failures, spawn repair agents scoped to those files, re-verify after repairs"
     },
     {
       "id": 9,
-      "skill": "team:fix",
+      "skill": "phantom:fix",
       "prompt": "I think there might be a bug in the currency formatter — can you investigate what's going wrong?",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:detective — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
+      "expected_behavior": "Should route to phantom:hound — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
     },
 
     {
       "id": 10,
-      "skill": "team:review",
+      "skill": "phantom:review",
       "prompt": "review this before I ship it — I want a second opinion on the approach",
       "should_trigger": true,
-      "expected_behavior": "Load session contracts, spawn Prism agent (opus) with touched files, produce CRITICAL/WARNING/INFO findings, return APPROVED or NEEDS WORK verdict"
+      "expected_behavior": "Load session contracts, spawn Gaze agent (opus) with touched files, produce CRITICAL/WARNING/INFO findings, return APPROVED or NEEDS WORK verdict"
     },
     {
       "id": 11,
-      "skill": "team:review",
+      "skill": "phantom:review",
       "prompt": "Can you do a full code quality review of the changes? I'm particularly concerned about whether we're following KISS/DRY principles and if there's any code that could be simplified.",
       "should_trigger": true,
-      "expected_behavior": "Run Prism in gauntlet mode: simplify → full review → verify. Check KISS/DRY, flag architecture concerns, produce file:line specific findings"
+      "expected_behavior": "Run Gaze in gauntlet mode: simplify → full review → verify. Check KISS/DRY, flag architecture concerns, produce file:line specific findings"
     },
     {
       "id": 12,
-      "skill": "team:review",
+      "skill": "phantom:review",
       "prompt": "run the tests and check if the build passes",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:verify — user wants correctness checks (tests/build), not a quality/architecture review from Prism"
+      "expected_behavior": "Should route to phantom:verify — user wants correctness checks (tests/build), not a quality/architecture review from Gaze"
     },
 
     {
       "id": 13,
-      "skill": "team:detective",
+      "skill": "phantom:hound",
       "prompt": "users are reporting that invoice totals are wrong for EUR customers — started happening after Tuesday's deploy, no error in logs",
       "should_trigger": true,
       "expected_behavior": "Run 7-step investigation: collect symptoms, build timeline (check Tuesday deploy via git log), trace code path through currency/invoice logic, form hypothesis, gather evidence, confirm root cause, produce HTML report"
     },
     {
       "id": 14,
-      "skill": "team:detective",
+      "skill": "phantom:hound",
       "prompt": "investigate why the CurrencyFormatter class is producing NaN for certain JPY amounts — I suspect it's something in the rounding logic but I'm not sure",
       "should_trigger": true,
       "expected_behavior": "Start with symptoms (NaN for JPY), check git blame on CurrencyFormatter, trace through rounding logic, form and test hypothesis, write HTML investigation report"
     },
     {
       "id": 15,
-      "skill": "team:detective",
+      "skill": "phantom:hound",
       "prompt": "fix the NaN bug in CurrencyFormatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:fix — user already knows the issue and wants it fixed. Detective is for unknown failures requiring forensic investigation."
+      "expected_behavior": "Should route to phantom:fix — user already knows the issue and wants it fixed. Hound is for unknown failures requiring forensic investigation."
     },
 
     {
       "id": 16,
-      "skill": "team:wrap",
+      "skill": "phantom:wrap",
       "prompt": "ok we're done, ship it — create the PR",
       "should_trigger": true,
-      "expected_behavior": "Check verification.json for passing verdict, run diff-against-main scope check, run crew eval, save learnings, create PR with branch push"
+      "expected_behavior": "Check verification.json for passing verdict, run diff-against-main scope check, run shadows eval, save learnings, create PR with branch push"
     },
     {
       "id": 17,
-      "skill": "team:wrap",
+      "skill": "phantom:wrap",
       "prompt": "I'm satisfied with the implementation of CP-4521, please finalize the session, record what we learned, and open a pull request against main",
       "should_trigger": true,
       "expected_behavior": "Verify state artifact exists and verdict is pass, run pre-wrap hook, check scope creep via git diff main...HEAD, record learnings, create PR"
     },
     {
       "id": 18,
-      "skill": "team:wrap",
+      "skill": "phantom:wrap",
       "prompt": "can you push this branch so I can review it locally on another machine?",
       "should_trigger": false,
       "expected_behavior": "A simple git push should not trigger the full wrap ceremony — wrap runs eval, scope checks, learning recording. User just wants a branch push."
@@ -137,90 +137,90 @@
 
     {
       "id": 19,
-      "skill": "team:scout",
+      "skill": "phantom:scout",
       "prompt": "before we start building the currency picker component, can you explore how other pickers are implemented in the codebase and what design tokens they use?",
       "should_trigger": true,
       "expected_behavior": "Spawn parallel explorer agents for design (component patterns, tokens), api (existing hooks/clients), patterns (state management patterns used in similar pickers)"
     },
     {
       "id": 20,
-      "skill": "team:scout",
+      "skill": "phantom:scout",
       "prompt": "what does the billing module do and how does it connect to the invoicing service?",
       "should_trigger": true,
       "expected_behavior": "Auto-detect relevant scouting areas (deps, api), spawn background agents to map billing → invoicing relationships, API contracts, shared types"
     },
     {
       "id": 21,
-      "skill": "team:scout",
+      "skill": "phantom:scout",
       "prompt": "implement a currency switcher in the nav bar",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:start — user wants to build something, not gather context. Scout is for exploration before planning, not for kicking off implementation."
+      "expected_behavior": "Should route to phantom:start — user wants to build something, not gather context. Scout is for exploration before planning, not for kicking off implementation."
     },
 
     {
       "id": 22,
-      "skill": "team:recruit",
+      "skill": "phantom:arise",
       "prompt": "I need an accessibility specialist to audit the new currency picker — focus on keyboard nav and screen reader support",
       "should_trigger": true,
-      "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Spark with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
+      "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Blade with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
     },
     {
       "id": 23,
-      "skill": "team:recruit",
+      "skill": "phantom:arise",
       "prompt": "get me a performance expert to look at why the billing dashboard is loading slowly — I want someone focused on bundle size and render cost",
       "should_trigger": true,
-      "expected_behavior": "Parse role focus as 'performance specialist', spawn Spark to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
+      "expected_behavior": "Parse role focus as 'performance specialist', spawn Blade to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
     },
     {
       "id": 24,
-      "skill": "team:recruit",
+      "skill": "phantom:arise",
       "prompt": "do a code review of the currency formatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:review — a general code review is Prism's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal crew."
+      "expected_behavior": "Should route to phantom:review — a general code review is Gaze's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."
     },
 
     {
       "id": 25,
-      "skill": "team:pause",
+      "skill": "phantom:pause",
       "prompt": "I gotta jump to another meeting, save where we are on CP-4521",
       "should_trigger": true,
       "expected_behavior": "Capture git state (branch, HEAD, uncommitted files), write pause-state.json with current phase and artifact paths, output resume command"
     },
     {
       "id": 26,
-      "skill": "team:pause",
+      "skill": "phantom:pause",
       "prompt": "Pausing for the day — please save the full session state for CP-4521 including what phase we're in, what's been completed, and what's still pending",
       "should_trigger": true,
       "expected_behavior": "Write complete pause-state.json artifact with git state, current phase, completed artifacts, pending work, and resume instructions"
     },
     {
       "id": 27,
-      "skill": "team:pause",
+      "skill": "phantom:pause",
       "prompt": "commit my work and push the branch",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:wrap — committing and pushing is the wrap ceremony. Pause only saves state artifacts; no git operations happen during pause."
+      "expected_behavior": "Should route to phantom:wrap — committing and pushing is the wrap ceremony. Pause only saves state artifacts; no git operations happen during pause."
     },
 
     {
       "id": 28,
-      "skill": "team:resume",
+      "skill": "phantom:resume",
       "prompt": "resuming CP-4521, pick up where we left off",
       "should_trigger": true,
       "expected_behavior": "Read state/sessions/CP-4521/pause-state.json, check git HEAD staleness, restore intent + plan + contracts, display current phase and pending tasks"
     },
     {
       "id": 29,
-      "skill": "team:resume",
+      "skill": "phantom:resume",
       "prompt": "Continue working on CLOUD-8834 — I was in the middle of implementing the EUR support when we stopped yesterday",
       "should_trigger": true,
       "expected_behavior": "Load CLOUD-8834 pause-state.json, perform staleness check (yesterday's HEAD vs current), restore full session context, resume from last recorded phase"
     },
     {
       "id": 30,
-      "skill": "team:resume",
+      "skill": "phantom:resume",
       "prompt": "start working on CP-4521 again, we need to add GBP support",
       "should_trigger": false,
-      "expected_behavior": "Should route to team:start — user wants to add new scope (GBP support), not just resume saved state. Resume restores context; start creates new work scope."
+      "expected_behavior": "Should route to phantom:start — user wants to add new scope (GBP support), not just resume saved state. Resume restores context; start creates new work scope."
     }
   ]
 }

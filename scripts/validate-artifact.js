@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Validates a team skill JSON artifact against its canonical schema.
+// Validates a Phantom JSON artifact against its canonical schema.
 // Usage: validate-artifact.js <artifact-type> <file-path>
 // Artifact types: context, intent, plan, execution, verification, wrap, pause-state
 // Exit 0 = valid, Exit 1 = invalid (errors printed to stderr)
@@ -74,7 +74,7 @@ const validators = {
 
   'plan': (d) => {
     validateMeta(d);
-    const validRoutes = ['solo', 'crew'];
+    const validRoutes = ['solo', 'shadows'];
     if (!validRoutes.includes(d.route)) errors.push(`route: must be one of ${validRoutes.join('|')}, got "${d.route}"`);
     const validVerdicts = ['PROCEED', 'REVISE', 'RETHINK'];
     if (!validVerdicts.includes(d.devilsAdvocateVerdict)) errors.push(`devilsAdvocateVerdict: must be one of ${validVerdicts.join('|')}, got "${d.devilsAdvocateVerdict}"`);
@@ -164,7 +164,7 @@ const validators = {
     if (!validPhases.includes(d.phase)) errors.push(`phase: must be one of ${validPhases.join('|')}, got "${d.phase}"`);
     if (d.status !== 'paused') errors.push(`status: must be "paused", got "${d.status}"`);
     if (!d.resumeNotes || typeof d.resumeNotes !== 'string') errors.push('resumeNotes: required string');
-    if (d.route !== undefined && !['solo', 'crew'].includes(d.route)) errors.push(`route: must be "solo" or "crew" if present, got "${d.route}"`);
+    if (d.route !== undefined && !['solo', 'shadows'].includes(d.route)) errors.push(`route: must be "solo" or "shadows" if present, got "${d.route}"`);
     if (d.verifyStatus !== undefined && !['pass', 'fail', null].includes(d.verifyStatus)) {
       errors.push(`verifyStatus: must be "pass", "fail", or null if present`);
     }

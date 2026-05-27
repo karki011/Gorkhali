@@ -45,4 +45,4 @@ Corrections always beat patterns. "Don't use X" correction overrides "use X" pat
 | *.test.*, *.spec.*, __tests__/ | testing.md |
 | *.config.*, Makefile, .github/ | tooling.md |
 | migrations/, schema/, *.sql | migration.md |
-| crew, agent, workflow, skill | crew.md |
+| shadows, agent, workflow, skill | shadows.md |

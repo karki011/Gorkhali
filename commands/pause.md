@@ -1,13 +1,13 @@
 ---
-name: team:pause
-description: "Use when stepping away, going to a meeting, or saving progress mid-session. Also use when user says 'pause', 'I gotta jump to a meeting', 'save where we are', 'checkpoint', 'done for today', 'I'll come back', 'context switch', or 'save state'. No git ops — just saves artifacts. Use team:wrap to ship."
+name: phantom:pause
+description: "Use when stepping away, going to a meeting, or saving progress mid-session. Also use when user says 'pause', 'I gotta jump to a meeting', 'save where we are', 'checkpoint', 'done for today', 'I'll come back', 'context switch', or 'save state'. No git ops — just saves artifacts. Use phantom:wrap to ship."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only
 
-# /team:pause
+# /phantom:pause
 
-Save full session state so `/clear` + `/team:resume` restores everything.
+Save full session state so `/clear` + `/phantom:resume` restores everything.
 
 <instructions>
 1. **Capture git state**
@@ -25,7 +25,7 @@ Save full session state so `/clear` + `/team:resume` restores everything.
        "gitHead": "{HEAD sha}",
        "gitBranch": "{branch}",
        "phase": "{current phase A/B/C/D}",
-       "skill": "team:pause",
+       "skill": "phantom:pause",
        "version": 1
      },
      "ticket": "{TICKET}",
@@ -37,7 +37,7 @@ Save full session state so `/clear` + `/team:resume` restores everything.
      "contracts": ["{list of contract file paths}"],
      "contractsCompleted": ["{completed task IDs}"],
      "contractsPending": ["{pending task IDs}"],
-     "route": "{solo|crew}",
+     "route": "{solo|shadows}",
      "verifyStatus": "{pass|fail|null}",
      "resumeNotes": "{what was being worked on, what's next}"
    }
@@ -56,4 +56,4 @@ Save full session state so `/clear` + `/team:resume` restores everything.
 6. **Update auto-memory** in project memory directory
 </instructions>
 
-Print: "Session paused. Run `/clear` then `/team:resume {TICKET}` to continue."
+Print: "Session paused. Run `/clear` then `/phantom:resume {TICKET}` to continue."

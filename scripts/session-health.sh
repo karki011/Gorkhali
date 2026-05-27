@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Author: Subash Karki
-# Verifies a team skill session directory has the expected artifacts for its phase.
+# Verifies a Phantom session directory has the expected artifacts for its phase.
 # Usage: session-health.sh <session-dir> [--phase <phase>]
 #   <session-dir>: path to session directory (e.g., ~/.claude/team/repos/myrepo/sessions/ENG-1234)
 #   --phase <phase>: expected phase (A, B, C, D, verify, wrap). Auto-detected from artifacts if omitted.

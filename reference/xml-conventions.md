@@ -8,7 +8,7 @@ Based on Anthropic's production patterns. Hybrid: XML for compartment boundaries
 |-----|---------|---------|
 | `<instructions>` | Core task steps | Wrap the main "what to do" section |
 | `<context>` | Background knowledge injected | Wrap learnings, session state |
-| `<constraints>` | Hard rules, prohibitions | Iron Laws, non-negotiables |
+| `<constraints>` | Hard rules, prohibitions | Core Rules, non-negotiables |
 | `<references>` | Bundled reference docs | Wrap hook-injected content |
 | `<examples>` / `<example>` | Few-shot examples | Artifact JSON examples |
 | `<output_format>` | Expected output shape | JSON schemas, report templates |
@@ -29,7 +29,7 @@ Based on Anthropic's production patterns. Hybrid: XML for compartment boundaries
 
 ```markdown
 ---
-name: team:example
+name: phantom:example
 description: "..."
 ---
 

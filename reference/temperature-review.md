@@ -11,7 +11,7 @@
 
 ## Review Agent Prompt
 
-Use this prompt when spawning the temperature review agent:
+Use this prompt when spawning the power level agent:
 
     Review this diff against the intent. Score each finding by temperature:
 

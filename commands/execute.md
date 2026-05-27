@@ -1,11 +1,11 @@
 ---
-name: team:execute
-description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use team:start instead."
+name: phantom:execute
+description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use phantom:start instead."
 ---
 
 > **Preamble Tier: T2**
 
-# /team:execute "$ARGUMENTS"
+# /phantom:execute "$ARGUMENTS"
 
 Execute a plan from artifacts. Used by start.md router or standalone.
 
@@ -14,7 +14,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 1. **Detect ticket** from $ARGUMENTS or git branch
 
 2. **Load plan**: Read `state/sessions/{TICKET}/plan.json`
-   - If missing: "No plan found. Run `/team:start` first."
+   - If missing: "No plan found. Run `/phantom:start` first."
 
 3. **Load contracts**: Read `state/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
@@ -23,7 +23,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 5. **Dispatch per plan**:
    - READ `reference/agents.md` for spawn patterns
-   - SOLO route: spawn 1 Spark with full task scope
+   - SOLO route: spawn 1 Blade with full task scope
    - CREW route: spawn parallel Sparks with `isolation: "worktree"`
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - Agent results → `state/sessions/{TICKET}/agent-outputs/{task-id}.md`
@@ -39,14 +39,14 @@ Execute a plan from artifacts. Used by start.md router or standalone.
        "gitHead": "{HEAD sha}",
        "gitBranch": "{branch}",
        "phase": "D",
-       "skill": "team:execute",
+       "skill": "phantom:execute",
        "version": 1
      },
      "tasks": [
        {
          "id": "t1",
          "status": "completed",
-         "agent": "spark-pagination",
+         "agent": "blade-pagination",
          "filesChanged": ["src/hooks/usePagination.ts"],
          "selfReviewScore": 8,
          "outputSummary": "Added usePagination hook"

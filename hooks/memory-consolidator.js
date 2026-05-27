@@ -26,7 +26,7 @@ const MINIMAL_OUTPUT =
 // ── Domain routing (matches observation-capture / extract-learnings patterns) ──
 
 const FILE_DOMAIN_RULES = [
-  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /crew|skill|spawn|agent/i.test(p), domain: 'crew' },
+  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
   { test: p => /(^|\/)(?:test|spec|__tests__)\//.test(p) || /\.test\.|\.spec\./.test(p),         domain: 'testing' },
   { test: p => /(^|\/)(?:styles|components)\//.test(p) || /\.tsx$|\.css$|\.scss$/.test(p),        domain: 'ui' },
   { test: p => /(^|\/)(?:api|routes|controllers)\//.test(p) || /fetch|axios|http/i.test(p),       domain: 'data' },

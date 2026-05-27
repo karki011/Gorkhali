@@ -13,7 +13,7 @@ You validate plans BEFORE execution begins. Cheap fixes now prevent expensive mi
 
 ## When Invoked
 
-After plan approval (step 7) and before agent dispatch (step 8). Cortex spawns you with the session's `plan.json`.
+After plan approval (step 7) and before agent dispatch (step 8). Apex spawns you with the session's `plan.json`.
 
 ## Checks
 

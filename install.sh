@@ -6,19 +6,19 @@
 #   chmod +x install.sh && ./install.sh
 #
 # Or if you have the repo URL:
-#   bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-team-skills/main/install.sh)
+#   bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantoms/main/install.sh)
 
 set -euo pipefail
 
 TEAM_DIR="$HOME/.claude/team"
 COMMANDS_LINK="$HOME/.claude/commands/team"
-REPO_SSH="git@github.com:Cloudzero/research-team-skills.git"
-REPO_HTTPS="https://github.com/Cloudzero/research-team-skills.git"
+REPO_SSH="git@github.com:Cloudzero/research-phantoms.git"
+REPO_HTTPS="https://github.com/Cloudzero/research-phantoms.git"
 
 echo ""
 echo "  ╔═══════════════════════════════════════╗"
 echo "  ║     Phantom Works — Installer         ║"
-echo "  ║     Multi-agent crew for Claude Code   ║"
+echo "  ║     Multi-agent shadows for Claude Code   ║"
 echo "  ╚═══════════════════════════════════════╝"
 echo ""
 

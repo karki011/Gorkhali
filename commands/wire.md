@@ -1,5 +1,5 @@
 ---
-name: team:wire
+name: phantom:wire
 description: "Map dependency topology from approved plan — wave assignments, integration points, risk detection. Use after plan approval on FULL route or optionally on PLAN route (>5 files). Also use when user says 'wire it', 'show dependencies', 'what order', or 'map the topology'."
 argument-hint: "[TICKET]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
@@ -7,7 +7,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
 
-# /team:wire "$ARGUMENTS"
+# /phantom:wire "$ARGUMENTS"
 
 Dependency topology from plan.json. Output: `wiring.json` with waves, risk points, parallel groups.
 READ `reference/wiring.md` for full protocol (dependency mapping, wave rules, validation, v1 fallback).
@@ -73,7 +73,7 @@ Build dependency edges: if task A produces X and task B consumes X → B depends
     "gitHead": "{HEAD sha}",
     "gitBranch": "{branch}",
     "phase": "wire",
-    "skill": "team:wire",
+    "skill": "phantom:wire",
     "version": 1
   },
   "dependencies": [

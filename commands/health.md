@@ -1,11 +1,11 @@
 ---
-name: team:health
-description: "Use when something seems wrong with the team skill system, learnings are stale, sessions are corrupted, or artifacts are missing. Diagnoses knowledge layer health — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is the team skill broken', 'check health', 'diagnose', or 'something is wrong'."
+name: phantom:health
+description: "Use when something seems wrong with the Phantom system, learnings are stale, sessions are corrupted, or artifacts are missing. Diagnoses knowledge layer health — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is the Phantom broken', 'check health', 'diagnose', or 'something is wrong'."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
 
-# /team:health
+# /phantom:health
 
 Validate knowledge layer integrity for the current repo. Reports issues but does NOT auto-fix (user decides).
 
@@ -32,7 +32,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
    - `reference/*.md` > 100 lines → needs distillation
    - `learnings/INDEX.md` > 80 entries → needs pruning
    - `learnings/{domain}.md` > 50 entries → needs condensing
-   Report oversized files. Suggest `/team:evolve` to distill.
+   Report oversized files. Suggest `/phantom:evolve` to distill.
 
 10. **Stale sessions**: Sessions in `state/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `state/completed/`.
 

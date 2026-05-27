@@ -1,6 +1,6 @@
-# Team Skill — Helper Scripts
+# Phantom — Helper Scripts
 
-Deterministic scripts for the team skill. These do mechanical work that should not consume LLM tokens.
+Deterministic scripts for the Phantom. These do mechanical work that should not consume LLM tokens.
 
 ---
 
@@ -8,7 +8,7 @@ Deterministic scripts for the team skill. These do mechanical work that should n
 
 ### `validate-artifact.js`
 
-Validates a team skill JSON artifact against its canonical schema from `reference/artifact-schemas.md`.
+Validates a Phantom JSON artifact against its canonical schema from `reference/artifact-schemas.md`.
 
 ```bash
 node validate-artifact.js <artifact-type> <file-path>
@@ -20,7 +20,7 @@ node validate-artifact.js <artifact-type> <file-path>
 - Required `_meta` fields (`writtenAt`, `gitHead`, `gitBranch`, `phase`, `skill`, `version`)
 - All required fields per schema
 - Type correctness (string, boolean, number, array)
-- Enum validation (e.g., `route: "solo"|"crew"`, `verdict: "pass"|"fail"`)
+- Enum validation (e.g., `route: "solo"|"shadows"`, `verdict: "pass"|"fail"`)
 - Array non-empty where required
 
 **Exit:** 0 = valid, 1 = invalid (errors to stderr)
@@ -45,7 +45,7 @@ node check-learnings-index.js [learnings-dir]
 **Checks:**
 - Every `.md` file referenced in INDEX.md exists on disk
 - Non-empty domain files are mentioned in INDEX.md
-- All files in the directory are known domain files (`ui.md`, `data.md`, `auth.md`, `testing.md`, `tooling.md`, `migration.md`, `crew.md`)
+- All files in the directory are known domain files (`ui.md`, `data.md`, `auth.md`, `testing.md`, `tooling.md`, `migration.md`, `shadows.md`)
 - INDEX.md entries have a lifecycle tag (`[proposed]`, `[validated:N]`, `[scope:global]`, `[stale]`, `[failed]`)
 
 **Exit:** 0 = healthy, 1 = errors (warnings still printed to stdout)
@@ -88,7 +88,7 @@ Checks a session directory for expected artifacts and validates their JSON.
 
 ### `preamble-tier.js`
 
-Given a team skill command name, outputs which preamble tier it belongs to and which shared context files it loads.
+Given a Phantom command name, outputs which preamble tier it belongs to and which shared context files it loads.
 
 ```bash
 node preamble-tier.js [command] [--json]
@@ -96,7 +96,7 @@ node preamble-tier.js [command] [--json]
 
 **Without command:** prints all four tiers with their full context lists.
 
-**With command:** prints tier, shared contexts, and active Iron Laws for that command.
+**With command:** prints tier, shared contexts, and active Core Rules for that command.
 
 **Flags:** `--json` outputs machine-readable JSON.
 
@@ -106,8 +106,8 @@ node preamble-tier.js [command] [--json]
 ```bash
 # Show tier for a specific command
 node preamble-tier.js start
-node preamble-tier.js team:verify
-node preamble-tier.js /team:status
+node preamble-tier.js phantom:verify
+node preamble-tier.js /phantom:status
 
 # Machine-readable output
 node preamble-tier.js wrap --json

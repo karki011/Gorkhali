@@ -1,13 +1,13 @@
 ---
-name: team:start
-description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket (CP-*, CLOUD-*), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent crew."
+name: phantom:start
+description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket (CP-*, CLOUD-*), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 ---
 
 > **Preamble Tier: T4** (full orchestration -- loads ALL shared contexts)
 > See `_shared.md` SS Preamble Tiers for the tier system.
 
-# /team:start "$ARGUMENTS"
+# /phantom:start "$ARGUMENTS"
 
 Adaptive router: context → classify → route(DIRECT|PLAN|BRAINSTORM|FULL) → verify.
 Each phase reads/writes artifacts in `state/sessions/{TICKET}/`.
@@ -24,20 +24,20 @@ No git operations until wrap. All work is local.
 5. Load `learnings/INDEX.md`, scan for relevant corrections
 6. If Phantom MCP available: call `phantom_before_edit` for blast radius (non-blocking)
 7. Write `state/sessions/{TICKET}/context.json` with `_meta` header
-8. Activate cortex hook: `touch ~/.claude/team/.cortex-active`
-9. **Detective check** -- classify input as bug vs feature (see below)
+8. Activate apex hook: `touch ~/.claude/team/.apex-active`
+9. **Hound check** -- classify input as bug vs feature (see below)
 
 </phase_a_context>
 
 <detective_pre_scan>
 
-## Phase A.5: Detective Pre-Scan (bugs only)
+## Phase A.5: Hound Pre-Scan (bugs only)
 
 Trigger: keywords (`bug`, `broken`, `regression`, `error`, `crash`, `failing`, `TypeError`),
 Jira type (Bug/Defect/Incident), or branch prefix (`fix/`, `bugfix/`, `hotfix/`).
 
-If bug → hotspot + ownership check on suspect files, add `detective` field to context.json.
-See `reference/detective-protocol.md` for full protocol. Skip silently for features.
+If bug → hotspot + ownership check on suspect files, add `hound` field to context.json.
+See `reference/hound-protocol.md` for full protocol. Skip silently for features.
 
 </detective_pre_scan>
 
@@ -71,11 +71,11 @@ Report to human: `"[{ROUTE}] {rationale} — {expected files}"`
 READ `reference/router.md` SS DIRECT for guardrails.
 
 1. Write minimal `intent.json` (goal + done-when from Jira AC or description)
-2. Spawn Spark agent with task — no planning, no deliberation
-3. `Skill(skill="team:verify")` — writes verification.json
-4. If PASS → `Skill(skill="team:wrap")`
+2. Spawn Blade agent with task — no planning, no deliberation
+3. `Skill(skill="phantom:verify")` — writes verification.json
+4. If PASS → `Skill(skill="phantom:wrap")`
 5. If FAIL → **auto-escalate to PLAN route** (do NOT retry as DIRECT)
-6. If >3 files changed → log routing correction to `learnings/crew.md`
+6. If >3 files changed → log routing correction to `learnings/shadows.md`
 
 </route_direct>
 
@@ -93,7 +93,7 @@ READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/p
 6. Write `plan.json` with deliberation verdict
 7. **HUMAN GATE**: user approves plan
 8. Contracts (`reference/contracts.md`)
-9. If plan touches >5 files → `Skill(skill="team:wire")` for topology (informational, no human gate on PLAN route). Otherwise auto-generate lightweight wiring.
+9. If plan touches >5 files → `Skill(skill="phantom:wire")` for topology (informational, no human gate on PLAN route). Otherwise auto-generate lightweight wiring.
 10. Execute: dispatch agents per plan → verify → wrap (or fix loop)
 
 </route_plan>
@@ -102,7 +102,7 @@ READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/p
 
 ## Route: BRAINSTORM (2 human gates)
 
-1. `Skill(skill="team:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
+1. `Skill(skill="phantom:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
 2. **HUMAN GATE 1**: handled inside brainstorm skill (human picks direction)
 3. Feed locked decision into PLAN route as scope anchor (steps 1-9 above)
 4. **HUMAN GATE 2**: approve plan
@@ -113,11 +113,11 @@ READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/p
 
 ## Route: FULL (3 human gates)
 
-1. `Skill(skill="team:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
+1. `Skill(skill="phantom:brainstorm")` — diverge/converge, writes `decisions.json` + updates `intent.json`
 2. **HUMAN GATE 1**: handled inside brainstorm skill (human picks direction)
 3. **Plan**: Intent → Research → Decompose → Deliberate (same as PLAN route)
 4. **HUMAN GATE 2**: approve plan
-5. `Skill(skill="team:wire")` — dependency topology, wave assignments, integration points, risk points
+5. `Skill(skill="phantom:wire")` — dependency topology, wave assignments, integration points, risk points
 6. **HUMAN GATE 3**: approve wiring (presented by wire skill)
 7. Execute in waves per wiring.json → verify → wrap (or fix loop)
 
@@ -127,8 +127,8 @@ READ `reference/router.md` SS PLAN + SS Deliberation Protocol. READ `reference/p
 
 ## Context Management
 
-Between any phase: if context is heavy, run `Skill(skill="team:pause")`.
-User runs `/clear` then `/team:resume {TICKET}` to continue from the last artifact.
+Between any phase: if context is heavy, run `Skill(skill="phantom:pause")`.
+User runs `/clear` then `/phantom:resume {TICKET}` to continue from the last artifact.
 Resume reads `route-decision.json` to know which flow to continue.
 
 </context_management>

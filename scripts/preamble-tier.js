@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Given a team skill command name, outputs which preamble tier it belongs to
+// Given a Phantom command name, outputs which preamble tier it belongs to
 // and which shared context files it loads — no LLM needed.
 // Usage: preamble-tier.js <command-name>
-//   command-name: e.g. "start", "verify", "status", "team:start", "/team:start"
+//   command-name: e.g. "start", "verify", "status", "phantom:start", "/phantom:start"
 // Exit 0 always (informational tool). Outputs JSON with --json flag.
 
 'use strict';
@@ -12,9 +12,9 @@ const [,, ...args] = process.argv;
 const jsonMode = args.includes('--json');
 const commandArg = args.find(a => !a.startsWith('--'));
 
-// Strip leading slash and "team:" prefix for matching
+// Strip leading slash and "phantom:" prefix for matching
 function normalize(cmd) {
-  return (cmd || '').replace(/^\//, '').replace(/^team:/, '').toLowerCase();
+  return (cmd || '').replace(/^\//, '').replace(/^phantom:/, '').toLowerCase();
 }
 
 // Tier definitions from _shared.md
@@ -26,19 +26,19 @@ const TIERS = {
       '_shared.md',
     ],
     ironLaws: [1, 2, 3],
-    description: 'Minimal context. Only core governance, Iron Laws 1-3, and path helpers.',
+    description: 'Minimal context. Only core governance, Core Rules 1-3, and path helpers.',
   },
   T2: {
     label: 'T2 — Verification (diagnose / report)',
-    commands: ['verify', 'fix', 'validate', 'eval', 'detective'],
+    commands: ['verify', 'fix', 'validate', 'eval', 'hound'],
     sharedContexts: [
       '_shared.md',
       '_shared-repo-detection.md',
       '_shared-auto-learning.md',
     ],
-    conditionalContexts: ['_shared-detective.md (on detective trigger)'],
+    conditionalContexts: ['_shared-hound.md (on hound trigger)'],
     ironLaws: [1, 2, 3, 5, 11],
-    description: 'Stack detection + learnings read/write. Detective loaded on trigger.',
+    description: 'Stack detection + learnings read/write. Hound loaded on trigger.',
   },
   T3: {
     label: 'T3 — Planning (research / review / discuss)',
@@ -47,12 +47,12 @@ const TIERS = {
       '_shared.md',
       '_shared-repo-detection.md',
       '_shared-auto-learning.md',
-      '_shared-crew.md',
+      '_shared-shadows.md',
       '_shared-discipline.md',
       '_shared-contracts.md',
     ],
     ironLaws: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    description: 'Full planning context. Crew roles, discipline, contracts.',
+    description: 'Full planning context. Shadows roles, discipline, contracts.',
   },
   T4: {
     label: 'T4 — Full orchestration (plan + execute + verify)',
@@ -61,30 +61,30 @@ const TIERS = {
       '_shared.md',
       '_shared-repo-detection.md',
       '_shared-auto-learning.md',
-      '_shared-crew.md',
+      '_shared-shadows.md',
       '_shared-discipline.md',
       '_shared-contracts.md',
-      '_shared-detective.md',
+      '_shared-hound.md',
       '_shared-board.md',
       '_shared-phantom-integration.md',
     ],
     ironLaws: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-    description: 'All shared contexts. Full Iron Laws. Board events. Phantom graph.',
+    description: 'All shared contexts. Full Core Rules. Board events. Phantom graph.',
   },
 };
 
 // All shared context files with purpose (from _shared.md table)
 const CONTEXT_PURPOSES = {
-  '_shared.md': 'Core governance, Iron Laws, paths, context management',
+  '_shared.md': 'Core governance, Core Rules, paths, context management',
   '_shared-repo-detection.md': 'Stack detection, verification commands',
   '_shared-auto-learning.md': 'Read/write learnings after work',
-  '_shared-crew.md': 'Agent spawning, crew roles',
+  '_shared-shadows.md': 'Agent spawning, shadows roles',
   '_shared-discipline.md': 'Plan/execution discipline',
   '_shared-contracts.md': 'Contract templates, hooks',
-  '_shared-detective.md': 'Forensic analysis (loaded on detective trigger)',
+  '_shared-hound.md': 'Forensic analysis (loaded on hound trigger)',
   '_shared-board.md': 'Event log, session state',
   '_shared-phantom-integration.md': 'Graph intelligence (optional)',
-  '_shared-hawkeye.md': 'Hawkeye spec (loaded on demand)',
+  '_shared-archer.md': 'Archer spec (loaded on demand)',
 };
 
 function findTier(cmd) {
@@ -98,7 +98,7 @@ function findTier(cmd) {
 }
 
 function printAll() {
-  console.log('Team Skill Preamble Tiers\n');
+  console.log('Phantom Preamble Tiers\n');
   for (const [tierKey, tier] of Object.entries(TIERS)) {
     console.log(`${tier.label}`);
     console.log(`  Commands: ${tier.commands.join(', ')}`);
@@ -110,7 +110,7 @@ function printAll() {
     if (tier.conditionalContexts) {
       tier.conditionalContexts.forEach(c => console.log(`    * ${c} (conditional)`));
     }
-    console.log(`  Iron Laws active: ${tier.ironLaws.join(', ')}`);
+    console.log(`  Core Rules active: ${tier.ironLaws.join(', ')}`);
     console.log(`  ${tier.description}`);
     console.log('');
   }
@@ -158,7 +158,7 @@ if (jsonMode) {
     tier.conditionalContexts.forEach(c => console.log(`  ~ ${c}`));
   }
   console.log('');
-  console.log(`Iron Laws active: ${tier.ironLaws.join(', ')} (of 13)`);
+  console.log(`Core Rules active: ${tier.ironLaws.join(', ')} (of 13)`);
 }
 
 process.exit(0);

@@ -1,15 +1,15 @@
-# Governance — Iron Laws & Rules
+# Governance — Core Rules & Rules
 
-## Iron Laws (structural enforcement in v2)
+## Core Rules (structural enforcement in v2)
 
 | # | Law | Enforcement |
 |---|-----|-------------|
 | 1 | Feature branch | Hook: block Edit on main |
 | 2 | Verify before ship | wrap reads verification.json |
 | 3 | Anti-repetition | Search INDEX.md before planning |
-| 4 | Devil's Advocate | plan.json requires verdict field |
+| 4 | Rival | plan.json requires verdict field |
 | 5 | Simplify always | verification.json requires simplifyRan |
-| 6 | Intent check | Temperature reviewer compares to intent.json |
+| 6 | Intent check | Power Leveler compares to intent.json |
 | 7 | Smart PR | wrap step 14 `<pr_decision>` — Draft PR default, skip only for on-main/no-code/user-override |
 | 8 | Jira transition | wrap step (structural) |
 | 9 | Learnings | wrap step (structural) |

@@ -1,4 +1,4 @@
-# Team Skill Crew -- Contracts & Hooks Context
+# Phantom Shadows -- Contracts & Hooks Context
 
 > See `reference/contracts.md` for templates and hook checkpoints.
 

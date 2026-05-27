@@ -1,6 +1,6 @@
-# Team Skill v2 — Artifact Schemas
+# Phantom v2 — Artifact Schemas
 
-Canonical schemas for all file-based artifacts used in the team skill v2 system.
+Canonical schemas for all file-based artifacts used in the Phantom v2 system.
 A validation hook enforces these shapes at write time.
 
 ---
@@ -15,7 +15,7 @@ Every artifact JSON must include a `_meta` object at the top level.
 | gitHead | string | yes | Git HEAD sha at write time |
 | gitBranch | string | yes | Current branch name |
 | phase | string | yes | Phase that wrote this (`A`, `B`, `C`, `D`, `verify`, `wrap`) |
-| skill | string | yes | Skill that wrote this (`team:start`, `team:pause`, etc.) |
+| skill | string | yes | Skill that wrote this (`phantom:start`, `phantom:pause`, etc.) |
 | version | number | yes | Schema version (start at `1`) |
 
 **Example:**
@@ -26,7 +26,7 @@ Every artifact JSON must include a `_meta` object at the top level.
     "gitHead": "abc1234",
     "gitBranch": "feat/my-ticket",
     "phase": "B",
-    "skill": "team:start",
+    "skill": "phantom:start",
     "version": 1
   }
 }
@@ -36,7 +36,7 @@ Every artifact JSON must include a `_meta` object at the top level.
 
 ## `pause-state.json`
 
-Written by `team:pause`. Read by `team:resume` to restore context.
+Written by `phantom:pause`. Read by `phantom:resume` to restore context.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -49,7 +49,7 @@ Written by `team:pause`. Read by `team:resume` to restore context.
 | contracts | string[] | no | File paths to contract files |
 | contractsCompleted | string[] | no | Contract IDs already fulfilled |
 | contractsPending | string[] | no | Contract IDs still pending |
-| route | `"solo"` \| `"crew"` | no | Execution route chosen in phase B |
+| route | `"solo"` \| `"shadows"` | no | Execution route chosen in phase B |
 | verifyStatus | `"pass"` \| `"fail"` \| `null` | no | Result of last verify run |
 | resumeNotes | string | yes | Human-readable context for resume |
 
@@ -66,7 +66,7 @@ Written by `team:pause`. Read by `team:resume` to restore context.
   "contracts": ["~/.claude/team/state/sessions/ENG-1234/contracts/api.md"],
   "contractsCompleted": [],
   "contractsPending": ["api.md"],
-  "route": "crew",
+  "route": "shadows",
   "verifyStatus": null,
   "resumeNotes": "Paused mid-spawn; frontend agent finished, backend pending."
 }
@@ -76,7 +76,7 @@ Written by `team:pause`. Read by `team:resume` to restore context.
 
 ## `verification.json`
 
-Written by `team:verify`. Read by `team:wrap` to decide PR strategy.
+Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -122,7 +122,7 @@ Written by `team:verify`. Read by `team:wrap` to decide PR strategy.
 
 ## `wrap.json`
 
-Written by `team:wrap` after all post-merge actions complete.
+Written by `phantom:wrap` after all post-merge actions complete.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -172,7 +172,7 @@ Written by `team:wrap` after all post-merge actions complete.
 
 ## `context.json`
 
-Written by Phase A (`team:start`). Provides ticket context for all downstream phases.
+Written by Phase A (`phantom:start`). Provides ticket context for all downstream phases.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -204,7 +204,7 @@ Written by Phase A (`team:start`). Provides ticket context for all downstream ph
 
 ## `intent.json`
 
-Written by Phase B (`team:start`). Defines the goal contract for verify and wrap.
+Written by Phase B (`phantom:start`). Defines the goal contract for verify and wrap.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -242,22 +242,22 @@ Written by Phase B after devil's advocate review. Drives Phase C execution.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| route | `"solo"` \| `"crew"` | yes | Whether to spawn agents or work inline |
+| route | `"solo"` \| `"shadows"` | yes | Whether to spawn agents or work inline |
 | devilsAdvocateVerdict | `"PROCEED"` \| `"REVISE"` \| `"RETHINK"` | yes | Grill gate outcome |
 | tasks | object[] | yes | Ordered list of task objects |
 | tasks[].id | string | yes | Unique task ID |
 | tasks[].description | string | yes | What this task does |
 | tasks[].files | string[] | yes | Files expected to be touched |
 | tasks[].dependsOn | string[] | no | Task IDs this task must wait for |
-| tasks[].agent | string | no | Agent role for crew route |
+| tasks[].agent | string | no | Agent role for shadows route |
 | antiRepetition | string[] | no | Patterns to avoid (from learnings) |
-| estimatedSpawns | number | no | Expected agent count for crew route |
+| estimatedSpawns | number | no | Expected agent count for shadows route |
 
 **Example:**
 ```json
 {
   "_meta": { "...": "..." },
-  "route": "crew",
+  "route": "shadows",
   "devilsAdvocateVerdict": "PROCEED",
   "tasks": [
     {

@@ -1,6 +1,6 @@
 # Brainstorm Protocol
 
-Loaded by Cortex when router classifies task as `BRAINSTORM_PLAN` or `FULL`.
+Loaded by Apex when router classifies task as `BRAINSTORM_PLAN` or `FULL`.
 Purpose: DIVERGE → CONVERGE before planning begins. Output feeds `intent.json`.
 
 ---
@@ -81,7 +81,7 @@ If a question would expand scope, flag it as out-of-scope and stop.
 |---|---|
 | Asking what CLAUDE.md already defines | Wastes turns, erodes trust |
 | Brainstorming when scope is clear | Delays execution for no value |
-| Proposing >3 approaches | User paralysis, Cortex overload |
+| Proposing >3 approaches | User paralysis, Apex overload |
 | Re-brainstorming in planning phase | Breaks diverge/converge contract |
 | Letting exploration expand scope | Brainstorm becomes scope creep |
 | Skipping learnings check | Repeats past failures |

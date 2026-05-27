@@ -26,7 +26,7 @@ function parseArgs(argv) {
 // ── Domain routing ─────────────────────────────────────────────────────────────
 
 const FILE_DOMAIN_RULES = [
-  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /crew|skill|spawn|agent/i.test(p), domain: 'crew' },
+  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
   { test: p => /(^|\/)(?:test|spec|__tests__)\//.test(p) || /\.test\.|\.spec\./.test(p),         domain: 'testing' },
   { test: p => /(^|\/)(?:styles|components)\//.test(p) || /\.tsx$|\.css$|\.scss$/.test(p) || /ui|frontend/i.test(p), domain: 'ui' },
   { test: p => /(^|\/)(?:api|routes|controllers)\//.test(p) || /fetch|axios|http/i.test(p),      domain: 'data' },
@@ -56,7 +56,7 @@ const BASH_DOMAIN_SIGNALS = [
   { test: c => /\b(lint|eslint|prettier|tsc)\b/i.test(c),              domain: 'tooling' },
   { test: c => /\b(deploy|docker|kubectl)\b/i.test(c),                 domain: 'infra' },
   { test: c => /\b(build|compile|webpack|vite)\b/i.test(c),            domain: 'tooling' },
-  { test: c => /\b(git|commit|push|merge)\b/i.test(c),                 domain: 'crew' },
+  { test: c => /\b(git|commit|push|merge)\b/i.test(c),                 domain: 'shadows' },
 ];
 
 function domainFromBash(command) {
