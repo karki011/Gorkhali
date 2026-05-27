@@ -86,7 +86,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 ## Folder Structure
 
 ```
-~/.claude/team/
+~/.claude/phantom/
 ├── commands/          # 21 skill directives (30-150 lines each)
 ├── reference/         # 16 reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
@@ -164,8 +164,8 @@ All models are 4.6 only — 4.7 is too slow.
 ## Setup
 
 ```bash
-git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/team
-~/.claude/team/setup.sh
+git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
+~/.claude/phantom/setup.sh
 ```
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
