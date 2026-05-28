@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>claude-code-harness vs Phantom Skills — Comparison Research</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #c9d1d9; --heading: #f0f6fc; --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; --purple: #bc8cff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); font-size: 1.8rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { color: var(--accent); font-size: 1.4rem; margin: 2rem 0 1rem; }
+  h3 { color: var(--purple); font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+  .meta { color: #8b949e; font-size: 0.85rem; margin-bottom: 2rem; }
+  p, li { margin-bottom: 0.5rem; }
+  ul, ol { padding-left: 1.5rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { padding: 0.6rem 0.8rem; border: 1px solid var(--border); text-align: left; }
+  th { background: var(--surface); color: var(--heading); font-weight: 600; }
+  td { background: var(--bg); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; margin: 1rem 0; }
+  .verdict { border-left: 4px solid var(--accent); }
+  .good { border-left-color: var(--green); }
+  .warn { border-left-color: var(--yellow); }
+  .bad { border-left-color: var(--red); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-right: 4px; }
+  .tag-phantom { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .tag-harness { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tag-tie { background: rgba(139,148,158,0.15); color: #8b949e; }
+  .score { font-size: 2rem; font-weight: 700; }
+  .score-phantom { color: var(--purple); }
+  .score-harness { color: var(--accent); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+  code { background: var(--surface); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+  .tl-dr { background: linear-gradient(135deg, rgba(188,140,255,0.1), rgba(88,166,255,0.1)); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+
+<h1>claude-code-harness vs Phantom Skills</h1>
+<p class="meta">Research by Subash Karki — 2026-05-27 · Third-party repo analysis (not affiliated with Anthropic's Claude Code)</p>
+
+<div class="tl-dr">
+<h3>TL;DR</h3>
+<p><strong>claude-code-harness</strong> (by Chachamaru, Japanese dev) is a genuinely substantial Claude Code plugin — not a wrapper. It's the most comprehensive third-party system we've found, with real architectural thinking behind spec-driven development, multi-perspective review, and worker isolation. <strong>However</strong>, Phantom already covers or exceeds most of its capabilities, and the few novel patterns worth stealing are incremental improvements, not paradigm shifts.</p>
+<p style="margin-top: 0.8rem;"><strong>Worth stealing:</strong> 3-4 specific patterns. <strong>Competitive threat:</strong> Low (Japanese-only, single maintainer). <strong>Overall quality:</strong> High design, medium-high implementation.</p>
+</div>
+
+<h2>1. System Overview</h2>
+
+<table>
+<tr>
+  <th style="width:20%">Dimension</th>
+  <th style="width:40%"><span class="tag tag-harness">Harness</span> (Chachamaru)</th>
+  <th style="width:40%"><span class="tag tag-phantom">Phantom</span> (Ours)</th>
+</tr>
+<tr>
+  <td><strong>Skills count</strong></td>
+  <td>33+ skill directories</td>
+  <td>22 commands + 11 agents</td>
+</tr>
+<tr>
+  <td><strong>Agent types</strong></td>
+  <td>4 (worker, reviewer, advisor, scaffolder)</td>
+  <td>11 (Apex, Blade, Ward, Gaze, Sage, Lens, Archer, Rival, Hound, Sweep, Plan Checker)</td>
+</tr>
+<tr>
+  <td><strong>Hooks</strong></td>
+  <td>27 event types, Go binary + shell scripts</td>
+  <td>12 hooks, JS-based with hooks-config.json registry</td>
+</tr>
+<tr>
+  <td><strong>Routing</strong></td>
+  <td>Auto-routing by task count (1/2-3/4+)</td>
+  <td>Adaptive routing by uncertainty × scope (DIRECT/PLAN/BRAINSTORM/FULL)</td>
+</tr>
+<tr>
+  <td><strong>Source of truth</strong></td>
+  <td>spec.md + Plans.md dual document</td>
+  <td>intent.json + plan.json + contracts</td>
+</tr>
+<tr>
+  <td><strong>Runtime</strong></td>
+  <td>Go binary + shell scripts + deprecated TS</td>
+  <td>Pure JS/Shell + markdown skills (no compiled binary)</td>
+</tr>
+<tr>
+  <td><strong>Memory</strong></td>
+  <td>3-layer: auto-memory → SSOT docs → agent memory, unified MCP</td>
+  <td>3-layer: observation hooks → domain learnings → consolidation, with decay/evolution</td>
+</tr>
+<tr>
+  <td><strong>Language</strong></td>
+  <td>Predominantly Japanese (bilingual headers)</td>
+  <td>English</td>
+</tr>
+<tr>
+  <td><strong>Multi-host</strong></td>
+  <td>Claude Code + Codex + OpenCode/Cursor (aspirational)</td>
+  <td>Claude Code only (by design)</td>
+</tr>
+<tr>
+  <td><strong>Dependencies</strong></td>
+  <td>Go binary (uuid-only), 100+ shell scripts</td>
+  <td>Zero external dependencies, fully self-contained</td>
+</tr>
+</table>
+
+<h2>2. Head-to-Head Comparison</h2>
+
+<h3>2.1 Planning System</h3>
+<div class="grid">
+<div class="card">
+  <p><span class="tag tag-harness">Harness</span></p>
+  <ul>
+    <li><strong>spec.md + Plans.md</strong> dual-document: spec is product truth, Plans is task ledger</li>
+    <li>Every planning action must produce a "Spec delta" or "Spec skip reason"</li>
+    <li>Plans.md v2 table format with Task/DoD/Depends/Status columns</li>
+    <li>Multi-perspective validation: Product, Architecture, Security, QA, Skeptic subagents</li>
+    <li>TDD tags embedded in plans (<code>[tdd:required]</code>, <code>[tdd:skip:reason]</code>)</li>
+    <li>Named Plans with manifest-based switching</li>
+  </ul>
+</div>
+<div class="card">
+  <p><span class="tag tag-phantom">Phantom</span></p>
+  <ul>
+    <li><strong>intent.json + plan.json</strong> with machine-checkable "Done When" predicates</li>
+    <li>Adversarial deliberation: Planner (Apex) ↔ Challenger (Rival), max 2 rounds</li>
+    <li>Adaptive routing: uncertainty × scope scoring determines ceremony level</li>
+    <li>Plan Checker agent validates: learnings collisions, blast radius, coverage gaps, scope creep</li>
+    <li>Anti-repetition loader injects past corrections into every agent prompt</li>
+    <li>SOLO vs SHADOWS routing — small tasks skip multi-agent overhead</li>
+  </ul>
+</div>
+</div>
+<div class="card verdict">
+  <p><strong>Verdict:</strong> <span class="tag tag-tie">Different strengths</span></p>
+  <p>Harness's <strong>spec delta requirement</strong> is a genuinely good pattern — forcing explicit product decision tracking. Phantom's <strong>adversarial deliberation</strong> is more rigorous (dedicated Rival agent vs. multi-perspective prompts). Phantom's <strong>adaptive routing</strong> is more sophisticated than Harness's task-count routing. Harness's multi-perspective validation (5 viewpoints) is broader but shallower than Phantom's Rival protocol.</p>
+</div>
+
+<h3>2.2 Execution System</h3>
+<div class="grid">
+<div class="card">
+  <p><span class="tag tag-harness">Harness</span></p>
+  <ul>
+    <li>Auto-routes by task count: 1 = solo, 2-3 = parallel, 4+ = "breezing" team mode</li>
+    <li><strong>Workers operate in git worktrees</strong> for isolation</li>
+    <li>Lead delegates only, never writes code directly</li>
+    <li>Self-review gate: worker produces evidence, Lead validates before spawning Reviewer</li>
+    <li>Advisor protocol: structured JSON exchange, max 3 consultations per task</li>
+    <li>Sprint contracts generated per task</li>
+    <li>"Universal violations" — session-scoped gotchas injected into subsequent workers</li>
+  </ul>
+</div>
+<div class="card">
+  <p><span class="tag tag-phantom">Phantom</span></p>
+  <ul>
+    <li>Wiring system: dependency topology → topological sort → parallel waves</li>
+    <li>Apex orchestrates, never implements (hook-enforced via <code>apex-subagent-driven-law.sh</code>)</li>
+    <li>Blade agents spawned with ROLE FOCUS directives, run in parallel per wave</li>
+    <li>Ward verifies each agent's output independently</li>
+    <li>Sage advisory: &lt;100 words, no tools, max 3 calls per Blade</li>
+    <li>Anti-repetition block injected into every agent prompt from learnings</li>
+    <li>Fix loop: max 3 retries before escalation</li>
+  </ul>
+</div>
+</div>
+<div class="card good">
+  <p><strong>Verdict:</strong> <span class="tag tag-phantom">Phantom wins</span></p>
+  <p>Phantom's <strong>wiring system</strong> (explicit produce/consume mapping, topological sort into waves) is more principled than Harness's task-count routing. The <strong>hook-enforced role separation</strong> (Apex can't edit files, period) is stronger than Harness's prompt-based "Lead delegates only" rule. Harness's <strong>worktree isolation</strong> is interesting but Claude Code now has native worktree support. The <strong>self-review evidence gate</strong> pattern from Harness is worth noting though.</p>
+</div>
+
+<h3>2.3 Review & Quality</h3>
+<div class="grid">
+<div class="card">
+  <p><span class="tag tag-harness">Harness</span></p>
+  <ul>
+    <li>Multi-mode: code, plan, scope, security, UI rubric, dual (Claude + Codex), team-debate</li>
+    <li>TeamAgent Debate: Spec Agent, Plans Agent, Regression Agent, Skeptic Agent — collision analysis</li>
+    <li><strong>review-result.v1 JSON</strong> with explicit acceptance bar fields</li>
+    <li>AI residuals scanning (mockData, TODO, FIXME, skipped tests, empty assertions)</li>
+    <li>TDD compliance verification</li>
+  </ul>
+</div>
+<div class="card">
+  <p><span class="tag tag-phantom">Phantom</span></p>
+  <ul>
+    <li>Gaze: weighted scoring (KISS/DRY 25%, type safety 25%, patterns 20%, re-render 15%, edge cases 15%)</li>
+    <li>Archer: cross-file pre-PR review — cache coherence, regressions, dead code</li>
+    <li>Temperature review: P0-P3 severity, state matrix for UI components</li>
+    <li>Sweep: post-verify simplification pass (mandatory)</li>
+    <li>Grill: Socratic self-challenge before shipping</li>
+    <li>Verdicts: APPROVED (≥7.0), NEEDS WORK (5.0-6.9), REJECTED (&lt;5.0)</li>
+  </ul>
+</div>
+</div>
+<div class="card verdict">
+  <p><strong>Verdict:</strong> <span class="tag tag-tie">Different strengths</span></p>
+  <p>Harness's <strong>TeamAgent Debate</strong> (4 agents doing collision analysis) is more structured than our review. Their <strong>review-result.v1 JSON schema</strong> with machine-checkable acceptance fields is cleaner than our score-based verdicts. However, Phantom has more <strong>specialized review agents</strong> (Gaze, Archer, Sweep — each with a distinct concern) and the <strong>mandatory Sweep simplification pass</strong> has no equivalent in Harness.</p>
+</div>
+
+<h3>2.4 Memory & Learning</h3>
+<div class="grid">
+<div class="card">
+  <p><span class="tag tag-harness">Harness</span></p>
+  <ul>
+    <li>3-layer: Claude auto-memory → SSOT docs (decisions.md, patterns.md) → agent memory</li>
+    <li>Cross-tool unified memory via <code>harness_mem_*</code> MCP tools</li>
+    <li>JSONL failover when MCP unavailable</li>
+    <li>"Universal violations" — session-scoped injection, no persistence</li>
+    <li>Resume packs for cross-session handoff</li>
+  </ul>
+</div>
+<div class="card">
+  <p><span class="tag tag-phantom">Phantom</span></p>
+  <ul>
+    <li>3-layer: observation hooks → domain learnings → consolidation</li>
+    <li><strong>Lifecycle tags</strong>: proposed → validated:N → scope:global / stale → pruned</li>
+    <li><strong>Decay</strong>: 30d stale, 60d removal candidate</li>
+    <li><strong>Anti-repetition</strong>: validated:5+ auto-apply, [failed] blocked</li>
+    <li><strong>Self-evolution</strong>: Tier 1 auto-promote, Tier 2-3 propose skill edits/new skills</li>
+    <li>Domain routing: ui, data, auth, testing, tooling, migration, shadows</li>
+  </ul>
+</div>
+</div>
+<div class="card good">
+  <p><strong>Verdict:</strong> <span class="tag tag-phantom">Phantom wins clearly</span></p>
+  <p>Phantom's learning system is significantly more sophisticated. The <strong>lifecycle with decay, validation scoring, and self-evolution</strong> creates a genuine learning loop. Harness's memory is more about persistence and cross-tool access; Phantom's is about <strong>adaptive behavior modification</strong>. The anti-repetition system (blocking failed approaches, auto-applying validated ones) has no equivalent in Harness.</p>
+</div>
+
+<h3>2.5 Context Management</h3>
+<div class="grid">
+<div class="card">
+  <p><span class="tag tag-harness">Harness</span></p>
+  <ul>
+    <li>Skills are pure markdown — full content loaded on every invocation</li>
+    <li>No tiered loading system visible</li>
+    <li>Resume packs for session recovery</li>
+    <li>PreCompact hooks for state preservation</li>
+  </ul>
+</div>
+<div class="card">
+  <p><span class="tag tag-phantom">Phantom</span></p>
+  <ul>
+    <li><strong>4-tier preamble system</strong>: T1 (minimal) → T4 (full orchestration)</li>
+    <li>Saves 40-60% tokens on simple commands</li>
+    <li>10 shared context files, loaded selectively per tier</li>
+    <li>Pause/resume with full artifact chain</li>
+    <li>PreCompact consolidation hook</li>
+  </ul>
+</div>
+</div>
+<div class="card good">
+  <p><strong>Verdict:</strong> <span class="tag tag-phantom">Phantom wins</span></p>
+  <p>The tiered context loading is a major efficiency advantage. Running <code>phantom:status</code> (T1) loads ~25% of the context that <code>phantom:start</code> (T4) does. Harness loads full skill content every time. At 33+ skills, that's a lot of wasted tokens.</p>
+</div>
+
+<h2>3. What Harness Does That We Don't</h2>
+
+<div class="card warn">
+<h3>3.1 Spec Delta Requirement <span class="tag tag-harness">Novel</span></h3>
+<p>Every planning action must produce either a "Spec delta" (what changed in spec.md) or a "Spec skip reason" (why no change needed). This creates an <strong>audit trail of product decisions</strong> that's separate from the code.</p>
+<p><strong>Should we steal it?</strong> Partially. Our intent.json captures the "what" but not the "what changed from the original spec." For Jira-driven work this is less relevant (Jira has history), but for ad-hoc features it would help prevent scope drift.</p>
+</div>
+
+<div class="card warn">
+<h3>3.2 Structured Review Verdicts (review-result.v1) <span class="tag tag-harness">Novel</span></h3>
+<p>Machine-checkable JSON with explicit fields: <code>critical_major_zero</code>, <code>spec_alignment</code>, <code>plans_alignment</code>, <code>regression_safety</code>, <code>verification_evidence</code>. The acceptance bar is: ALL of these must be true.</p>
+<p><strong>Should we steal it?</strong> Yes. Our Gaze scoring (7.0+ = approved) is more subjective. Discrete boolean fields that ALL must pass is more robust against "generous grading."</p>
+</div>
+
+<div class="card warn">
+<h3>3.3 Self-Review Evidence Gate <span class="tag tag-harness">Novel</span></h3>
+<p>Workers produce a <code>worker-report.v1</code> with <code>self_review[].verified</code> and <code>evidence</code> fields. Lead mechanically validates before spawning Reviewer. This prevents the Reviewer from wasting time on obviously incomplete work.</p>
+<p><strong>Should we steal it?</strong> Maybe. Our Ward already does independent verification, but a pre-screen before Ward would save tokens on failed implementations. Could be a lightweight addition to the Blade → Ward handoff.</p>
+</div>
+
+<div class="card">
+<h3>3.4 "not_observed != absent" Principle <span class="tag tag-harness">Novel</span></h3>
+<p>Explicitly distinguishing "we didn't find evidence" from "evidence doesn't exist." LLMs naturally hallucinate certainty — this structural constraint prevents false negatives.</p>
+<p><strong>Should we steal it?</strong> Yes, as a Ward/Gaze directive. Simple addition to verification protocol: report must distinguish "checked and clean" from "not checked."</p>
+</div>
+
+<div class="card">
+<h3>3.5 Multi-Host Adapters <span class="tag tag-harness">Interesting</span></h3>
+<p>Unified memory MCP works across Claude Code, Codex, and OpenCode. JSONL failover when MCP unavailable.</p>
+<p><strong>Should we steal it?</strong> No. We're Claude Code only by design. The JSONL failover pattern is interesting but our hook-based system already works without MCP.</p>
+</div>
+
+<div class="card">
+<h3>3.6 Go Binary for Guardrails <span class="tag tag-harness">Interesting</span></h3>
+<p>Compiled binary handles deterministic checks (path validation, Plans.md parsing, file safety). Fast, no LLM overhead.</p>
+<p><strong>Should we steal it?</strong> No. Our JS hooks serve the same purpose and are easier to modify. The Go binary adds a build step and distribution concern.</p>
+</div>
+
+<h2>4. What We Do That Harness Doesn't</h2>
+
+<div class="card good">
+<h3>4.1 Adversarial Deliberation (Rival Agent)</h3>
+<p>Dedicated opus agent with no tools that challenges every plan across 5 categories. Max 2 rounds. Verdict: PROCEED/REVISE/RETHINK. Harness has multi-perspective prompts but no dedicated adversarial agent.</p>
+</div>
+
+<div class="card good">
+<h3>4.2 Adaptive Cognitive Routing</h3>
+<p>Weighted uncertainty × scope scoring with learnings-based correction. Routes to minimum viable ceremony. Harness routes by task count, which is a much cruder heuristic.</p>
+</div>
+
+<div class="card good">
+<h3>4.3 Tiered Context Loading</h3>
+<p>T1-T4 system saves 40-60% tokens. Harness loads full skill content every time.</p>
+</div>
+
+<div class="card good">
+<h3>4.4 Self-Evolution Pipeline</h3>
+<p>3-tier: auto-promote validated patterns, propose skill edits, spawn new micro-skills. Harness has no self-modification capability.</p>
+</div>
+
+<div class="card good">
+<h3>4.5 Specialized Agent Roster (11 vs 4)</h3>
+<p>Each agent has exactly one concern. Hound for forensics, Lens for visual, Archer for cross-file review, Sweep for simplification. Harness overloads its 4 agents with broader responsibilities.</p>
+</div>
+
+<div class="card good">
+<h3>4.6 Hook-Enforced Disciplines</h3>
+<p>Feature branch gate and Apex edit law are enforced by actual hooks that block tool calls. Harness relies on prompt instructions for the same rules.</p>
+</div>
+
+<div class="card good">
+<h3>4.7 Wiring as Dependency Topology</h3>
+<p>Explicit produce/consume mapping, topological sort into parallel waves, integration risk detection. Harness uses Plans.md Depends column but no topology analysis.</p>
+</div>
+
+<div class="card good">
+<h3>4.8 Forensic Investigation (Hound)</h3>
+<p>7-step protocol with HTML reports, depth levels, automated suspect identification. Harness has no investigation capability — it's purely a forward-progress system.</p>
+</div>
+
+<h2>5. Scorecard</h2>
+
+<table>
+<tr>
+  <th>Category</th>
+  <th><span class="tag tag-harness">Harness</span></th>
+  <th><span class="tag tag-phantom">Phantom</span></th>
+  <th>Winner</th>
+</tr>
+<tr><td>Planning depth</td><td>8/10</td><td>9/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Execution coordination</td><td>7/10</td><td>9/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Review rigor</td><td>8/10</td><td>8/10</td><td><span class="tag tag-tie">Tie</span></td></tr>
+<tr><td>Memory & learning</td><td>6/10</td><td>9/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Context efficiency</td><td>5/10</td><td>9/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Agent specialization</td><td>5/10</td><td>9/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Structural enforcement</td><td>7/10</td><td>8/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Spec/product alignment</td><td>9/10</td><td>7/10</td><td><span class="tag tag-harness">Harness</span></td></tr>
+<tr><td>Release automation</td><td>8/10</td><td>7/10</td><td><span class="tag tag-harness">Harness</span></td></tr>
+<tr><td>Cross-tool portability</td><td>7/10</td><td>3/10</td><td><span class="tag tag-harness">Harness</span></td></tr>
+<tr><td>Documentation quality</td><td>6/10</td><td>8/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr><td>Extensibility</td><td>7/10</td><td>8/10</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+<tr style="font-weight:700"><td>Overall</td><td class="score-harness">83/120</td><td class="score-phantom">104/120</td><td><span class="tag tag-phantom">Phantom</span></td></tr>
+</table>
+
+<h2>6. Actionable Takeaways</h2>
+
+<div class="card good">
+<h3>Steal These (3 patterns)</h3>
+<ol>
+  <li><strong>Structured review verdicts</strong> — Replace Gaze's numeric scoring with discrete boolean fields (critical_zero, spec_alignment, regression_safety, verification_evidence). All must pass. Eliminates "generous grading."</li>
+  <li><strong>"not_observed ≠ absent" directive</strong> — Add to Ward/Gaze protocol: verification reports must distinguish "checked and clean" from "not checked." Prevents false confidence.</li>
+  <li><strong>Spec delta tracking</strong> — Add optional spec_delta field to plan.json: what changed from original requirements and why. Creates product decision audit trail.</li>
+</ol>
+</div>
+
+<div class="card">
+<h3>Consider These (2 patterns)</h3>
+<ol>
+  <li><strong>Self-review evidence in Blade reports</strong> — Blade produces a brief self-review before Ward runs. Lightweight pre-screen could save Ward tokens on obvious failures.</li>
+  <li><strong>Silence policy for long runs</strong> — Explicit enumeration of what Apex should/shouldn't report during multi-agent execution. "Report state changes, not heartbeats."</li>
+</ol>
+</div>
+
+<div class="card bad">
+<h3>Skip These</h3>
+<ul>
+  <li><strong>Go binary</strong> — Adds build/distribution complexity for marginal speed gain. JS hooks work fine.</li>
+  <li><strong>Multi-host adapters</strong> — We're Claude Code only. Cross-tool portability isn't a goal.</li>
+  <li><strong>Plans.md table format</strong> — Markdown tables for task management is fragile. Our JSON artifacts are more robust.</li>
+  <li><strong>Named Plans with manifest switching</strong> — Over-engineering for our use case.</li>
+</ul>
+</div>
+
+<h2>7. Risk Assessment</h2>
+
+<div class="card">
+<h3>Is this repo a competitive threat?</h3>
+<p><strong>No.</strong> Three reasons:</p>
+<ol>
+  <li><strong>Language barrier</strong> — Predominantly Japanese skill content. Limited to Japanese-speaking developers.</li>
+  <li><strong>Single maintainer</strong> — Bus factor of 1. Version 4.12.11 with massive surface area is unsustainable solo.</li>
+  <li><strong>Prompt-as-code fragility</strong> — The behavioral contracts (worker-report.v1, advisor-request.v1) depend entirely on LLM compliance. No structural enforcement for core workflows. When models change behavior, the whole system can break silently.</li>
+</ol>
+<p>That said, the <strong>design thinking</strong> is first-rate. This developer clearly spent thousands of hours iterating on the problem. The spec-driven approach and multi-perspective validation show genuine insight into agent failure modes. Worth watching for future innovations.</p>
+</div>
+
+<h2>8. Summary</h2>
+
+<div class="tl-dr">
+<p><strong>claude-code-harness is the real deal</strong> — not a thin wrapper, not vaporware. It's the most architecturally thoughtful third-party Claude Code plugin we've seen. The spec.md/Plans.md dual-document system, structured review verdicts, and multi-perspective validation are all well-designed.</p>
+
+<p style="margin-top: 0.8rem;"><strong>But Phantom is ahead</strong> on the dimensions that matter most for our workflow: adaptive routing, adversarial deliberation, self-evolution, context efficiency, agent specialization, and structural enforcement via hooks. The 3 patterns worth stealing are incremental improvements to an already-stronger system.</p>
+
+<p style="margin-top: 0.8rem;"><strong>Net assessment:</strong> Respect the craft, steal the good ideas, don't worry about competition.</p>
+</div>
+
+</body>
+</html>

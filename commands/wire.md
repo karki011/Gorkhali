@@ -17,9 +17,9 @@ READ `reference/wiring.md` for full protocol (dependency mapping, wave rules, va
 ## Prerequisites
 
 1. Resolve TICKET from $ARGUMENTS, session state, or `git branch --show-current`
-2. **BLOCK** if `state/sessions/{TICKET}/plan.json` does not exist — must run planning first
-3. Load `plan.json` — extract `tasks[]` with file targets and `dependsOn` fields
-4. Skip wiring if task count <= 2 with no shared files (per `reference/wiring.md`)
+2. **BLOCK** if `plan.json` does not exist — must plan first
+3. Load `plan.json` — extract `tasks[]` with file targets and `dependsOn`
+4. Skip if task count <= 2 with no shared files (per `reference/wiring.md`)
 
 </wire_context>
 
@@ -27,15 +27,10 @@ READ `reference/wiring.md` for full protocol (dependency mapping, wave rules, va
 
 ## Phase 1: Dependency Analysis
 
-For each task in `plan.json → tasks[]`, determine:
-- **produces**: files, exports, or API shapes this task creates or owns
-- **consumes**: files or exports from OTHER tasks required to exist first
+For each task: determine **produces** (files/exports created) and **consumes** (files from other tasks).
+Build edges: A produces X, B consumes X → B depends on A.
 
-Build dependency edges: if task A produces X and task B consumes X → B depends on A.
-
-**Graph validation** — use `phantom_graph_context` or `query_graph` (imports_of/callers_of) to validate declared deps against actual imports. Flag discrepancies.
-
-**v1 fallback**: if graph tools unavailable, derive waves from `tasks[].dependsOn` directly. Emit `dependencies: []` with only `waves` + `riskPoints`.
+Validate with graph tools (`phantom_graph_context`, `query_graph`) if available. v1 fallback: derive from `tasks[].dependsOn` directly.
 
 </analysis_protocol>
 
@@ -43,20 +38,13 @@ Build dependency edges: if task A produces X and task B consumes X → B depends
 
 ## Phase 2: Topology Generation
 
-**Wave assignment** — topological sort:
-- Wave 1: tasks with empty `consumes` (no plan-internal dependencies)
-- Wave N: tasks whose `consumes` are all satisfied by waves < N
-- Tasks in same wave = independent, can run in parallel
+**Wave assignment** — topological sort per `reference/wiring.md`:
+- Wave 1: no plan-internal dependencies. Wave N: all consumes satisfied by waves < N.
+- Same wave = independent = parallel.
 
-**Validation** (per `reference/wiring.md` SS Validation Rules):
-- `consumes` entry references file not in any task's `produces` → ERROR
-- Circular dependency detected → ERROR, plan is invalid, re-plan before continuing
-- Task in wave N consumes from wave N+1 → ERROR
+**Validation:** missing produces → ERROR. Circular dep → ERROR (re-plan). Cross-wave violation → ERROR.
 
-**Risk detection** (per `reference/wiring.md` SS Integration Risk Points):
-- `merge`: 2+ producers feed one consumer → integration test after consumer's wave
-- `interface`: producer consumed by 3+ tasks → lock exported shape before spawn
-- `cycle`: circular dependency → plan invalid, block execution
+**Risk detection:** `merge` (2+ producers → 1 consumer), `interface` (1 producer → 3+ consumers), `cycle` (circular → block).
 
 </topology_protocol>
 
@@ -64,36 +52,10 @@ Build dependency edges: if task A produces X and task B consumes X → B depends
 
 ## Output
 
-**Write `state/sessions/{TICKET}/wiring.json`:**
+**Write `state/sessions/{TICKET}/wiring.json`:** `_meta` + `dependencies[]` (task/produces/consumes) + `waves[]` + `riskPoints[]` + `integrationPoints[]` + `parallelGroups[]`.
 
-```json
-{
-  "_meta": {
-    "writtenAt": "{ISO 8601}",
-    "gitHead": "{HEAD sha}",
-    "gitBranch": "{branch}",
-    "phase": "wire",
-    "skill": "phantom:wire",
-    "version": 1
-  },
-  "dependencies": [
-    { "task": "T1", "produces": ["src/api/foo.ts"], "consumes": [] },
-    { "task": "T2", "produces": ["src/hooks/useFoo.ts"], "consumes": ["src/api/foo.ts"] }
-  ],
-  "waves": [
-    { "wave": 1, "tasks": ["T1"], "parallel": true },
-    { "wave": 2, "tasks": ["T2"], "parallel": true }
-  ],
-  "riskPoints": [
-    { "type": "merge|interface|cycle", "producer": "T1", "consumers": ["T2"], "mitigation": "{action}" }
-  ],
-  "integrationPoints": [
-    { "file": "src/api/foo.ts", "touchedBy": ["T1", "T2"] }
-  ],
-  "parallelGroups": [["T1"], ["T2"]]
-}
-```
+Full schema in `reference/wiring.md`.
 
-Present topology summary to human. On FULL route: **HUMAN GATE** — user approves wiring before execution.
+Present topology summary. On FULL route: **HUMAN GATE** — approve wiring before execution.
 
 </artifact_schema>

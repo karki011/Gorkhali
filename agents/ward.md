@@ -46,45 +46,27 @@ Run in this exact order. Stop on first failure.
 
 When Ward verifies a fix (fix loop iteration that passes), register the fix's "load-bearing marker" — a substring that MUST exist in the codebase for the fix to remain effective.
 
-**When to register:**
-- After a fix loop iteration passes (the fix worked)
-- When the fix involves a specific code pattern that could be silently deleted
+**When:** After a fix loop iteration passes, or when the fix involves a specific code pattern that could be silently deleted.
 
-**How to register:**
-Append to `witness-fixes.json` in the repo root (create if missing):
+**How:** Append to `witness-fixes.json` (create if missing):
 ```json
-{
-  "marker": "core.optionalLocks=false",
-  "file": "internal/git/operations.go",
-  "fix": "prevents index-lock fsnotify feedback loops",
-  "ticket": "CP-41171",
-  "date": "2026-05-11"
-}
+{ "marker": "core.optionalLocks=false", "file": "internal/git/operations.go", "fix": "prevents index-lock fsnotify feedback loops", "ticket": "CP-41171", "date": "2026-05-11" }
 ```
 
-**How to verify (during build verification step 5):**
-```bash
-# After all other checks pass, verify witness markers
-if [ -f witness-fixes.json ]; then
-  jq -r '.[] | "\(.file)|\(.marker)"' witness-fixes.json | while IFS='|' read -r file marker; do
-    if ! grep -q "$marker" "$file" 2>/dev/null; then
-      echo "WITNESS FAIL: marker '$marker' missing from $file"
-      exit 1
-    fi
-  done
-fi
-```
+**Verify** (during build verification step 5): check each marker exists in its file. Missing marker = WITNESS FAIL. This catches silent regressions where fix code is deleted or refactored away without triggering test failures.
 
-**This catches:** Silent regressions where fix code is deleted, refactored away, or overwritten without triggering any test failure. Tests verify behavior; witnesses verify the fix code still exists.
+## Observation Confidence Rule
+
+For every verification step, report one of:
+- **checked:pass** — "I ran this check and it passed"
+- **checked:fail** — "I ran this check and it failed" (include output)
+- **not_observed** — "I could not run this check" (include reason)
+
+`not_observed != absent`. Never report a check as passing without running it. This feeds into Gaze's `observation_confidence` gate.
 
 ## On Task Completion
 
-Report:
-- Test count per file (new and modified)
-- Coverage areas addressed
-- Build status (pass/fail per step)
-- Witness markers registered (if fix loop)
-- Known gaps or skipped areas
+Report: test count per file, coverage areas, build status (checked:pass/fail/not_observed per step), witness markers registered (if fix loop), observation gaps.
 
 ## Escalation
 
