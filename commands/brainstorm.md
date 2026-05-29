@@ -17,7 +17,7 @@ READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns,
 ## Context Setup
 
 1. Resolve TICKET from $ARGUMENTS, session state, or `git branch --show-current`
-2. Ensure `state/sessions/{TICKET}/` exists
+2. Ensure `{TEAM_DIR}/sessions/{TICKET}/` exists
 3. Load `learnings/INDEX.md` — scan for `[failed]` and `[validated:5+]` entries
 4. Load `context.json` if present. If absent, write minimal version from $ARGUMENTS.
 
@@ -27,7 +27,31 @@ READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns,
 
 ## Phase 1: Diverge
 
-**Explore** — spawn Explorer (model: opus, mode: bypassPermissions): research codebase, check learnings, output 500-token summary.
+### Parallel Research Agents
+
+Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive. (model + effort come from the agent definition)
+
+**Agent 1: Codebase Explorer** (always spawned)
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- Scans existing patterns, conventions, and related code in the project
+- Checks how similar problems were solved before
+- Returns: relevant files, patterns found, reusable abstractions
+
+**Agent 2: Constraint Mapper** (always spawned)
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- Checks `learnings/INDEX.md` for `[failed]` and `[validated:5+]` entries matching the problem space
+- Checks package constraints, API contracts, type boundaries
+- Returns: hard constraints, soft constraints, learnings that apply
+
+**Agent 3: Domain Researcher** (optional — only for unfamiliar domains)
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- Explores documentation, type definitions, external API patterns
+- Only spawn when the problem touches a domain the codebase hasn't solved before
+- Returns: relevant API patterns, type signatures, integration examples
+
+### Synthesis
+
+After all agents return, the coordinator synthesizes their summaries into context for approach generation.
 
 **Questions** — per `reference/brainstorm.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 2-5, max 2 rounds.
 
@@ -57,7 +81,7 @@ Risk:       {low | medium | high — with reason}
 
 ## Artifacts
 
-**Write `state/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives.
+**Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives.
 
 **Update `intent.json`** (merge): `approach`, `scopeDecisions`, `exploredAlternatives`.
 

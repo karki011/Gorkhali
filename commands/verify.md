@@ -1,6 +1,7 @@
 ---
 name: phantom:verify
 description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Also use when user says 'does it pass', 'run tests', 'check the build', 'lint it', 'is it working', or 'test this'. Runs correctness checks (lint + build + tests) then a power level for quality."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
@@ -19,7 +20,7 @@ Run each command. Read full output. Report: lint pass/fail, build pass/fail, tes
 
 If ANY fail → run hound failure scan (Step 1.5), print failures, suggest `/phantom:fix`. Stop.
 
-Spawn sweep agent (model: sonnet, mode: bypassPermissions) on changed files using `agents/sweep.md`. If changes produced → re-run correctness.
+Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (model + effort come from the agent definition)
 
 ### Step 1.5: Hound Failure Scan (auto, on failure)
 
@@ -31,7 +32,7 @@ Spawn sweep agent (model: sonnet, mode: bypassPermissions) on changed files usin
 
 ## Step 2: Power Level (1 agent)
 
-Spawn ONE review agent (model: sonnet, mode: bypassPermissions):
+Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
 - Input: `git diff main...HEAD` + intent from session
 - Prompt: load from `reference/power-level.md` — "Review Agent Prompt" section
 - Output: JSON array of P0/P1 findings (P2/P3 dropped)
@@ -40,7 +41,7 @@ If `[]` → verdict: pass. Skip to Write Artifact.
 
 ## Step 3: Auto-Address (only if P0/P1 exist)
 
-1. Spawn 1 fix agent with scoped findings
+1. Spawn 1 fix agent (`subagent_type: "blade"`, `mode: "bypassPermissions"`) with scoped findings
 2. Re-run Step 1 correctness only
 3. Re-review ONLY the fix diff
 4. Max 2 loops. Clean → pass. Still P0/P1 → escalate to user.
@@ -49,7 +50,7 @@ If `[]` → verdict: pass. Skip to Write Artifact.
 
 ## Write Artifact
 
-Write `state/sessions/{TICKET}/verification.json`. Schema in `reference/schemas/verification.md`.
+Write `{TEAM_DIR}/sessions/{TICKET}/verification.json`. Schema in `reference/schemas/verification.md`.
 
 Key fields: `_meta`, `correctness` (lint/build/tests/commands), `review` (temperature/findings/fixLoops), `simplifyRan`, `intentAlignment`, `verdict`, `score`.
 

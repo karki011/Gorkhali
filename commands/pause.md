@@ -15,7 +15,7 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    - HEAD: `git rev-parse --short HEAD`
    - Uncommitted: `git diff --name-only`
 
-2. **Write state artifact** to `state/sessions/{TICKET}/pause-state.json`:
+2. **Write state artifact** to `{TEAM_DIR}/sessions/{TICKET}/pause-state.json`:
 
 <output_format>
    ```json
@@ -32,8 +32,8 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
      "phase": "{A/B/C/D}",
      "phaseStep": "{specific step if known}",
      "status": "paused",
-     "intent": "state/sessions/{TICKET}/intent.json",
-     "plan": "state/sessions/{TICKET}/plan.json",
+     "intent": "{TEAM_DIR}/sessions/{TICKET}/intent.json",
+     "plan": "{TEAM_DIR}/sessions/{TICKET}/plan.json",
      "contracts": ["{list of contract file paths}"],
      "contractsCompleted": ["{completed task IDs}"],
      "contractsPending": ["{pending task IDs}"],
@@ -44,7 +44,7 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    ```
 </output_format>
 
-3. **Write session log** to `sessions/{TICKET}/{date}_{slug}.md`
+3. **Write session log** to `{TEAM_DIR}/sessions/{TICKET}/{date}_{slug}.md`
    - Summary of work done
    - Key decisions made
    - Resume instructions

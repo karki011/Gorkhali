@@ -6,12 +6,26 @@
 
 ## Model Routing
 
-All agents: `"opus"`, `"sonnet"`, or `"haiku"` only. **NEVER 4.7 variants.** Check MODEL_OVERRIDE at session start.
+**Single model, differentiated by effort.** All agents are registered Claude Code subagents whose `model` + `effort` come from their definition frontmatter (`agents/*.md`). Every agent runs `opus` (resolves to `claude-opus-4-8`); the **`effort`** parameter — not the model — is the lever that trades thoroughness vs token efficiency.
 
-- **Bypass:** Apex edits inline (rename, import, typo). No agent spawned.
-- **Haiku:** Single-file, routine, no cross-file deps. `model: "haiku"`.
-- **Sonnet:** Standard Blade work (default).
-- **Opus:** Apex, Gaze, Sage, planning, security-sensitive.
+| Agent | model | effort | role |
+|-------|-------|--------|------|
+| apex | opus | xhigh | orchestrator |
+| blade | opus | xhigh | implementation |
+| hound | opus | xhigh | forensics |
+| sage | opus | max | deepest advisory |
+| gaze | opus | high | quality gate |
+| archer | opus | high | cross-file review |
+| rival | opus | high | adversarial plan review |
+| plan-checker | opus | high | plan validation |
+| ward | opus | medium | build/test QA |
+| lens | opus | medium | visual QA |
+| sweep | opus | low | simplification |
+
+- `opus` resolves to `claude-opus-4-8` (1M context, adaptive thinking — no manual thinking budgets).
+- Effort governs all tokens including tool calls: `xhigh` for implementation/orchestration, `high` for review, `medium`/`low` for QA/cleanup, `max` for deepest advisory.
+- `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
+- Effort is the lever, not model. Check MODEL_OVERRIDE at session start.
 
 Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, worktree isolation: see `reference/agents.md`.
 

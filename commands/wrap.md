@@ -1,6 +1,7 @@
 ---
 name: phantom:wrap
 description: "Use when work is DONE — finalizing a session, creating a PR, recording learnings, or opening a pull request. Also use when user says 'wrap up', 'we're done', 'ship it', 'create the PR', 'open PR', 'finalize', 'finish up', 'record what we learned', 'commit my work', or 'submit'. NOT for bare git push. Runs shadows eval, saves learnings, creates PR."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts
@@ -10,7 +11,7 @@ description: "Use when work is DONE — finalizing a session, creating a PR, rec
 
 Nothing ships without passing verification. No "proceed at your own risk" option.
 
-Check `state/sessions/{TICKET}/verification.json`. Auto-run `Skill(skill="phantom:verify")` if missing, failed, or stale (`_meta.gitHead` != current HEAD). Only proceed if `verdict: "pass"` with matching HEAD.
+Check `{TEAM_DIR}/sessions/{TICKET}/verification.json`. Auto-run `Skill(skill="phantom:verify")` if missing, failed, or stale (`_meta.gitHead` != current HEAD). Only proceed if `verdict: "pass"` with matching HEAD.
 
 - verify passes -> proceed with wrap
 - verify fails -> **STOP**. Print failures. Suggest `/phantom:fix` then `/phantom:wrap` again.
@@ -41,7 +42,7 @@ Skip silently if < 3 files. User override: `--skip-grill` flag.
 
 See [reference/wrap/rpsl.md] for full protocol.
 
-4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. ALL must pass. No override. No skip flag. Writes `review-panel.json`.
+4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). ALL must pass. No override. No skip flag. Writes `review-panel.json`.
 
 ## Step 5: Learnings Recording
 
@@ -59,12 +60,12 @@ Stage -> commit -> push -> smart PR decision -> Greptile review -> Jira transiti
 
 See [reference/wrap/evolution.md] for full protocol.
 
-Evolution check (Haiku sidecar) -> archive session -> memory layer sync -> Iron Law #13 audit -> deactivate hook -> clear goal -> shut down shadows.
+Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermissions"`; model + effort come from the agent definition) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
 
 <output_format>
 ## Step 8: Write Wrap Artifact
 
-Write `state/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
 </output_format>
 
 ---

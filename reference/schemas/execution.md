@@ -37,6 +37,6 @@ Written by Phase C after agents complete. Summarizes what was actually done.
     }
   ],
   "totalSpawns": 2,
-  "agentOutputs": "~/.claude/team/state/sessions/ENG-1234/agent-logs/"
+  "agentOutputs": "~/.claude/phantom/state/sessions/ENG-1234/agent-logs/"
 }
 ```

@@ -7,7 +7,7 @@ description: "Use when you want to see what's happening, check progress, view th
 
 # /phantom:status
 
-Task board from `state/sessions/{TICKET}.json`. Show:
+Task board from `{TEAM_DIR}/sessions/{TICKET}.json`. Show:
 
 - Agent assignments and status (pending/active/done)
 - Contract completion status

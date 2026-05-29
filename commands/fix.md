@@ -1,6 +1,7 @@
 ---
 name: phantom:fix
 description: "Use when verification failed, tests broke, build errors occurred, lint issues found, or CI is red — and the root cause is known or narrowed down. Also use when user says 'fix it', 'it's broken', 'tests failing', 'build failed', 'errors', 'something broke', or 'make it pass'. NOT for investigation — use phantom:hound when you need to find the cause first. Triages failures, assigns scoped repairs, re-verifies. Max 3 loops."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
@@ -17,15 +18,16 @@ Fix loop from latest failed verification.
 
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).
 
-4. **Triage** — spawn Apex (sonnet): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners.
+4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (model + effort come from the agent definition)
 5. Show fix packet → user approval.
-6. Spawn scoped repair agents → `phantom:verify`.
-7. **If re-verify passes** → exit, proceed to wrap.
-   **If fails:** same class → scrap-and-redo (step 7.5) + write correction. Different class → increment loop, return to step 1.
+6. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
+7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f ~/.claude/phantom/.blade-editing`) → `phantom:verify`.
+8. **If re-verify passes** → exit, proceed to wrap.
+   **If fails:** same class → scrap-and-redo (step 8.5) + write correction. Different class → increment loop, return to step 1.
 
-**7.5. Scrap-and-redo:** Document what was learned. `git checkout -- <touched files>`. Spawn fresh agent with synthesized learnings (not failed code). Re-verify.
+**8.5. Scrap-and-redo:** Document what was learned. `git checkout -- <touched files>`. Spawn fresh agent with synthesized learnings (not failed code). Re-verify.
 
-8. **Structured escalation** (loop > 3 or scope expanded):
+9. **Structured escalation** (loop > 3 or scope expanded):
    ```
    ## FIX LOOP EXHAUSTED ({N}/3)
    ### What was attempted (per-loop summary)

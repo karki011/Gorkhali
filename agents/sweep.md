@@ -1,7 +1,7 @@
 ---
 name: sweep
 description: Simplifies and refines recently modified code for clarity, consistency, and maintainability while preserving all functionality.
-model: sonnet
+model: opus
 maxTurns: 15
 effort: low
 author: Subash Karki

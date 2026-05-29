@@ -5,8 +5,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const REF_DIR = path.join(process.env.HOME, '.claude/team/reference');
-const STATE_DIR = path.join(process.env.HOME, '.claude/team/state/sessions');
+const REF_DIR = path.join(process.env.HOME, '.claude/phantom/reference');
+const STATE_DIR = path.join(process.env.HOME, '.claude/phantom/state/sessions');
 
 const PHASE_REFS = {
   'A': ['governance.md'],

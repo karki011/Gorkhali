@@ -2,6 +2,7 @@
 name: phantom:start
 description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket (CP-*, CLOUD-*), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T4** (full orchestration -- loads ALL shared contexts)
@@ -10,16 +11,43 @@ argument-hint: "<requirement>"
 # /phantom:start "$ARGUMENTS"
 
 Adaptive router: context → classify → route(DIRECT|PLAN|BRAINSTORM|FULL) → verify.
-Each phase reads/writes artifacts in `state/sessions/{TICKET}/`.
+Each phase reads/writes artifacts in `{TEAM_DIR}/sessions/{TICKET}/`.
 No git operations until wrap. All work is local.
+
+> **Tip:** Run `/effort ultracode` before starting — Phantom is multi-agent orchestration, which is exactly what ultracode (xhigh + multi-agent permission) is built for.
+>
+> Opus 4.8's improved tool triggering and compaction recovery make the subagent-driven flow and pause/resume more reliable.
+
+<subagent_law>
+
+## CORE DISCIPLINE: Subagent-Driven Work
+
+**The main LLM (Apex) NEVER implements code directly.** All code changes go through the Agent tool.
+
+- **Phase A + B:** Apex gathers context and classifies. This is coordinator work — read files, call MCP tools, write session artifacts. This is fine.
+- **Implementation:** ALWAYS spawn Blade agent(s) via the Agent tool. Apex writes `intent.json`, `plan.json`, `contracts/` — but NEVER edits project source files.
+- **If you catch yourself about to call Edit/Write on a project file:** STOP. Spawn a Blade instead.
+
+Agent spawn rules (all routes):
+- `mode: "bypassPermissions"` — always
+- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, lens, archer, rival, plan-checker). **Model + effort come from the agent definition** (all opus, differentiated by effort: blade/hound xhigh, gaze/archer high, ward/lens medium, sweep low, sage max). Do not pass a redundant `model:` override.
+- `model: "haiku"` override ONLY for trivial mechanical single-file edits (rename, import, typo) — spawn `subagent_type: "blade"` with `model: "haiku"`.
+- SOLO (1-3 files): single Blade, foreground
+- SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
+- Inject learnings corrections into every agent prompt
+
+</subagent_law>
 
 ## Phase A: Context
 
+> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `~/.claude/phantom/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
+
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current`
-2. Create `state/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
+2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
+2.5. Activate subagent enforcement: `touch ~/.claude/phantom/.apex-active`
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
-5. Bug detected (keywords/Jira type/branch prefix) → hound pre-scan per `reference/detective/depth-levels.md`
+5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
 
 ## Phase B: Classify + Route
 
@@ -31,21 +59,42 @@ READ `reference/router.md` for full algorithm.
 
 ## Route: DIRECT (0 gates)
 
-`intent.json` → Blade → verify → wrap. FAIL → escalate to PLAN. >3 files → log correction.
+1. Write `intent.json` with task scope
+2. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
+3. **Spawn Blade agent** via Agent tool:
+   ```
+   Agent call:
+     description: "Blade: {1-line task summary}"
+     subagent_type: "blade"
+     mode: "bypassPermissions"
+     # model (opus) + effort (xhigh) come from the blade agent definition
+     prompt: |
+       You are a BLADE — implementation agent.
+       {task description from intent.json}
+       {acceptance criteria from Jira}
+       {relevant learnings/corrections}
+       {file paths to modify}
+       Self-review your changes before returning.
+   ```
+4. Deactivate blade marker: `rm -f ~/.claude/phantom/.blade-editing`
+5. After Blade returns → `Skill(skill="phantom:verify")`
+6. FAIL → escalate to PLAN route. >3 files touched → log correction.
 
 ## Route: PLAN (1 gate)
 
 1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`)
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
 3. **HUMAN GATE**: approve plan
-4. Contracts. >5 files → `phantom:wire`. Execute → verify → wrap.
+4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
+5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
+6. `Skill(skill="phantom:verify")` → `Skill(skill="phantom:wrap")`
 
 ## Route: BRAINSTORM (2 gates)
 
-`phantom:brainstorm` → **GATE 1** (pick direction) → PLAN route → **GATE 2** (approve plan)
+`Skill(skill="phantom:brainstorm")` → **GATE 1** (pick direction) → PLAN route → **GATE 2** (approve plan)
 
 ## Route: FULL (3 gates)
 
-`phantom:brainstorm` → **GATE 1** → Plan → **GATE 2** → `phantom:wire` → **GATE 3** → Execute → verify → wrap
+`Skill(skill="phantom:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="phantom:wire")` → **GATE 3** → `Skill(skill="phantom:execute")` → `Skill(skill="phantom:verify")` → `Skill(skill="phantom:wrap")`
 
-Between phases: if heavy context, `phantom:pause`. Resume reads `route-decision.json`.
+Between phases: if heavy context, `Skill(skill="phantom:pause")`. Resume reads `route-decision.json`.

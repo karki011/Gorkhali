@@ -38,6 +38,10 @@ crew-diagram.html
 # OS
 .DS_Store
 
+# Local tool artifacts / scratch
+.playwright-mcp/
+board-v2*.png
+
 # Archive (restorable, not shared)
 .archive/
 .swarm/

@@ -27,7 +27,7 @@ node validate-artifact.js <artifact-type> <file-path>
 
 **Example:**
 ```bash
-node validate-artifact.js verification ~/.claude/team/repos/myrepo/sessions/ENG-1234/verification.json
+node validate-artifact.js verification ~/.claude/phantom/repos/myrepo/sessions/ENG-1234/verification.json
 ```
 
 ---
@@ -40,7 +40,7 @@ Verifies that `learnings/INDEX.md` is internally consistent with the domain file
 node check-learnings-index.js [learnings-dir]
 ```
 
-**Default dir:** `~/.claude/team/repos/_default/learnings`
+**Default dir:** `~/.claude/phantom/repos/_default/learnings`
 
 **Checks:**
 - Every `.md` file referenced in INDEX.md exists on disk
@@ -52,7 +52,7 @@ node check-learnings-index.js [learnings-dir]
 
 **Example:**
 ```bash
-node check-learnings-index.js ~/.claude/team/repos/feature-web-apps/learnings
+node check-learnings-index.js ~/.claude/phantom/repos/feature-web-apps/learnings
 ```
 
 ---
@@ -78,10 +78,10 @@ Checks a session directory for expected artifacts and validates their JSON.
 **Examples:**
 ```bash
 # Auto-detect phase
-./session-health.sh ~/.claude/team/repos/myrepo/sessions/ENG-1234
+./session-health.sh ~/.claude/phantom/repos/myrepo/sessions/ENG-1234
 
 # Check that all wrap-phase artifacts are present
-./session-health.sh ~/.claude/team/repos/myrepo/sessions/ENG-1234 --phase wrap
+./session-health.sh ~/.claude/phantom/repos/myrepo/sessions/ENG-1234 --phase wrap
 ```
 
 ---
@@ -123,7 +123,7 @@ node preamble-tier.js
 Reference these scripts from skill `.md` files like:
 
 ```
-Run: node ~/.claude/team/scripts/validate-artifact.js verification {VERIFICATION_JSON_PATH}
+Run: node ~/.claude/phantom/scripts/validate-artifact.js verification {VERIFICATION_JSON_PATH}
 ```
 
 or in a PostToolUse hook to validate artifacts immediately after they are written.

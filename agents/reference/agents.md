@@ -6,18 +6,18 @@ Detailed routing tables, spawn decision logic, and dispatch protocols for Apex.
 
 | Agent | Model | Role | When to spawn |
 |---|---|---|---|
-| **Blade** | sonnet | All implementation | Any code change — features, fixes, refactors, config |
-| **Ward** | sonnet | Tests + verification | After Blade completes, during fix loops, pre-ship check |
+| **Blade** | opus | All implementation | Any code change — features, fixes, refactors, config |
+| **Ward** | opus | Tests + verification | After Blade completes, during fix loops, pre-ship check |
 | **Gaze** | opus | Quality gate | After Ward passes, gauntlet mode for high-risk changes |
 | **Sage** | opus | Guidance oracle | When Blade is stuck (2+ approaches, ambiguous req) |
-| **Lens** | sonnet | Visual verification | UI tasks after build passes, Figma extraction |
+| **Lens** | opus | Visual verification | UI tasks after build passes, Figma extraction |
 | **Hound** | opus | Forensic investigation | Unknown bugs, regressions, post-deploy issues |
 | **Archer** | opus | Cross-file review | Pre-PR review, cache coherence, regression detection |
-| **Sweep** | sonnet | Code simplification | During gauntlet, cleanup passes |
+| **Sweep** | opus | Code simplification | During gauntlet, cleanup passes |
 
 ## SOLO vs SHADOWS Routing
 
-### Auto-SHADOWS Checklist (Iron Law #10)
+### Auto-SHADOWS Checklist (Core Discipline #10)
 
 If ANY of these are true, route SHADOWS. No exceptions, no "borderline."
 

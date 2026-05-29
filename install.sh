@@ -10,8 +10,8 @@
 
 set -euo pipefail
 
-TEAM_DIR="$HOME/.claude/team"
-COMMANDS_LINK="$HOME/.claude/commands/team"
+TEAM_DIR="$HOME/.claude/phantom"
+COMMANDS_LINK="$HOME/.claude/commands/phantom"
 REPO_SSH="git@github.com:Cloudzero/research-phantoms.git"
 REPO_HTTPS="https://github.com/Cloudzero/research-phantoms.git"
 
@@ -76,7 +76,7 @@ if [ -d "$TEAM_DIR" ]; then
       echo ""
       # Backup learnings
       if [ -d "$TEAM_DIR/learnings" ] && [ "$(ls -A "$TEAM_DIR/learnings" 2>/dev/null)" ]; then
-        BACKUP="$HOME/.claude/team-learnings-backup-$(date +%Y%m%d-%H%M%S)"
+        BACKUP="$HOME/.claude/phantom-learnings-backup-$(date +%Y%m%d-%H%M%S)"
         cp -r "$TEAM_DIR/learnings" "$BACKUP"
         echo "  ✓ Learnings backed up to $BACKUP"
       fi
@@ -120,6 +120,25 @@ else
   ln -s "$TEAM_DIR/commands" "$COMMANDS_LINK"
   echo "  ✓ Created symlink: $COMMANDS_LINK"
 fi
+
+# ─── Register Agents as Claude Code Subagents ───
+# Claude Code discovers user subagents from ~/.claude/agents/.
+# Symlink each real agent so its model/effort frontmatter takes effect.
+# Excludes _base-agent.md (template) and reference/ (not agent files).
+
+AGENTS_LINK_DIR="$HOME/.claude/agents/phantom"
+mkdir -p "$AGENTS_LINK_DIR"
+
+AGENT_COUNT=0
+for agent_file in "$TEAM_DIR"/agents/*.md; do
+  [ -f "$agent_file" ] || continue
+  agent_name="$(basename "$agent_file")"
+  # Skip the base template (reference/ is a subdir, not matched by *.md)
+  [ "$agent_name" = "_base-agent.md" ] && continue
+  ln -sf "$agent_file" "$AGENTS_LINK_DIR/$agent_name"
+  AGENT_COUNT=$((AGENT_COUNT + 1))
+done
+echo "  ✓ Registered $AGENT_COUNT Phantom agents as Claude Code subagents"
 
 # ─── Run Setup Wizard ───
 

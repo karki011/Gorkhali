@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-TEAM_DIR="$HOME/.claude/team"
-COMMANDS_LINK="$HOME/.claude/commands/team"
+TEAM_DIR="$HOME/.claude/phantom"
+COMMANDS_LINK="$HOME/.claude/commands/phantom"
 
 echo ""
 echo "  Phantom Works — Agent Shadows Setup"
@@ -58,8 +58,10 @@ read -rp "  ? Slack DM channel ID for notifications [skip]: " SLACK_CHANNEL
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 
 # Default Blade model
-read -rp "  ? Default model for Blade agents (sonnet/haiku) [sonnet]: " SPARK_MODEL
-SPARK_MODEL="${SPARK_MODEL:-sonnet}"
+# Phantom defaults to opus for all agents under the Opus 4.8 single-model + effort
+# strategy — per-agent effort tiers are set in each agent's frontmatter.
+read -rp "  ? Default model for Blade agents (opus/sonnet/haiku) [opus]: " BLADE_MODEL
+BLADE_MODEL="${BLADE_MODEL:-opus}"
 
 # 5. Auto-detect integrations
 echo ""
@@ -127,7 +129,7 @@ slack:
   enabled: ${SLACK_AVAILABLE}
 
 models:
-  blade: ${SPARK_MODEL}
+  blade: ${BLADE_MODEL}
   apex: opus
   gaze: opus
   ward: sonnet
@@ -160,7 +162,7 @@ if [ -f "$CLAUDE_MD" ]; then
     cat >> "$CLAUDE_MD" << 'CLEOF'
 
 ## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/team/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/phantom/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
 - Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
 - If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
 - After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
@@ -171,7 +173,7 @@ else
   # Create CLAUDE.md with enforcement section
   cat > "$CLAUDE_MD" << 'CLEOF'
 ## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/team/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `~/.claude/phantom/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
 - Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
 - If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
 - After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.

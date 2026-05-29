@@ -32,7 +32,7 @@ Stop Signal: [only if action=stop -- explain why]
 
 ## Decision Framework
 
-Apply coding principles from repo's `.claude/rules/coding-principles.md` or `~/.claude/team/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
+Apply coding principles from repo's `.claude/rules/coding-principles.md` or `~/.claude/phantom/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
 
 ## What You Receive
 

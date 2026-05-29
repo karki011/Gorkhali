@@ -61,11 +61,11 @@ Claude's auto-memory loads at session start regardless of whether the Phantom is
 
 1. Update auto-memory (`project_*.md` in memory dir)
 
-2. **Iron Law #13 audit report** — scan `~/.claude/team/audit/apex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+2. **Core Discipline #13 audit report** — scan `~/.claude/phantom/audit/apex-edits-$(date +%Y-%m-%d).jsonl` for this session:
    ```bash
-   grep "\"session\":\"{SESSION_ID}\"" ~/.claude/team/audit/apex-edits-*.jsonl 2>/dev/null
+   grep "\"session\":\"{SESSION_ID}\"" ~/.claude/phantom/audit/apex-edits-*.jsonl 2>/dev/null
    ```
-   - If no entries -> Iron Law #13 held (subagent-driven was respected)
+   - If no entries -> Core Discipline #13 held (subagent-driven was respected)
    - If entries found -> violations occurred. Report in wrap summary:
      - Count of violations
      - Files touched directly
@@ -74,7 +74,8 @@ Claude's auto-memory loads at session start regardless of whether the Phantom is
 
 3. **Deactivate apex hook ward:**
    ```
-   rm -f ~/.claude/team/.apex-active
+   rm -f ~/.claude/phantom/.apex-active
+   rm -f ~/.claude/phantom/.blade-editing
    ```
 
 4. **Clear native `/goal` if still active:**
