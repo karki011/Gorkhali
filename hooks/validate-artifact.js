@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SESSIONS_DIR = path.join(process.env.HOME, '.claude/team/state/sessions');
+const SESSIONS_DIR = path.join(process.env.HOME, '.claude/phantom/state/sessions');
 const REQUIRED_META = ['writtenAt', 'gitHead', 'gitBranch', 'phase', 'skill', 'version'];
 
 function isArtifact(filePath) {

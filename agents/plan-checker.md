@@ -1,7 +1,7 @@
 ---
 name: plan-checker
 description: Pre-execution plan validator. Checks learnings collisions, blast radius, coverage gaps, scope creep, dependency order.
-model: sonnet
+model: opus
 maxTurns: 10
 effort: high
 author: Subash Karki

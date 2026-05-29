@@ -27,4 +27,4 @@ Plan (Apex) → Challenge (Rival) → Build (Blade) → Verify (Ward) → Simpli
 
 ## Configuration
 
-See `~/.claude/team/` for full skill system.
+See `~/.claude/phantom/` for full skill system.

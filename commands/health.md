@@ -17,7 +17,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 3. **Contradiction detection** — scan each domain file for Pattern + Correction entries referencing the same concept/approach without a `supersedes` edge in `EDGES.md`. Report as `CONTRADICTION: [{pattern}] vs [{correction}] — needs supersedes edge`.
 
-4. **Orphaned sessions** — check `sessions/` directories against event log entries in `~/.claude/team/events/{REPO}/task-events.ndjson`. Report sessions with dirs but no events as `ORPHANED: sessions/{TICKET}`.
+4. **Orphaned sessions** — check `{TEAM_DIR}/sessions/` directories against event log entries in `~/.claude/phantom/events/{REPO}/task-events.ndjson`. Report sessions with dirs but no events as `ORPHANED: {TEAM_DIR}/sessions/{TICKET}`.
 
 5. **INDEX sync** — compare entries in each `learnings/{domain}.md` against `learnings/INDEX.md`. Report entries in domain files missing from INDEX as `DESYNC: [{entry}] in {domain}.md but not in INDEX.md`.
 
@@ -25,7 +25,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 7. **Edge integrity** — if `EDGES.md` exists, check that all Source and Target IDs reference entries that still exist in INDEX.md or domain files. Report broken refs as `BROKEN EDGE: [{source}] → [{target}] — target not found`.
 
-8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `~/.claude/team/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
+8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `~/.claude/phantom/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
 
 9. **File size caps**: Check all skill/reference/learnings files against caps:
    - `commands/*.md` (non-shared) > 80 lines → needs trimming
@@ -34,9 +34,9 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
    - `learnings/{domain}.md` > 50 entries → needs condensing
    Report oversized files. Suggest `/phantom:evolve` to distill.
 
-10. **Stale sessions**: Sessions in `state/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `state/completed/`.
+10. **Stale sessions**: Sessions in `{TEAM_DIR}/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `{TEAM_DIR}/completed/`.
 
-11. **Evolution log**: Check `state/evolution-log.json`:
+11. **Evolution log**: Check `{TEAM_DIR}/evolution-log.json`:
     - Total evolutions applied
     - Last evolution date
     - Any tier 2-3 proposals pending user approval

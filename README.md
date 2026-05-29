@@ -86,7 +86,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 ## Folder Structure
 
 ```
-~/.claude/team/
+~/.claude/phantom/
 ├── commands/          # 21 skill directives (30-150 lines each)
 ├── reference/         # 16 reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
@@ -112,21 +112,29 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 ## Shadows
 
-| Agent | Model | Role |
-|-------|-------|------|
-| Apex | opus | Orchestrator — plans, decomposes, coordinates, runs router |
-| Blade | sonnet | Implementation — parallel execution with ROLE FOCUS directives |
-| Ward | sonnet | QA — lint, build, test verification |
-| Gaze | sonnet | Quality gate — power level (scored, P0-P3) |
-| Sage | opus | Advisory — guidance for stuck agents (<100 words) |
-| Lens | sonnet | Visual verification — screenshot + diff |
-| Archer | opus | Cross-file review — pre-PR structural analysis |
-| Rival | opus | Plan challenger — adversarial review (no tools, forced precision) |
-| Hound | sonnet | Forensic investigator — 7-step protocol, HTML reports |
-| Sweep | sonnet | Code clarity — simplify changed files post-verify |
-| Base Agent | — | Template for spawning new agent types |
+| Agent | Model | Effort | Role |
+|-------|-------|--------|------|
+| Apex | opus | xhigh | Orchestrator — plans, decomposes, coordinates, runs router |
+| Blade | opus | xhigh | Implementation — parallel execution with ROLE FOCUS directives |
+| Ward | opus | medium | QA — lint, build, test verification |
+| Gaze | opus | high | Quality gate — power level (scored, P0-P3) |
+| Sage | opus | max | Advisory — guidance for stuck agents (<100 words) |
+| Lens | opus | medium | Visual verification — screenshot + diff |
+| Archer | opus | high | Cross-file review — pre-PR structural analysis |
+| Rival | opus | high | Plan challenger — adversarial review (no tools, forced precision) |
+| Hound | opus | xhigh | Forensic investigator — 7-step protocol, HTML reports |
+| Sweep | opus | low | Code clarity — simplify changed files post-verify |
+| Base Agent | — | — | Template for spawning new agent types |
 
-All models are 4.6 only — 4.7 is too slow.
+All agents run on `opus` (resolves to Claude Opus 4.8), differentiated by per-agent `effort` level set in each agent's subagent definition frontmatter. No version restrictions. `plan-checker` (the registered Rival subagent) runs at `high`. `haiku` is reserved for truly mechanical single-file edits.
+
+## Opus 4.8 & Effort
+
+Phantom runs on a single model (`opus` → Claude Opus 4.8) and differentiates agents by the **`effort`** parameter (levels: low / medium / high / xhigh / max). Effort governs all tokens including tool calls — lower effort means fewer tool calls. Default is `high` on all surfaces including Claude Code; per-agent effort is set in each agent's subagent definition frontmatter (`agents/*.md`).
+
+**Recommended: run Phantom in ultracode mode** (`/effort ultracode`) for any multi-agent session. Ultracode pairs `xhigh` effort with standing permission for multi-agent/subagent orchestration — built exactly for Phantom's shadow-army pattern. `xhigh` is Anthropic's recommended starting point for coding and agentic work.
+
+Opus 4.8 also improves tool triggering (less likely to skip a required tool call, reinforcing the subagent-driven law) and long-context + compaction recovery (smoother pause/resume sessions).
 
 ## Commands
 
@@ -164,8 +172,8 @@ All models are 4.6 only — 4.7 is too slow.
 ## Setup
 
 ```bash
-git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/team
-~/.claude/team/setup.sh
+git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
+~/.claude/phantom/setup.sh
 ```
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
