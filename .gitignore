@@ -6,6 +6,11 @@ observations/
 state/
 repos/
 
+# Runtime markers + audit logs (per-session, not shared)
+.apex-active
+.blade-editing
+audit/
+
 # Learnings are per-user (INDEX.md structure is tracked, content is not)
 learnings/*.md
 !learnings/.gitkeep

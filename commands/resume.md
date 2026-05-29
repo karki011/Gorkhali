@@ -12,8 +12,8 @@ Resume from a paused session by reading the state artifact.
 <instructions>
 1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/phantom:resume CP-41606`)
 
-2. **Read state artifact**: `state/sessions/{TICKET}/pause-state.json`
-   - If missing: list available sessions in `state/sessions/`, ask user to pick
+2. **Read state artifact**: `{TEAM_DIR}/sessions/{TICKET}/pause-state.json`
+   - If missing: list available sessions in `{TEAM_DIR}/sessions/`, ask user to pick
    - If found: load and display summary
 
 <staleness_check>

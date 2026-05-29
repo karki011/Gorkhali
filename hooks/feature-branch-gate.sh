@@ -1,7 +1,7 @@
 #!/bin/bash
 # feature-branch-gate.sh — PreToolUse hook
 # Blocks Edit/Write on source files when on main/master/develop
-# Iron Law #1: Feature branch enforcement
+# Core Discipline #1: Feature branch enforcement
 # Author: Subash Karki
 
 TOOL_NAME=$(echo "$1" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null)

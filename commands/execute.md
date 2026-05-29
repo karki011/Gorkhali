@@ -1,6 +1,7 @@
 ---
 name: phantom:execute
 description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use phantom:start instead."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2**
@@ -13,25 +14,35 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 1. **Detect ticket** from $ARGUMENTS or git branch
 
-2. **Load plan**: Read `state/sessions/{TICKET}/plan.json`
+2. **Load plan**: Read `{TEAM_DIR}/sessions/{TICKET}/plan.json`
    - If missing: "No plan found. Run `/phantom:start` first."
 
-3. **Load contracts**: Read `state/sessions/{TICKET}/contracts/`
+3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
 
-4. **Load intent**: Read `state/sessions/{TICKET}/intent.json`
+4. **Load intent**: Read `{TEAM_DIR}/sessions/{TICKET}/intent.json`
 
-5. **Dispatch per plan**:
-   - READ `reference/agents.md` for spawn patterns
-   - SOLO route: spawn 1 Blade with full task scope
-   - SHADOWS route: spawn parallel Blades with `isolation: "worktree"`
+5. **Activate blade marker**: `touch ~/.claude/phantom/.blade-editing`
+
+6. **Dispatch per plan**:
+   - READ `reference/agents.md` for spawn patterns and task tier classification
+   - All implementation tasks spawn `subagent_type: blade`.
+     # model + effort come from the blade subagent definition (opus / xhigh)
+   - **Mechanical-edit fast path:** for trivial single-file edits (rename, import, typo, config),
+     spawn `subagent_type: blade` with `model: "haiku"` override.
+     # blade default is opus/xhigh; overriding to haiku here for speed — effort tuning does not apply when overriding to haiku
+   - All agents: `mode: "bypassPermissions"`.
+   - SOLO route: spawn 1 `subagent_type: blade` with full task scope
+   - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"` (haiku override for trivial subtasks only)
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
-   - Agent results → `state/sessions/{TICKET}/agent-outputs/{task-id}.md`
+   - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
+
+7. **Deactivate blade marker**: `rm -f ~/.claude/phantom/.blade-editing`
 
 <output_format>
 
-6. **Write execution artifact** to `state/sessions/{TICKET}/execution.json`:
+8. **Write execution artifact** to `{TEAM_DIR}/sessions/{TICKET}/execution.json`:
    ```json
    {
      "_meta": {
@@ -60,7 +71,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 <no_git_until_wrap>
 
-7. **No git operations.** All work is local until wrap.
+9. **No git operations.** All work is local until wrap.
 
 </no_git_until_wrap>
 

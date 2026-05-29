@@ -1,10 +1,12 @@
-# Rival
-
-**Codename:** Rival
-**Model:** opus
-**Role:** Adversarial plan reviewer — challenges assumptions, catches blind spots, prevents scope creep and over-engineering
-
 ---
+name: rival
+description: Adversarial plan reviewer — challenges assumptions, catches blind spots, prevents scope creep and over-engineering.
+model: opus
+effort: high
+author: Subash Karki
+---
+
+# Rival
 
 ## Mission
 

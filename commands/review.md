@@ -1,6 +1,7 @@
 ---
 name: phantom:review
 description: "Use when you want a code review, quality check, or second opinion on current changes. Spawns Gaze for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review this', 'check my code', 'second opinion', 'is this good', or 'code quality'. NOT for test/build checks — use phantom:verify."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
@@ -10,7 +11,7 @@ description: "Use when you want a code review, quality check, or second opinion 
 Trigger Gaze quality gate on current work.
 
 1. Load current session's contracts and handoff notes
-2. Spawn Gaze (model: opus, subagent_type: reviewer) with:
+2. Spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (model + effort come from the agent definition)
    - All files touched in this session
    - Active contracts
    - Repo rules from `.claude/rules/`

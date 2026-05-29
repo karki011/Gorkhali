@@ -2,125 +2,48 @@
 name: phantom:visual
 description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
 argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright] [--autonomous] [--no-fix]"
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
 # /phantom:visual $ARGUMENTS
 
-Visual verification pipeline — runs standalone or auto-triggered by `/phantom:verify` for UI tasks.
+Visual verification pipeline — standalone or auto-triggered by `/phantom:verify` for UI tasks.
 
 ## Modes
 
-- **Standalone** (user runs `/phantom:visual`): interactive, shows results, asks before fixing
-- **Autonomous** (`--autonomous` flag, set by verify/start): runs fix loop without user approval, max 3 iterations
+- **Standalone**: interactive, shows results, asks before fixing
+- **Autonomous** (`--autonomous`): fix loop without user approval, max 3 iterations
 - **Inspect only** (`--no-fix`): screenshot and report, no fix loop
 
 ## Execution
 
-1. **Determine target routes:**
-   - If routes provided as args → use those
-   - If session state has `affectedRoutes` → use those
-   - Infer from changed files: `pages/Foo.tsx` → `/foo`, `components/Settings/*` → `/settings`
-   - If no routes determinable → ask user (standalone) or skip with warning (autonomous)
+1. **Determine target routes:** args > session `affectedRoutes` > infer from changed files > ask user (standalone) or skip (autonomous)
 
-2. **Verify dev server:**
-   - Check `localhost:8080` (or port from repo CLAUDE.md / package.json `dev` script)
-   - If not running:
-     - Standalone → warn user: "Start dev server first"
-     - Autonomous → attempt `pnpm dev &` in background, wait 10s, retry. If still down → skip visual verification with warning
+2. **Verify dev server:** Check localhost port. If not running: warn (standalone) or attempt `pnpm dev &` + 10s wait (autonomous).
 
-3. **Detect browser backend:**
-   - If `--backend` flag provided → use that
-   - Run `which agent-browser` — if found → use `agent-browser`; else → Playwright MCP
-   - Log: `TaskCreate({ subject: '[Lens] Browser backend: {agent-browser|playwright}' })`
+3. **Detect browser backend:** `--backend` flag > `which agent-browser` > Playwright MCP fallback.
 
-4. **Auth handling** (automatic — Lens handles this internally):
-   - Lens navigates to each route, snapshots the page, and detects login walls
-   - If login form found → Lens enters credentials and submits automatically
-   - Credential sources (checked in order):
-     a. `sessions/{TICKET}/auth-creds.json` — `{ "username": "...", "password": "..." }`
-     b. Environment variables: `TEST_USERNAME` + `TEST_PASSWORD`
-     c. `.env.test` or `.env.local` — keys like `USERNAME`, `EMAIL`, `PASSWORD`, `TEST_USER`
-     d. Ask user once → save to `sessions/{TICKET}/auth-creds.json` for session reuse
-   - agent-browser `lens-qa` session persists cookies — login happens once, all subsequent routes reuse it
-   - MFA/OAuth prompts escalate to user (Lens won't loop on auth)
+4. **Auth handling:** Automatic — Lens detects login walls and handles credentials per `reference/smart-auth.md` (credential sources, redirect-aware detection, MFA escalation). Session cookies persist across routes.
 
-5. **Spawn Lens** (model: sonnet):
-   - Target routes + browser backend + session name `lens-qa`
-   - Task description (what was built, from contract/intent)
-   - Expected behavior (from contract's acceptance criteria or Done When predicates)
-   - `run_in_background: true`, `mode: "bypassPermissions"`
+5. **Spawn Lens** (`subagent_type: "lens"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (model + effort come from the agent definition)
 
-6. **State Matrix (mandatory for stateful components):**
-   Before Lens inspects, identify all enumerated parent states the new/changed
-   component reacts to (e.g., sidebar: open/collapsed/pill). Lens MUST cycle
-   through every parent state × feature state combination. Don't test only the
-   default — test the full cross-product. Include this matrix in the Lens prompt
-   so it toggles each state and screenshots each combination.
+6. **State Matrix:** Before inspection, identify all parent states the changed component reacts to. Lens cycles through every parent state x feature state combination and screenshots each.
 
-7. **Lens inspects:** navigate → snapshot → screenshot (3 viewports) → analyze → interact
+7. **Lens inspects:** navigate → snapshot → screenshot (3 viewports) → analyze → interact.
 
 8. **Handle results:**
+   - **PASS** → update `visualVerification` in session JSON, return pass signal
+   - **ISSUES FOUND** → standalone: show + ask; autonomous: enter fix loop immediately
 
-   ### VISUAL PASS
-   - Update `visualVerification` in session JSON: `{ status: "pass", routes: [...], backend: "...", timestamp: "..." }`
-   - If standalone → show results table to user
-   - If autonomous → return pass signal to verify pipeline
+## Visual Fix Loop (max 3 iterations)
 
-   ### VISUAL ISSUES FOUND
-
-   **Standalone mode:**
-   - Show issues table with screenshot evidence
-   - Ask user: "Fix these visual issues? (y/n)"
-   - If yes → enter fix loop
-   - If no → record issues in session JSON, proceed
-
-   **Autonomous mode:**
-   - Enter fix loop immediately (no approval needed)
-
-   ### Visual Fix Loop
-
-   ```
-   for iteration in 1..3:
-     a. Lens outputs structured fix packet:
-        - Issue description (specific: "Button #save is 12px from edge, should be 16px")
-        - Screenshot evidence (before)
-        - Element ref (@eN from accessibility tree)
-        - Expected vs actual
-        - Affected file (inferred from component tree)
-
-     b. Apex auto-dispatches Blade (UI Engineering focus):
-        - Scoped to affected files only
-        - Fix packet as input (NOT the full Lens report)
-        - "Fix this visual issue. Do not change behavior, only appearance."
-
-     c. Re-run Ward on fixed files (code must still pass)
-        - If Ward fails → revert visual fix, mark issue as "needs manual fix"
-
-     d. Re-spawn Lens on same routes:
-        - agent-browser: same `lens-qa` session (no re-auth)
-        - Playwright: fresh navigation
-
-     e. If all issues resolved → VISUAL PASS → exit loop
-     f. If same issue class persists → write correction, escalate to user
-     g. If NEW issues introduced → revert, escalate
-
-   after 3 loops:
-     - Escalate to user with full screenshot history
-     - Update session JSON: { status: "partial", fixed: [...], remaining: [...] }
-   ```
-
-8. **Update session state:**
-   ```json
-   {
-     "visualVerification": {
-       "status": "pass|fail|partial|skipped",
-       "backend": "agent-browser|playwright",
-       "routes": ["/route1", "/route2"],
-       "issues": [],
-       "fixLoops": 0,
-       "timestamp": "ISO8601"
-     }
-   }
-   ```
+1. Lens outputs structured fix packet (issue, screenshot, element ref, expected vs actual, affected file)
+2. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
+3. Apex dispatches Blade (`subagent_type: "blade"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
+4. Deactivate blade marker: `rm -f ~/.claude/phantom/.blade-editing`
+5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
+4. Re-spawn Lens on same routes
+5. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.
+6. After 3 loops → escalate with screenshot history, update session: `{ status: "partial" }`
