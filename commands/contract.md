@@ -2,6 +2,7 @@
 name: phantom:contract
 description: "Use when you need to define scope, write an interface contract, or create acceptance criteria before implementation. Creates structured contracts from templates (feature/api/testing/ui/fix) that agents must satisfy. Also use when user says 'define the interface', 'what are the requirements', 'scope this', or 'acceptance criteria'."
 argument-hint: "<type>"
+user-invocable: false
 ---
 
 > **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'

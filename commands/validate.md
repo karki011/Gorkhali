@@ -3,6 +3,7 @@ name: phantom:validate
 description: "Use when you want to check plan completeness, verify outputs match contracts, or audit whether the session covered all requirements. Also use when user says 'is this complete', 'did we miss anything', 'sanity check', or 'check against requirements'. NOT for code quality review (use phantom:review) or test runs (use phantom:verify)."
 argument-hint: "[layer]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'

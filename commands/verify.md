@@ -12,13 +12,15 @@ Three-step verification: correctness commands → power level → auto-address.
 
 <instructions>
 
+Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
+
 ## Step 1: Correctness (commands, no agents)
 
 Discover verify commands from repo (see `_shared-repo-detection.md` protocol, `reference/verification.md` for tier precedence).
 
 Run each command. Read full output. Report: lint pass/fail, build pass/fail, tests pass/fail.
 
-If ANY fail → run hound failure scan (Step 1.5), print failures, suggest `/phantom:fix`. Stop.
+If ANY fail → run hound failure scan (Step 1.5), print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report + suggest `/phantom:fix` and stop.**
 
 Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (model + effort come from the agent definition)
 
@@ -57,4 +59,4 @@ Key fields: `_meta`, `correctness` (lint/build/tests/commands), `review` (temper
 ## Result
 
 - **PASS** → print summary, proceed to `/phantom:wrap`
-- **FAIL** → print failures, suggest `/phantom:fix`
+- **FAIL** → print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")` (do not wait for the human). STANDALONE (token absent) → report + suggest `/phantom:fix`.**
