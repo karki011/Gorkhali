@@ -11,6 +11,13 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 Trigger Gaze quality gate on current work.
 
 1. Load current session's contracts and handoff notes
+
+**Codebase-wide review → recommend a workflow.** For a large-diff or repo-wide pre-PR review,
+recommend running the sweep as a Claude Code dynamic workflow per
+`reference/workflow-delegation.md`: independent agents cross-check and filter findings before they
+reach context (READ-ONLY — "Audit and REPORT only — do not modify files"). Fall back to
+turn-by-turn review for normal-sized diffs or when workflows are unavailable.
+
 2. Spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (model + effort come from the agent definition)
    - All files touched in this session
    - Active contracts

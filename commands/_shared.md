@@ -30,7 +30,7 @@ GLOBAL_EDGES    = ~/.claude/phantom/global/patterns/EDGES.md
 
 ## Core Disciplines
 
-13 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
+14 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
 
 1. **Feature branch** — never main/develop/master
 2. **Verify** — run commands, read output, confirm
@@ -45,6 +45,7 @@ GLOBAL_EDGES    = ~/.claude/phantom/global/patterns/EDGES.md
 11. **Root cause** — reproduce → trace → confirm → fix
 12. **Parallel agents** — independent files → concurrent spawn
 13. **Subagent-driven** — all edits via Agent tool
+14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Apex can't self-launch). See `reference/workflow-delegation.md`.
 
 </constraints>
 

@@ -23,6 +23,17 @@
 - **single_concern** -- task addresses exactly one thing
 - **past_routing_success** -- similar tasks routed this way succeeded (shadows.md routing-history)
 
+## Workflow Candidate (`workflow_candidate`) — execution-mode signal, NOT a route
+Orthogonal to the route (route = number of human gates). Flags a GATELESS phase whose fan-out is
+big enough to RECOMMEND delegating to a Claude Code dynamic workflow instead of turn-by-turn
+shadows. Apex cannot self-launch — it recommends; the user triggers. Full test + recommend pattern:
+`reference/workflow-delegation.md`.
+- **Primary lever: SCALE** — >= ~20 files blast radius, OR >= ~5 sources/angles, OR deep
+  git-history sweep, OR "codebase-wide" / "every X" phrasing.
+- Only when the phase is also gateless + read-mostly/generative + has synthesis payoff + workflows
+  available.
+- **Default: do NOT flag.** Small tasks stay turn-by-turn (workflows cost more tokens).
+
 ## Signal Extraction
 
 | Signal | Source | Cost |

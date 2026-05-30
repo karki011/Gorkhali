@@ -54,6 +54,11 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
 5. **Update INDEX.md** with new entries
 
 6. **Update auto-memory** in project memory directory
+
+**Running workflow + pause.** A Claude Code dynamic workflow does NOT survive exiting Claude Code —
+it restarts fresh next session (per docs), and `phantom:resume` cannot restore an in-flight run.
+Before a cross-session pause, finish or stop the workflow (`/workflows` → `x`) and capture its
+report into session artifacts.
 </instructions>
 
 Print: "Session paused. Run `/clear` then `/phantom:resume {TICKET}` to continue."
