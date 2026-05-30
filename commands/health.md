@@ -32,7 +32,9 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
    - `reference/*.md` > 100 lines → needs distillation
    - `learnings/INDEX.md` > 80 entries → needs pruning
    - `learnings/{domain}.md` > 50 entries → needs condensing
-   Report oversized files. Suggest `/phantom:evolve` to distill.
+   Report oversized files. Remediation by class:
+   - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via a Blade (compress prose; preserve every instruction, gate, and reference). NOT evolve — evolve only touches the learnings layer.
+   - Oversized `learnings/INDEX.md` or `learnings/{domain}.md` → suggest `/phantom:evolve`.
 
 10. **Stale sessions**: Sessions in `{TEAM_DIR}/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `{TEAM_DIR}/completed/`.
 
