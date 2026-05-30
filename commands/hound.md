@@ -24,6 +24,13 @@ Resolve TICKET from session state or `git branch --show-current`.
 
 Load relevant learnings from `_shared-auto-learning.md` — check for prior investigations of same area, past corrections.
 
+**Large-scope sweep → recommend a workflow.** If the forensics scope is big (many files / deep
+git history / repo-wide), recommend running the sweep as a Claude Code dynamic workflow per
+`reference/workflow-delegation.md`: it fans out investigators and returns ranked root causes only,
+keeping the raw forensics out of context. ALWAYS scope the recommended prompt "Audit and REPORT
+only — do not modify files." Fall back to turn-by-turn investigation if scope is small or workflows
+are unavailable.
+
 ## Step 2: Spawn Hound Agent
 
 Use the Agent tool to spawn a dedicated investigator:
