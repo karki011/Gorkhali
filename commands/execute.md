@@ -2,6 +2,7 @@
 name: phantom:execute
 description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use phantom:start instead."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+user-invocable: false
 ---
 
 > **Preamble Tier: T2**

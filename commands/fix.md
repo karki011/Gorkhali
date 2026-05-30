@@ -12,6 +12,8 @@ Fix loop from latest failed verification.
 
 <instructions>
 
+Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
+
 1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/phantom:verify` first).
 2. **Check loop count** — if >= 3, go to structured escalation (step 8).
 3. **Debugging discipline** — reproduce → trace → confirm root cause BEFORE fixing. If loop 2+, trigger hound deep investigation (step 3.5).
@@ -19,9 +21,9 @@ Fix loop from latest failed verification.
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).
 
 4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (model + effort come from the agent definition)
-5. Show fix packet → user approval.
+5. Show fix packet. **CHAINED (`--chained` present) → AUTO-PROCEED past approval (the max-3 loop + step-9 exhaustion escalation is the safety net). STANDALONE (token absent) → wait for user approval.**
 6. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
-7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f ~/.claude/phantom/.blade-editing`) → `phantom:verify`.
+7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f ~/.claude/phantom/.blade-editing`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
 8. **If re-verify passes** → exit, proceed to wrap.
    **If fails:** same class → scrap-and-redo (step 8.5) + write correction. Different class → increment loop, return to step 1.
 

@@ -77,8 +77,10 @@ READ `reference/router.md` for full algorithm.
        Self-review your changes before returning.
    ```
 4. Deactivate blade marker: `rm -f ~/.claude/phantom/.blade-editing`
-5. After Blade returns → `Skill(skill="phantom:verify")`
-6. FAIL → escalate to PLAN route. >3 files touched → log correction.
+5. After Blade returns → `Skill(skill="phantom:verify", args="--chained")` (chained flow).
+   - **PASS → AUTO-CONTINUE** to `Skill(skill="phantom:wrap")`. Do NOT return to the human here.
+   - **FAIL → verify threads** `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally, max 3) → on PASS, AUTO-CONTINUE to `Skill(skill="phantom:wrap")`.
+6. Escalation path AFTER the fix-loop is exhausted (not the immediate response): escalate to PLAN route. >3 files touched → log correction.
 
 ## Route: PLAN (1 gate)
 
@@ -87,7 +89,7 @@ READ `reference/router.md` for full algorithm.
 3. **HUMAN GATE**: approve plan
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
-6. `Skill(skill="phantom:verify")` → `Skill(skill="phantom:wrap")`
+6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally, max 3) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap except the wrap ship gate.
 
 ## Route: BRAINSTORM (2 gates)
 
@@ -95,6 +97,12 @@ READ `reference/router.md` for full algorithm.
 
 ## Route: FULL (3 gates)
 
-`Skill(skill="phantom:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="phantom:wire")` → **GATE 3** → `Skill(skill="phantom:execute")` → `Skill(skill="phantom:verify")` → `Skill(skill="phantom:wrap")`
+`Skill(skill="phantom:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="phantom:wire")` → **GATE 3** → `Skill(skill="phantom:execute")` → `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally, max 3) → on PASS `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap except the wrap ship gate.
+
+## Auto-chaining (default flow)
+
+Phases chain autonomously without returning to the human between phases. The only stops are: (a) the PLAN/FULL plan-approval gate(s), (b) the wrap ship/git gate, and (c) fix-loop exhaustion (max 3). On verify PASS the chain auto-continues to wrap; on verify FAIL it auto-invokes the fix-loop, then re-verifies — it does not wait for the human to type the next phase.
+
+> The `args="--chained"` token threaded into the `phantom:verify` calls above is what makes verify/fix run autonomously (auto-invoke fix, auto-proceed past fix-packet approval). Its ABSENCE is the safe standalone default: verify/fix fall back to gated report+suggest and wait for the human. So a dropped token degrades to MORE gating, never less.
 
 Between phases: if heavy context, `Skill(skill="phantom:pause")`. Resume reads `route-decision.json`.
