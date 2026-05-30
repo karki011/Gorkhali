@@ -9,81 +9,58 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]
 
 # /phantom:hound "$ARGUMENTS"
 
-Forensic investigation engine. The main LLM acts as **coordinator** — it gathers symptoms, spawns a Hound agent to run the investigation, then presents findings to the user.
+Forensic investigation engine. Main LLM = **coordinator**: gather symptoms, spawn Hound agent to investigate, present findings. Coordinator does NOT run investigation steps — delegates entirely to the Hound agent.
 
 <instructions>
 
 ## Step 1: Gather Symptoms (Coordinator)
 
-Parse `$ARGUMENTS` for:
-- **Symptom description** — what broke, error messages, unexpected behavior
-- **File paths** — initial suspects (if provided)
-- **Timeline clues** — "after deploy", "since yesterday", commit refs
+Parse `$ARGUMENTS` for: **symptom** (what broke, errors, unexpected behavior); **file paths** (initial suspects, if any); **timeline clues** ("after deploy", "since yesterday", commit refs).
 
 Resolve TICKET from session state or `git branch --show-current`.
 
-Load relevant learnings from `_shared-auto-learning.md` — check for prior investigations of same area, past corrections.
+Load relevant learnings from `_shared-auto-learning.md` — prior investigations of same area, past corrections.
 
 ## Step 2: Spawn Hound Agent
 
-Use the Agent tool to spawn a dedicated investigator:
+Agent tool — `subagent_type: "hound"`, `mode: "bypassPermissions"`, `run_in_background: false` (model + effort from agent definition). Prompt:
 
 ```
-Agent call:
-  description: "Investigate: {1-line symptom summary}"
-  subagent_type: "hound"
-  mode: "bypassPermissions"
-  run_in_background: false
-  # model + effort come from the hound agent definition
-  prompt: |
-    You are the HOUND — a forensic investigator for codebase bugs and regressions.
+You are the HOUND — forensic investigator for codebase bugs and regressions.
 
-    ## Symptoms
-    {parsed symptoms from Step 1}
+## Symptoms
+{parsed symptoms from Step 1}
+## Initial Suspects
+{file paths if any, or "none — derive from symptoms"}
+## Relevant Learnings
+{matching learnings from auto-learning index}
 
-    ## Initial Suspects
-    {file paths if any, or "none — derive from symptoms"}
+## Investigation Protocol (7 Steps) — from reference/detective/protocol.md
+1. SYMPTOMS — collect all evidence. Do NOT hypothesize yet.
+2. TIMELINE — git log, blame, bisect from reference/detective/git-recipes.md.
+3. SUSPECTS — rank by Hotspot Risk (reference/detective/hotspots.md). Top 3 get deep analysis.
+4. OWNERSHIP — bus factor, recent authors.
+5. COUPLING — flag coupling strength >0.5. Missing co-changes are often the root cause.
+6. HYPOTHESIS — confidence Low <40% / Medium 40-70% / High >70%. If <40%, loop back to Step 2/3.
+7. EVIDENCE — confirm with specific commits, lines, coupling scores.
 
-    ## Relevant Learnings
-    {any matching learnings from auto-learning index}
+NEVER present a hypothesis without specific evidence. Valid example:
+"Commit abc123 changed return type of foo() but bar() still expects old type, confirmed by coupling score 0.67".
+Use git recipes from reference/detective/git-recipes.md and hotspot/coupling formulas from reference/detective/hotspots.md — do not invent variations.
+If Phantom MCP available, use phantom_graph_blast_radius + phantom_graph_related on suspects.
 
-    ## Investigation Protocol (7 Steps)
-
-    Follow the 7-step flow from reference/detective/protocol.md:
-    1. SYMPTOMS — Collect all evidence. Do NOT hypothesize yet.
-    2. TIMELINE — Use git log, blame, bisect from reference/detective/git-recipes.md.
-    3. SUSPECTS — Rank by Hotspot Risk (reference/detective/hotspots.md). Top 3 get deep analysis.
-    4. OWNERSHIP — Check bus factor, recent authors.
-    5. COUPLING — Flag coupling strength >0.5. Missing co-changes are often the root cause.
-    6. HYPOTHESIS — Assign confidence (Low <40%, Medium 40-70%, High >70%). If <40%, loop back to Step 2/3.
-    7. EVIDENCE — Confirm with specific commits, lines, coupling scores.
-
-    NEVER present a hypothesis without specific evidence.
-    "Commit abc123 changed the return type of foo() but bar() still expects the old type, confirmed by coupling score 0.67" IS a valid hypothesis.
-
-    Use git recipes from reference/detective/git-recipes.md — do not invent variations.
-    Use hotspot/coupling formulas from reference/detective/hotspots.md.
-    If Phantom MCP available, use phantom_graph_blast_radius + phantom_graph_related on suspects.
-
-    ## Output
-
-    Write {TEAM_DIR}/sessions/{TICKET}/investigation.html using template from reference/detective/report-template.md.
-
-    After writing the HTML report, return a conversation summary with:
-    - Hypothesis + confidence level
-    - Key evidence (commit SHA, file, line)
-    - Recommended fix approach
-    - Files to modify
-    - Who to consult (if bus factor = 1)
+## Output
+Write {TEAM_DIR}/sessions/{TICKET}/investigation.html using reference/detective/report-template.md.
+Then return a conversation summary: hypothesis + confidence; key evidence (commit SHA, file, line); recommended fix approach; files to modify; who to consult (if bus factor = 1).
 ```
 
 ## Step 3: Present Findings (Coordinator)
 
-After the Hound agent completes:
-1. Read the agent's returned summary
-2. Present the findings to the user as 3-5 bullet conversation summary
-3. Confirm `investigation.html` was written to `{TEAM_DIR}/sessions/{TICKET}/`
-4. Record investigation outcome to learnings via `_shared-auto-learning.md`
+After Hound completes:
+1. Read agent's returned summary.
+2. Present to user as 3-5 bullet summary.
+3. Confirm `investigation.html` written to `{TEAM_DIR}/sessions/{TICKET}/`.
+4. Record outcome to learnings via `_shared-auto-learning.md`.
 
 </instructions>
 
@@ -97,10 +74,7 @@ After the Hound agent completes:
 | `verify.md` | Correctness fails | Failure scan | `hound` field in verification.json |
 | `fix.md` loop 2+ | Same failure class repeats | Full | investigation.html |
 
-Depth levels and abbreviated flows defined in `reference/detective/depth-levels.md`.
-
-When triggered with abbreviated depth (Pre-scan or Failure scan), the Hound agent prompt should include:
-`"Depth: {depth_level} — follow abbreviated flow from reference/detective/depth-levels.md"`
+Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When triggered with abbreviated depth (Pre-scan or Failure scan), add to Hound prompt: `"Depth: {depth_level} — follow abbreviated flow from reference/detective/depth-levels.md"`.
 
 </auto_trigger_integration>
 
@@ -109,12 +83,12 @@ When triggered with abbreviated depth (Pre-scan or Failure scan), the Hound agen
 ## Rules
 
 - Evidence before conclusions. Always.
-- The coordinator does NOT run investigation steps — it delegates entirely to the Hound agent.
-- Hound agent uses git recipes from `_shared-hound.md` / `reference/detective/git-recipes.md`. Do not invent variations.
+- Coordinator delegates entirely to Hound agent — runs no investigation steps itself.
+- Hound uses git recipes from `_shared-hound.md` / `reference/detective/git-recipes.md`. Do not invent variations.
 - One hypothesis at a time. Rank by confidence, present highest first.
 - If Phantom MCP available, use `phantom_graph_blast_radius` + `phantom_graph_related` on suspects.
-- Max investigation time: 10 minutes. If still low confidence → escalate with findings so far.
+- Max investigation time: 10 min. Still low confidence → escalate with findings so far.
 - Record outcomes to learnings (via `_shared-auto-learning.md`).
-- Agent spawn MUST use `subagent_type: "hound"`, `mode: "bypassPermissions"` (model + effort from the agent definition).
+- Agent spawn MUST use `subagent_type: "hound"`, `mode: "bypassPermissions"` (model + effort from agent definition).
 
 </constraints>
