@@ -7,9 +7,8 @@ try {
   const fs = require('fs');
   const path = require('path');
 
-  const HOME = require('os').homedir();
-  const TEAM_DIR = path.join(HOME, '.claude', 'team');
-  const LEARNINGS_DIR = path.join(TEAM_DIR, 'learnings');
+  const { learningsDir } = require('../scripts/lib/phantom-paths');
+  const LEARNINGS_DIR = learningsDir();
   const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
   const MAX_INJECTION_CHARS = 1600; // ~400 tokens
 

@@ -16,11 +16,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { sessionsDir, completedDir } = require('./lib/phantom-paths');
 
 // --- Config ---
-const TEAM_ROOT = path.join(process.env.HOME, '.claude', 'team');
-const SESSIONS_DIR = path.join(TEAM_ROOT, 'state', 'sessions');
-const COMPLETED_DIR = path.join(TEAM_ROOT, 'state', 'completed');
+const SESSIONS_DIR = sessionsDir();
+const COMPLETED_DIR = completedDir();
 
 // --- Parse args ---
 const args = process.argv.slice(2);

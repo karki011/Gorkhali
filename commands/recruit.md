@@ -13,8 +13,8 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 
 1. Parse the requested role focus from arguments (e.g., "data migration", "performance", "security", "accessibility")
 2. Load active contracts and session context
-3. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
+3. Activate blade marker: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 4. Spawn a Blade with the specified ROLE FOCUS directive baked into the prompt (`subagent_type: "blade"`, `mode: "bypassPermissions"`) (model + effort come from the agent definition)
-5. Deactivate blade marker: `rm -f ~/.claude/phantom/.blade-editing`
+5. Deactivate blade marker: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 6. The Blade output follows the same Post-Agent Hook as core shadows
 7. Record Blade (ROLE FOCUS) participation in session state

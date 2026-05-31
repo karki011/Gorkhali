@@ -23,7 +23,7 @@ Run validation scripts to check shadows guidance compliance. Layers: `plan`, `ou
 You are the coordinator. You do NOT run validation scripts directly. Instead:
 
 1. **Parse $ARGUMENTS** to determine which layer(s): `plan`, `output`, `session`, or `all`
-2. **Resolve paths**: session JSON path (`~/.claude/phantom/repos/{REPO_NAME}/state/sessions/{TICKET}.json`), project root
+2. **Resolve paths**: session JSON path (`${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/state/sessions/{TICKET}.json`), project root
 3. **Spawn a Ward agent** to execute the validation scripts and collect results
 4. **Present findings** to the user with pass/fail summary and actionable items
 
@@ -57,7 +57,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 ### Layer: `plan`
 
 ```bash
-~/.claude/phantom/scripts/validate-plan.sh ~/.claude/phantom/repos/{REPO_NAME}/state/sessions/{TICKET}.json
+~/.claude/phantom/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/state/sessions/{TICKET}.json
 ```
 
 Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
@@ -73,7 +73,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 ### Layer: `session`
 
 ```bash
-~/.claude/phantom/scripts/validate-session.sh ~/.claude/phantom/repos/{REPO_NAME}/state/sessions/{TICKET}.json
+~/.claude/phantom/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/state/sessions/{TICKET}.json
 ```
 
 Checks: required fields, phase/task status enums, verification block after verify phase, visual verification block when visualVerify: true, loop count bounds, board JSON freshness.

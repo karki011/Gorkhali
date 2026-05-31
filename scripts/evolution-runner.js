@@ -4,11 +4,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { globalPatternsDir, learningsDir, stateDir } = require('./lib/phantom-paths');
 
-const TEAM_DIR = path.resolve(__dirname, '..');
-const LEARNINGS_DIR = path.join(TEAM_DIR, 'learnings');
-const PATTERNS_DIR = path.join(TEAM_DIR, 'global', 'patterns');
-const STATE_FILE = path.join(TEAM_DIR, 'state', 'evolution-log.json');
+const LEARNINGS_DIR = learningsDir();
+const PATTERNS_DIR = globalPatternsDir();
+const STATE_FILE = path.join(stateDir(), 'evolution-log.json');
 const STALE_DAYS = 30;
 const REMOVE_DAYS = 60;
 const PROMOTE_THRESHOLD = 5;

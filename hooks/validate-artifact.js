@@ -5,13 +5,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const SESSIONS_DIR = path.join(process.env.HOME, '.claude/phantom/state/sessions');
 const REQUIRED_META = ['writtenAt', 'gitHead', 'gitBranch', 'phase', 'skill', 'version'];
 
-function isArtifact(filePath) {
+function isArtifact(filePath, sessionsDirPath) {
   if (!filePath) return false;
   const resolved = path.resolve(filePath);
-  return resolved.startsWith(SESSIONS_DIR) && resolved.endsWith('.json');
+  return resolved.startsWith(sessionsDirPath) && resolved.endsWith('.json');
 }
 
 function validate(filePath) {
@@ -38,14 +37,29 @@ function validate(filePath) {
   }
 }
 
-const event = JSON.parse(process.argv[2] || '{}');
-const toolName = event.tool_name || '';
-const filePath = event.tool_input?.file_path || '';
+function main() {
+  // Resolver require lives inside the guard so a load failure fails open, not a crash.
+  const { sessionsDir } = require('../scripts/lib/phantom-paths');
+  const SESSIONS_DIR = sessionsDir();
 
-if ((toolName === 'Write' || toolName === 'Edit') && isArtifact(filePath)) {
-  const result = validate(filePath);
-  if (!result.valid) {
-    console.error(`ARTIFACT VALIDATION FAILED: ${result.error}`);
-    process.exit(1);
+  const event = JSON.parse(process.argv[2] || '{}');
+  const toolName = event.tool_name || '';
+  const filePath = event.tool_input?.file_path || '';
+
+  if ((toolName === 'Write' || toolName === 'Edit') && isArtifact(filePath, SESSIONS_DIR)) {
+    const result = validate(filePath);
+    if (!result.valid) {
+      // Real validation block — escapes the fail-open catch via process.exit (does not throw).
+      console.error(`ARTIFACT VALIDATION FAILED: ${result.error}`);
+      process.exit(1);
+    }
   }
+}
+
+// fail open: an internal/resolver error must not masquerade as a validation block — exit 0 on any throw.
+// A genuine validation failure exits 1 above (process.exit doesn't throw, so it bypasses this catch).
+try {
+  main();
+} catch (_) {
+  process.exit(0);
 }

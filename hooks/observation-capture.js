@@ -5,9 +5,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { observationsDir } = require('../scripts/lib/phantom-paths');
 
-const HOME = require('os').homedir();
-const OBS_DIR = path.join(HOME, '.claude', 'team', 'observations');
+const OBS_DIR = observationsDir();
 const MAX_OUTPUT_SIZE = 10240; // 10KB — skip larger outputs
 const MAX_OBS_LENGTH = 500;   // chars per observation line
 const DEDUP_WINDOW = 60000;   // 60 seconds

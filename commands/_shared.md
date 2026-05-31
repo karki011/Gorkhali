@@ -13,15 +13,15 @@
 
 ```
 REPO_NAME = basename of git root, or basename of cwd, or "_default"
-TEAM_DIR  = ~/.claude/phantom/repos/{REPO_NAME}
+TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
 DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md
 DECISIONS_SESSION  = {TEAM_DIR}/sessions/{TICKET}/decisions.md
 LEARNINGS       = {TEAM_DIR}/learnings/
 LEARNINGS_INDEX = {TEAM_DIR}/learnings/INDEX.md
 LEARNINGS_EDGES = {TEAM_DIR}/learnings/EDGES.md
-GLOBAL_PATTERNS = ~/.claude/phantom/global/patterns/INDEX.md
-GLOBAL_EDGES    = ~/.claude/phantom/global/patterns/EDGES.md
+GLOBAL_PATTERNS = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/INDEX.md
+GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.md
 ```
 
 </context>

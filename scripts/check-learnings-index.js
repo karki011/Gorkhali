@@ -3,16 +3,17 @@
 // Verifies that every entry in learnings/INDEX.md has a corresponding domain file,
 // and that every domain file is referenced in INDEX.md.
 // Usage: check-learnings-index.js <learnings-dir>
-//   <learnings-dir> defaults to ~/.claude/phantom/repos/_default/learnings
+//   <learnings-dir> defaults to ${PHANTOM_DATA}/repos/_default/learnings
 // Exit 0 = healthy, Exit 1 = problems found
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { repoDir } = require('./lib/phantom-paths');
 
 const [,, learningsDir] = process.argv;
-const dir = (learningsDir || `${process.env.HOME}/.claude/phantom/repos/_default/learnings`)
+const dir = (learningsDir || path.join(repoDir('_default'), 'learnings'))
   .replace(/^~/, process.env.HOME);
 
 if (!fs.existsSync(dir)) {

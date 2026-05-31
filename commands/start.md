@@ -40,11 +40,11 @@ Agent spawn rules (all routes):
 
 ## Phase A: Context
 
-> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `~/.claude/phantom/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
+> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
 
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current`
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
-2.5. Activate subagent enforcement: `touch ~/.claude/phantom/.apex-active`
+2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active`
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
 5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
@@ -60,7 +60,7 @@ READ `reference/router.md` for full algorithm.
 ## Route: DIRECT (0 gates)
 
 1. Write `intent.json` with task scope
-2. Activate blade marker: `touch ~/.claude/phantom/.blade-editing`
+2. Activate blade marker: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 3. **Spawn Blade agent** via Agent tool:
    ```
    Agent call:
@@ -76,7 +76,7 @@ READ `reference/router.md` for full algorithm.
        {file paths to modify}
        Self-review your changes before returning.
    ```
-4. Deactivate blade marker: `rm -f ~/.claude/phantom/.blade-editing`
+4. Deactivate blade marker: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 5. After Blade returns → `Skill(skill="phantom:verify", args="--chained")` (chained flow).
    - **PASS → AUTO-CONTINUE** to `Skill(skill="phantom:wrap")`. Do NOT return to the human here.
    - **FAIL → verify threads** `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally, max 3) → on PASS, AUTO-CONTINUE to `Skill(skill="phantom:wrap")`.

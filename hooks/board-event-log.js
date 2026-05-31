@@ -12,9 +12,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
-
-const HOME = require('os').homedir()
-const EVENTS_DIR = path.join(HOME, '.claude', 'team', 'events')
+const { eventsDir } = require('../scripts/lib/phantom-paths')
 
 const getRepo = () => {
   try {
@@ -38,7 +36,7 @@ process.stdin.on('end', () => {
     if (!data.tool_name) return
 
     const repo = getRepo()
-    const dir = path.join(EVENTS_DIR, repo)
+    const dir = eventsDir(repo)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 
     const event = {

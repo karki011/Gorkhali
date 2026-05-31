@@ -6,7 +6,7 @@
 # directly. All implementation must go through the Agent tool (spawned subagents).
 #
 # Active during phantom sessions only — controlled by sentinel at
-# ~/.claude/phantom/.apex-active (written by /phantom:start, removed by /phantom:wrap).
+# $PHANTOM_DATA/.apex-active (written by /phantom:start, removed by /phantom:wrap).
 #
 # Subagent detection uses a marker-file mutex:
 #   .blade-editing — created by Apex before spawning Blades, removed after.
@@ -15,9 +15,12 @@
 
 set -euo pipefail
 
-SENTINEL="$HOME/.claude/phantom/.apex-active"
-BLADE_MARKER="$HOME/.claude/phantom/.blade-editing"
-AUDIT_DIR="$HOME/.claude/phantom/audit"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../scripts/lib/phantom-paths.sh"
+
+SENTINEL="$PHANTOM_DATA/.apex-active"
+BLADE_MARKER="$PHANTOM_DATA/.blade-editing"
+AUDIT_DIR="$PHANTOM_AUDIT_DIR"
 AUDIT_LOG="$AUDIT_DIR/apex-edits-$(date +%Y-%m-%d).jsonl"
 
 # Only act when a phantom session is active
@@ -71,7 +74,7 @@ CORE DISCIPLINE #13 VIOLATION — Apex must not edit files directly.
 Spawn a Blade agent via the Agent tool instead. All implementation
 goes through subagents — even 1-line typo fixes.
 
-Before spawning: touch ~/.claude/phantom/.blade-editing
-After completion: rm -f ~/.claude/phantom/.blade-editing
+Before spawning: touch $BLADE_MARKER
+After completion: rm -f $BLADE_MARKER
 EOF
 exit 2

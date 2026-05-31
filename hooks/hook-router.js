@@ -8,10 +8,20 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+let stateDir;
+try {
+  ({ stateDir } = require('../scripts/lib/phantom-paths'));
+} catch (_) {
+  // fail open: resolver unavailable (e.g. packaging) — degrade to default root, never crash the dispatcher
+  const os = require('os');
+  stateDir = () => path.join(process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data'), 'state');
+}
 
-const TEAM_DIR = path.join(require('os').homedir(), '.claude', 'team');
+// Shipped (read-only) content (hooks-config + scripts) stays addressed relative to the install dir.
+const TEAM_DIR = path.resolve(__dirname, '..'); // install dir (shipped hooks-config + scripts)
 const HOOKS_DIR = path.join(TEAM_DIR, 'hooks');
-const STATE_DIR = path.join(TEAM_DIR, 'state');
+// Mutable hook-session state lives under the resolver-rooted data dir.
+const STATE_DIR = stateDir();
 const SESSION_STATE = path.join(STATE_DIR, '.hook-session-state.json');
 
 function parseArgs() {

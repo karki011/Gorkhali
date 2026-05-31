@@ -23,7 +23,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 4. **Load intent**: Read `{TEAM_DIR}/sessions/{TICKET}/intent.json`
 
-5. **Activate blade marker**: `touch ~/.claude/phantom/.blade-editing`
+5. **Activate blade marker**: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 
 6. **Dispatch per plan**:
    - READ `reference/agents.md` for spawn patterns and task tier classification
@@ -39,7 +39,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
 
-7. **Deactivate blade marker**: `rm -f ~/.claude/phantom/.blade-editing`
+7. **Deactivate blade marker**: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 
 <output_format>
 

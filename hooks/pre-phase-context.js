@@ -5,9 +5,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const REF_DIR = path.join(process.env.HOME, '.claude/phantom/reference');
-const STATE_DIR = path.join(process.env.HOME, '.claude/phantom/state/sessions');
-
 const PHASE_REFS = {
   'A': ['governance.md'],
   'B': ['agents.md', 'contracts.md', 'governance.md'],
@@ -17,14 +14,14 @@ const PHASE_REFS = {
   'wrap': ['governance.md']
 };
 
-function getCurrentPhase() {
+function getCurrentPhase(stateDirPath) {
   try {
-    const sessions = fs.readdirSync(STATE_DIR).filter(d => {
-      const stat = fs.statSync(path.join(STATE_DIR, d));
+    const sessions = fs.readdirSync(stateDirPath).filter(d => {
+      const stat = fs.statSync(path.join(stateDirPath, d));
       return stat.isDirectory();
     });
     for (const session of sessions.sort().reverse()) {
-      const pauseFile = path.join(STATE_DIR, session, 'pause-state.json');
+      const pauseFile = path.join(stateDirPath, session, 'pause-state.json');
       if (fs.existsSync(pauseFile)) {
         const data = JSON.parse(fs.readFileSync(pauseFile, 'utf-8'));
         if (data.status === 'paused') return data.phase;
@@ -36,11 +33,11 @@ function getCurrentPhase() {
   return null;
 }
 
-function getRefsForPhase(phase) {
+function getRefsForPhase(phase, refDir) {
   const refs = PHASE_REFS[phase] || PHASE_REFS['B'];
   const contents = [];
   for (const ref of refs) {
-    const refPath = path.join(REF_DIR, ref);
+    const refPath = path.join(refDir, ref);
     if (fs.existsSync(refPath)) {
       contents.push(`<!-- Reference: ${ref} -->\n${fs.readFileSync(refPath, 'utf-8')}`);
     }
@@ -48,16 +45,30 @@ function getRefsForPhase(phase) {
   return contents.join('\n---\n');
 }
 
-// Hook entry: detect phase, output reference content
-const event = JSON.parse(process.argv[2] || '{}');
-const toolName = event.tool_name || '';
+function main() {
+  // Resolver require lives inside the guard so a load failure fails open (exit 0), not a crash.
+  const { sessionsDir } = require('../scripts/lib/phantom-paths');
+  // shipped content (read-only), install-dir-relative
+  const REF_DIR = path.join(__dirname, '..', 'reference');
+  const STATE_DIR = sessionsDir();
 
-if (toolName === 'Agent' || toolName === 'Skill') {
-  const phase = getCurrentPhase();
-  if (phase) {
-    const refs = getRefsForPhase(phase);
-    if (refs) {
-      console.log(refs);
+  const event = JSON.parse(process.argv[2] || '{}');
+  const toolName = event.tool_name || '';
+
+  if (toolName === 'Agent' || toolName === 'Skill') {
+    const phase = getCurrentPhase(STATE_DIR);
+    if (phase) {
+      const refs = getRefsForPhase(phase, REF_DIR);
+      if (refs) {
+        console.log(refs);
+      }
     }
   }
+}
+
+// fail open: any error (incl. resolver-require failure on PreToolUse) must exit 0, never block the user
+try {
+  main();
+} catch (_) {
+  process.exit(0);
 }

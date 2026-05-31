@@ -17,7 +17,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 3. **Contradiction detection** — scan each domain file for Pattern + Correction entries referencing the same concept/approach without a `supersedes` edge in `EDGES.md`. Report as `CONTRADICTION: [{pattern}] vs [{correction}] — needs supersedes edge`.
 
-4. **Orphaned sessions** — check `{TEAM_DIR}/sessions/` directories against event log entries in `~/.claude/phantom/events/{REPO}/task-events.ndjson`. Report sessions with dirs but no events as `ORPHANED: {TEAM_DIR}/sessions/{TICKET}`.
+4. **Orphaned sessions** — check `{TEAM_DIR}/sessions/` directories against event log entries in `${PHANTOM_DATA:-~/.claude/phantom-data}/events/{REPO}/task-events.ndjson`. Report sessions with dirs but no events as `ORPHANED: {TEAM_DIR}/sessions/{TICKET}`.
 
 5. **INDEX sync** — compare entries in each `learnings/{domain}.md` against `learnings/INDEX.md`. Report entries in domain files missing from INDEX as `DESYNC: [{entry}] in {domain}.md but not in INDEX.md`.
 
@@ -25,7 +25,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 7. **Edge integrity** — if `EDGES.md` exists, check that all Source and Target IDs reference entries that still exist in INDEX.md or domain files. Report broken refs as `BROKEN EDGE: [{source}] → [{target}] — target not found`.
 
-8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `~/.claude/phantom/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
+8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
 
 9. **File size caps**: Check all skill/reference/learnings files against caps:
    - `commands/*.md` (non-shared) > 80 lines → needs trimming

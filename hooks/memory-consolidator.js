@@ -9,12 +9,11 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { observationsDir, learningsDir, stateDir } = require('../scripts/lib/phantom-paths');
 
-const HOME = require('os').homedir();
-const TEAM_DIR = path.join(HOME, '.claude', 'team');
-const LEARNINGS_DIR = path.join(TEAM_DIR, 'learnings');
-const OBS_DIR = path.join(TEAM_DIR, 'observations');
-const STATE_DIR = path.join(TEAM_DIR, 'state');
+const LEARNINGS_DIR = learningsDir();
+const OBS_DIR = observationsDir();
+const STATE_DIR = stateDir();
 const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
 const AUTO_CAPTURES_PATH = path.join(LEARNINGS_DIR, 'auto-captures.md');
 const EXTRACT_SCRIPT = path.join(__dirname, '..', 'scripts', 'extract-learnings.js');

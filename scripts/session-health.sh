@@ -2,7 +2,7 @@
 # Author: Subash Karki
 # Verifies a Phantom session directory has the expected artifacts for its phase.
 # Usage: session-health.sh <session-dir> [--phase <phase>]
-#   <session-dir>: path to session directory (e.g., ~/.claude/phantom/repos/myrepo/sessions/ENG-1234)
+#   <session-dir>: path to session directory (e.g., ~/.claude/phantom-data/repos/myrepo/sessions/ENG-1234)
 #   --phase <phase>: expected phase (A, B, C, D, verify, wrap). Auto-detected from artifacts if omitted.
 # Exit 0 = healthy, Exit 1 = missing required artifacts
 
