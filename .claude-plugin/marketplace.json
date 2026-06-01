@@ -1,0 +1,17 @@
+{
+  "name": "phantom",
+  "owner": {
+    "name": "Subash Karki"
+  },
+  "metadata": {
+    "description": "Phantom — multi-agent orchestrated development for Claude Code.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "phantom",
+      "source": "./",
+      "description": "Multi-agent orchestrated development for Claude Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer."
+    }
+  ]
+}
