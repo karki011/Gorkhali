@@ -88,7 +88,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 Repo root (the plugin install root, `CLAUDE_PLUGIN_ROOT`):
 
 ```
-research-phantom-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
+research-team-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
@@ -192,7 +192,7 @@ Opus 4.8 also improves tool triggering (less likely to skip a required tool call
 Phantom is a **native Claude Code plugin**. Install it from the self-hosted marketplace in this repo — no symlinks, no `settings.json` juggling.
 
 ```
-/plugin marketplace add Cloudzero/research-phantom-skills
+/plugin marketplace add Cloudzero/research-team-skills
 /plugin install phantom@phantom
 /phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX, config.yaml
 ```
@@ -206,7 +206,7 @@ Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optiona
 The original git-clone + symlink flow still works and is handy when developing Phantom itself, but the plugin install above is preferred for normal use.
 
 ```bash
-git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
+git clone git@github.com:Cloudzero/research-team-skills.git ~/.claude/phantom
 ~/.claude/phantom/setup.sh
 ```
 

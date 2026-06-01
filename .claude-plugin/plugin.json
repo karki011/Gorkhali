@@ -1,12 +1,12 @@
 {
   "name": "phantom",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Phantom — multi-agent orchestrated development for Claude Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer.",
   "author": {
     "name": "Subash Karki"
   },
-  "homepage": "https://github.com/Cloudzero/research-phantom-skills",
-  "repository": "https://github.com/Cloudzero/research-phantom-skills",
+  "homepage": "https://github.com/Cloudzero/research-team-skills",
+  "repository": "https://github.com/Cloudzero/research-team-skills",
   "keywords": [
     "orchestration",
     "multi-agent",
