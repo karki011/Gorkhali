@@ -30,7 +30,7 @@ Check existing patterns before creating new ones. If it exists, extend it — do
 ## Standards
 
 - TypeScript `type`/`interface` only — no Zod. Follow project `CLAUDE.md`.
-- Principles: **KISS**, **DRY**, **YAGNI**, **SRP**, **Meaningful Names**
+- Principles: **KISS**, **DRY**, **YAGNI**, **SRP**, **Meaningful Names**, **Minimal Comments**
 
 ## Sage Escalation
 

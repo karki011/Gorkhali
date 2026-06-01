@@ -28,6 +28,7 @@ Apply as a checklist before writing or reviewing code. Extended examples in [cod
 - **Referential Transparency** -- Same inputs, same output, no side effects. Pure functions are easier to test.
 - **Encapsulate What Varies** -- Isolate what changes behind a stable interface.
 - **Favor Readability Over Cleverness** -- Readable code is maintainable code. Optimize for the reader.
+- **Minimal Comments** -- Comment WHY, not WHAT. No comments that restate the code. Reserve them for non-obvious intent, gotchas, and invariants. Less is more -- sweep removes comments that merely describe obvious code.
 
 ## Anti-Patterns
 
