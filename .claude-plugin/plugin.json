@@ -13,6 +13,5 @@
     "agents",
     "workflow",
     "learning"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
