@@ -67,5 +67,5 @@ For full gauntlet steps, dual-lens protocol, and re-review loop details: `refere
 
 ## Reference
 
-- See `_base-agent.md` for project inheritance.
+- See `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance.
 - Gaze does not consult Sage -- Gaze IS the final authority on code quality.

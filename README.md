@@ -85,15 +85,21 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 ## Folder Structure
 
+Repo root (the plugin install root, `CLAUDE_PLUGIN_ROOT`):
+
 ```
-~/.claude/phantom/
+research-phantom-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
+├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
+│   ├── plugin.json        # Native Claude Code plugin manifest
+│   └── marketplace.json   # Marketplace entry (install source)
 ├── commands/          # 21 skill directives (30-150 lines each)
-├── reference/         # 16 reference files (on-demand, injected by hooks)
+├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
 │   ├── wiring.md          # Dependency topology, wave assignments
 │   ├── planning.md        # Machine-checkable criteria, anti-placeholder rules
 │   ├── hound-protocol.md  # 7-step investigation with HTML reports
+│   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
 ├── agents/            # 11 agent personas
 ├── scripts/           # 4 deterministic helpers (no LLM needed)
@@ -102,15 +108,24 @@ The router classifies incoming tasks and selects the right cognitive mode:
 │   ├── session-health.sh
 │   └── preamble-tier.js
 ├── evals/             # 30 test cases for skill triggering verification
-├── state/             # Global (non-ticket) state: evolution-log, hook-session snapshots
 ├── hooks/             # Structural enforcement
-├── learnings/         # Scored knowledge with decay
-├── repos/             # Per-repo state (under ${PHANTOM_DATA:-~/.claude/phantom-data})
-│   └── {REPO_NAME}/
-│       ├── sessions/      # Per-ticket JSON artifacts (source of truth) — sessions/{TICKET}/
-│       └── learnings/     # Per-repo scored knowledge
+│   └── hooks.json         # Plugin-owned hook registrations
 ├── templates/         # Reusable contract templates
-└── global/            # Cross-repo patterns
+├── install.sh         # Legacy / manual install helper
+└── setup.sh           # State + config initializer (run via /phantom:setup)
+```
+
+Mutable state lives outside the plugin root, under `${PHANTOM_DATA:-~/.claude/phantom-data}`:
+
+```
+${PHANTOM_DATA:-~/.claude/phantom-data}/
+├── state/             # Global (non-ticket) state: evolution-log, hook-session snapshots
+├── learnings/         # Scored knowledge with decay
+├── global/            # Cross-repo patterns
+└── repos/             # Per-repo state
+    └── {REPO_NAME}/
+        ├── sessions/      # Per-ticket JSON artifacts (source of truth) — sessions/{TICKET}/
+        └── learnings/     # Per-repo scored knowledge
 ```
 
 ## Shadows
@@ -172,28 +187,32 @@ Opus 4.8 also improves tool triggering (less likely to skip a required tool call
 - Feature-dev: disabled, reference removed from gaze.md
 - Code-sweep: absorbed into `agents/sweep.md` (plugin still enabled as backup, can be disabled)
 
-## Setup
+## Install
+
+Phantom is a **native Claude Code plugin**. Install it from the self-hosted marketplace in this repo — no symlinks, no `settings.json` juggling.
+
+```
+/plugin marketplace add Cloudzero/research-phantom-skills
+/plugin install phantom@phantom
+/phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX, config.yaml
+```
+
+The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs, the learnings `INDEX.md`, and `config.yaml` — it is safe to re-run. Update later with `/plugin update phantom`.
+
+Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
+
+### Legacy / manual install (for development)
+
+The original git-clone + symlink flow still works and is handy when developing Phantom itself, but the plugin install above is preferred for normal use.
 
 ```bash
 git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
 ~/.claude/phantom/setup.sh
 ```
 
-Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
-
-## Install as a Claude Code plugin
-
-Phantom can also install as a native Claude Code plugin via its `.claude-plugin/plugin.json` manifest and `hooks/hooks.json` (which now owns Phantom's hooks). Plugins are dropped in place without running `setup.sh`, so initialize state + config once after install:
-
-```bash
-/phantom:setup
-```
-
-This (re)initializes the PHANTOM_DATA dirs, learnings `INDEX.md`, and `config.yaml`. Safe to re-run.
-
 > **Note:** `/phantom:setup` needs the plugin context (`CLAUDE_PLUGIN_ROOT` populated) or an existing git-clone install at `~/.claude/phantom`. A bare-terminal copy-paste with neither will not find `setup.sh` and exits with a helpful error.
 
-**Migrating from the symlink install?** The legacy `install.sh`/`setup.sh` flow registered 5 Phantom hooks in `~/.claude/settings.json` with absolute paths. The plugin's `hooks/hooks.json` now owns those same hooks, so to avoid double-firing, those legacy entries must be removed:
+**Previously used the legacy symlink install?** That flow registered 5 Phantom hooks in `~/.claude/settings.json` with absolute paths. The plugin's `hooks/hooks.json` now owns those same hooks, so to avoid double-firing, those legacy entries must be removed:
 
 - `memory-writer.js`
 - `apex-subagent-driven-law.sh`
@@ -201,7 +220,7 @@ This (re)initializes the PHANTOM_DATA dirs, learnings `INDEX.md`, and `config.ya
 - `memory-consolidator.js`
 - `context-compact-guide.sh`
 
-When you run `/phantom:setup` from a **plugin** install (`setup.sh` running outside `~/.claude/phantom`), it backs up `~/.claude/settings.json` and removes those legacy entries automatically — and preserves all non-phantom hook entries. Run from the symlink install, it leaves them in place (they are that install's own registration). Requires `jq`; if `jq` is missing it skips and warns, and you can remove them manually.
+When you run `/phantom:setup` from a **plugin** install (`setup.sh` running outside `~/.claude/phantom`), it backs up `~/.claude/settings.json` and removes those legacy entries automatically — and preserves all non-phantom hook entries. Run from the legacy symlink install, it leaves them in place (they are that install's own registration). Requires `jq`; if `jq` is missing it skips and warns, and you can remove them manually.
 
 ## Author
 

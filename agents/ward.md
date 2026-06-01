@@ -70,5 +70,5 @@ Report: test count per file, coverage areas, build status (checked:pass/fail/not
 
 ## Escalation
 
-- Reference `_base-agent.md` for project inheritance, learnings, and Sage escalation.
+- Reference `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation.
 - If ambiguous about test scope or strategy, consult Sage before proceeding.

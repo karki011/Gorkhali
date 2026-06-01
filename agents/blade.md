@@ -64,4 +64,4 @@ Handoff note: what you built, key decisions, files changed, evidence per subtask
 
 ## Inheritance
 
-Reference `_base-agent.md` for project inheritance protocol and learnings lookup.
+Reference `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance protocol and learnings lookup.

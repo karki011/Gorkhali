@@ -124,7 +124,7 @@ fi
 # ─── Register Agents as Claude Code Subagents ───
 # Claude Code discovers user subagents from ~/.claude/agents/.
 # Symlink each real agent so its model/effort frontmatter takes effect.
-# Excludes _base-agent.md (template) and reference/ (not agent files).
+# The *.md glob only matches files directly in agents/ (reference/ is a subdir, not agent files).
 
 AGENTS_LINK_DIR="$HOME/.claude/agents/phantom"
 mkdir -p "$AGENTS_LINK_DIR"
@@ -133,8 +133,6 @@ AGENT_COUNT=0
 for agent_file in "$TEAM_DIR"/agents/*.md; do
   [ -f "$agent_file" ] || continue
   agent_name="$(basename "$agent_file")"
-  # Skip the base template (reference/ is a subdir, not matched by *.md)
-  [ "$agent_name" = "_base-agent.md" ] && continue
   ln -sf "$agent_file" "$AGENTS_LINK_DIR/$agent_name"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
