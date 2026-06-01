@@ -1,6 +1,6 @@
 # Pre-Ship Review Panel (RPSL)
 
-> **Context:** Called during `/phantom:wrap` after the Grill Gate passes. Expects `git diff main...HEAD` to be available and `intent.json` + `plan.json` in `state/sessions/{TICKET}/`. No PR ships without all four agents passing. No override. No skip flag.
+> **Context:** Called during `/phantom:wrap` after the Grill Gate passes. Expects `git diff main...HEAD` to be available and `intent.json` + `plan.json` in `{TEAM_DIR}/sessions/{TICKET}/`. No PR ships without all four agents passing. No override. No skip flag.
 
 ## Protocol
 
@@ -44,4 +44,4 @@ Each agent outputs:
 
 - **ALL PASS** -> write `review-panel.json`, proceed to ship
 - **ANY FAIL** -> write `review-panel.json` with `allPass: false`, **STOP**. Print all findings grouped by perspective. User must address blockers and re-run `/phantom:wrap`.
-- Write `state/sessions/{TICKET}/review-panel.json` (see `artifact-schemas.md`)
+- Write `{TEAM_DIR}/sessions/{TICKET}/review-panel.json` (see `artifact-schemas.md`)

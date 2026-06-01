@@ -17,7 +17,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 3. **Contradiction detection** — scan each domain file for Pattern + Correction entries referencing the same concept/approach without a `supersedes` edge in `EDGES.md`. Report as `CONTRADICTION: [{pattern}] vs [{correction}] — needs supersedes edge`.
 
-4. **Orphaned sessions** — check `{TEAM_DIR}/sessions/` directories against event log entries in `${PHANTOM_DATA:-~/.claude/phantom-data}/events/{REPO}/task-events.ndjson`. Report sessions with dirs but no events as `ORPHANED: {TEAM_DIR}/sessions/{TICKET}`.
+4. **Orphaned sessions** — scan `{TEAM_DIR}/sessions/` for session directories with no corresponding board file (`{TICKET}.json` missing) or an empty board with no activity (no tasks, no artifacts). Report as `ORPHANED: {TEAM_DIR}/sessions/{TICKET} — no board file / no activity`.
 
 5. **INDEX sync** — compare entries in each `learnings/{domain}.md` against `learnings/INDEX.md`. Report entries in domain files missing from INDEX as `DESYNC: [{entry}] in {domain}.md but not in INDEX.md`.
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // Auto-archives stale Phantom sessions.
-// Scans state/sessions/*/context.json for timestamps; moves stale sessions
-// to state/completed/{TICKET}/ with an archive-summary.json.
+// Sweeps every repo under <data>/repos/*: scans repos/<r>/sessions/*/context.json
+// for timestamps and moves stale sessions into that same repo's
+// repos/<r>/completed/{TICKET}/ with an archive-summary.json.
 //
 // Usage:
 //   session-cleanup.js [--dry-run] [--days=N] [--force-ticket=TICKET]
@@ -16,11 +17,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { sessionsDir, completedDir } = require('./lib/phantom-paths');
+const { phantomData, sessionsDir, completedDir } = require('./lib/phantom-paths');
 
 // --- Config ---
-const SESSIONS_DIR = sessionsDir();
-const COMPLETED_DIR = completedDir();
+const REPOS_DIR = path.join(phantomData(), 'repos');
 
 // --- Parse args ---
 const args = process.argv.slice(2);
@@ -182,99 +182,126 @@ function copyDirSync(src, dest) {
   }
 }
 
-// --- Main ---
-
-if (!fs.existsSync(SESSIONS_DIR)) {
-  process.stdout.write('No sessions directory found. Nothing to archive.\n');
-  process.exit(0);
-}
+// --- Per-repo sweep ---
 
 const now = new Date();
-const thresholdMs = staleDays * 24 * 60 * 60 * 1000;
 const archived = [];
 const skipped = [];
 
-let tickets;
+/** Archive stale sessions for a single repo into that repo's completed dir. */
+function processRepo(repo) {
+  const sessionsRoot = sessionsDir(repo);
+  const completedRoot = completedDir(repo);
+
+  if (!fs.existsSync(sessionsRoot)) return;
+
+  let tickets;
+  try {
+    tickets = fs.readdirSync(sessionsRoot, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name);
+  } catch (e) {
+    process.stderr.write(`WARN: Cannot read sessions dir for repo "${repo}": ${e.message}\n`);
+    return;
+  }
+
+  if (forceTicket) {
+    tickets = tickets.filter(t => t === forceTicket);
+  }
+
+  for (const ticket of tickets) {
+    const sessionDir = path.join(sessionsRoot, ticket);
+    const created = getSessionCreated(sessionDir);
+    const lastModified = getLatestMtime(sessionDir);
+    const artifactCount = countArtifacts(sessionDir);
+
+    // Determine if stale
+    const isForced = forceTicket === ticket;
+    const ageDays = created ? (now - created) / (24 * 60 * 60 * 1000) : null;
+    const inactiveDays = (now - lastModified) / (24 * 60 * 60 * 1000);
+
+    const isOldEnough = ageDays !== null ? ageDays >= staleDays : inactiveDays >= staleDays;
+    const isInactive = inactiveDays >= staleDays;
+    const shouldArchive = isForced || (isOldEnough && isInactive);
+
+    if (!shouldArchive) {
+      skipped.push({
+        repo,
+        ticket,
+        reason: !isOldEnough ? `age ${ageDays !== null ? ageDays.toFixed(1) : '?'}d < ${staleDays}d` : `active ${inactiveDays.toFixed(1)}d ago`,
+      });
+      continue;
+    }
+
+    const finalStatus = detectStatus(sessionDir);
+    const destDir = path.join(completedRoot, ticket);
+
+    const summary = {
+      repo,
+      ticket,
+      archived_date: now.toISOString(),
+      original_created: created ? created.toISOString() : null,
+      last_modified: lastModified.toISOString(),
+      artifacts_count: artifactCount,
+      final_status: finalStatus,
+    };
+
+    if (dryRun) {
+      process.stdout.write(`[DRY RUN] Would archive: ${repo}/${ticket}\n`);
+      process.stdout.write(`  created:       ${summary.original_created || 'unknown'}\n`);
+      process.stdout.write(`  last_modified: ${summary.last_modified}\n`);
+      process.stdout.write(`  artifacts:     ${summary.artifacts_count}\n`);
+      process.stdout.write(`  status:        ${summary.final_status}\n`);
+      process.stdout.write(`  dest:          ${destDir}\n\n`);
+    } else {
+      // Check for collision
+      if (fs.existsSync(destDir)) {
+        process.stderr.write(`WARN: ${destDir} already exists, overwriting.\n`);
+        fs.rmSync(destDir, { recursive: true, force: true });
+      }
+
+      moveDir(sessionDir, destDir);
+
+      // Write archive summary
+      const summaryPath = path.join(destDir, 'archive-summary.json');
+      fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + '\n');
+
+      process.stdout.write(`Archived: ${repo}/${ticket} -> repos/${repo}/completed/${ticket}/ (${finalStatus})\n`);
+    }
+
+    archived.push(summary);
+  }
+}
+
+// --- Main ---
+
+if (!fs.existsSync(REPOS_DIR)) {
+  process.stdout.write('No repos directory found. Nothing to archive.\n');
+  process.exit(0);
+}
+
+let repos;
 try {
-  tickets = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true })
+  repos = fs.readdirSync(REPOS_DIR, { withFileTypes: true })
     .filter(e => e.isDirectory())
     .map(e => e.name);
 } catch (e) {
-  process.stderr.write(`ERROR: Cannot read sessions directory: ${e.message}\n`);
+  process.stderr.write(`ERROR: Cannot read repos directory: ${e.message}\n`);
   process.exit(1);
 }
 
-if (forceTicket) {
-  tickets = tickets.filter(t => t === forceTicket);
-  if (tickets.length === 0) {
-    process.stderr.write(`ERROR: Ticket "${forceTicket}" not found in ${SESSIONS_DIR}\n`);
-    process.exit(1);
-  }
+for (const repo of repos) {
+  processRepo(repo);
 }
 
-for (const ticket of tickets) {
-  const sessionDir = path.join(SESSIONS_DIR, ticket);
-  const created = getSessionCreated(sessionDir);
-  const lastModified = getLatestMtime(sessionDir);
-  const artifactCount = countArtifacts(sessionDir);
-
-  // Determine if stale
-  const isForced = forceTicket === ticket;
-  const ageDays = created ? (now - created) / (24 * 60 * 60 * 1000) : null;
-  const inactiveDays = (now - lastModified) / (24 * 60 * 60 * 1000);
-
-  const isOldEnough = ageDays !== null ? ageDays >= staleDays : inactiveDays >= staleDays;
-  const isInactive = inactiveDays >= staleDays;
-  const shouldArchive = isForced || (isOldEnough && isInactive);
-
-  if (!shouldArchive) {
-    skipped.push({
-      ticket,
-      reason: !isOldEnough ? `age ${ageDays !== null ? ageDays.toFixed(1) : '?'}d < ${staleDays}d` : `active ${inactiveDays.toFixed(1)}d ago`,
-    });
-    continue;
-  }
-
-  const finalStatus = detectStatus(sessionDir);
-  const destDir = path.join(COMPLETED_DIR, ticket);
-
-  const summary = {
-    ticket,
-    archived_date: now.toISOString(),
-    original_created: created ? created.toISOString() : null,
-    last_modified: lastModified.toISOString(),
-    artifacts_count: artifactCount,
-    final_status: finalStatus,
-  };
-
-  if (dryRun) {
-    process.stdout.write(`[DRY RUN] Would archive: ${ticket}\n`);
-    process.stdout.write(`  created:       ${summary.original_created || 'unknown'}\n`);
-    process.stdout.write(`  last_modified: ${summary.last_modified}\n`);
-    process.stdout.write(`  artifacts:     ${summary.artifacts_count}\n`);
-    process.stdout.write(`  status:        ${summary.final_status}\n`);
-    process.stdout.write(`  dest:          ${destDir}\n\n`);
-  } else {
-    // Check for collision
-    if (fs.existsSync(destDir)) {
-      process.stderr.write(`WARN: ${destDir} already exists, overwriting.\n`);
-      fs.rmSync(destDir, { recursive: true, force: true });
-    }
-
-    moveDir(sessionDir, destDir);
-
-    // Write archive summary
-    const summaryPath = path.join(destDir, 'archive-summary.json');
-    fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + '\n');
-
-    process.stdout.write(`Archived: ${ticket} -> state/completed/${ticket}/ (${finalStatus})\n`);
-  }
-
-  archived.push(summary);
+if (forceTicket && archived.length === 0) {
+  process.stderr.write(`ERROR: Ticket "${forceTicket}" not found in any repo under ${REPOS_DIR}\n`);
+  process.exit(1);
 }
 
 // --- Report ---
 process.stdout.write('\n--- Session Cleanup Report ---\n');
+process.stdout.write(`Repos:      ${repos.length}\n`);
 process.stdout.write(`Threshold:  ${staleDays} day(s)\n`);
 process.stdout.write(`Archived:   ${archived.length}\n`);
 process.stdout.write(`Skipped:    ${skipped.length}\n`);
@@ -282,7 +309,7 @@ process.stdout.write(`Skipped:    ${skipped.length}\n`);
 if (skipped.length > 0) {
   process.stdout.write('\nSkipped sessions:\n');
   for (const s of skipped) {
-    process.stdout.write(`  ${s.ticket}: ${s.reason}\n`);
+    process.stdout.write(`  ${s.repo}/${s.ticket}: ${s.reason}\n`);
   }
 }
 

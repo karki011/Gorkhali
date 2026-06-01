@@ -1,0 +1,8 @@
+{
+  "name": "phantom-skill",
+  "private": true,
+  "description": "Phantom multi-agent skill — test harness for the layout-reconciliation seam.",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

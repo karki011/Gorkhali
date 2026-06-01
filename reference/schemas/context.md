@@ -21,7 +21,7 @@ Written by Phase A (`phantom:start`). Provides ticket context for all downstream
   "summary": "Add cost-per-tag breakdown to the dashboard",
   "source": "jira",
   "jira": { "status": "In Progress", "priority": "High" },
-  "learningsRefs": ["~/.claude/phantom/repos/feature-web-apps/learnings/frontend.md"],
+  "learningsRefs": ["~/.claude/phantom-data/repos/feature-web-apps/learnings/frontend.md"],
   "phantomStrategy": "decompose",
   "blastRadius": ["src/components/Dashboard.tsx", "src/hooks/useCostData.ts"],
   "modelOverride": null

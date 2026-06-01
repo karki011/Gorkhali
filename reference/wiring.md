@@ -42,7 +42,7 @@ Topological sort of the dependency graph -> group into parallel waves:
 
 ## Wiring Artifact
 
-Written to `state/sessions/{TICKET}/wiring.json`. `_meta` fields follow `artifact-schemas.md`.
+Written to `{TEAM_DIR}/sessions/{TICKET}/wiring.json`. `_meta` fields follow `artifact-schemas.md`.
 
 ```json
 {

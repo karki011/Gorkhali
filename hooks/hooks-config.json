@@ -57,17 +57,6 @@
       "description": "Captures structural file observations to NDJSON"
     },
     {
-      "name": "board-event-log",
-      "event": "PostToolUse",
-      "matcher": ".*",
-      "script": "hooks/board-event-log.js",
-      "enabled": true,
-      "once": false,
-      "priority": 110,
-      "input": "stdin-json",
-      "description": "Appends raw tool events to NDJSON event log"
-    },
-    {
       "name": "memory-consolidator",
       "event": "PreCompact",
       "matcher": ".*",

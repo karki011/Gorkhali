@@ -4,9 +4,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { globalPatternsDir, learningsDir, stateDir } = require('./lib/phantom-paths');
+const { globalPatternsDir, learningsDir, stateDir, detectRepo } = require('./lib/phantom-paths');
 
-const LEARNINGS_DIR = learningsDir();
+const REPO = detectRepo();
+const LEARNINGS_DIR = learningsDir(REPO);
 const PATTERNS_DIR = globalPatternsDir();
 const STATE_FILE = path.join(stateDir(), 'evolution-log.json');
 const STALE_DAYS = 30;
@@ -62,6 +63,7 @@ function parseEntries(content, filename) {
 }
 
 function readDomainFiles() {
+  if (!fs.existsSync(LEARNINGS_DIR)) return {};
   const files = fs.readdirSync(LEARNINGS_DIR)
     .filter(f => f.endsWith('.md') && f !== 'INDEX.md');
   const domains = {};
@@ -129,7 +131,7 @@ ${entry.content || entry.raw}
 
 function updatePatternsIndex(promoted) {
   const indexPath = path.join(PATTERNS_DIR, 'INDEX.md');
-  let content = fs.readFileSync(indexPath, 'utf8');
+  let content = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
   for (const p of promoted) {
     const line = `- [${p.entry.content || p.entry.keyword}](${p.filename}) — promoted from ${p.domain}.md [validated:${p.entry.validationCount}] (${now.toISOString().split('T')[0]})`;
     if (!content.includes(p.filename)) {
@@ -229,4 +231,10 @@ function run() {
   console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
 }
 
-run();
+// Fail open: maintenance script must never crash a session. Log and exit 0.
+try {
+  run();
+} catch (err) {
+  console.error(`[evolution-runner] non-fatal: ${err && err.message ? err.message : err}`);
+  process.exit(0);
+}

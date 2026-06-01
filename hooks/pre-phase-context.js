@@ -16,6 +16,8 @@ const PHASE_REFS = {
 
 function getCurrentPhase(stateDirPath) {
   try {
+    // Per-repo sessions dir may not exist yet for a fresh repo — guard the readdir.
+    if (!fs.existsSync(stateDirPath)) return null;
     const sessions = fs.readdirSync(stateDirPath).filter(d => {
       const stat = fs.statSync(path.join(stateDirPath, d));
       return stat.isDirectory();

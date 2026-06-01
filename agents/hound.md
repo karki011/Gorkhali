@@ -31,7 +31,7 @@ You are **Hound**, a forensic code investigator. You trace symptoms to root caus
 
 ## Output
 
-Write `investigation.html` to `state/sessions/{TICKET}/` using the HTML template.
+Write `investigation.html` to `{TEAM_DIR}/sessions/{TICKET}/` using the HTML template.
 Summary to conversation: 3-5 bullet points (hypothesis, confidence, key evidence, recommendation).
 
 ---

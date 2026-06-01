@@ -6,11 +6,33 @@
 'use strict';
 
 const os = require('os');
+const fs = require('fs');
 const path = require('path');
 
 /** Root for all Phantom mutable state. PHANTOM_DATA overrides the default. */
 function phantomData() {
   return process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+}
+
+/**
+ * Resolve the current repo name. PHANTOM_REPO overrides; otherwise walk up
+ * from cwd to the first dir holding a `.git` entry (dir or file) and take its
+ * basename; no `.git` anywhere up the tree -> '_default'. Never throws.
+ */
+function detectRepo(cwd = process.cwd()) {
+  try {
+    const override = process.env.PHANTOM_REPO;
+    if (override && override.trim()) return override.trim();
+    let dir = path.resolve(cwd);
+    while (true) {
+      if (fs.existsSync(path.join(dir, '.git'))) return path.basename(dir);
+      const parent = path.dirname(dir);
+      if (parent === dir) return '_default'; // reached filesystem root
+      dir = parent;
+    }
+  } catch (_err) {
+    return '_default';
+  }
 }
 
 /** Per-repo state dir: <data>/repos/<repoName> */
@@ -36,20 +58,21 @@ function globalPatternsDir() {
 /** Hook/session state dir: <data>/state */
 function stateDir()     { return path.join(phantomData(), 'state'); }
 
-/** Per-session state dir: <data>/state/sessions */
-function sessionsDir()  { return path.join(stateDir(), 'sessions'); }
+/** Per-repo session dir: <data>/repos/<repo>/sessions */
+function sessionsDir(repo = detectRepo())  { return path.join(repoDir(repo), 'sessions'); }
 
-/** Archived session dir: <data>/state/completed */
-function completedDir() { return path.join(stateDir(), 'completed'); }
+/** Per-repo archived session dir: <data>/repos/<repo>/completed */
+function completedDir(repo = detectRepo()) { return path.join(repoDir(repo), 'completed'); }
 
-/** Learnings dir: <data>/learnings */
-function learningsDir() { return path.join(phantomData(), 'learnings'); }
+/** Per-repo learnings dir: <data>/repos/<repo>/learnings */
+function learningsDir(repo = detectRepo()) { return path.join(repoDir(repo), 'learnings'); }
 
 /** Audit log dir: <data>/audit */
 function auditDir()     { return path.join(phantomData(), 'audit'); }
 
 module.exports = {
   phantomData,
+  detectRepo,
   repoDir,
   eventsDir,
   observationsDir,

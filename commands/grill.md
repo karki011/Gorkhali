@@ -58,7 +58,7 @@ Don't accept hand-waving. Follow up: "Show me which line handles that."
 
 ## Integration
 
-Auto-called by `/phantom:wrap` before PR when 3+ files changed by agents. Can also run manually. Verdict logged to session event log.
+Auto-called by `/phantom:wrap` before PR when 3+ files changed by agents. Can also run manually. Verdict recorded in the session board (`{TEAM_DIR}/sessions/{TICKET}.json`).
 
 ## Rules
 

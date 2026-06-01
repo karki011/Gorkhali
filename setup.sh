@@ -25,13 +25,13 @@ else
 fi
 
 # 2. Initialize directories (mutable state under PHANTOM_DATA)
-for dir in sessions events state state/completed learnings global/patterns audit; do
+for dir in sessions state state/completed learnings global/patterns audit; do
   mkdir -p "$PHANTOM_DATA/$dir"
   if [ ! -f "$PHANTOM_DATA/$dir/.gitkeep" ]; then
     touch "$PHANTOM_DATA/$dir/.gitkeep"
   fi
 done
-echo "  ✓ Directories initialized (sessions, events, state, learnings, global/patterns)"
+echo "  ✓ Directories initialized (sessions, state, learnings, global/patterns)"
 
 # 3. Initialize learnings INDEX.md if empty
 if [ ! -f "$PHANTOM_DATA/learnings/INDEX.md" ]; then

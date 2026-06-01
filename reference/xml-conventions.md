@@ -49,7 +49,7 @@ All work is local. Commits only in wrap.
 </no_git_until_wrap>
 
 <output_format>
-Write artifact to `state/sessions/{TICKET}/example.json`:
+Write artifact to `{TEAM_DIR}/sessions/{TICKET}/example.json`:
 { "_meta": {...}, "result": "..." }
 </output_format>
 ```

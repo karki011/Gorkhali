@@ -1,6 +1,6 @@
 # Learnings Recording
 
-> **Context:** Called during `/phantom:wrap` after RPSL passes and before ship ceremony. Expects `state/sessions/{TICKET}/` directory with session artifacts. Writes to `learnings/` domain files and `sessions/{TICKET}/`.
+> **Context:** Called during `/phantom:wrap` after RPSL passes and before ship ceremony. Expects `{TEAM_DIR}/sessions/{TICKET}/` directory with session artifacts. Writes to `learnings/` domain files and `sessions/{TICKET}/`.
 
 ## 1. Session File
 

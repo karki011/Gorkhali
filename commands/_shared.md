@@ -12,7 +12,7 @@
 ## Paths
 
 ```
-REPO_NAME = basename of git root, or basename of cwd, or "_default"
+REPO_NAME = $PHANTOM_REPO if set, else basename of git root, else "_default"
 TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
 DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md

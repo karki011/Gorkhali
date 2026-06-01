@@ -102,10 +102,13 @@ The router classifies incoming tasks and selects the right cognitive mode:
 │   ├── session-health.sh
 │   └── preamble-tier.js
 ├── evals/             # 30 test cases for skill triggering verification
-├── state/sessions/    # JSON artifacts (source of truth)
+├── state/             # Global (non-ticket) state: evolution-log, hook-session snapshots
 ├── hooks/             # Structural enforcement
 ├── learnings/         # Scored knowledge with decay
-├── repos/             # Per-repo state
+├── repos/             # Per-repo state (under ${PHANTOM_DATA:-~/.claude/phantom-data})
+│   └── {REPO_NAME}/
+│       ├── sessions/      # Per-ticket JSON artifacts (source of truth) — sessions/{TICKET}/
+│       └── learnings/     # Per-repo scored knowledge
 ├── templates/         # Reusable contract templates
 └── global/            # Cross-repo patterns
 ```

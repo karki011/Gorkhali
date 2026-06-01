@@ -47,4 +47,4 @@ Context -> Router(FULL) -> Skill(skill="phantom:brainstorm") (diverge/converge)
 
 ## Route Decision Artifact
 
-Written to `state/sessions/{TICKET}/route-decision.json`. See `artifact-schemas.md` for full schema.
+Written to `{TEAM_DIR}/sessions/{TICKET}/route-decision.json`. See `artifact-schemas.md` for full schema.

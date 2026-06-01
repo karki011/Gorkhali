@@ -26,11 +26,10 @@ const path = require('path');
 const { phantomData } = require('./lib/phantom-paths');
 
 // Data-only whitelist. Code dirs (commands/agents/hooks/scripts/reference/
-// templates/evals/board-app) and root files (*.md/*.html/install.sh/setup.sh/
+// templates/evals) and root files (*.md/*.html/install.sh/setup.sh/
 // .git) are deliberately absent so they are NEVER copied.
 const WHITELIST_DIRS = [
   'sessions',
-  'events',
   'state',
   'observations',
   'learnings',

@@ -1,5 +1,5 @@
 // validate-artifact.js — PostToolUse hook
-// Validates JSON artifacts in state/sessions/ have proper _meta headers
+// Validates JSON artifacts in <data>/repos/<repo>/sessions/ have proper _meta headers
 // Author: Subash Karki
 
 const fs = require('fs');
@@ -7,10 +7,18 @@ const path = require('path');
 
 const REQUIRED_META = ['writtenAt', 'gitHead', 'gitBranch', 'phase', 'skill', 'version'];
 
-function isArtifact(filePath, sessionsDirPath) {
+// Sessions are now per-repo: <data>/repos/<repo>/sessions. A write can target ANY
+// repo's sessions dir, so match the per-repo root (<data>/repos) + a /sessions/ segment
+// + .json — same artifact set as the old flat <data>/state/sessions match, just repo-aware.
+function isArtifact(filePath, reposRootPath) {
   if (!filePath) return false;
   const resolved = path.resolve(filePath);
-  return resolved.startsWith(sessionsDirPath) && resolved.endsWith('.json');
+  const reposPrefix = reposRootPath.endsWith(path.sep) ? reposRootPath : reposRootPath + path.sep;
+  return (
+    resolved.startsWith(reposPrefix) &&
+    resolved.includes(`${path.sep}sessions${path.sep}`) &&
+    resolved.endsWith('.json')
+  );
 }
 
 function validate(filePath) {
@@ -39,14 +47,15 @@ function validate(filePath) {
 
 function main() {
   // Resolver require lives inside the guard so a load failure fails open, not a crash.
-  const { sessionsDir } = require('../scripts/lib/phantom-paths');
-  const SESSIONS_DIR = sessionsDir();
+  const { phantomData } = require('../scripts/lib/phantom-paths');
+  // Per-repo sessions live under <data>/repos/<repo>/sessions; match the shared repos root.
+  const REPOS_ROOT = path.join(phantomData(), 'repos');
 
   const event = JSON.parse(process.argv[2] || '{}');
   const toolName = event.tool_name || '';
   const filePath = event.tool_input?.file_path || '';
 
-  if ((toolName === 'Write' || toolName === 'Edit') && isArtifact(filePath, SESSIONS_DIR)) {
+  if ((toolName === 'Write' || toolName === 'Edit') && isArtifact(filePath, REPOS_ROOT)) {
     const result = validate(filePath);
     if (!result.valid) {
       // Real validation block — escapes the fail-open catch via process.exit (does not throw).

@@ -38,9 +38,9 @@ Agents load ONLY what they need — Apex holds the full picture.
 | Codename | Gets | Does NOT Get |
 |----------|------|-------------|
 | **Apex** | All shared tiers + all learnings + decisions.ndjson (last 50) | — |
-| **Blade** | Persona + ROLE FOCUS + contract + CLAUDE.md + domain learnings + Anti-Repetition Block | _shared-shadows, _shared-contracts, _shared-board |
-| **Ward** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | Board, discipline tiers |
-| **Gaze** | Persona + full diff + `coding-principles.md` | Board tier |
+| **Blade** | Persona + ROLE FOCUS + contract + CLAUDE.md + domain learnings + Anti-Repetition Block | _shared-shadows, _shared-contracts |
+| **Ward** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | discipline tiers |
+| **Gaze** | Persona + full diff + `coding-principles.md` | discipline/planning tiers |
 | **Sage** | Decision context passed by Blade only | Everything — never loads files |
 | **Lens** | Persona + Figma specs (extraction) or route list (verification) | Full shared context |
 

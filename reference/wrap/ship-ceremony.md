@@ -1,12 +1,12 @@
 # Ship Ceremony
 
-> **Context:** Called during `/phantom:wrap` after RPSL passes. No git operations happened before this point — all prior work was local-only. Expects `state/sessions/{TICKET}/execution.json` and `verification.json` to exist.
+> **Context:** Called during `/phantom:wrap` after RPSL passes. No git operations happened before this point — all prior work was local-only. Expects `{TEAM_DIR}/sessions/{TICKET}/execution.json` and `verification.json` to exist.
 
 ## 1. Stage Changed Files
 
 <NEVER_COMMIT_SECRETS>
 
-- Read `state/sessions/{TICKET}/execution.json` for `filesChanged` list if available
+- Read `{TEAM_DIR}/sessions/{TICKET}/execution.json` for `filesChanged` list if available
 - Fallback: `git diff --name-only main...HEAD`
 - `git add <each file>` (never `git add -A`)
 - Skip: `.env`, `credentials.*`, `*.key`, `*.pem` (warn if found)

@@ -149,7 +149,7 @@ New T2 command: `commands/hound.md`
 7. EVIDENCE     — Specific line numbers, commits, or test cases that confirm/deny
 ```
 
-**Output artifact:** `state/sessions/{TICKET}/investigation.json`
+**Output artifact:** `{TEAM_DIR}/sessions/{TICKET}/investigation.json`
 ```json
 {
   "_meta": { "type": "investigation", "created": "..." },
