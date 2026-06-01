@@ -8,7 +8,7 @@
 1. Identify task domain(s) from the plan (ui, data, auth, testing, migration, tooling, shadows)
 2. For each domain, scan `learnings/{domain}.md` `## Corrections` section
 3. Scan `decisions.ndjson` for past failures on similar goals (if file exists):
-   - Read last 50 lines of `~/.claude/phantom/events/{repo}/decisions.ndjson`
+   - Read last 50 lines of `${PHANTOM_DATA:-~/.claude/phantom-data}/events/{repo}/decisions.ndjson`
    - Filter for `DECISION:outcome` events where `Outcome: fail`
    - Extract: route used, goal, corrections applied
 4. Build the **Anti-Repetition Block**:

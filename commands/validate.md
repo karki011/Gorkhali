@@ -12,7 +12,7 @@ user-invocable: false
 
 Run validation scripts to check shadows guidance compliance. Layers: `plan`, `output`, `session`, `all`.
 
-**Scripts location:** `~/.claude/phantom/scripts/`
+**Scripts location:** `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/`
 
 ---
 
@@ -57,7 +57,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 ### Layer: `plan`
 
 ```bash
-~/.claude/phantom/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
 ```
 
 Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
@@ -65,7 +65,7 @@ Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedba
 ### Layer: `output`
 
 ```bash
-~/.claude/phantom/scripts/validate-output.sh <agent-name> "<file1>,<file2>" /path/to/project
+${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/validate-output.sh <agent-name> "<file1>,<file2>" /path/to/project
 ```
 
 Checks: file ownership violations, copyright headers, inline hex/px values, barrel exports, filename conventions.
@@ -73,7 +73,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 ### Layer: `session`
 
 ```bash
-~/.claude/phantom/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
 ```
 
 Checks: required fields, phase/task status enums, verification block after verify phase, visual verification block when visualVerify: true, loop count bounds, board JSON freshness.

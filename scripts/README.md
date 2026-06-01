@@ -123,7 +123,7 @@ node preamble-tier.js
 Reference these scripts from skill `.md` files like:
 
 ```
-Run: node ~/.claude/phantom/scripts/validate-artifact.js verification {VERIFICATION_JSON_PATH}
+Run: node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/validate-artifact.js verification {VERIFICATION_JSON_PATH}
 ```
 
 or in a PostToolUse hook to validate artifacts immediately after they are written.

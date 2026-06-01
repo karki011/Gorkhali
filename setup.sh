@@ -154,36 +154,6 @@ CONFIGEOF
 echo ""
 echo "  ✓ Config written to $PHANTOM_DATA/config.yaml"
 
-# 6b. Inject enforcement patterns into user's CLAUDE.md
-CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-ENFORCEMENT_MARKER="## Learning & Self-Correction"
-
-if [ -f "$CLAUDE_MD" ]; then
-  if grep -q "$ENFORCEMENT_MARKER" "$CLAUDE_MD" 2>/dev/null; then
-    echo "  ✓ CLAUDE.md enforcement section already present"
-  else
-    cat >> "$CLAUDE_MD" << 'CLEOF'
-
-## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
-- Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
-- If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
-- After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
-CLEOF
-    echo "  ✓ CLAUDE.md enforcement section injected"
-  fi
-else
-  # Create CLAUDE.md with enforcement section
-  cat > "$CLAUDE_MD" << 'CLEOF'
-## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
-- Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
-- If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
-- After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
-CLEOF
-  echo "  ✓ Created CLAUDE.md with enforcement section"
-fi
-
 # 7. Install agent spawn validator hook
 HOOKS_DIR="$HOME/.claude/hooks"
 HOOK_FILE="$HOOKS_DIR/validate-agent-spawn.sh"
@@ -280,6 +250,53 @@ for script in "$REPO_DIR"/scripts/*.sh "$REPO_DIR"/scripts/*.js; do
   [ -f "$script" ] && chmod +x "$script"
 done
 echo "  ✓ Utility scripts ready (evolution-runner, session-cleanup, preamble-tier)"
+
+# 7c. De-dupe legacy phantom hooks from settings.json (PLUGIN installs only).
+# The plugin's hooks/hooks.json registers Phantom's 5 hooks via ${CLAUDE_PLUGIN_ROOT}.
+# Legacy symlink installs ALSO registered them in settings.json with absolute
+# $HOME/.claude/phantom/hooks/ paths — so a plugin-alongside-symlink setup double-fires.
+# GUARD: if REPO_DIR IS the legacy symlink dir, those entries are OUR legitimate
+# registration — do NOT touch them. Only a plugin install (REPO_DIR elsewhere) treats
+# them as stale duplicates. Whole step is non-fatal.
+if [ "$REPO_DIR" = "$HOME/.claude/phantom" ]; then
+  echo "  ○ Symlink install — leaving settings.json hook entries in place"
+else
+  SETTINGS="$HOME/.claude/settings.json"
+  if [ ! -f "$SETTINGS" ]; then
+    : # no settings.json — nothing to de-dupe
+  elif ! command -v jq &>/dev/null; then
+    echo "  ⚠ jq not found — skipping settings.json legacy-hook de-dupe (remove them manually; see README)"
+  else
+    PHANTOM_DEDUPE_JQ='
+      ($HOME + "/.claude/phantom/hooks/") as $legacy
+      | (["memory-writer.js","apex-subagent-driven-law.sh","memory-reader.js","memory-consolidator.js","context-compact-guide.sh"]) as $names
+      | def drop_entry($h):
+          ($h.command // "") as $c
+          | ($c | type == "string") and ($c | contains($legacy)) and (any($names[]; . as $n | $c | contains($n)));
+        if (.hooks | type) == "object" then
+          .hooks |= with_entries(
+            .value |= ( map( .hooks |= map(select(drop_entry(.) | not)) )
+                        | map(select((.hooks | length) > 0)) )
+          )
+        else . end
+    '
+    PHANTOM_DEDUPE_TMP="$(mktemp "${TMPDIR:-/tmp}/phantom-settings.XXXXXX")"
+    if jq --arg HOME "$HOME" "$PHANTOM_DEDUPE_JQ" "$SETTINGS" > "$PHANTOM_DEDUPE_TMP" 2>/dev/null && jq empty "$PHANTOM_DEDUPE_TMP" 2>/dev/null; then
+      if [ "$(jq -S . "$SETTINGS" 2>/dev/null)" = "$(jq -S . "$PHANTOM_DEDUPE_TMP" 2>/dev/null)" ]; then
+        echo "  ✓ No legacy phantom hook entries to remove"
+      else
+        PHANTOM_BEFORE=$(jq '[.hooks // {} | to_entries[] | .value[] | .hooks[]] | length' "$SETTINGS" 2>/dev/null || echo 0)
+        PHANTOM_AFTER=$(jq '[.hooks // {} | to_entries[] | .value[] | .hooks[]] | length' "$PHANTOM_DEDUPE_TMP" 2>/dev/null || echo 0)
+        cp "$SETTINGS" "$SETTINGS.bak-$(date +%Y%m%d-%H%M%S)"
+        mv "$PHANTOM_DEDUPE_TMP" "$SETTINGS"
+        echo "  ✓ Removed $((PHANTOM_BEFORE - PHANTOM_AFTER)) legacy phantom hook entries from settings.json (plugin install)"
+      fi
+    else
+      echo "  ⚠ settings.json de-dupe produced invalid output — left settings.json untouched"
+    fi
+    rm -f "$PHANTOM_DEDUPE_TMP"
+  fi
+fi
 
 # 8. Prerequisites check
 echo ""

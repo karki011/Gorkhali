@@ -181,6 +181,28 @@ git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
 
+## Install as a Claude Code plugin
+
+Phantom can also install as a native Claude Code plugin via its `.claude-plugin/plugin.json` manifest and `hooks/hooks.json` (which now owns Phantom's hooks). Plugins are dropped in place without running `setup.sh`, so initialize state + config once after install:
+
+```bash
+/phantom:setup
+```
+
+This (re)initializes the PHANTOM_DATA dirs, learnings `INDEX.md`, and `config.yaml`. Safe to re-run.
+
+> **Note:** `/phantom:setup` needs the plugin context (`CLAUDE_PLUGIN_ROOT` populated) or an existing git-clone install at `~/.claude/phantom`. A bare-terminal copy-paste with neither will not find `setup.sh` and exits with a helpful error.
+
+**Migrating from the symlink install?** The legacy `install.sh`/`setup.sh` flow registered 5 Phantom hooks in `~/.claude/settings.json` with absolute paths. The plugin's `hooks/hooks.json` now owns those same hooks, so to avoid double-firing, those legacy entries must be removed:
+
+- `memory-writer.js`
+- `apex-subagent-driven-law.sh`
+- `memory-reader.js`
+- `memory-consolidator.js`
+- `context-compact-guide.sh`
+
+When you run `/phantom:setup` from a **plugin** install (`setup.sh` running outside `~/.claude/phantom`), it backs up `~/.claude/settings.json` and removes those legacy entries automatically — and preserves all non-phantom hook entries. Run from the symlink install, it leaves them in place (they are that install's own registration). Requires `jq`; if `jq` is missing it skips and warns, and you can remove them manually.
+
 ## Author
 
 Subash Karki

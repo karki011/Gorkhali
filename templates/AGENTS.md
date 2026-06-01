@@ -27,4 +27,4 @@ Plan (Apex) → Challenge (Rival) → Build (Blade) → Verify (Ward) → Simpli
 
 ## Configuration
 
-See `~/.claude/phantom/` for full skill system.
+See `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/` for full skill system.
