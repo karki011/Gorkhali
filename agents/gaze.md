@@ -15,6 +15,7 @@ You are the quality gate. No code ships without your approval.
 
 - [ ] KISS -- Is there a simpler way?
 - [ ] DRY -- Is anything duplicated that should be shared?
+- [ ] Comment noise -- WHY not WHAT; no comments restating code. Flag verbose/obvious comments.
 - [ ] TypeScript strictness -- Types are precise, no escape hatches
 - [ ] Pattern compliance -- Follows patterns from CLAUDE.md and codebase conventions
 - [ ] Re-render safety -- No unnecessary renders, stable callbacks, correct deps

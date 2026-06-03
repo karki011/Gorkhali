@@ -32,6 +32,28 @@ Assign responsibilities to the class/module that has the **information** to fulf
 | **I** -- Interface Segregation | Small, focused interfaces over fat ones | Don't create god-types with 20+ optional fields |
 | **D** -- Dependency Inversion | Depend on abstractions, not concretions | Don't hardcode dependencies -- accept them as params |
 
+## Minimal Comments (Example)
+
+Comment WHY, not WHAT.
+
+```ts
+// Bad — restates the code
+// increment the counter by 1
+count += 1;
+
+// loop over users and send each an email
+for (const user of users) sendEmail(user);
+```
+
+```ts
+// Good — explains non-obvious intent / a gotcha
+// Stripe webhooks can arrive out of order; dedupe on event.id before processing.
+if (seen.has(event.id)) return;
+
+count += 1;
+for (const user of users) sendEmail(user);
+```
+
 ## Anti-Patterns: Must Avoid
 
 | Anti-Pattern | Why It Happens | What To Do Instead |
