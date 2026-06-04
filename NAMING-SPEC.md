@@ -151,7 +151,7 @@ All `/phantom` prefix. English verbs. One manhwa verb: `arise`.
    build ✗ · 3 type errors in auth.service.ts
 
 🔧 Phantom auto-routing to fix loop...
-   Blade dispatched → attempt 1/3
+   Blade dispatched → attempt 1/2
 ```
 
 ## README Intro

@@ -16,7 +16,7 @@
 | **Pre-Plan** | Before planning | Task type, missing context, scout needs, Gaze gate |
 | **Pre-Execute** | Before execution | Contracts exist, owners assigned, interfaces defined. **BLOCK if critical interfaces undefined.** |
 | **Post-Agent** | After each agent | Validate output format, capture handoff, list files, unblock downstream |
-| **Post-Verify** | After verification | Capture result in session JSON. PASS → wrap. FAIL → fix loop (max 3). Same failure twice → escalate. |
+| **Post-Verify** | After verification | Capture result in session JSON. PASS → wrap. FAIL → fix loop (ceiling in `reference/temperature-review.md`). Same failure twice → escalate. |
 | **Pre-Wrap** | Before wrapping | Implementation notes exist, test/verification recorded, quality review recorded |
 
 ## Done Definition

@@ -43,13 +43,13 @@ SOLO vs SHADOWS routing, task tier classification, GOAP modeling, and subtask de
 
 ### Intent Alignment (During Execution)
 
-After each Phase D agent: check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope.
+After each Phase D agent: read its **typed completion record** (`status`, `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary` — schema: `reference/schemas/execution.md`). Trust the typed fields; do NOT re-parse free-text to infer pass/fail or which files changed. A non-null `blocker` or `status: "failed"` routes to Failure Triage. Check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope. Write these fields straight into `execution.json` `tasks[]`.
 
 ## Failure Triage
 
 When Ward reports failures, classify and assign scoped repairs. For the full triage table and fix packet format: `reference/agents.md`
 
-**Max 3 fix loops** — if unresolved after 3, escalate to user.
+**Fix-loop ceiling** — owned by `hooks/loop-controller.js` (canonical: `reference/temperature-review.md`, currently 2). If the controller says stop and there is no operator override, escalate to user. (The VISUAL loop is separate, ceiling 3.)
 
 ## Critical Rules
 

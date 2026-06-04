@@ -16,7 +16,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 | review | object | yes | Self-review results |
 | review.temperature | number | yes | Reviewer strictness (0-1) |
 | review.findings | object[] | yes | Array of finding objects |
-| review.fixLoops | number | yes | How many fix/re-verify loops ran |
+| review.fixLoops | number | yes | How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it |
 | simplifyRan | boolean | yes | Whether simplify was run on changed files |
 | intentAlignment | `"aligned"` \| `"drift"` \| `"wrong"` | yes | How well output matches intent.json |
 | verdict | `"pass"` \| `"fail"` | yes | Overall gate result |

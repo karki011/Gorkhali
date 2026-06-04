@@ -103,6 +103,19 @@ const validators = {
         if (t.selfReviewScore !== undefined && (typeof t.selfReviewScore !== 'number' || t.selfReviewScore < 0 || t.selfReviewScore > 10)) {
           errors.push(`tasks[${i}].selfReviewScore: must be number 0-10 if present`);
         }
+        if (t.filesRead !== undefined && !Array.isArray(t.filesRead)) {
+          errors.push(`tasks[${i}].filesRead: must be array if present`);
+        }
+        if (t.testResult !== undefined && typeof t.testResult !== 'object' && typeof t.testResult !== 'string') {
+          errors.push(`tasks[${i}].testResult: must be object or string if present`);
+        }
+        if (t.testResult !== undefined && t.testResult !== null && typeof t.testResult === 'object') {
+          if (typeof t.testResult.passed !== 'boolean') errors.push(`tasks[${i}].testResult.passed: required boolean when testResult is object`);
+          if (t.testResult.summary !== undefined && typeof t.testResult.summary !== 'string') errors.push(`tasks[${i}].testResult.summary: must be string if present`);
+        }
+        if (t.blocker !== undefined && t.blocker !== null && typeof t.blocker !== 'string') {
+          errors.push(`tasks[${i}].blocker: must be string or null if present`);
+        }
       });
     }
     if (typeof d.totalSpawns !== 'number') errors.push('totalSpawns: required number');

@@ -57,16 +57,21 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      "tasks": [
        {
          "id": "t1",
-         "status": "completed",
+         "status": "done",
          "agent": "blade-pagination",
          "filesChanged": ["src/hooks/usePagination.ts"],
+         "filesRead": ["src/api/client.ts"],
          "selfReviewScore": 8,
+         "testResult": { "passed": true, "summary": "5 tests green" },
+         "blocker": null,
          "outputSummary": "Added usePagination hook"
        }
      ],
      "totalSpawns": 3
    }
    ```
+
+   Populate each task from the Blade's typed completion record — `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary`. Read these fields directly; do NOT re-parse the free-text handoff. `status` is one of `done` | `failed` | `skipped`.
 
 </output_format>
 

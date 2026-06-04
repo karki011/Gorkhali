@@ -161,7 +161,7 @@ Opus 4.8 also improves tool triggering (less likely to skip a required tool call
 | `/phantom:start` | Entry | Adaptive router → classify → execute appropriate route |
 | `/phantom:verify` | — | Power Level with auto-fix for P0/P1 |
 | `/phantom:wrap` | — | Commit, push, PR, Jira transition |
-| `/phantom:fix` | — | Triage failures, assign scoped repairs (max 3 loops) |
+| `/phantom:fix` | — | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
 | `/phantom:pause` | — | Save session state for context management |
 | `/phantom:resume` | — | Restore session from saved state |
 | `/phantom:hound` | — | Forensic investigation with HTML report |

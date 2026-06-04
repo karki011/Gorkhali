@@ -46,7 +46,7 @@ If `[]` → verdict: pass. Skip to Write Artifact.
 1. Spawn 1 fix agent (`subagent_type: "blade"`, `mode: "bypassPermissions"`) with scoped findings
 2. Re-run Step 1 correctness only
 3. Re-review ONLY the fix diff
-4. Max 2 loops. Clean → pass. Still P0/P1 → escalate to user.
+4. Loop until the fix-loop ceiling (canonical: `reference/temperature-review.md`; count owned by `hooks/loop-controller.js`). Clean → pass. Still P0/P1 → escalate to user.
 
 </instructions>
 

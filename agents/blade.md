@@ -61,7 +61,17 @@ After implementation, BEFORE handoff: re-read your diff, critique against contra
 
 ## On Task Completion
 
-Handoff note: what you built, key decisions, files changed, evidence per subtask, self-review score, what next agent needs to know, remaining concerns.
+Emit a **typed completion record** per task — these are the exact fields Apex writes to `execution.json` `tasks[]` (schema: `reference/schemas/execution.md`). Do NOT bury them in free-text prose; Apex reads the fields, not the narrative:
+
+- `status` — `done` | `failed` | `skipped`
+- `filesChanged` — files you modified
+- `filesRead` — files you read but did NOT change (for next-wave awareness)
+- `selfReviewScore` — your 0-10 self-review
+- `testResult` — `{ passed, summary }` or a short string; what tests ran and the outcome
+- `blocker` — blocker text if blocked, else null
+- `outputSummary` — 1-2 sentence summary
+
+Handoff note (free-text, alongside the record): key decisions, what the next agent needs to know, remaining concerns.
 
 ## Inheritance
 

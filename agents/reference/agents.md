@@ -71,7 +71,7 @@ When Ward reports failures, Apex classifies and assigns scoped repairs:
 | **visual** | Layout, spacing, color, responsive, a11y | Blade (UI Engineering) — fix packet from Lens |
 | **integration** | Cross-file wiring failure | Blade |
 
-Create a fix packet with: error output, affected files, root cause hypothesis, and scope boundary. Assign to appropriate agent. **Max 3 fix loops** — escalate to user if unresolved.
+Create a fix packet with: error output, affected files, root cause hypothesis, and scope boundary. Assign to appropriate agent. **Fix-loop ceiling owned by `hooks/loop-controller.js`** (canonical: `reference/temperature-review.md`) — escalate to user when the controller says stop and no operator override applies. (This is the code/test fix loop; the VISUAL fix loop above is separate, ceiling 3.)
 
 ## GOAP Precondition/Effect Modeling
 

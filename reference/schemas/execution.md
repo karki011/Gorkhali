@@ -2,6 +2,8 @@
 
 Written by Phase C after agents complete. Summarizes what was actually done.
 
+Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads these fields directly instead of parsing free-text handoff prose.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | tasks | object[] | yes | Per-task execution results |
@@ -9,7 +11,10 @@ Written by Phase C after agents complete. Summarizes what was actually done.
 | tasks[].status | `"done"` \| `"failed"` \| `"skipped"` | yes | Final task status |
 | tasks[].agent | string | no | Agent that ran this task |
 | tasks[].filesChanged | string[] | yes | Files actually modified |
+| tasks[].filesRead | string[] | no | Files read but NOT changed (wave-handoff awareness) |
 | tasks[].selfReviewScore | number | no | Agent's self-review score (0-10) |
+| tasks[].testResult | object \| string | no | `{ passed: bool, summary?: string }` or a short string |
+| tasks[].blocker | string \| null | no | Blocker description; null/absent when none |
 | tasks[].outputSummary | string | yes | 1-2 sentence summary of what was done |
 | totalSpawns | number | yes | Total agent instances spawned |
 | agentOutputs | string | no | Path to raw agent output logs |
@@ -24,7 +29,10 @@ Written by Phase C after agents complete. Summarizes what was actually done.
       "status": "done",
       "agent": "backend",
       "filesChanged": ["src/hooks/useCostByTag.ts"],
+      "filesRead": ["src/api/costClient.ts"],
       "selfReviewScore": 9,
+      "testResult": { "passed": true, "summary": "12 unit tests green" },
+      "blocker": null,
       "outputSummary": "Hook added with memoized selector and error boundary."
     },
     {
@@ -33,6 +41,7 @@ Written by Phase C after agents complete. Summarizes what was actually done.
       "agent": "frontend",
       "filesChanged": ["src/components/CostByTagTable.tsx", "src/components/CostByTagTable.test.tsx"],
       "selfReviewScore": 8,
+      "testResult": "snapshot + loading/empty render tests pass",
       "outputSummary": "Table renders with loading/empty states; snapshot test added."
     }
   ],
