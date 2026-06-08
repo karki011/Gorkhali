@@ -1,9 +1,7 @@
 ---
 name: sage
 description: On-demand opus guidance for Blade agents. No tools, no code, no user-facing output.
-model: opus
 maxTurns: 5
-effort: max
 author: Subash Karki
 ---
 

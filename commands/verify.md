@@ -22,7 +22,7 @@ Run each command. Read full output. Report: lint pass/fail, build pass/fail, tes
 
 If ANY fail → run hound failure scan (Step 1.5), print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report + suggest `/phantom:fix` and stop.**
 
-Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (model + effort come from the agent definition)
+Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 ### Step 1.5: Hound Failure Scan (auto, on failure)
 

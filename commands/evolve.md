@@ -27,7 +27,7 @@ Check if evolution is warranted:
 
 Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 
-- subagent_type: `ward` (model + effort come from the agent definition)
+- subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
 - mode: `bypassPermissions`
 
 **Ward prompt must include:**

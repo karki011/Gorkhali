@@ -14,7 +14,7 @@ Adaptive router: context → classify → route(DIRECT|PLAN|BRAINSTORM|FULL) →
 Each phase reads/writes artifacts in `{TEAM_DIR}/sessions/{TICKET}/`.
 No git operations until wrap. All work is local.
 
-> **Tip:** Run `/effort ultracode` before starting — Phantom is multi-agent orchestration, which is exactly what ultracode (xhigh + multi-agent permission) is built for.
+> **Tip:** Run `/effort high` before starting. Phantom runs every agent at `high` (Apex pinned). Avoid `ultracode`/`xhigh` — under ultracode the runtime can wrap a gated phase in a background workflow that takes no mid-run input, silently bypassing Phantom's approval gates.
 >
 > Opus 4.8's improved tool triggering and compaction recovery make the subagent-driven flow and pause/resume more reliable.
 
@@ -30,7 +30,7 @@ No git operations until wrap. All work is local.
 
 Agent spawn rules (all routes):
 - `mode: "bypassPermissions"` — always
-- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, lens, archer, rival, plan-checker). **Model + effort come from the agent definition** (all opus, differentiated by effort: blade/hound xhigh, gaze/archer high, ward/lens medium, sweep low, sage max). Do not pass a redundant `model:` override.
+- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, lens, archer, rival, plan-checker). **Apex picks the `model:` per spawn** — default Opus, `sonnet` for small, well-scoped subtasks (see `reference/agents.md` → Model Routing). Effort is uniform `high` (session-inherited); there is no per-spawn effort param.
 - `model: "haiku"` override ONLY for trivial mechanical single-file edits (rename, import, typo) — spawn `subagent_type: "blade"` with `model: "haiku"`.
 - SOLO (1-3 files): single Blade, foreground
 - SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
@@ -67,7 +67,7 @@ READ `reference/router.md` for full algorithm.
      description: "Blade: {1-line task summary}"
      subagent_type: "blade"
      mode: "bypassPermissions"
-     # model (opus) + effort (xhigh) come from the blade agent definition
+     # model: Apex picks per Model Routing (default opus; sonnet for small, well-scoped). effort = session high.
      prompt: |
        You are a BLADE — implementation agent.
        {task description from intent.json}

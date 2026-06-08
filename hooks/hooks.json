@@ -22,6 +22,28 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js spawn",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js stop",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

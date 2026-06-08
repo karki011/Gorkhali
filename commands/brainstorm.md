@@ -30,7 +30,7 @@ READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns,
 
 ### Parallel Research Agents
 
-Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive. (model + effort come from the agent definition)
+Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 **Agent 1: Codebase Explorer** (always spawned)
 - subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`

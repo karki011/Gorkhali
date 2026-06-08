@@ -102,14 +102,16 @@ research-team-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
 │   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
 ├── agents/            # 11 agent personas
-├── scripts/           # 4 deterministic helpers (no LLM needed)
+├── scripts/           # deterministic helpers (no LLM needed)
 │   ├── validate-artifact.js   # JSON schema validation
 │   ├── check-learnings-index.js
 │   ├── session-health.sh
-│   └── preamble-tier.js
+│   ├── preamble-tier.js
+│   └── timing-report.js       # per-model agent timing (Opus vs Sonnet wall-clock)
 ├── evals/             # 30 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
-│   └── hooks.json         # Plugin-owned hook registrations
+│   ├── hooks.json         # Plugin-owned hook registrations
+│   └── timing-capture.js  # records agent spawn/stop + model (PreToolUse Agent + SubagentStop)
 ├── templates/         # Reusable contract templates
 ├── install.sh         # Legacy / manual install helper
 └── setup.sh           # State + config initializer (run via /phantom:setup)
@@ -132,25 +134,25 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 
 | Agent | Model | Effort | Role |
 |-------|-------|--------|------|
-| Apex | opus | xhigh | Orchestrator — plans, decomposes, coordinates, runs router |
-| Blade | opus | xhigh | Implementation — parallel execution with ROLE FOCUS directives |
-| Ward | opus | medium | QA — lint, build, test verification |
+| Apex | opus (pinned) | high | Orchestrator — plans, decomposes, coordinates, runs router, routes models |
+| Blade | opus · sonnet (small tasks) | high | Implementation — parallel execution with ROLE FOCUS directives |
+| Ward | sonnet | high | QA — lint, build, test verification |
 | Gaze | opus | high | Quality gate — power level (scored, P0-P3) |
-| Sage | opus | max | Advisory — guidance for stuck agents (<100 words) |
-| Lens | opus | medium | Visual verification — screenshot + diff |
+| Sage | opus | high | Advisory — guidance for stuck agents (<100 words) |
+| Lens | sonnet | high | Visual verification — screenshot + diff |
 | Archer | opus | high | Cross-file review — pre-PR structural analysis |
 | Rival | opus | high | Plan challenger — adversarial review (no tools, forced precision) |
-| Hound | opus | xhigh | Forensic investigator — 7-step protocol, HTML reports |
-| Sweep | opus | low | Code clarity — simplify changed files post-verify |
+| Hound | opus | high | Forensic investigator — 7-step protocol, HTML reports |
+| Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
 | Base Agent | — | — | Template for spawning new agent types |
 
-All agents run on `opus` (resolves to Claude Opus 4.8), differentiated by per-agent `effort` level set in each agent's subagent definition frontmatter. No version restrictions. `plan-checker` (the registered Rival subagent) runs at `high`. `haiku` is reserved for truly mechanical single-file edits.
+Only **Apex** pins its model + effort (`opus` / `high`). Every other agent leaves model + effort unset: Apex picks the **model** per spawn (default Opus; Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. No version restrictions.
 
-## Opus 4.8 & Effort
+## Models & Effort
 
-Phantom runs on a single model (`opus` → Claude Opus 4.8) and differentiates agents by the **`effort`** parameter (levels: low / medium / high / xhigh / max). Effort governs all tokens including tool calls — lower effort means fewer tool calls. Default is `high` on all surfaces including Claude Code; per-agent effort is set in each agent's subagent definition frontmatter (`agents/*.md`).
+Phantom runs every agent at **`high`** effort. Apex is pinned to `opus` / `high`; all other agents leave model + effort unset, so they inherit the session effort (`high`) and the model Apex assigns at spawn. **Model is the per-task lever, not effort** — there is no per-spawn effort param. Apex defaults to Opus and drops to **Sonnet** only for small, single-concern subtasks with a tight contract ("good tasking earns Sonnet"). `haiku` stays reserved for trivial mechanical single-file edits. See `reference/agents.md` → Model Routing.
 
-**Recommended: run Phantom in ultracode mode** (`/effort ultracode`) for any multi-agent session. Ultracode pairs `xhigh` effort with standing permission for multi-agent/subagent orchestration — built exactly for Phantom's shadow-army pattern. `xhigh` is Anthropic's recommended starting point for coding and agentic work.
+**Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 
 Opus 4.8 also improves tool triggering (less likely to skip a required tool call, reinforcing the subagent-driven law) and long-context + compaction recovery (smoother pause/resume sessions).
 
@@ -192,7 +194,7 @@ Opus 4.8 also improves tool triggering (less likely to skip a required tool call
 Phantom is a **native Claude Code plugin**. Install it from the self-hosted marketplace in this repo — no symlinks, no `settings.json` juggling.
 
 ```
-/plugin marketplace add Cloudzero/research-team-skills
+/plugin marketplace add Cloudzero/research-phantom-skills
 /plugin install phantom@phantom
 /phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX, config.yaml
 ```
@@ -206,7 +208,7 @@ Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optiona
 The original git-clone + symlink flow still works and is handy when developing Phantom itself, but the plugin install above is preferred for normal use.
 
 ```bash
-git clone git@github.com:Cloudzero/research-team-skills.git ~/.claude/phantom
+git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
 ~/.claude/phantom/setup.sh
 ```
 

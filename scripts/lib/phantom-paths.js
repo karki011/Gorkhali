@@ -50,6 +50,11 @@ function observationsDir() {
   return path.join(phantomData(), 'observations');
 }
 
+/** Agent timing log dir: <data>/timing (per-repo <repo>.jsonl) */
+function timingDir() {
+  return path.join(phantomData(), 'timing');
+}
+
 /** Promoted global patterns dir: <data>/global/patterns */
 function globalPatternsDir() {
   return path.join(phantomData(), 'global', 'patterns');
@@ -76,6 +81,7 @@ module.exports = {
   repoDir,
   eventsDir,
   observationsDir,
+  timingDir,
   globalPatternsDir,
   stateDir,
   sessionsDir,

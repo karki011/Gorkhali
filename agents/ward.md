@@ -1,9 +1,7 @@
 ---
 name: ward
 description: QA and build verification. Tests, lint, typecheck, build.
-model: opus
 maxTurns: 20
-effort: medium
 author: Subash Karki
 ---
 

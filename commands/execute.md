@@ -27,14 +27,16 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 6. **Dispatch per plan**:
    - READ `reference/agents.md` for spawn patterns and task tier classification
-   - All implementation tasks spawn `subagent_type: blade`.
-     # model + effort come from the blade subagent definition (opus / xhigh)
-   - **Mechanical-edit fast path:** for trivial single-file edits (rename, import, typo, config),
+   - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
+     (see `reference/agents.md` → Model Routing):
+     # default opus; `model: "sonnet"` for small, single-concern subtasks with a tight contract.
+     # effort is uniform high (session-inherited) — there is no per-spawn effort param.
+   - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
      spawn `subagent_type: blade` with `model: "haiku"` override.
-     # blade default is opus/xhigh; overriding to haiku here for speed — effort tuning does not apply when overriding to haiku
    - All agents: `mode: "bypassPermissions"`.
    - SOLO route: spawn 1 `subagent_type: blade` with full task scope
-   - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"` (haiku override for trivial subtasks only)
+   - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"`
+     (sonnet/haiku override for small or trivial subtasks only)
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)

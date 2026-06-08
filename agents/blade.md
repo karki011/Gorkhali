@@ -1,9 +1,7 @@
 ---
 name: blade
 description: Full-stack frontend engineer. Apex spawns instances with ROLE FOCUS directives for specialization.
-model: opus
 maxTurns: 25
-effort: xhigh
 author: Subash Karki
 ---
 

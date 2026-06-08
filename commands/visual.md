@@ -27,7 +27,7 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 
 4. **Auth handling:** Automatic — Lens detects login walls and handles credentials per `reference/smart-auth.md` (credential sources, redirect-aware detection, MFA escalation). Session cookies persist across routes.
 
-5. **Spawn Lens** (`subagent_type: "lens"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (model + effort come from the agent definition)
+5. **Spawn Lens** (`subagent_type: "lens"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 6. **State Matrix:** Before inspection, identify all parent states the changed component reacts to. Lens cycles through every parent state x feature state combination and screenshots each.
 

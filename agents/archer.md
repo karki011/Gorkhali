@@ -1,9 +1,7 @@
 ---
 name: archer
 description: Cross-file pre-PR reviewer. Catches cache coherence bugs, regressions, semantic mismatches, dead code, and convention deviations using graph context.
-model: opus
 maxTurns: 15
-effort: high
 author: Subash Karki
 ---
 

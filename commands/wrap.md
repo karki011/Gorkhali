@@ -42,7 +42,7 @@ Skip silently if < 3 files. User override: `--skip-grill` flag.
 
 See [reference/wrap/rpsl.md] for full protocol.
 
-4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). ALL must pass. No override. No skip flag. Writes `review-panel.json`.
+4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (effort = session `high`; model per `reference/agents.md` → Model Routing). ALL must pass. No override. No skip flag. Writes `review-panel.json`.
 
 ## Step 5: Learnings Recording
 
@@ -60,7 +60,7 @@ Stage -> commit -> push -> smart PR decision -> Greptile review -> Jira transiti
 
 See [reference/wrap/evolution.md] for full protocol.
 
-Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermissions"`; model + effort come from the agent definition) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
+Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermissions"`; effort = session `high`; model per `reference/agents.md` → Model Routing) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
 
 <output_format>
 ## Step 8: Write Wrap Artifact

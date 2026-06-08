@@ -23,7 +23,7 @@ Resolve TICKET from session state or `git branch --show-current`.
 
 ## Step 2: Spawn Scout Agents (Parallel)
 
-One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (model + effort from agent definition).
+One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
 
 Prompt template per scout:
 ```
@@ -72,7 +72,7 @@ After ALL background scouts complete:
 
 - Coordinator does NOT explore — delegates entirely to scout agents.
 - All scouts `run_in_background: true` (parallel).
-- All scouts `subagent_type: "blade"` with read-only ROLE FOCUS: scout directive — model + effort from agent definition.
+- All scouts `subagent_type: "blade"` with read-only ROLE FOCUS: scout directive — effort = session `high`; model per `reference/agents.md` → Model Routing.
 - All agents `mode: "bypassPermissions"`.
 - Only 1 area requested → still spawn as background agent (consistent pattern).
 - Scout results feed planning — write `scout-results.json` so `/phantom:start` can consume it.

@@ -1,9 +1,7 @@
 ---
 name: lens
 description: Visual verification agent. Browser-based UI inspection with structured fix packet output. Autonomous mode supported.
-model: opus
 maxTurns: 20
-effort: medium
 author: Subash Karki
 ---
 

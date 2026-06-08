@@ -6,28 +6,28 @@
 
 ## Model Routing
 
-**Single model, differentiated by effort.** All agents are registered Claude Code subagents whose `model` + `effort` come from their definition frontmatter (`agents/*.md`). Every agent runs `opus` (resolves to `claude-opus-4-8`); the **`effort`** parameter — not the model — is the lever that trades thoroughness vs token efficiency.
+**Apex routes the model; effort is uniform.** Only Apex pins its model + effort (`opus` / `high`) in frontmatter. Every other agent leaves `model` + `effort` UNSET, so they inherit the model Apex passes at spawn (default Opus) and the session effort (`high`). There is no per-spawn effort param — model is the only lever Apex tunes per task.
 
-| Agent | model | effort | role |
-|-------|-------|--------|------|
-| apex | opus | xhigh | orchestrator |
-| blade | opus | xhigh | implementation |
-| hound | opus | xhigh | forensics |
-| sage | opus | max | deepest advisory |
-| gaze | opus | high | quality gate |
-| archer | opus | high | cross-file review |
-| rival | opus | high | adversarial plan review |
-| plan-checker | opus | high | plan validation |
-| ward | opus | medium | build/test QA |
-| lens | opus | medium | visual QA |
-| sweep | opus | low | simplification |
+| Agent | default model | role |
+|-------|---------------|------|
+| apex | opus (pinned, effort high) | orchestrator |
+| blade | opus · sonnet for small, well-scoped subtasks | implementation |
+| hound | opus | forensics |
+| sage | opus | deepest advisory |
+| gaze | opus | quality gate |
+| archer | opus | cross-file review |
+| rival | opus | adversarial plan review |
+| plan-checker | opus · sonnet for simple plans | plan validation |
+| ward | sonnet | build/test QA |
+| lens | sonnet | visual QA |
+| sweep | sonnet | simplification |
 
-- `opus` resolves to `claude-opus-4-8` (1M context, adaptive thinking — no manual thinking budgets).
-- Effort governs all tokens including tool calls: `xhigh` for implementation/orchestration, `high` for review, `medium`/`low` for QA/cleanup, `max` for deepest advisory.
+- `opus` resolves to `claude-opus-4-8` (1M context); `sonnet` to `claude-sonnet-4-6`.
+- **Default Opus.** Use `model: "sonnet"` only for small, single-concern subtasks with a tight contract and no open design decisions. "Good tasking earns Sonnet."
 - `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
-- Effort is the lever, not model. Check MODEL_OVERRIDE at session start.
+- Effort is uniform `high` (session-inherited); never set effort at spawn. Check MODEL_OVERRIDE at session start.
 
-Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, worktree isolation: see `reference/agents.md`.
+Full rule: `reference/agents.md` → Model Routing. Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, worktree isolation also there.
 
 ---
 

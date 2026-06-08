@@ -30,7 +30,7 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).
 
-4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (model + effort come from the agent definition)
+4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 5. Show fix packet. **CHAINED (`--chained` present) → AUTO-PROCEED past approval (the loop ceiling + step-9 exhaustion escalation is the safety net). STANDALONE (token absent) → wait for user approval.**
 6. Activate blade marker: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).

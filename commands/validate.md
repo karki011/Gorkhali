@@ -36,7 +36,7 @@ You are the coordinator. You do NOT run validation scripts directly. Instead:
 Spawn a single **Ward** agent for all requested layers. Ward runs scripts sequentially and returns structured findings.
 
 **Agent configuration:**
-- subagent_type: `ward` (model + effort come from the agent definition)
+- subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
 - mode: `bypassPermissions`
 - If only one layer requested, Ward runs that layer's script. For `all`, Ward runs all three in sequence.
 

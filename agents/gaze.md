@@ -1,9 +1,7 @@
 ---
 name: gaze
 description: Quality gate. Code review, KISS/DRY enforcement, sweep gauntlet, architecture review.
-model: opus
 maxTurns: 15
-effort: high
 author: Subash Karki
 ---
 

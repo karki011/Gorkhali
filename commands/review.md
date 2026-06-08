@@ -18,7 +18,7 @@ recommend running the sweep as a Claude Code dynamic workflow per
 reach context (READ-ONLY — "Audit and REPORT only — do not modify files"). Fall back to
 turn-by-turn review for normal-sized diffs or when workflows are unavailable.
 
-2. Spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (model + effort come from the agent definition)
+2. Spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (effort = session `high`; model per `reference/agents.md` → Model Routing)
    - All files touched in this session
    - Active contracts
    - Repo rules from `.claude/rules/`
