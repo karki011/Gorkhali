@@ -1,7 +1,7 @@
 ---
 name: phantom:brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
-argument-hint: "<requirement or problem statement>"
+argument-hint: "<requirement or problem statement> [--council|--simple]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 user-invocable: false
 ---
@@ -56,7 +56,15 @@ After all agents return, the coordinator synthesizes their summaries into contex
 
 **Questions** — per `reference/brainstorm.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 2-5, max 2 rounds.
 
-**Approaches** — 2-3 genuinely distinct strategies. `[failed]` = exclude. `[validated:5+]` = recommend.
+**Approaches** — produce 2-3 genuinely distinct strategies via ONE path:
+- **Council** (route is FULL, architecture choice, high uncertainty, or `--council`): independent
+  lens-agents generate candidates → Apex anonymizes + peer-ranks them → a Chairman synthesizes the
+  recommended approach + ranked alternatives. Full steps: `reference/brainstorm.md` → **Council Mode**.
+  The Chairman's output becomes the approaches presented at Convergence.
+- **Simple** (default for clearer brainstorms, or `--simple`): the coordinator drafts them directly —
+  no extra spawns.
+
+Either path: `[failed]` = exclude, `[validated:5+]` = recommend, and each approach uses:
 
 ```
 Approach {N}: {name}
@@ -82,7 +90,7 @@ Risk:       {low | medium | high — with reason}
 
 ## Artifacts
 
-**Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives.
+**Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives. When Council Mode ran, also record `councilUsed: true`, `peerRankings` (aggregate rank per anonymized approach), and `chairmanRationale` — so the deliberation is auditable and feeds learnings.
 
 **Update `intent.json`** (merge): `approach`, `scopeDecisions`, `exploredAlternatives`.
 
