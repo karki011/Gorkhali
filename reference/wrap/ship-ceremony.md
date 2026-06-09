@@ -60,16 +60,23 @@ If `gh` not available: print branch name + "run `gh pr create --draft` when read
 
 If skipped: log reason to wrap.json, print "PR skipped ({reason}). Branch pushed — create manually when ready."
 
-## 5. Greptile Review (mandatory for draft PRs)
+## 5. Greptile Review Loop (mandatory for draft PRs)
 
-Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We must explicitly request it.
+Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We drive it explicitly and loop until it's happy.
 
-After draft PR is created:
-```bash
-gh pr comment {PR_NUMBER} --body "/review"
+After the draft PR is created, hand off to the greploop skill:
+
+```
+Skill(skill="phantom:greploop", args="{PR_NUMBER}")
 ```
 
-This triggers the Greptile bot to review the draft. If Greptile integration is not available or the command fails, log a warning and tell the user: "Greptile review not triggered — request manually or mark PR ready-to-review."
+This triggers Greptile (`@greptileai review`), polls the check-run, fixes actionable comments, replies in-thread in CZ roast tone, resolves threads, and re-reviews — looping until **5/5 confidence with zero unresolved comments** or the iteration ceiling (default 5).
+
+- Skip if section 4 skipped the PR (no PR → no greploop).
+- User override: `--no-greploop` on wrap → fall back to a single trigger (`gh pr comment {PR_NUMBER} --body "@greptileai review"`) and stop.
+- If `gh`/Greptile unavailable or greploop errors: log a warning and tell the user "Greptile loop not run — request manually with `@greptileai review` or mark PR ready-to-review." Do not block the wrap.
+
+Record greploop's final confidence + remaining-comment count into `wrap.json` `greptile`.
 
 ## 6. Jira Transition (non-blocking)
 
