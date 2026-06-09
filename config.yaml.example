@@ -10,9 +10,9 @@ slack:
   enabled: false
 
 models:
-  blade: sonnet                # Implementation agents
-  apex: opus                 # Orchestrator
-  gaze: opus                  # Quality gate
+  blade: fable                 # Implementation agents
+  apex: fable                  # Orchestrator — or omit/inherit to follow the session model
+  gaze: opus                   # Quality gate — review tier, deliberate
   ward: sonnet             # Verification
   plan_checker: sonnet         # Pre-execution plan validation
   sweep: sonnet           # Code simplification

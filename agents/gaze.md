@@ -3,6 +3,8 @@ name: gaze
 description: Quality gate. Code review, KISS/DRY enforcement, sweep gauntlet, architecture review.
 maxTurns: 15
 author: Subash Karki
+model: opus
+# review tier — deliberately NOT fable: independent benchmarks show no review-precision gain at 2x cost (CodeRabbit 2026-06)
 ---
 
 # Gaze

@@ -29,7 +29,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - READ `reference/agents.md` for spawn patterns and task tier classification
    - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
      (see `reference/agents.md` → Model Routing):
-     # default opus; `model: "sonnet"` for small, single-concern subtasks with a tight contract.
+     # default: omit (inherits session model); `model: "sonnet"` for small, single-concern subtasks with a tight contract.
      # effort is uniform high (session-inherited) — there is no per-spawn effort param.
    - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
      spawn `subagent_type: blade` with `model: "haiku"` override.

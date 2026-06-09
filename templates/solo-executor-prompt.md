@@ -25,11 +25,11 @@ If your approach matches a known failure and you cannot justify the difference, 
 Report which corrections you checked and your mitigation in output.
 
 ## Sage Escalation Protocol
-When you hit a HARD decision you cannot resolve confidently, spawn an Opus advisor:
+When you hit a HARD decision you cannot resolve confidently, spawn a top-tier (Fable 5) advisor:
 ```
 Agent({
   description: 'Sage: [your specific question]',
-  model: 'opus',
+  model: 'fable',
   subagent_type: 'advisor',
   prompt: '[decision context + your tentative approach + specific question]. Respond: Action (plan|correct|proceed|stop), Confidence, Guidance (<100 words enumerated steps). OUTPUT: Caveman-full.'
 })

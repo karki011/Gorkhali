@@ -3,8 +3,8 @@
 // timing-report.js — aggregate agent timing captured by hooks/timing-capture.js.
 //
 // Answers two questions:
-//   1. Is Apex's Opus->Sonnet routing actually firing? (exact: spawn counts per model)
-//   2. Does Sonnet cut wall-clock? (approximate: per-model durations from paired spawn->stop)
+//   1. Is Apex's model routing actually firing? (exact: spawn counts per model)
+//   2. Do downshifted models cut wall-clock? (approximate: per-model durations from paired spawn->stop)
 //
 // Usage:
 //   node scripts/timing-report.js                 # auto-detect repo, full report
@@ -56,7 +56,12 @@ function median(nums) {
   return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
 }
 const fmt = (ms) => (ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(1)}s`);
-const norm = (m) => (m.startsWith('opus') ? 'opus' : m); // collapse opus(inherited) + opus
+// bucket across eras: 'inherited' (and legacy 'opus(inherited)') = session model; aliases collapse pinned variants
+const norm = (m) =>
+  m === 'inherited' || m === 'opus(inherited)' ? 'inherited'
+    : m.startsWith('opus') ? 'opus'
+    : m.startsWith('fable') ? 'fable'
+    : m;
 
 function main() {
   const args = parseArgs();
@@ -75,7 +80,7 @@ function main() {
   // ── Routing split (exact) ──────────────────────────────────────────────
   const byModel = {};
   for (const s of spawns) {
-    const m = norm(s.model || 'opus');
+    const m = norm(s.model || 'inherited');
     byModel[m] = byModel[m] || { count: 0, durations: [] };
     byModel[m].count++;
   }
@@ -109,7 +114,7 @@ function main() {
     }
     if (!stop) continue;
     const dur = Date.parse(stop.ts) - Date.parse(sp.ts);
-    if (dur >= 0) byModel[norm(sp.model || 'opus')].durations.push(dur);
+    if (dur >= 0) byModel[norm(sp.model || 'inherited')].durations.push(dur);
   }
 
   console.log('\n  DURATION PER MODEL (paired spawn→stop)');

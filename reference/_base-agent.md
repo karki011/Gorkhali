@@ -21,6 +21,11 @@ Write a detailed handoff note covering: what was done, key decisions, files chan
 
 ## Sage Escalation
 When stuck on a hard decision (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (model: opus, foreground) with: question, context, tentative approach
+- Spawn Sage (foreground — Sage's agent definition pins the top tier) with: question, context, tentative approach
 - Sage returns structured guidance (<100 words) — follow it
 - Max 3 consultations per session. Beyond that = escalate to Apex.
+
+## Model Behavior Notes
+- Lead with the outcome; don't survey options you won't pursue or narrate routine steps.
+- Brief instructions steer — don't over-enumerate.
+- If a request is safety-rerouted to a different model mid-task, note it in your output and continue.

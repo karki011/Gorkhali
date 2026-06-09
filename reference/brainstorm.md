@@ -78,15 +78,15 @@ context, in the Exploration Protocol shape. Suggested lenses (pick per problem):
 - `robust` — risk-first: edge cases, failure modes, scale
 - `reuse` — leans hardest on existing patterns/abstractions in this codebase
 
-Generators are reasoning-heavy → Opus. Inject `[failed]` / `[validated:5+]` learnings into each prompt.
+Generators are reasoning-heavy → session model. Inject `[failed]` / `[validated:5+]` learnings into each prompt.
 
 **Step 2 — Anonymized peer-ranking.** Apex relabels the candidates `Approach A / B / C`, stripping lens
 and author identity. Spawn one ranker per candidate (fresh spawns) given the FULL anonymized set; each
 ranks ALL candidates on **Fit / Risk / Simplicity** with a one-line justification each. No agent may
 identify or favor "its own" — the anonymization is the point. Apex aggregates (average rank; ties broken
-by lower Risk). Ranking is rubric-scoped → Apex may route rankers to Sonnet; default Opus.
+by lower Risk). Ranking is rubric-scoped → Apex may route rankers to Sonnet; default = inherit (session model).
 
-**Step 3 — Chairman synthesis.** Spawn ONE Opus Chairman with the anonymized approaches + the aggregate
+**Step 3 — Chairman synthesis.** Spawn ONE Chairman (session model) with the anonymized approaches + the aggregate
 ranking. It produces: the **recommended** approach (may graft the winner's spine + the runners-up's best
 ideas), the ranked alternatives, and a rationale citing the rankings. **The Chairman does NOT decide** —
 its output feeds the human gate below.

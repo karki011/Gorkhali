@@ -34,7 +34,7 @@ Check existing patterns before creating new ones. If it exists, extend it — do
 ## Sage Escalation
 
 When stuck (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (model: opus, foreground) with: question, context, tentative approach
+- Spawn Sage (foreground — Sage's agent definition pins the top tier) with: question, context, tentative approach
 - Max 3 consultations per task. Beyond that, escalate to Apex.
 
 ## Subtask Execution Protocol

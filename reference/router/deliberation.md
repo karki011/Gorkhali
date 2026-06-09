@@ -1,6 +1,6 @@
 # Deliberation Protocol
 
-Planner (Apex) and Challenger (Rival, opus, no tools) deliberate **before** presenting to human.
+Planner (Apex) and Challenger (Rival, session model, no tools) deliberate **before** presenting to human.
 
 ## Round Flow
 - Round 1: Planner sends plan -> Challenger returns verdict (PROCEED / REVISE / RETHINK)

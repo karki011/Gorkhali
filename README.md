@@ -107,7 +107,7 @@ research-team-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
 │   ├── check-learnings-index.js
 │   ├── session-health.sh
 │   ├── preamble-tier.js
-│   └── timing-report.js       # per-model agent timing (Opus vs Sonnet wall-clock)
+│   └── timing-report.js       # per-model agent timing (wall-clock by model)
 ├── evals/             # 30 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
 │   ├── hooks.json         # Plugin-owned hook registrations
@@ -134,27 +134,27 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 
 | Agent | Model | Effort | Role |
 |-------|-------|--------|------|
-| Apex | opus (pinned) | high | Orchestrator — plans, decomposes, coordinates, runs router, routes models |
-| Blade | opus · sonnet (small tasks) | high | Implementation — parallel execution with ROLE FOCUS directives |
+| Apex | inherits session model | high | Orchestrator — plans, decomposes, coordinates, runs router, routes models |
+| Blade | inherits session model · sonnet (small tasks) | high | Implementation — parallel execution with ROLE FOCUS directives |
 | Ward | sonnet | high | QA — lint, build, test verification |
-| Gaze | opus | high | Quality gate — power level (scored, P0-P3) |
-| Sage | opus | high | Advisory — guidance for stuck agents (<100 words) |
+| Gaze | opus (pinned — review tier) | high | Quality gate — power level (scored, P0-P3) |
+| Sage | fable (pinned — top tier) | high | Advisory — guidance for stuck agents (<100 words) |
 | Lens | sonnet | high | Visual verification — screenshot + diff |
-| Archer | opus | high | Cross-file review — pre-PR structural analysis |
-| Rival | opus | high | Plan challenger — adversarial review (no tools, forced precision) |
-| Hound | opus | high | Forensic investigator — 7-step protocol, HTML reports |
+| Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
+| Rival | inherits session model | high | Plan challenger — adversarial review (no tools, forced precision) |
+| Hound | inherits session model | high | Forensic investigator — 7-step protocol, HTML reports |
 | Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
 | Base Agent | — | — | Template for spawning new agent types |
 
-Only **Apex** pins its model + effort (`opus` / `high`). Every other agent leaves model + effort unset: Apex picks the **model** per spawn (default Opus; Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. No version restrictions.
+No agent pins a model except three deliberate exceptions: **Gaze** and **Archer** pin `opus` (review tier — independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade). Everyone else — including Apex — leaves model unset and inherits the session model (Fable 5 recommended). Apex tunes per spawn only to downshift (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. Use bare aliases only; never pin dated or prior-generation model IDs.
 
 ## Models & Effort
 
-Phantom runs every agent at **`high`** effort. Apex is pinned to `opus` / `high`; all other agents leave model + effort unset, so they inherit the session effort (`high`) and the model Apex assigns at spawn. **Model is the per-task lever, not effort** — there is no per-spawn effort param. Apex defaults to Opus and drops to **Sonnet** only for small, single-concern subtasks with a tight contract ("good tasking earns Sonnet"). `haiku` stays reserved for trivial mechanical single-file edits. See `reference/agents.md` → Model Routing.
+Phantom runs every agent at **`high`** effort. Agents leave model + effort unset, so they inherit the session effort (`high`) and the session model — run your session on **Fable 5** (`/model fable`) for best results. **Model is the per-task lever, not effort** — there is no per-spawn effort param. Apex follows the session model and drops to **Sonnet** only for small, single-concern subtasks with a tight contract ("good tasking earns Sonnet"). `haiku` stays reserved for trivial mechanical single-file edits. Gaze/Archer (opus, review tier) and Sage (fable) carry frontmatter pins. See `reference/agents.md` → Model Routing.
 
 **Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 
-Opus 4.8 also improves tool triggering (less likely to skip a required tool call, reinforcing the subagent-driven law) and long-context + compaction recovery (smoother pause/resume sessions).
+Fable 5 (`claude-fable-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law. Note it is usage-credit-gated; sessions without entitlement run cleanly on Opus 4.8 since no agent except Sage hard-pins the new tier.
 
 ## Commands
 

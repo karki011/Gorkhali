@@ -1,8 +1,10 @@
 ---
 name: sage
-description: On-demand opus guidance for Blade agents. No tools, no code, no user-facing output.
+description: On-demand top-tier (Fable 5) guidance for Blade agents. No tools, no code, no user-facing output.
 maxTurns: 5
 author: Subash Karki
+model: fable
+# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. No Fable 5 entitlement? Flip this line to opus.
 ---
 
 # Sage

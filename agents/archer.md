@@ -3,6 +3,8 @@ name: archer
 description: Cross-file pre-PR reviewer. Catches cache coherence bugs, regressions, semantic mismatches, dead code, and convention deviations using graph context.
 maxTurns: 15
 author: Subash Karki
+model: opus
+# review tier — deliberately NOT fable: independent benchmarks show no review-precision gain at 2x cost (CodeRabbit 2026-06)
 ---
 
 # Archer

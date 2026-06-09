@@ -8,7 +8,7 @@
 //
 // Appends one NDJSON line per event to <data>/timing/<repo>.jsonl. The companion
 // scripts/timing-report.js pairs spawn->stop and aggregates per model so you can
-// see whether Apex's Opus->Sonnet routing fires and whether it cuts wall-clock.
+// see whether Apex's model routing fires and whether it cuts wall-clock.
 //
 // Silent + never throws — must never break the workflow. SubagentStop is the end
 // signal (not PostToolUse) because background agents return from the Agent tool at
@@ -63,8 +63,8 @@ try {
       sid,
       id,
       agent: input.subagent_type || 'unknown',
-      // model is only present when Apex overrides; absent === inherited Opus.
-      model: input.model || 'opus(inherited)',
+      // model is only present when pinned/overridden; absent === inherits the session model.
+      model: input.model || 'inherited',
       bg: input.run_in_background === true,
     };
   } else {

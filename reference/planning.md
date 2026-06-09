@@ -24,7 +24,7 @@ Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 
 ## Rival (mandatory, every plan)
 
-Spawn sage agent (opus, no tools, blocking):
+Spawn sage agent (top tier via agent definition, no tools, blocking):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.
@@ -32,7 +32,7 @@ Spawn sage agent (opus, no tools, blocking):
 
 ## Codebase Research
 
-Spawn Explore (opus) + Plan (opus) agents for:
+Spawn Explore (session model) + Plan (session model) agents for:
 - File structure and patterns
 - Existing similar implementations
 - Import/dependency chains

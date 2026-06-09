@@ -6,7 +6,7 @@
 
 **When to skip:** Docs-only changes, single-file fixes, test-only changes.
 
-**Protocol:** Gather graph context (git diff + code-review-graph) → spawn Archer agent (opus) → merge findings with power level → auto-triage P0/P1 only.
+**Protocol:** Gather graph context (git diff + code-review-graph) → spawn Archer agent (opus — pinned review tier; deliberately not fable: independent benchmarks show no review-precision gain at 2x cost) → merge findings with power level → auto-triage P0/P1 only.
 
 **Finding merge:** Archer findings feed into the power level pipeline. P0/P1 from Archer = auto-fix. P2+ = drop.
 

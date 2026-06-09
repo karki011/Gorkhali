@@ -6,7 +6,7 @@
 
 Multi-perspective collision analysis. Four agents review the full `git diff main...HEAD` in parallel, each from a different angle. All four must pass.
 
-**Spawn 4 agents in parallel** (all opus, mode: bypassPermissions, run_in_background: false):
+**Spawn 4 agents in parallel** (all session-model, mode: bypassPermissions, run_in_background: false):
 
 ### 1. Scope Agent — "Does this diff match the contract?"
 - Reads: `intent.json` (doneWhen + specDelta), `plan.json` (tasks + files), full diff

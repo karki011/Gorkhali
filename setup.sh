@@ -61,10 +61,10 @@ read -rp "  ? Slack DM channel ID for notifications [skip]: " SLACK_CHANNEL
 SLACK_CHANNEL="${SLACK_CHANNEL:-}"
 
 # Default Blade model
-# Phantom defaults to opus for all agents under the Opus 4.8 single-model + effort
-# strategy — per-agent effort tiers are set in each agent's frontmatter.
-read -rp "  ? Default model for Blade agents (opus/sonnet/haiku) [opus]: " BLADE_MODEL
-BLADE_MODEL="${BLADE_MODEL:-opus}"
+# Phantom defaults to fable (Fable 5) for Blade agents — effort stays uniform
+# high, set in each agent's frontmatter.
+read -rp "  ? Default model for Blade agents (fable/opus/sonnet/haiku) [fable]: " BLADE_MODEL
+BLADE_MODEL="${BLADE_MODEL:-fable}"
 
 # 5. Auto-detect integrations
 echo ""
@@ -133,8 +133,8 @@ slack:
 
 models:
   blade: ${BLADE_MODEL}
-  apex: opus
-  gaze: opus
+  apex: fable
+  gaze: opus       # review tier — deliberate
   ward: sonnet
 
 integrations:
