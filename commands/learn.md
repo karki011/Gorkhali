@@ -37,5 +37,10 @@ Categorize the learning and route to the correct domain file:
 
 If the target learnings file is already >80 lines after appending, run:
 ```bash
-cd ~/.claude/plugins/marketplaces/caveman/compress && python3 -m scripts <absolute_path>
+SCRIPTS="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts"
+if command -v python3 >/dev/null 2>&1 && [ -d "$SCRIPTS/compress" ]; then
+  (cd "$SCRIPTS" && python3 -m compress <absolute_path>) || echo "Skipping caveman compress: compression unavailable."
+else
+  echo "Skipping caveman compress: python3 or scripts/compress not available."
+fi
 ```

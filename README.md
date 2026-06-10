@@ -13,6 +13,23 @@ Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex 
 
 Zero external plugin dependencies. Fully self-contained.
 
+## Install
+
+Native plugin install (preferred), in Claude Code:
+
+```bash
+/plugin marketplace add Cloudzero/research-phantom-skills
+/plugin install phantom@phantom
+```
+
+Fallback (legacy symlink install) from a shell:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantom-skills/main/install.sh) --legacy
+```
+
+Set `PHANTOM_INSTALL_DIR` to override the install location for `install.sh --legacy` (default `~/.claude/phantom`).
+
 ## Quick Start
 
 ```bash
@@ -88,7 +105,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 Repo root (the plugin install root, `CLAUDE_PLUGIN_ROOT`):
 
 ```
-research-team-skills/            # plugin root (CLAUDE_PLUGIN_ROOT)
+${CLAUDE_PLUGIN_ROOT}/           # plugin root
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)

@@ -6,14 +6,29 @@
 #   chmod +x install.sh && ./install.sh
 #
 # Or if you have the repo URL:
-#   bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantoms/main/install.sh)
+#   bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantom-skills/main/install.sh)
 
 set -euo pipefail
 
-TEAM_DIR="$HOME/.claude/phantom"
+LEGACY=0
+for arg in "$@"; do
+  case "$arg" in
+    --legacy) LEGACY=1 ;;
+  esac
+done
+
+TEAM_DIR="${PHANTOM_INSTALL_DIR:-$HOME/.claude/phantom}"
 COMMANDS_LINK="$HOME/.claude/commands/phantom"
-REPO_SSH="git@github.com:Cloudzero/research-phantoms.git"
-REPO_HTTPS="https://github.com/Cloudzero/research-phantoms.git"
+AGENTS_LINK_DIR="$HOME/.claude/agents/phantom"
+REPO_SSH="git@github.com:Cloudzero/research-phantom-skills.git"
+REPO_HTTPS="https://github.com/Cloudzero/research-phantom-skills.git"
+
+# Auto-detect legacy mode: a prior symlink install must keep being maintained,
+# otherwise a re-run silently drops command/agent registration.
+if [ "$LEGACY" -eq 0 ] && { [ -L "$COMMANDS_LINK" ] || [ -d "$COMMANDS_LINK" ] || [ -d "$AGENTS_LINK_DIR" ]; }; then
+  LEGACY=1
+  echo "  existing legacy symlink install detected — maintaining legacy mode; remove symlinks and use the plugin install to migrate"
+fi
 
 echo ""
 echo "  ╔═══════════════════════════════════════╗"
@@ -63,7 +78,14 @@ if [ -d "$TEAM_DIR" ]; then
       echo ""
       echo "  Updating..."
       cd "$TEAM_DIR"
-      git pull origin main 2>/dev/null || git pull cloudzero main 2>/dev/null || {
+      # Legacy clones may have a stale remote name or a dead upstream URL.
+      # Repoint origin to the canonical URL, preserving SSH vs HTTPS transport.
+      case "$(git remote get-url origin 2>/dev/null)" in
+        git@*|ssh://*) REPO_PULL="$REPO_SSH" ;;
+        *)             REPO_PULL="$REPO_HTTPS" ;;
+      esac
+      git remote set-url origin "$REPO_PULL" 2>/dev/null || git remote add origin "$REPO_PULL"
+      git pull --ff-only origin main 2>/dev/null || {
         echo "  ✗ Pull failed. Check your git remotes."
         exit 1
       }
@@ -111,32 +133,37 @@ if [ ! -d "$TEAM_DIR" ]; then
   fi
 fi
 
-# ─── Symlink ───
+# ─── Legacy Symlinks ───
+# Native plugin install is preferred. The symlink registration only runs with --legacy.
 
-if [ -L "$COMMANDS_LINK" ] || [ -d "$COMMANDS_LINK" ]; then
-  echo "  ✓ Symlink exists: $COMMANDS_LINK"
+if [ "$LEGACY" -eq 1 ]; then
+  if [ -L "$COMMANDS_LINK" ] || [ -d "$COMMANDS_LINK" ]; then
+    echo "  ✓ Symlink exists: $COMMANDS_LINK"
+  else
+    mkdir -p "$HOME/.claude/commands"
+    ln -s "$TEAM_DIR/commands" "$COMMANDS_LINK"
+    echo "  ✓ Created symlink: $COMMANDS_LINK"
+  fi
+
+  # Claude Code discovers user subagents from ~/.claude/agents/.
+  # Symlink each real agent so its model/effort frontmatter takes effect.
+  # The *.md glob only matches files directly in agents/ (reference/ is a subdir, not agent files).
+  mkdir -p "$AGENTS_LINK_DIR"
+
+  AGENT_COUNT=0
+  for agent_file in "$TEAM_DIR"/agents/*.md; do
+    [ -f "$agent_file" ] || continue
+    agent_name="$(basename "$agent_file")"
+    ln -sf "$agent_file" "$AGENTS_LINK_DIR/$agent_name"
+    AGENT_COUNT=$((AGENT_COUNT + 1))
+  done
+  echo "  ✓ Registered $AGENT_COUNT Phantom agents as Claude Code subagents"
 else
-  mkdir -p "$HOME/.claude/commands"
-  ln -s "$TEAM_DIR/commands" "$COMMANDS_LINK"
-  echo "  ✓ Created symlink: $COMMANDS_LINK"
+  echo "  Native plugin install is preferred. In Claude Code, run:"
+  echo "    /plugin marketplace add Cloudzero/research-phantom-skills"
+  echo "    /plugin install phantom@phantom"
+  echo "  Re-run with --legacy to symlink commands and agents instead."
 fi
-
-# ─── Register Agents as Claude Code Subagents ───
-# Claude Code discovers user subagents from ~/.claude/agents/.
-# Symlink each real agent so its model/effort frontmatter takes effect.
-# The *.md glob only matches files directly in agents/ (reference/ is a subdir, not agent files).
-
-AGENTS_LINK_DIR="$HOME/.claude/agents/phantom"
-mkdir -p "$AGENTS_LINK_DIR"
-
-AGENT_COUNT=0
-for agent_file in "$TEAM_DIR"/agents/*.md; do
-  [ -f "$agent_file" ] || continue
-  agent_name="$(basename "$agent_file")"
-  ln -sf "$agent_file" "$AGENTS_LINK_DIR/$agent_name"
-  AGENT_COUNT=$((AGENT_COUNT + 1))
-done
-echo "  ✓ Registered $AGENT_COUNT Phantom agents as Claude Code subagents"
 
 # ─── Run Setup Wizard ───
 
