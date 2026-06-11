@@ -55,6 +55,13 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
 
 6. **Update auto-memory** in project memory directory
 
+7. **Close cost interval + report**:
+   ```bash
+   node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js close {TICKET}
+   node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-report.js {TICKET}
+   ```
+   Include the report's `Total:` line in the pause summary. Never block the pause if it fails.
+
 **Running workflow + pause.** A Claude Code dynamic workflow does NOT survive exiting Claude Code —
 it restarts fresh next session (per docs), and `phantom:resume` cannot restore an in-flight run.
 Before a cross-session pause, finish or stop the workflow (`/workflows` → `x`) and capture its

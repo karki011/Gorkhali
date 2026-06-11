@@ -68,6 +68,17 @@ Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermission
 Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
 </output_format>
 
+## Step 9: Cost Report
+
+Close the ticket's cost interval and report total AI spend (never blocks the wrap if it fails):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js close {TICKET}
+node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-report.js {TICKET}
+```
+
+Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report's `Total:`). Telemetry batches ~60s, so the figure may trail the last minute of work.
+
 ---
 
-> **Output:** SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count. Random sign-off.
+> **Output:** SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.

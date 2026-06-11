@@ -13,3 +13,4 @@ Task board from `{TEAM_DIR}/sessions/{TICKET}.json`. Show:
 - Contract completion status
 - Verification results
 - Open blockers
+- AI cost so far: run `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-report.js {TICKET}` and show its `Total:` line (skip silently if it fails; telemetry batches ~60s so the figure may trail slightly)

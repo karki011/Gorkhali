@@ -24,6 +24,9 @@ Resume from a paused session by reading the state artifact.
      Ask: "Continue from saved state or start fresh?"
 </staleness_check>
 
+3.5. **Link session to cost ledger** (silent, never blocks):
+   `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js open {TICKET}`
+
 4. **Restore context** from artifact paths:
    - Read `intent.json` (from `intent` field)
    - Read `plan.json` (from `plan` field)

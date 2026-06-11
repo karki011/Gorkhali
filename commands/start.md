@@ -45,6 +45,7 @@ Agent spawn rules (all routes):
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123); resolve the expected project key from `jira.project` in config.yaml at runtime, never hardcode prefixes
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
 2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active`
+2.6. Link session to cost ledger (silent, never blocks): `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js open {TICKET}`
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
 5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
