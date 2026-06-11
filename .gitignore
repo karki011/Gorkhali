@@ -56,8 +56,8 @@ ruvector.db
 *.db-wal
 
 # AgentDB
-agentdb.rvf
-agentdb.rvf.lock
+*.rvf
+*.rvf.lock
 
 # Docs (local research/design docs, not tracked)
 docs/

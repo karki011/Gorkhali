@@ -11,6 +11,11 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { observationsDir, learningsDir, stateDir } = require('../scripts/lib/phantom-paths');
 
+let EXTRACT_TIMEOUT_MS = 5000;
+try {
+  EXTRACT_TIMEOUT_MS = require('../scripts/lib/constants').EXTRACT_TIMEOUT_MS ?? EXTRACT_TIMEOUT_MS;
+} catch (_) { /* fail open: lib missing → inline default */ }
+
 const LEARNINGS_DIR = learningsDir();
 const OBS_DIR = observationsDir();
 const STATE_DIR = stateDir();
@@ -22,25 +27,16 @@ const HIGH_CONFIDENCE_THRESHOLD = 3; // file touched 3+ times → important
 const MINIMAL_OUTPUT =
   '<!-- memory-consolidation -->\nNo observations to consolidate.\n<!-- /memory-consolidation -->';
 
-// ── Domain routing (matches observation-capture / extract-learnings patterns) ──
+// ── Domain routing (canonical taxonomy: scripts/lib/domains.js) ──────────────
 
-const FILE_DOMAIN_RULES = [
-  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
-  { test: p => /(^|\/)(?:test|spec|__tests__)\//.test(p) || /\.test\.|\.spec\./.test(p),         domain: 'testing' },
-  { test: p => /(^|\/)(?:styles|components)\//.test(p) || /\.tsx$|\.css$|\.scss$/.test(p),        domain: 'ui' },
-  { test: p => /(^|\/)(?:api|routes|controllers)\//.test(p) || /fetch|axios|http/i.test(p),       domain: 'data' },
-  { test: p => /(^|\/)auth\//.test(p) || /jwt|token|oauth|session/i.test(p),                      domain: 'auth' },
-  { test: p => /(^|\/)(?:migrations|schema)\//.test(p) || /migrate|schema/i.test(p),              domain: 'migration' },
-  { test: p => /(^|\/)config\//.test(p) || /eslint|tsconfig|webpack|vite|prettier/i.test(p),      domain: 'tooling' },
-  { test: p => /(^|\/)scripts\//.test(p),                                                          domain: 'tooling' },
-];
+let fileDomain = null;
+try {
+  ({ fileDomain } = require('../scripts/lib/domains'));
+} catch (_) { /* fail open: lib missing → everything routes to 'other' */ }
 
 function domainFromFile(filePath) {
-  if (!filePath) return 'other';
-  for (const rule of FILE_DOMAIN_RULES) {
-    if (rule.test(filePath)) return rule.domain;
-  }
-  return 'other';
+  if (!filePath || typeof fileDomain !== 'function') return 'other';
+  return fileDomain(filePath) || 'other';
 }
 
 // ── Atomic write ──────────────────────────────────────────────────────────────
@@ -187,7 +183,7 @@ try {
         '--input', obsFile,
         '--window', '0',
         '--session', sessionId,
-      ], { encoding: 'utf-8', timeout: 5000 });
+      ], { encoding: 'utf-8', timeout: EXTRACT_TIMEOUT_MS });
 
       const candidates = JSON.parse(extractResult);
 

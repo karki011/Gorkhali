@@ -13,7 +13,7 @@
 | apex | inherits session model (effort high) | orchestrator |
 | blade | inherits session model · sonnet for small, well-scoped subtasks | implementation |
 | hound | inherits session model | forensics |
-| sage | fable (pinned — top-tier advisory) | deepest advisory |
+| sage | fable (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
 | gaze | opus (pinned — review tier) | quality gate |
 | archer | opus (pinned — review tier) | cross-file review |
 | rival | inherits session model | adversarial plan review |

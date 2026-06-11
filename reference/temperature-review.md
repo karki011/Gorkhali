@@ -49,22 +49,25 @@ Use this prompt when spawning the power level agent:
     Empty array [] = clean code = SHIP IT.
     Do NOT invent findings to justify your existence.
 
-## Fix-Loop Ceiling (canonical)
+## Fix-Loop Ceiling
 
-**The fix-loop ceiling is 2.** This is the ONE constant for every verify/fix/re-review
-loop across Phantom — verify.md, fix.md, apex.md, start.md, contracts.md, and
-agents/reference all DEFER to this statement; none restates the number independently
-(so it can't drift). Rationale: the user's CLAUDE.md rule — *"if a fix attempt fails
-twice with the same error class, STOP patching; the approach is wrong."*
+**The fix-loop ceiling is owned by `scripts/lib/constants.js`** (`FIX_LOOP_CEILING`,
+default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by
+`hooks/loop-controller.js`. This document is the PROTOCOL reference for every
+verify/fix/re-review loop across Phantom — verify.md, fix.md, apex.md, start.md,
+contracts.md, and agents/reference defer to constants.js for the number (so it can't
+drift). Rationale for the default: the user's CLAUDE.md rule — *"if a fix attempt
+fails twice with the same error class, STOP patching; the approach is wrong."*
 
-The count is OWNED by `hooks/loop-controller.js` (a deterministic counter), not by prose.
+The count is tracked by `hooks/loop-controller.js` (a deterministic counter), not by prose.
 Prose describes the loop; the controller enforces the ceiling, the same-finding-class
 escalation, and the explicit operator override. The `review.fixLoops` field in
 `verification.json` is the same counter the controller reads/writes.
 
 > **NOT this loop:** the VISUAL fix loop (`commands/visual.md`,
 > `agents/reference/visual-protocol.md`) is a SEPARATE iteration loop with its own
-> ceiling (3). Do not conflate the two — they count different things.
+> ceiling (`VISUAL_LOOP_CEILING` in `scripts/lib/constants.js`, default 3, env override
+> `PHANTOM_VISUAL_LOOP_CEILING`). Do not conflate the two — they count different things.
 
 ## Auto-Address Loop
 

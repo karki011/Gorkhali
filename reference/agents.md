@@ -20,7 +20,9 @@
 
 Model is NOT pinned in agent frontmatter, with three deliberate exceptions: Gaze and Archer pin
 `opus` (review tier — independent benchmarks (CodeRabbit review bench, 2026-06) show Fable 5 is no
-better than Opus 4.8 at code review at 2x the price), and Sage pins `fable` (top-tier advisory).
+better than Opus 4.8 at code review at 2x the price), and Sage pins `fable` (top-tier advisory —
+the pin is the default; `models.sage` in `${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml` is
+the entitlement override, read at spawn time).
 Apex selects the model per spawn via the Agent tool `model:` param only to downshift; if omitted,
 the agent inherits the session model (or its agent definition's pinned model for gaze/archer/sage).
 **Effort is uniform `high`**, inherited from the session — there is NO per-spawn effort param, so

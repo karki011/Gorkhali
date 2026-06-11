@@ -10,6 +10,14 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { observationsDir, learningsDir } = require('../scripts/lib/phantom-paths');
 
+let GRADUATION_THRESHOLD = 5; // validated:5+ → graduate
+let EXTRACT_TIMEOUT_MS = 5000;
+try {
+  const C = require('../scripts/lib/constants');
+  GRADUATION_THRESHOLD = C.GRADUATION_THRESHOLD ?? GRADUATION_THRESHOLD;
+  EXTRACT_TIMEOUT_MS = C.EXTRACT_TIMEOUT_MS ?? EXTRACT_TIMEOUT_MS;
+} catch (_) { /* fail open: lib missing → inline defaults */ }
+
 const LEARNINGS_DIR = learningsDir();
 const OBS_DIR = observationsDir();
 const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
@@ -19,9 +27,8 @@ const TURN_WINDOW = 90; // seconds — capture observations from this turn only
 const MAX_AUTO_ENTRIES = 80;
 const PRUNE_TARGET = 60;
 const MAX_INDEX_AUTO_LINES = 100;
-const STALE_DAYS = 3;
+const STALE_DAYS = 3; // auto-capture prune window — NOT evolution-runner's LEARNING_STALE_DAYS
 const MIN_CONFIDENCE = 0.15;
-const GRADUATION_THRESHOLD = 5; // validated:5+ → graduate
 
 // ── Atomic write ──────────────────────────────────────────────────────────────
 
@@ -152,7 +159,7 @@ function rebuildIndex(preamble, autoLines) {
 const AUTO_CAPTURES_HEADER = `# Auto-Captured Learnings
 
 > Automatically extracted from observation data. Entries are promoted to domain files
-> when they reach [validated:5+]. Stale [proposed] entries are pruned after 3 days.
+> when they reach [validated:${GRADUATION_THRESHOLD}+]. Stale [proposed] entries are pruned after ${STALE_DAYS} days.
 
 `;
 
@@ -329,7 +336,7 @@ try {
       '--input', obsFile,
       '--window', String(TURN_WINDOW),
       '--session', sessionId
-    ], { encoding: 'utf-8', timeout: 5000 });
+    ], { encoding: 'utf-8', timeout: EXTRACT_TIMEOUT_MS });
     candidates = JSON.parse(result);
   } catch {
     process.exit(0);

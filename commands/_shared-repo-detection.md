@@ -68,7 +68,7 @@ Full decision table lives in `commands/wrap.md` step 14 `<pr_decision>`.
 
 | # | Condition | Action | Reason |
 |---|-----------|--------|--------|
-| 1 | On default branch (main/master) | Skip | Cannot PR from default branch |
+| 1 | On a default/protected branch (per `hooks/feature-branch-gate.sh`) | Skip | Cannot PR from default branch |
 | 2 | User said "no PR" | Skip | User override |
 | 3 | No code changes (only artifacts/docs) | Skip | Research/planning — nothing to review |
 | 4 | `HAS_UI = true` AND UI files changed | Draft PR | Visual review needed, draft signals not yet approved |

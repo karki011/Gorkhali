@@ -71,7 +71,7 @@ When issues are found:
 1. Emit structured fix packets (see Lens agent fix packet format)
 2. Apex assigns fix packets to Blade agents
 3. Lens re-inspects after fix is applied (agent-browser: same daemon session, no re-auth needed)
-4. Maximum 3 fix loops before escalating to Apex
+4. Escalate to Apex when the visual fix-loop ceiling is reached (ceiling owned by `scripts/lib/constants.js` `VISUAL_LOOP_CEILING`, env override `PHANTOM_VISUAL_LOOP_CEILING` — not restated here)
 
 ## Comparison Protocol (Re-Inspection)
 

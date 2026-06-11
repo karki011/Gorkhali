@@ -31,7 +31,7 @@ Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 - mode: `bypassPermissions`
 
 **Ward prompt must include:**
-- Script path: `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/evolution-runner.js`
+- Script path: `${CLAUDE_PLUGIN_ROOT}/scripts/evolution-runner.js`
 - Flag: `--dry-run` if user requested preview, otherwise no flag
 - Instructions to run the script and capture full output
 - Instructions to return structured report:

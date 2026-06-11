@@ -1,7 +1,7 @@
 # Author: Subash Karki
 # phantom-paths.sh — single source of truth for Phantom mutable-state root.
-# Safe to `source` from other scripts: sets only PHANTOM_DATA (if unset),
-# no `set -e`, no output.
+# Safe to `source` from other scripts: sets PHANTOM_DATA and
+# PHANTOM_PLUGIN_ROOT (if unset), no `set -e`, no output.
 
 : "${PHANTOM_DATA:=$HOME/.claude/phantom-data}"
 export PHANTOM_DATA
@@ -10,6 +10,19 @@ export PHANTOM_DATA
 : "${PHANTOM_AUDIT_DIR:=$PHANTOM_DATA/audit}"
 : "${PHANTOM_GLOBAL_PATTERNS_DIR:=$PHANTOM_DATA/global/patterns}"
 export PHANTOM_STATE_DIR PHANTOM_AUDIT_DIR PHANTOM_GLOBAL_PATTERNS_DIR
+
+# Plugin root: CLAUDE_PLUGIN_ROOT (guaranteed in plugin context); else
+# script-relative — this lib lives at <root>/scripts/lib/, so root is two
+# levels up. ${BASH_SOURCE:-$0}: bash sets BASH_SOURCE when sourced; zsh's
+# $0 is the sourced file. cd runs in a subshell; empty on failure, never errors.
+if [ -z "${PHANTOM_PLUGIN_ROOT:-}" ]; then
+  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+    PHANTOM_PLUGIN_ROOT=$CLAUDE_PLUGIN_ROOT
+  else
+    PHANTOM_PLUGIN_ROOT=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE:-$0}")/../.." 2>/dev/null && pwd)
+  fi
+fi
+export PHANTOM_PLUGIN_ROOT
 
 # Resolve repo name at CALL time, not source time (sourced at shell startup with
 # PWD=$HOME). PHANTOM_REPO overrides; else pure-shell walk up to first `.git`

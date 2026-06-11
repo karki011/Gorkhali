@@ -10,7 +10,7 @@
       "once": false,
       "priority": 10,
       "input": "arg1-json",
-      "description": "Blocks edits on main/master/develop branches"
+      "description": "Blocks edits on default/protected branches (configurable via git.protected_branches / PHANTOM_PROTECTED_BRANCHES)"
     },
     {
       "name": "apex-subagent-law",

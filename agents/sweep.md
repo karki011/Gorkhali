@@ -62,4 +62,4 @@ Report:
 
 ## Escalation
 
-Reference `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation. If a simplification might change behavior or has unclear intent, stop and report — do not guess.
+Reference `${CLAUDE_PLUGIN_ROOT}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation. If a simplification might change behavior or has unclear intent, stop and report — do not guess.

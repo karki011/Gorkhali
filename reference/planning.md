@@ -24,7 +24,7 @@ Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 
 ## Rival (mandatory, every plan)
 
-Spawn sage agent (top tier via agent definition, no tools, blocking):
+Spawn sage agent (top tier via agent definition — if `models.sage` is set in `${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml`, pass it as the `model:` param, else omit; no tools, blocking):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.
@@ -58,12 +58,14 @@ Every `doneWhen` entry in `intent.json` must be verifiable by one of:
 
 | Type | Form |
 |------|------|
-| Test command | `pnpm test:changed` exits 0 |
-| Lint/build | `pnpm lint && pnpm build` exits 0 |
+| Test command | `{TEST_CMD}` exits 0 |
+| Lint/build | `{LINT_CMD} && {BUILD_CMD}` exits 0 |
 | File existence | `[ -f src/foo.ts ]` |
 | Grep match | `grep -r "export.*FooComponent" src/` finds a result |
-| API/CLI output | `curl localhost:3000/health` returns `{"status":"ok"}` |
+| API/CLI output | `curl localhost:{DEV_PORT}/health` returns `{"status":"ok"}` |
 | Snapshot/diff | `git diff --name-only` includes expected file |
+
+`{TEST_CMD}` / `{LINT_CMD}` / `{BUILD_CMD}` / `{TYPECHECK_CMD}` are resolved via the discovery protocol in `reference/verification.md`. `{DEV_PORT}` comes from dev-server config or framework startup output — never assume a fixed port.
 
 **Banned forms** (plan fails immediately if any appear):
 ```

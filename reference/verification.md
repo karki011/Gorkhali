@@ -7,6 +7,23 @@
 3. **Stack defaults** — infer from detected stack (pnpm/yarn/npm + framework)
 4. **Monorepo affected** — run only on affected packages
 
+## Stack Defaults (placeholder resolution)
+
+Single home for concrete commands. Every `{TEST_CMD}` / `{LINT_CMD}` / `{BUILD_CMD}` / `{TYPECHECK_CMD}` placeholder elsewhere in this plugin resolves here — but only after tiers 1-2 yield nothing. Node package manager is selected by lockfile per `commands/_shared-repo-detection.md`.
+
+| Stack (marker) | {TEST_CMD} | {LINT_CMD} | {BUILD_CMD} | {TYPECHECK_CMD} |
+|----------------|------------|------------|-------------|-----------------|
+| pnpm (`pnpm-lock.yaml`) | `pnpm test` | `pnpm lint` | `pnpm build` | `pnpm exec tsc --noEmit` |
+| yarn (`yarn.lock`) | `yarn test` | `yarn lint` | `yarn build` | `yarn tsc --noEmit` |
+| bun (`bun.lockb`) | `bun test` | `bun run lint` | `bun run build` | `bunx tsc --noEmit` |
+| npm (`package-lock.json`) | `npm test` | `npm run lint` | `npm run build` | `npx tsc --noEmit` |
+| Go (`go.mod`) | `go test ./...` | `go vet ./...` | `go build ./...` | — |
+| Rust (`Cargo.toml`) | `cargo test` | `cargo clippy` | `cargo build` | `cargo check` |
+| Python (`pyproject.toml` / `setup.py`) | `pytest` | — | — | — |
+| Make (`Makefile`, tier 2) | `make test` | `make lint` | `make build` | — |
+
+`—` = no stack default: resolve via tier 1/2 or report `not_observed`. Make rows apply only when the target exists in the Makefile.
+
 ## Stack Detection
 
 | Marker | Stack |

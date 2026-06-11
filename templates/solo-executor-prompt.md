@@ -25,11 +25,12 @@ If your approach matches a known failure and you cannot justify the difference, 
 Report which corrections you checked and your mitigation in output.
 
 ## Sage Escalation Protocol
-When you hit a HARD decision you cannot resolve confidently, spawn a top-tier (Fable 5) advisor:
+When you hit a HARD decision you cannot resolve confidently, spawn a top-tier (Fable 5) advisor.
+Before spawning: read `${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml`. If `models.sage` is set, use it as the `model:` value. If absent or config missing, use 'fable'.
 ```
 Agent({
   description: 'Sage: [your specific question]',
-  model: 'fable',
+  model: '[models.sage from config, else fable]',
   subagent_type: 'advisor',
   prompt: '[decision context + your tentative approach + specific question]. Respond: Action (plan|correct|proceed|stop), Confidence, Guidance (<100 words enumerated steps). OUTPUT: Caveman-full.'
 })
@@ -60,9 +61,10 @@ If blocked on any step: report BLOCKED with the specific blocker. Do not skip or
 
 ## Verification
 After implementation, run these yourself:
-1. Type check: npx tsc --noEmit (or project equivalent)
-2. Lint: npm run lint (or project equivalent)
-3. Tests: npm test (or project equivalent)
+1. Type check: {TYPECHECK_CMD}
+2. Lint: {LINT_CMD}
+3. Tests: {TEST_CMD}
+Each placeholder is resolved via the discovery protocol in reference/verification.md.
 If any fail, fix them. If you cannot fix after 2 attempts, stop and report.
 
 ## Output

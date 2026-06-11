@@ -4,7 +4,7 @@
 
 | # | Law | Enforcement |
 |---|-----|-------------|
-| 1 | Feature branch | Hook: block Edit on main |
+| 1 | Feature branch | Hook: block Edit on default/protected branches (`hooks/feature-branch-gate.sh` is the authority) |
 | 2 | Verify before ship | wrap reads verification.json |
 | 3 | Anti-repetition | Search INDEX.md before planning |
 | 4 | Rival | plan.json requires verdict field |

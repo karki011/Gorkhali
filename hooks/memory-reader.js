@@ -8,6 +8,16 @@ try {
   const path = require('path');
 
   const { learningsDir } = require('../scripts/lib/phantom-paths');
+
+  let DOMAIN_KEYWORDS = {};
+  try {
+    ({ DOMAIN_KEYWORDS } = require('../scripts/lib/domains'));
+  } catch (_) { /* fail open: lib missing → no matches → 'shadows' default below */ }
+  let GRADUATION_THRESHOLD = 5; // validated:5+ → high injection priority
+  try {
+    GRADUATION_THRESHOLD = require('../scripts/lib/constants').GRADUATION_THRESHOLD ?? GRADUATION_THRESHOLD;
+  } catch (_) { /* fail open: lib missing → inline default */ }
+
   const LEARNINGS_DIR = learningsDir();
   const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
   const MAX_INJECTION_CHARS = 1600; // ~400 tokens
@@ -18,16 +28,7 @@ try {
 
   if (!prompt) process.exit(0);
 
-  // --- Step 2: Detect domain signals ---
-  const DOMAIN_KEYWORDS = {
-    ui: ['react', 'jsx', 'tsx', 'component', 'css', 'style', 'chakra', 'layout', 'render', 'frontend', 'tailwind', 'svg', 'figma'],
-    data: ['api', 'fetch', 'axios', 'graphql', 'endpoint', 'route', 'rest', 'http', 'query', 'mutation', 'request', 'response'],
-    auth: ['auth', 'jwt', 'token', 'oauth', 'session', 'login', 'password', 'credential', 'permission', 'rbac'],
-    testing: ['test', 'spec', 'mock', 'jest', 'vitest', 'mocha', 'assert', 'expect', 'coverage', 'fixture'],
-    shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'apex', 'blade', 'sage', 'ward', 'gaze', 'archer', 'hound'],
-    migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
-    tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
-  };
+  // --- Step 2: Detect domain signals (canonical taxonomy: scripts/lib/domains.js) ---
 
   const matchedDomains = [];
   for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
@@ -108,7 +109,7 @@ try {
           const count = valMatch ? parseInt(valMatch[1], 10) : 0;
           entries.push({
             text,
-            priority: count >= 5 ? PRIORITY['validated-high'] : PRIORITY['validated-low'],
+            priority: count >= GRADUATION_THRESHOLD ? PRIORITY['validated-high'] : PRIORITY['validated-low'],
           });
         }
         continue;
@@ -126,7 +127,7 @@ try {
         const count = parseInt(valMatch[1], 10);
         entries.push({
           text,
-          priority: count >= 5 ? PRIORITY['validated-high'] : PRIORITY['validated-low'],
+          priority: count >= GRADUATION_THRESHOLD ? PRIORITY['validated-high'] : PRIORITY['validated-low'],
         });
         continue;
       }
@@ -184,7 +185,7 @@ try {
       const valMatch = trimmed.match(/v:(\d+)/);
       const valCount = valMatch ? parseInt(valMatch[1], 10) : 0;
 
-      if (valCount >= 5) {
+      if (valCount >= GRADUATION_THRESHOLD) {
         allEntries.push({ text, priority: PRIORITY['validated-high'] });
       } else if (valCount >= 1) {
         allEntries.push({ text, priority: PRIORITY['validated-low'] });

@@ -12,13 +12,15 @@ Fix loop from latest failed verification.
 
 > **Loop authority:** the attempt count, the hard stop, and the same-finding-class
 > escalation are OWNED by `hooks/loop-controller.js`, NOT by this prose. The ceiling
-> (canonical: `reference/temperature-review.md`) is **2**. The controller reads/writes
+> (`FIX_LOOP_CEILING`, sourced from `scripts/lib/constants.js`; env override
+> `PHANTOM_FIX_LOOP_CEILING`) is not restated here. The controller reads/writes
 > the same counter as `verification.json` `review.fixLoops`. The ONLY way past the
 > ceiling is the controller's explicit, logged operator override (a NEW narrower
 > problem surfaced — genuine progress, not patch-stacking).
 >
 > **Distinct loop:** this is NOT the VISUAL fix loop (`commands/visual.md`,
-> `agents/reference/visual-protocol.md`), which has its own separate ceiling (3).
+> `agents/reference/visual-protocol.md`), which has its own separate ceiling
+> (`VISUAL_LOOP_CEILING` in `scripts/lib/constants.js`).
 
 <instructions>
 
@@ -39,7 +41,7 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 **8.5. Scrap-and-redo:** Document what was learned. `git checkout -- <touched files>`. Spawn fresh agent with synthesized learnings (not failed code). Re-verify.
 
-9. **Structured escalation** (controller `shouldContinue` returns stop — at ceiling with no operator override, or scope expanded). `{CEILING}` = the controller's ceiling (2):
+9. **Structured escalation** (controller `shouldContinue` returns stop — at ceiling with no operator override, or scope expanded). `{CEILING}` = the controller's `FIX_LOOP_CEILING`:
    ```
    ## FIX LOOP EXHAUSTED ({N}/{CEILING})
    ### What was attempted (per-loop summary)

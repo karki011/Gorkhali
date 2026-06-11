@@ -17,13 +17,13 @@ Written by Phase A (`phantom:start`). Provides ticket context for all downstream
 ```json
 {
   "_meta": { "...": "..." },
-  "ticket": "ENG-1234",
+  "ticket": "PROJ-123",
   "summary": "Add cost-per-tag breakdown to the dashboard",
   "source": "jira",
   "jira": { "status": "In Progress", "priority": "High" },
-  "learningsRefs": ["~/.claude/phantom-data/repos/feature-web-apps/learnings/frontend.md"],
+  "learningsRefs": ["~/.claude/phantom-data/repos/{REPO_NAME}/learnings/frontend.md"],
   "phantomStrategy": "decompose",
-  "blastRadius": ["src/components/Dashboard.tsx", "src/hooks/useCostData.ts"],
+  "blastRadius": ["src/example.ts", "src/hooks/useExample.ts"],
   "modelOverride": null
 }
 ```

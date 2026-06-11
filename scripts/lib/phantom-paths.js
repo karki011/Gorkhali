@@ -9,9 +9,14 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
+let DATA_DIRNAME = 'phantom-data';
+try {
+  DATA_DIRNAME = require('./constants').PHANTOM_DATA_DIRNAME || DATA_DIRNAME;
+} catch (_) { /* fail open: lib missing → inline default */ }
+
 /** Root for all Phantom mutable state. PHANTOM_DATA overrides the default. */
 function phantomData() {
-  return process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  return process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', DATA_DIRNAME);
 }
 
 /**

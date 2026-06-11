@@ -5,13 +5,26 @@
 ## Governance
 
 1. Read repo `AGENTS.md` + `.claude/rules/`
-2. Coding principles (first found): repo `.claude/rules/coding-principles.md` → `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/coding-principles.md` → defaults
+2. Coding principles (first found): repo `.claude/rules/coding-principles.md` → `${CLAUDE_PLUGIN_ROOT}/reference/coding-principles.md` → defaults
 
 <context>
 
 ## Paths
 
 ```
+PLUGIN_ROOT = ${CLAUDE_PLUGIN_ROOT}   # guaranteed by Claude Code for plugin-loaded commands/agents/hooks
+              # legacy `install.sh --legacy` symlink installs run OUTSIDE plugin context (var unset there):
+              # resolve to the clone dir instead — ${PHANTOM_INSTALL_DIR:-~/.claude/phantom}
+              # EXCEPTION: commands/learn.md + reference/wrap/learnings.md keep the literal
+              # ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom} fallback INTENTIONALLY — they are
+              # executable shell guards (bash cannot resolve prose conventions), and the fallback
+              # keeps caveman-compress working on legacy clone installs. Do NOT change those two.
+
+Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
+{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in reference/verification.md
+{PKG_MGR}  = lockfile table in _shared-repo-detection.md
+{DEV_PORT} = repo dev-server config
+
 REPO_NAME = $PHANTOM_REPO if set, else basename of git root, else "_default"
 TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
@@ -32,7 +45,7 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.
 
 14 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
 
-1. **Feature branch** — never main/develop/master
+1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `PHANTOM_PROTECTED_BRANCHES`)
 2. **Verify** — run commands, read output, confirm
 3. **Anti-repetition** — scan INDEX.md before planning
 4. **Rival** — challenge every plan

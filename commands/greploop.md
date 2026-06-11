@@ -6,11 +6,15 @@ allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
 >
-> Adapted for CloudZero from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only; multi-platform branches and neutral reply tone stripped in favor of CZ conventions (tag `@greptileai`, in-thread roast-tone replies, push-before-reply).
+> Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only; multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are intentional mechanics; reply tone is configurable via `greptile.reply_tone` (`neutral` default, `roast` for CZ-style replies).
 
 # /phantom:greploop
 
 Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confidence, zero unresolved comments**.
+
+## Gate: `integrations.greptile`
+
+Read config.yaml. If `integrations.greptile` is `false` or absent: print "○ greploop skipped (integrations.greptile not enabled in config.yaml)" and stop. Not an error — installs without the Greptile bot simply don't loop.
 
 ## Inputs
 
@@ -18,15 +22,16 @@ Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confide
 - `--max N` (optional): max loop iterations (default **5**).
 - `--no-fix` (optional): triage + report only; do not edit/commit.
 
-## CZ conventions (non-negotiable)
+## Conventions (mechanics non-negotiable, tone configurable)
 
-These come from saved preferences — apply them every iteration:
+Apply every iteration:
 
 - **Trigger / re-trigger** Greptile by posting `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
 - **Reply in-thread**, never as a top-level PR comment. Endpoint: `gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies -f body="..." --method POST` (no PR number in the path).
-- **Reply tone: roasting / self-deprecating humor.** Roast yourself for the mistake, acknowledge the catch with humor, include the fix reference (commit hash / what changed), and **always end with `@greptileai`** so re-review triggers. Examples:
-  - Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai"
-  - Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai"
+- **Reply tone** — read `greptile.reply_tone` from config.yaml (default `neutral`):
+  - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
+  - `roast`: self-deprecating humor (CZ style). Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai". Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai".
+  - Whatever the tone: include the fix reference (commit hash / what changed) and **always end with `@greptileai`** so re-review triggers.
 - **Push before you reply.** Always `git push` the fix commit before posting the in-thread reply, so the reply references code that actually exists on the remote.
 
 ## 0. Identify the PR
@@ -118,11 +123,11 @@ git push
 
 ### G. Reply in-thread + resolve
 
-For each comment, post an in-thread reply in CZ roast tone, ending with `@greptileai`:
+For each comment, post an in-thread reply in the configured tone (`greptile.reply_tone`), ending with `@greptileai`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies \
-  -f body="classic speedrun — fixed in {sha}. take another look @greptileai" --method POST
+  -f body="Fixed in {sha} — take another look @greptileai" --method POST
 ```
 
 Then batch-resolve addressed threads via GraphQL. Fetch unresolved thread IDs:

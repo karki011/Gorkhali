@@ -58,16 +58,18 @@ Each entry in `plan.json -> tasks[]` must follow this shape:
   ],
   "acceptance_criteria": [
     "grep -r 'export.*useCostByTag' src/hooks/ finds exactly one match",
-    "pnpm test -- useCostByTag exits 0",
+    "{TEST_CMD} -- useCostByTag exits 0",
     "Hook returns { data, loading, error } matching CostByTagResponse type"
   ],
   "action": "Create src/hooks/useCostByTag.ts with memoized selector, error boundary, and TypeScript types",
-  "verify": "pnpm test:changed && pnpm lint",
+  "verify": "{TEST_CMD} && {LINT_CMD}",
   "files": ["src/hooks/useCostByTag.ts", "src/hooks/useCostByTag.test.ts"],
   "dependsOn": [],
   "agent": "backend"
 }
 ```
+
+`{TEST_CMD}` / `{LINT_CMD}` are resolved via the discovery protocol in `reference/verification.md`. Generated plans must contain the resolved concrete commands, not the placeholders.
 
 **Field rules:**
 

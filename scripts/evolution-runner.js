@@ -10,10 +10,15 @@ const REPO = detectRepo();
 const LEARNINGS_DIR = learningsDir(REPO);
 const PATTERNS_DIR = globalPatternsDir();
 const STATE_FILE = path.join(stateDir(), 'evolution-log.json');
-const STALE_DAYS = 30;
-const REMOVE_DAYS = 60;
-const PROMOTE_THRESHOLD = 5;
-const DISTILL_CAP = 50;
+
+let STALE_DAYS = 30, REMOVE_DAYS = 60, PROMOTE_THRESHOLD = 5, DISTILL_CAP = 50;
+try {
+  const C = require('./lib/constants');
+  STALE_DAYS = C.LEARNING_STALE_DAYS ?? STALE_DAYS;
+  REMOVE_DAYS = C.LEARNING_REMOVE_DAYS ?? REMOVE_DAYS;
+  PROMOTE_THRESHOLD = C.PROMOTE_THRESHOLD ?? PROMOTE_THRESHOLD;
+  DISTILL_CAP = C.LEARNING_DISTILL_CAP ?? DISTILL_CAP;
+} catch (_) { /* fail open: lib missing → inline defaults */ }
 
 const dryRun = process.argv.includes('--dry-run');
 const now = new Date();
@@ -191,9 +196,9 @@ function run() {
 
   // Tier 1
   const { stale, removable } = scanStaleness(domains);
-  console.log(`[Tier 1] Stale (30+ days): ${stale.length}`);
+  console.log(`[Tier 1] Stale (${STALE_DAYS}+ days): ${stale.length}`);
   stale.forEach(s => console.log(`  ⚠ ${s.domain}: ${(s.entry.content || s.entry.raw).slice(0, 60)}...`));
-  console.log(`[Tier 1] Removable (60+ days): ${removable.length}`);
+  console.log(`[Tier 1] Removable (${REMOVE_DAYS}+ days): ${removable.length}`);
   removable.forEach(r => console.log(`  ✕ ${r.domain}: ${(r.entry.content || r.entry.raw).slice(0, 60)}...`));
   if (removable.length > 0) removeEntries(domains, removable);
 

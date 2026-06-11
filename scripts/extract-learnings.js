@@ -23,17 +23,12 @@ function parseArgs(argv) {
   return args;
 }
 
-// ── Domain routing ─────────────────────────────────────────────────────────────
+// ── Domain routing (canonical taxonomy: scripts/lib/domains.js) ────────────────
 
-const FILE_DOMAIN_RULES = [
-  { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
-  { test: p => /(^|\/)(?:test|spec|__tests__)\//.test(p) || /\.test\.|\.spec\./.test(p),         domain: 'testing' },
-  { test: p => /(^|\/)(?:styles|components)\//.test(p) || /\.tsx$|\.css$|\.scss$/.test(p) || /ui|frontend/i.test(p), domain: 'ui' },
-  { test: p => /(^|\/)(?:api|routes|controllers)\//.test(p) || /fetch|axios|http/i.test(p),      domain: 'data' },
-  { test: p => /(^|\/)auth\//.test(p) || /jwt|token|oauth|session/i.test(p),                     domain: 'auth' },
-  { test: p => /(^|\/)(?:migrations|schema)\//.test(p) || /migrate|schema/i.test(p),             domain: 'migration' },
-  { test: p => /(^|\/)config\//.test(p) || /eslint|tsconfig|webpack|vite|prettier/i.test(p),     domain: 'tooling' },
-];
+let fileDomain = null;
+try {
+  ({ fileDomain } = require('./lib/domains'));
+} catch (_) { /* fail open: lib missing → ext-map fallback only */ }
 
 const EXT_DOMAIN_MAP = {
   '.go': 'backend',
@@ -44,8 +39,9 @@ const EXT_DOMAIN_MAP = {
 
 function domainFromFile(filePath) {
   if (!filePath) return 'unknown';
-  for (const rule of FILE_DOMAIN_RULES) {
-    if (rule.test(filePath)) return rule.domain;
+  if (typeof fileDomain === 'function') {
+    const d = fileDomain(filePath);
+    if (d) return d;
   }
   const ext = path.extname(filePath).toLowerCase();
   return EXT_DOMAIN_MAP[ext] || 'unknown';

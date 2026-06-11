@@ -69,7 +69,7 @@ done
 
 ## Adding New Evals
 
-1. Read the target skill's command file in `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/commands/`
+1. Read the target skill's command file in `${CLAUDE_PLUGIN_ROOT}/commands/`
 2. Note the `description` field — that's what the skill router uses for matching
 3. Write 2 trigger prompts (one casual, one formal) and 1 near-miss
 4. Add to `evals.json` with the next available `id`

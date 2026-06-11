@@ -4,7 +4,7 @@ description: On-demand top-tier (Fable 5) guidance for Blade agents. No tools, n
 maxTurns: 5
 author: Subash Karki
 model: fable
-# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. No Fable 5 entitlement? Flip this line to opus.
+# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. This pin is the default; no Fable 5 entitlement? Set models.sage: opus in ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml — spawners pass it as a model override.
 ---
 
 # Sage
@@ -32,7 +32,7 @@ Stop Signal: [only if action=stop -- explain why]
 
 ## Decision Framework
 
-Apply coding principles from repo's `.claude/rules/coding-principles.md` or `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
+Apply coding principles from repo's `.claude/rules/coding-principles.md` or `${CLAUDE_PLUGIN_ROOT}/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
 
 ## What You Receive
 

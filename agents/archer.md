@@ -55,5 +55,5 @@ Triage rules:
 
 ## Reference
 
-- See `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation.
+- See `${CLAUDE_PLUGIN_ROOT}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation.
 - You complement Gaze — your findings merge with Gaze's. Gaze resolves conflicts.

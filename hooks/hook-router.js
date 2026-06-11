@@ -16,6 +16,10 @@ try {
   const os = require('os');
   stateDir = () => path.join(process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data'), 'state');
 }
+let DEFAULT_HOOK_TIMEOUT_S = 10;
+try {
+  DEFAULT_HOOK_TIMEOUT_S = require('../scripts/lib/constants').DEFAULT_HOOK_TIMEOUT_SECONDS ?? 10;
+} catch (_) { /* fail open: lib missing → inline default */ }
 
 // Shipped (read-only) content (hooks-config + scripts) stays addressed relative to the install dir.
 const TEAM_DIR = path.resolve(__dirname, '..'); // install dir (shipped hooks-config + scripts)
@@ -51,7 +55,8 @@ function loadConfig() {
       }
     }
   } catch {}
-  return hooks.map(h => ({ priority: 100, enabled: true, once: false, matcher: '.*', input: 'arg1-json', ...h }));
+  // timeout is per-hook, in SECONDS (parity with hooks.json `timeout`).
+  return hooks.map(h => ({ priority: 100, enabled: true, once: false, matcher: '.*', input: 'arg1-json', timeout: DEFAULT_HOOK_TIMEOUT_S, ...h }));
 }
 
 function loadSessionState(sid) {
@@ -79,16 +84,22 @@ function executeHook(hook, args) {
   const payload = JSON.stringify({ tool_name: args.tool, tool_input: {}, tool_output: {}, session_id: args.sessionId, phase: args.phase });
   if (hook.input === 'arg1-json') sa.push(payload);
   else if (hook.input === 'arg2-json') sa.push('', payload);
+  const tmoS = Number(hook.timeout);
   const r = spawnSync(cmd, sa, {
     cwd: process.cwd(),
     env: { ...process.env, HOOK_SESSION_ID: args.sessionId },
     stdio: [hook.input === 'stdin-json' ? 'pipe' : 'inherit', 'pipe', 'pipe'],
-    timeout: 10000,
+    timeout: (Number.isFinite(tmoS) && tmoS > 0 ? tmoS : DEFAULT_HOOK_TIMEOUT_S) * 1000,
     input: hook.input === 'stdin-json' ? payload : undefined,
   });
   if (r.stdout?.length) process.stdout.write(r.stdout);
   if (r.stderr?.length) process.stderr.write(r.stderr);
-  return r.status ?? 0;
+  // status === null means the child was killed (timeout) or never ran — that is a FAILURE, not success.
+  if (r.error || r.status === null) {
+    process.stderr.write(`hook-router: ${hook.name} failed: ${r.error ? r.error.message : `killed (${r.signal || 'timeout'})`}\n`);
+    return 1;
+  }
+  return r.status;
 }
 
 function main() {
@@ -122,4 +133,5 @@ function main() {
   process.exit(exit);
 }
 
-main();
+if (require.main === module) main();
+module.exports = { parseArgs, loadConfig, executeHook };

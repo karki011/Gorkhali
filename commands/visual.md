@@ -21,7 +21,7 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 
 1. **Determine target routes:** args > session `affectedRoutes` > infer from changed files > ask user (standalone) or skip (autonomous)
 
-2. **Verify dev server:** Check localhost port. If not running: warn (standalone) or attempt `pnpm dev &` + 10s wait (autonomous).
+2. **Verify dev server:** Resolve the dev port from dev-server config or framework startup output — never assume a fixed port; if it cannot be determined, ask the user once. If the server is not running: warn (standalone) or detect the package manager via the lockfile table in `commands/_shared-repo-detection.md` and attempt `{PKG_MGR} run dev &` + 10s wait (autonomous).
 
 3. **Detect browser backend:** `--backend` flag > `which agent-browser` > Playwright MCP fallback.
 

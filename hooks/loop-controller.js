@@ -10,10 +10,14 @@
 // the same error class, STOP patching; the approach is wrong."
 //
 // NOT the VISUAL fix loop (commands/visual.md, agents/reference/visual-protocol.md),
-// which is a separate iteration loop with its own ceiling (3).
+// which is a separate iteration loop with its own ceiling (VISUAL_LOOP_CEILING in
+// scripts/lib/constants.js).
 'use strict';
 
-const FIX_LOOP_CEILING = 2;
+let FIX_LOOP_CEILING = 2;
+try {
+  FIX_LOOP_CEILING = require('../scripts/lib/constants').FIX_LOOP_CEILING ?? 2;
+} catch (_) { /* fail open: lib missing → inline default */ }
 
 // Read the loop count off a verification artifact (review.fixLoops). Missing/garbage
 // state fails safe to 0 (loop has not run).

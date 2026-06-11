@@ -5,17 +5,16 @@ jira:
   project: CP                  # Your Jira project key
   auto_transition: true        # Auto-transition tickets (In Progress → Reviewing)
 
+git:
+  protected_branches: [main, master, develop]  # Direct work blocked by feature-branch gate
+
 slack:
   dm_channel: ""               # Your Slack DM channel ID for notifications
   enabled: false
 
 models:
-  blade: fable                 # Implementation agents
-  apex: fable                  # Orchestrator — or omit/inherit to follow the session model
-  gaze: opus                   # Quality gate — review tier, deliberate
-  ward: sonnet             # Verification
-  plan_checker: sonnet         # Pre-execution plan validation
-  sweep: sonnet           # Code simplification
+  # Only live key — all other agents inherit the session model
+  sage: fable                  # Set to opus if you lack Fable 5 entitlement
 
 integrations:
   atlassian_mcp: false         # Auto-detected by setup.sh
@@ -24,7 +23,16 @@ integrations:
   code_review_graph: false     # Auto-detected by setup.sh
   context_mode: false          # Auto-detected by setup.sh
   claude_flow: false           # Auto-detected by setup.sh
-  greptile: false              # Opt-in: automated code review
+  figma_mcp: false             # Auto-detected by setup.sh
+  greptile: false              # Opt-in: automated code review loop
+
+greptile:
+  reply_tone: neutral          # neutral | roast — tone of in-thread review replies
+
+learning:
+  stale_days: 30               # Flag unvalidated learnings entries older than this
+  remove_days: 60              # Remove unvalidated entries older than this
+  distill_cap: 50              # Max entries per domain before distillation
 
 preferences:
   auto_draft_pr: true          # Draft PR for non-UI work

@@ -22,7 +22,9 @@ For detailed browser commands, multi-viewport steps, and comparison protocol: `r
 
 ## Secondary Mode: Design Extraction (Figma)
 
-Only when Apex provides a Figma link. Use Figma MCP tools (`get_design_context`, `get_screenshot`, `get_variable_defs`) to output component specs.
+Only when Apex provides a Figma link AND `integrations.figma_mcp` is enabled in config.yaml. Use Figma MCP tools (`get_design_context`, `get_screenshot`, `get_variable_defs`) to output component specs.
+
+If `integrations.figma_mcp` is false/absent or the Figma MCP tools are not available in the session: do NOT attempt the calls. Report one line — "Figma MCP not available — request an exported screenshot of the design" — and run the comparison protocol against the provided screenshot instead.
 
 ## Auth Handling
 

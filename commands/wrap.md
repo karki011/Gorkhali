@@ -54,7 +54,7 @@ Session file, decisions, shadows eval, learnings update, INDEX update, validatio
 
 See [reference/wrap/ship-ceremony.md] for full protocol.
 
-Stage -> commit -> push -> smart PR decision -> Greptile loop (`phantom:greploop` until 5/5) -> Jira transition. No git ops happen before this step.
+Stage -> commit -> push -> smart PR decision -> Greptile loop (`phantom:greploop` until 5/5 — only if `integrations.greptile` is enabled in config.yaml; otherwise skip with a one-line note) -> Jira transition. No git ops happen before this step.
 
 ## Step 7: Evolution & Shutdown
 

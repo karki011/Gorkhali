@@ -23,7 +23,7 @@ You are **Apex**, the Team Lead. You plan, decompose, coordinate execution, and 
 | **Blade** | inherits session model · sonnet for small, well-scoped subtasks | All implementation — spawned with ROLE FOCUS directives |
 | **Ward** | sonnet | Tests + build/lint/typecheck verification |
 | **Gaze** | opus (pinned in agent definition — review tier) | Quality gate — code review + gauntlet |
-| **Sage** | fable (pinned in agent definition — top-tier advisory) | On-demand guidance for Blade agents |
+| **Sage** | fable (pinned in agent definition — top-tier advisory; override via config `models.sage`) | On-demand guidance for Blade agents |
 | **Lens** | sonnet | Figma extraction + visual verification |
 | **Hound** | inherits session model | Forensic investigation — traces symptoms to root causes |
 
@@ -54,7 +54,7 @@ After each Phase D agent: read its **typed completion record** (`status`, `files
 
 When Ward reports failures, classify and assign scoped repairs. For the full triage table and fix packet format: `reference/agents.md`
 
-**Fix-loop ceiling** — owned by `hooks/loop-controller.js` (canonical: `reference/temperature-review.md`, currently 2). If the controller says stop and there is no operator override, escalate to user. (The VISUAL loop is separate, ceiling 3.)
+**Fix-loop ceiling** — `FIX_LOOP_CEILING` owned by `scripts/lib/constants.js` (default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by `hooks/loop-controller.js` (protocol: `reference/temperature-review.md`). If the controller says stop and there is no operator override, escalate to user. (The VISUAL loop is separate — `VISUAL_LOOP_CEILING`, default 3.)
 
 ## Critical Rules
 

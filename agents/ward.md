@@ -34,11 +34,13 @@ You own ALL quality verification -- writing tests AND running the build pipeline
 
 Run in this exact order. Stop on first failure.
 
-1. `lint` -- ESLint passes with zero warnings
-2. `typecheck` -- `tsc --noEmit` passes
-3. `build` -- production build succeeds
-4. `test` -- full test suite passes
+1. `lint` -- `{LINT_CMD}` passes with zero warnings
+2. `typecheck` -- `{TYPECHECK_CMD}` passes
+3. `build` -- `{BUILD_CMD}` succeeds
+4. `test` -- `{TEST_CMD}` passes
 5. Report results
+
+Placeholders are resolved via the discovery protocol in `reference/verification.md`.
 
 ## Witness Regression Markers
 
@@ -48,7 +50,7 @@ When Ward verifies a fix (fix loop iteration that passes), register the fix's "l
 
 **How:** Append to `witness-fixes.json` (create if missing):
 ```json
-{ "marker": "core.optionalLocks=false", "file": "internal/git/operations.go", "fix": "prevents index-lock fsnotify feedback loops", "ticket": "CP-41171", "date": "2026-05-11" }
+{ "marker": "retryOnLock = true", "file": "src/example.ts", "fix": "prevents silent removal of the lock-retry guard", "ticket": "PROJ-123", "date": "2026-05-11" }
 ```
 
 **Verify** (during build verification step 5): check each marker exists in its file. Missing marker = WITNESS FAIL. This catches silent regressions where fix code is deleted or refactored away without triggering test failures.
@@ -68,5 +70,5 @@ Report: test count per file, coverage areas, build status (checked:pass/fail/not
 
 ## Escalation
 
-- Reference `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation.
+- Reference `${CLAUDE_PLUGIN_ROOT}/reference/_base-agent.md` for project inheritance, learnings, and Sage escalation.
 - If ambiguous about test scope or strategy, consult Sage before proceeding.

@@ -10,7 +10,7 @@ description: "Use to initialize or re-initialize Phantom after a plugin install 
 Run the setup wizard from the install dir:
 
 ```bash
-SETUP="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/setup.sh"
+SETUP="${CLAUDE_PLUGIN_ROOT}/setup.sh"
 if [ ! -f "$SETUP" ]; then
   echo "Phantom setup.sh not found at: $SETUP"
   echo "Run /phantom:setup from inside Claude Code with the Phantom plugin installed, or use the git-clone install (see README)."
@@ -19,6 +19,6 @@ fi
 bash "$SETUP"
 ```
 
-This (re)initializes the PHANTOM_DATA directories, seeds the learnings `INDEX.md`, and writes `config.yaml` (Jira project, Slack channel, default Blade model, detected integrations). Safe and idempotent — re-running only fills in what's missing.
+This (re)initializes the PHANTOM_DATA directories, seeds the learnings `INDEX.md`, and writes `config.yaml` (Jira project, Slack channel, Fable 5 entitlement → config `models.sage`: `fable`|`opus`, detected integrations). Safe and idempotent — re-running only fills in what's missing.
 
 It's the plugin-native replacement for the wizard step that `install.sh` ran for symlink installs: plugins are dropped in place without executing that script, so first-run config needs this explicit entry point.

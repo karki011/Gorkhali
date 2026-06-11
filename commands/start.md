@@ -1,6 +1,6 @@
 ---
 name: phantom:start
-description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket (CP-*, CLOUD-*), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent shadows."
+description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket key (e.g., PROJ-123), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
@@ -42,7 +42,7 @@ Agent spawn rules (all routes):
 
 > All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
 
-1. Parse TICKET from $ARGUMENTS or `git branch --show-current`
+1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123); resolve the expected project key from `jira.project` in config.yaml at runtime, never hardcode prefixes
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
 2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active`
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.

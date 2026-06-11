@@ -30,7 +30,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
     "lint": true,
     "build": true,
     "tests": true,
-    "commands": ["pnpm lint", "pnpm build", "pnpm test:changed"],
+    "commands": ["{LINT_CMD}", "{BUILD_CMD}", "{TEST_CMD}"],
     "observations": {
       "lint": "checked:pass",
       "build": "checked:pass",
@@ -50,3 +50,5 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
   "score": 8
 }
 ```
+
+`{LINT_CMD}` / `{BUILD_CMD}` / `{TEST_CMD}` are resolved via the discovery protocol in `reference/verification.md`. The real file records the concrete commands actually run.
