@@ -249,3 +249,55 @@ test('10. env-activated, no marker, non-git cwd → worktree root undeterminable
     cleanup();
   }
 });
+
+// --- worktrees carve-out: <data>/worktrees/ holds repo SOURCE and must NOT
+// inherit the blanket PHANTOM_DATA state allowlist. ---
+
+test('11. worktrees carve-out: Write into ANOTHER worktree under PHANTOM_DATA, cwd outside it → deny', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    // Own worktree is cwd (marker-supplied); the target is repo source in a
+    // DIFFERENT ticket's worktree under the data root. Pre-carve-out this
+    // passed via the dataRoot blanket — it must now deny.
+    seedMarker(data, fs.realpathSync(cwd));
+    const res = runGuard(
+      { PHANTOM_DATA: data, PHANTOM_REPO: REPO, PHANTOM_UNATTENDED: '1' },
+      writePayload(cwd, path.join(data, 'worktrees', 'other-repo', 'T-9', 'src', 'x.ts'))
+    );
+    assertDeny(res, /outside allowed roots/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('12. worktrees carve-out: Write inside OWN worktree under <data>/worktrees (git toplevel) → ALLOWED', () => {
+  const { data, cleanup } = setup();
+  const wt = path.join(data, 'worktrees', 'myrepo', 'T-1');
+  fs.mkdirSync(wt, { recursive: true });
+  // tmpdir fixture repo so git rev-parse --show-toplevel resolves to the worktree.
+  execFileSync('git', ['init', '-q'], { cwd: wt });
+  try {
+    const res = runGuard(
+      { PHANTOM_DATA: data, PHANTOM_UNATTENDED: '1' },
+      writePayload(wt, path.join(wt, 'src', 'x.ts'))
+    );
+    assertAllow(res, 'own-worktree writes pass via the worktree-root rule, not the data allowlist');
+  } finally {
+    cleanup();
+  }
+});
+
+test('13. worktrees carve-out: state writes under <data>/repos/... stay ALLOWED (allowlist intact)', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    // No marker, non-git cwd → worktree root undeterminable, yet state-dir
+    // writes must still pass through the (carved) PHANTOM_DATA allowlist.
+    const res = runGuard(
+      { PHANTOM_DATA: data, PHANTOM_REPO: REPO, PHANTOM_UNATTENDED: '1' },
+      writePayload(cwd, path.join(data, 'repos', REPO, 'sessions', 'T-1', 'plan.md'))
+    );
+    assertAllow(res, 'the state allowlist outside worktrees/ must remain intact');
+  } finally {
+    cleanup();
+  }
+});

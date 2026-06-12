@@ -38,3 +38,12 @@ preferences:
   auto_draft_pr: true          # Draft PR for non-UI work
   caveman_output: true         # Compressed output mode (saves tokens)
   fun_fact_in_pr: false        # Include fun fact in PR body
+
+queue:
+  enabled: false               # Mission Control coordinator — /phantom:queue refuses loudly when off
+  poll_minutes: 25             # Jira poll interval while the queue has work
+  backoff_minutes: 60          # Slower poll interval after consecutive empty polls
+  backoff_after_empty: 2       # Empty polls before switching to backoff_minutes
+  max_concurrent: 3            # Max tickets in flight at once
+  planner_timeout_minutes: 30  # Abandon a planner run stuck longer than this
+  jira_status: "Ready for Implementation"  # Jira status that admits tickets to the queue

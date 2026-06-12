@@ -21,6 +21,11 @@ const {
   runsDir,
   runDir,
   currentRunPointer,
+  QUEUE_STATES,
+  approvalQueueDir,
+  queueEntryPath,
+  worktreesRoot,
+  worktreeDir,
 } = paths;
 
 // --- env helpers (set/restore around each assertion) ---
@@ -217,6 +222,123 @@ test('run artifacts: no directory created by merely requiring the lib', () => {
       runDir('T-1', 'ts1');
       currentRunPointer('T-1');
       assert.ok(!fs.existsSync(path.join(tmp, 'repos')), 'require must not create directories');
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('queue: approvalQueueDir resolves under <data>/repos/<repo>/approval-queue', () => {
+  const tmp = mkTmp('paths-queue-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+      assert.equal(approvalQueueDir(), path.join(tmp, 'repos', 'acme', 'approval-queue'));
+      // Explicit repo arg overrides detection.
+      assert.equal(approvalQueueDir('other'), path.join(tmp, 'repos', 'other', 'approval-queue'));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('queue: queueEntryPath resolves per state, defaults to queued, THROWS on unknown state', () => {
+  const tmp = mkTmp('paths-queue-entry-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+      for (const state of QUEUE_STATES) {
+        assert.equal(
+          queueEntryPath('T-1', state),
+          path.join(tmp, 'repos', 'acme', 'approval-queue', state, 'T-1.json')
+        );
+      }
+      assert.equal(
+        queueEntryPath('T-1'),
+        path.join(tmp, 'repos', 'acme', 'approval-queue', 'queued', 'T-1.json'),
+        'state defaults to queued'
+      );
+      // Fail loud — a typo'd state literal must never mint a new state dir.
+      assert.throws(() => queueEntryPath('T-1', 'garbage'), /unknown queue state 'garbage'/);
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('queue: QUEUE_STATES is a frozen 4-state lifecycle', () => {
+  assert.ok(Object.isFrozen(QUEUE_STATES), 'QUEUE_STATES must be frozen');
+  assert.equal(QUEUE_STATES.length, 4);
+  assert.deepEqual([...QUEUE_STATES], ['queued', 'approved', 'running', 'rejected']);
+});
+
+test('worktrees: worktreesRoot stays FLAT under the data root (regression: NOT under repos/)', () => {
+  const tmp = mkTmp('paths-wtroot-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+      assert.equal(worktreesRoot(), path.join(tmp, 'worktrees'));
+      assert.ok(!worktreesRoot().includes(path.sep + 'repos' + path.sep));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('worktrees: worktreeDir resolves to <data>/worktrees/<repo>/<ticket>', () => {
+  const tmp = mkTmp('paths-wtdir-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+      assert.equal(worktreeDir('T-1'), path.join(tmp, 'worktrees', 'acme', 'T-1'));
+      assert.equal(worktreeDir('T-1', 'other'), path.join(tmp, 'worktrees', 'other', 'T-1'));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('detectRepo: cwd inside <data>/worktrees/<repo>/<ticket>/... -> <repo>, beating env AND walk-up', () => {
+  const tmp = mkTmp('paths-wt-detect-');
+  try {
+    const wt = path.join(tmp, 'worktrees', 'acme', 'T-1');
+    const nested = path.join(wt, 'sub', 'dir');
+    fs.mkdirSync(nested, { recursive: true });
+    // git worktree marker — the legacy walk-up would return 'T-1' (the TICKET).
+    fs.writeFileSync(path.join(wt, '.git'), 'gitdir: /somewhere/.git/worktrees/T-1\n');
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'conflicting-env-repo' }, () => {
+      assert.equal(detectRepo(nested), 'acme', 'worktree containment is ground truth');
+    });
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: undefined }, () => {
+      assert.equal(detectRepo(nested), 'acme', 'must NOT shard under the ticket basename');
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('detectRepo: PHANTOM_REPO still beats the .git walk-up OUTSIDE worktrees', () => {
+  const data = mkTmp('paths-wt-env-data-');
+  const repo = mkTmp('paths-wt-env-repo-');
+  try {
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
+    const nested = path.join(repo, 'src');
+    fs.mkdirSync(nested, { recursive: true });
+    withEnv({ PHANTOM_DATA: data, PHANTOM_REPO: 'env-wins' }, () => {
+      assert.equal(detectRepo(nested), 'env-wins');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('queue/worktrees: pure path computation — no mkdir on compute', () => {
+  const tmp = mkTmp('paths-queue-no-mkdir-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      approvalQueueDir();
+      queueEntryPath('T-1', 'approved');
+      worktreesRoot();
+      worktreeDir('T-1');
+      assert.ok(!fs.existsSync(path.join(tmp, 'repos')), 'queue fns must not create directories');
+      assert.ok(!fs.existsSync(path.join(tmp, 'worktrees')), 'worktree fns must not create directories');
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

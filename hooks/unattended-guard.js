@@ -101,14 +101,15 @@ function main() {
     markerPath = path.join(pp.stateDir(), 'unattended', pp.detectRepo(cwd) + '.json');
   } catch (_) { /* env branch falls back to git; attended branch bails below */ }
 
-  // -------------------------------------------------------------------------
-  // FAST PATH: attended session (no env) with no arming marker → free no-op.
-  // -------------------------------------------------------------------------
-  // Lazy constants load — must stay after the fast path above.
+  // Lazy constants load — before the attended fast path so the freshness check
+  // uses the canonical value; falls back to the inline default if unavailable.
   try {
     MARKER_MAX_AGE_MS = require('../scripts/lib/constants').MARKER_FRESHNESS_MS ?? MARKER_MAX_AGE_MS;
   } catch (_) { /* fail open: inline default above */ }
 
+  // -------------------------------------------------------------------------
+  // FAST PATH: attended session (no env) with no arming marker → free no-op.
+  // -------------------------------------------------------------------------
   let marker = null;
   if (!ENV_ARMED) {
     if (!markerPath || !fs.existsSync(markerPath)) process.exit(0);
@@ -183,19 +184,26 @@ function main() {
       if (!raw || typeof raw !== 'string') return 'write target missing from tool input — denying fail-safe';
       const target = realResolve(path.isAbsolute(raw) ? raw : path.resolve(cwd, raw));
 
-      const roots = [];
       const worktreeRoot = resolveWorktreeRoot();
-      if (worktreeRoot) roots.push(worktreeRoot);
       let dataRoot = null;
+      let worktreesSub = null;
       try {
         dataRoot = realResolve(pp.phantomData());
-        roots.push(dataRoot);
+        worktreesSub = realResolve(pp.worktreesRoot());
       } catch (_) { /* phantom-paths unavailable → worktree root only */ }
 
-      if (!worktreeRoot && !(dataRoot && within(target, dataRoot))) {
+      // worktrees carve-out: worktrees live under PHANTOM_DATA but contain
+      // REPO SOURCE — they must NOT inherit the blanket state allowlist, or an
+      // unattended agent could edit another ticket's source ungated. Writes
+      // inside <data>/worktrees/ are governed solely by the per-agent
+      // worktree-root rule (marker worktreeRoot or git-toplevel(cwd)).
+      const inWorktrees = worktreesSub !== null && within(target, worktreesSub);
+      const inDataAllowlist = !inWorktrees && dataRoot !== null && within(target, dataRoot);
+
+      if (!worktreeRoot && !inDataAllowlist) {
         return 'worktree root undeterminable — denying write fail-safe (' + target + ')';
       }
-      if (!roots.some((r) => within(target, r))) {
+      if (!inDataAllowlist && !(worktreeRoot && within(target, worktreeRoot))) {
         return 'write target outside allowed roots (' + target + ')';
       }
       return null;
