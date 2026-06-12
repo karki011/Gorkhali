@@ -19,17 +19,11 @@ If no credentials are found from any source, report `AUTH_BLOCKED` and stop — 
 
 1. **Detect login wall**: Snapshot shows login form elements
 2. **Find credential source**: Check sources above in order
-3. **Fill form**: Use element refs (`@eN` for agent-browser, selectors for Playwright)
+3. **Fill form**: Use element refs (`@eN` from agent-browser snapshot)
    ```bash
-   # agent-browser
    agent-browser --session-name lens-qa type @e3 "user@example.com"
    agent-browser --session-name lens-qa type @e5 "password123"
    agent-browser --session-name lens-qa click @e7   # Submit button
-   
-   # Playwright MCP
-   browser_fill @username "user@example.com"
-   browser_fill @password "password123"
-   browser_click @submit
    ```
 4. **Wait for redirect**: After submit, wait 2-3 seconds, then snapshot again
 5. **Verify auth succeeded**: New snapshot should show the target page, not the login form
@@ -57,4 +51,3 @@ If the login page shows OAuth buttons (Google, GitHub, SSO):
 ## Session Persistence
 
 - **agent-browser**: Sessions persist across commands within the same `--session-name`. Once authenticated, subsequent navigations in the same session retain auth.
-- **Playwright MCP**: Sessions persist within the same browser instance but are lost on `browser_close`.

@@ -1,7 +1,7 @@
 ---
 name: phantom:visual
 description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
-argument-hint: "[/route1 /route2 ...] [--backend agent-browser|playwright] [--autonomous] [--no-fix]"
+argument-hint: "[/route1 /route2 ...] [--autonomous] [--no-fix]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
@@ -23,7 +23,7 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 
 2. **Verify dev server:** Resolve the dev port from dev-server config or framework startup output — never assume a fixed port; if it cannot be determined, ask the user once. If the server is not running: warn (standalone) or detect the package manager via the lockfile table in `commands/_shared-repo-detection.md` and attempt `{PKG_MGR} run dev &` + 10s wait (autonomous).
 
-3. **Detect browser backend:** `--backend` flag > `which agent-browser` > Playwright MCP fallback.
+3. **Verify browser backend:** Run `which agent-browser` — if not found, FAIL the visual check with: "agent-browser not installed — install it and re-run visual check."
 
 4. **Auth handling:** Automatic — Lens detects login walls and handles credentials per `reference/smart-auth.md` (credential sources, redirect-aware detection, MFA escalation). Session cookies persist across routes.
 
@@ -44,6 +44,6 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 3. Apex dispatches Blade (`subagent_type: "blade"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
 4. Deactivate blade marker: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
-4. Re-spawn Lens on same routes
-5. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.
-6. After 3 loops → escalate with screenshot history, update session: `{ status: "partial" }`
+6. Re-spawn Lens on same routes
+7. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.
+8. After 3 loops → escalate with screenshot history, update session: `{ status: "partial" }`

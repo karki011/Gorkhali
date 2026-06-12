@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+// Author: Subash Karki
+require('../scripts/preflight').main();

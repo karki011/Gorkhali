@@ -26,7 +26,7 @@ Read config.yaml. If `integrations.greptile` is `false` or absent: print "○ gr
 
 Apply every iteration:
 
-- **Trigger / re-trigger** Greptile by posting `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
+- Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger comment. For re-trigger/fallback only, post `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
 - **Reply in-thread**, never as a top-level PR comment. Endpoint: `gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies -f body="..." --method POST` (no PR number in the path).
 - **Reply tone** — read `greptile.reply_tone` from config.yaml (default `neutral`):
   - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
@@ -46,14 +46,17 @@ If no PR exists, stop and tell the user. Switch to the PR branch if not already 
 
 ## 1. Loop (max `--max`, default 5 iterations)
 
-### A. Trigger Greptile review
+### A. Push and let Greptile review
 
-Push any pending local changes, then trigger — but only if Greptile isn't already running, to avoid stacking duplicate reviews:
+Greptile auto-reviews every PR on creation (drafts included) — **never post an initial `@greptileai review` comment**; it just stacks a redundant duplicate review. Push any pending local changes and go straight to polling (B):
 
 ```bash
 git push
-sleep 5
+```
 
+On later iterations, re-review is triggered by the in-thread fix replies ending in `@greptileai` (section G) — no separate trigger comment needed there either. **Fallback only:** if no new Greptile check-run appears within ~3 minutes of a push (poll B times out on a stale run), post `@greptileai review` once, guarded against an already-running review:
+
+```bash
 GREPTILE_STATE=$(gh pr checks {PR} --json name,state \
   | jq -r '.[] | select(.name | test("greptile"; "i")) | .state')
 
@@ -62,22 +65,26 @@ if [ "$GREPTILE_STATE" != "PENDING" ] && [ "$GREPTILE_STATE" != "IN_PROGRESS" ];
 fi
 ```
 
-> Greptile does **not** auto-trigger on draft PRs — the explicit `@greptileai review` comment is required (phantom always opens PRs as drafts).
-
 ### B. Poll the Greptile check-run to completion
 
 ```bash
 HEAD_SHA=$(gh pr view {PR} --json headRefOid -q .headRefOid)
 
+WAITED=0
 while true; do
   CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
     --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
-  if [ -z "$CHECK" ]; then echo "waiting for greptile check…"; sleep 5; continue; fi
+  if [ -z "$CHECK" ]; then
+    if [ "$WAITED" -ge 180 ]; then break; fi   # no auto-review coming → fall back to trigger in A
+    echo "waiting for greptile check…"; sleep 5; WAITED=$((WAITED+5)); continue
+  fi
   STATUS=$(echo "$CHECK" | jq -r '.status // "completed"')
   [ "$STATUS" = "completed" ] && break
   echo "greptile running (status: $STATUS)…"; sleep 10
 done
 ```
+
+If the wait expires with no check-run on this head SHA (e.g., a PR that predates Greptile auto-review, or a missed auto-trigger), apply the **fallback trigger from A** (`@greptileai review`, guarded), then re-enter this poll.
 
 ### C. Fetch review results — check ALL sources
 

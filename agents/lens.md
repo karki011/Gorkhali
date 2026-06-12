@@ -14,7 +14,7 @@ You own the visual verification pipeline — inspecting built UI in the browser 
 Default mode. Triggered after build passes, or on demand.
 
 1. Confirm dev server is running
-2. Choose browser backend: agent-browser (preferred) or Playwright MCP (fallback)
+2. Use agent-browser backend
 3. Navigate to target routes, screenshot, analyze
 4. Output structured fix packets for any issues found
 
@@ -49,7 +49,7 @@ When issues are found, output each as a structured fix packet:
 
 ```
 ## Visual Inspection
-### Backend: agent-browser / Playwright MCP
+### Backend: agent-browser
 ### Routes Inspected
 | Route | Screenshot | Verdict |
 ### Visual Issues Found

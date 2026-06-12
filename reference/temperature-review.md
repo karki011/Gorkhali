@@ -64,6 +64,10 @@ Prose describes the loop; the controller enforces the ceiling, the same-finding-
 escalation, and the explicit operator override. The `review.fixLoops` field in
 `verification.json` is the same counter the controller reads/writes.
 
+In unattended mode, enforcement happens at the Skill-tool boundary via
+`hooks/fix-loop-gate.js`; an agent that keeps looping WITHOUT re-invoking
+`phantom:fix` is outside this gate — prose discipline and wrap review still apply.
+
 > **NOT this loop:** the VISUAL fix loop (`commands/visual.md`,
 > `agents/reference/visual-protocol.md`) is a SEPARATE iteration loop with its own
 > ceiling (`VISUAL_LOOP_CEILING` in `scripts/lib/constants.js`, default 3, env override

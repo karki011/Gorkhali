@@ -48,3 +48,6 @@ phantom_detect_repo() {
 phantom_repo_dir()      { printf '%s\n' "$PHANTOM_DATA/repos/$(phantom_detect_repo)"; }
 phantom_learnings_dir() { printf '%s\n' "$(phantom_repo_dir)/learnings"; }
 phantom_sessions_dir()  { printf '%s\n' "$(phantom_repo_dir)/sessions"; }
+phantom_runs_dir()         { printf '%s\n' "$(phantom_sessions_dir)/$1/runs"; }
+phantom_run_dir()          { printf '%s\n' "$(phantom_runs_dir "$1")/$2"; }
+phantom_current_run_pointer() { printf '%s\n' "$(phantom_runs_dir "$1")/current"; }

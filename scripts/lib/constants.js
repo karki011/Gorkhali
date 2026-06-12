@@ -47,4 +47,7 @@ module.exports = {
 
   // hook-router per-hook timeout default, in SECONDS (parity with hooks.json `timeout`).
   DEFAULT_HOOK_TIMEOUT_SECONDS: 10,
+
+  // Preflight blast-radius ceiling: max unique plan.json files for an autonomous run.
+  PREFLIGHT_MAX_FILES: intFromEnv('PHANTOM_PREFLIGHT_MAX_FILES', 10),
 };

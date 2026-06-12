@@ -14,5 +14,6 @@ Each artifact has its own schema file:
 - [wrap.json](schemas/wrap.md) --- Post-merge wrap record
 - [pause-state.json](schemas/pause-state.md) --- Pause/resume state
 - [review-panel.json](schemas/review-panel.md) --- Pre-ship review panel
+- [run-artifacts](schemas/run-artifacts.md) --- Per-run artifact directory layout
 
 All artifacts require the `_meta` header. See [_meta](schemas/_meta.md).

@@ -18,6 +18,9 @@ const {
   globalPatternsDir,
   auditDir,
   repoDir,
+  runsDir,
+  runDir,
+  currentRunPointer,
 } = paths;
 
 // --- env helpers (set/restore around each assertion) ---
@@ -153,6 +156,67 @@ test('dir resolution: globalPatternsDir/auditDir stay FLAT (not under repos/)', 
       // Regression guard: flat dirs must never be relocated under repos/<repo>/.
       assert.ok(!globalPatternsDir().includes(path.sep + 'repos' + path.sep));
       assert.ok(!auditDir().includes(path.sep + 'repos' + path.sep));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('run artifacts: runsDir resolves under sessionsDir/<ticket>/runs', () => {
+  const tmp = mkTmp('paths-runs-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      assert.equal(runsDir('T-1'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs'));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('run artifacts: runDir resolves to runsDir/<ts>', () => {
+  const tmp = mkTmp('paths-rundir-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      assert.equal(runDir('T-1', 'x'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs', 'x'));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('run artifacts: currentRunPointer resolves to runsDir/current', () => {
+  const tmp = mkTmp('paths-ptr-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      assert.equal(currentRunPointer('T-1'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs', 'current'));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('run artifacts: PHANTOM_DATA env override honored by run functions', () => {
+  const tmp = mkTmp('paths-run-env-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'myrepo' }, () => {
+      assert.ok(runsDir('ENG-1').startsWith(tmp));
+      assert.ok(runDir('ENG-1', 'ts1').startsWith(tmp));
+      assert.ok(currentRunPointer('ENG-1').startsWith(tmp));
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('run artifacts: no directory created by merely requiring the lib', () => {
+  const tmp = mkTmp('paths-no-mkdir-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      // Compute paths — must not create dirs.
+      runsDir('T-1');
+      runDir('T-1', 'ts1');
+      currentRunPointer('T-1');
+      assert.ok(!fs.existsSync(path.join(tmp, 'repos')), 'require must not create directories');
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

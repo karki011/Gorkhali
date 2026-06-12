@@ -34,30 +34,14 @@ agent-browser --session-name lens-qa set viewport 1440 900  # desktop
 agent-browser --session-name lens-qa screenshot /tmp/lens-<route>-desktop.png
 ```
 
-**Advantages over Playwright MCP:**
-- `@eN` refs are stable across snapshots — no fragile CSS selectors
-- Persistent daemon — no Chrome startup per command, session stays hot between fix loops
-- Accessibility tree is purpose-built for LLM consumption
-- `snapshot` output is more compact than full DOM
-
-### Playwright MCP (fallback)
-
-Falls back to this when `agent-browser` is not installed.
-
-```
-browser_navigate → load page
-browser_snapshot → accessibility tree
-browser_take_screenshot → visual evidence
-browser_click / browser_type → interactions
-browser_resize → viewport changes
-```
+**Do NOT fall back to playwright MCP tools (`mcp__plugin_playwright_*`) — agent-browser is the only Lens backend.**
 
 ## Visual Inspection Steps
 
 For each route (same regardless of backend):
 
 1. **Navigate** -- Load the page, wait for content
-2. **Snapshot** -- Get accessibility tree (agent-browser: `snapshot`, Playwright: `browser_snapshot`)
+2. **Snapshot** -- Get accessibility tree (`agent-browser --session-name lens-qa snapshot`)
 3. **Auth check** -- If snapshot shows login form, run Smart Auth Protocol (`reference/smart-auth.md`), then re-navigate
 4. **Screenshot** -- Capture full page at default viewport
 5. **Analyze** -- Check layout, typography, colors, responsiveness, empty states, loading states, alignment, completeness

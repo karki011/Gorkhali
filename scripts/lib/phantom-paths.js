@@ -80,6 +80,15 @@ function learningsDir(repo = detectRepo()) { return path.join(repoDir(repo), 'le
 /** Audit log dir: <data>/audit */
 function auditDir()     { return path.join(phantomData(), 'audit'); }
 
+/** Per-ticket runs dir: <data>/repos/<repo>/sessions/<ticket>/runs */
+function runsDir(ticket, repo = detectRepo()) { return path.join(sessionsDir(repo), ticket, 'runs'); }
+
+/** Per-run artifact dir: <data>/repos/<repo>/sessions/<ticket>/runs/<ts> */
+function runDir(ticket, ts, repo = detectRepo()) { return path.join(runsDir(ticket, repo), ts); }
+
+/** Path to the current-run pointer file: <data>/repos/<repo>/sessions/<ticket>/runs/current */
+function currentRunPointer(ticket, repo = detectRepo()) { return path.join(runsDir(ticket, repo), 'current'); }
+
 module.exports = {
   phantomData,
   detectRepo,
@@ -93,4 +102,7 @@ module.exports = {
   completedDir,
   learningsDir,
   auditDir,
+  runsDir,
+  runDir,
+  currentRunPointer,
 };

@@ -48,6 +48,7 @@ Agent spawn rules (all routes):
 2.6. Link session to cost ledger (silent, never blocks): `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js open {TICKET}`
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
+   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints phase-a-context` (advisory; resume reads latest).
 5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
 
 ## Phase B: Classify + Route
@@ -57,6 +58,7 @@ READ `reference/router.md` for full algorithm.
 1. Gather signals (parallel, <5s): blast radius, patterns, novelty, history, ambiguity, AC
 2. Classify: hard overrides → uncertainty → scope → learnings correction → route
 3. Write `route-decision.json`. Report: `"[{ROUTE}] {rationale}"`
+   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints phase-b-route` (advisory; resume reads latest).
 
 ## Route: DIRECT (0 gates)
 
@@ -88,13 +90,16 @@ READ `reference/router.md` for full algorithm.
 1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`)
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
 3. **HUMAN GATE**: approve plan
+   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
 6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap except the wrap ship gate.
 
 ## Route: BRAINSTORM (2 gates)
 
-`Skill(skill="phantom:brainstorm")` → **GATE 1** (pick direction) → PLAN route → **GATE 2** (approve plan)
+`Skill(skill="phantom:brainstorm")` → **GATE 1** (pick direction)
+Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints brainstorm-gate1-approved` (advisory; resume reads latest).
+→ PLAN route → **GATE 2** (approve plan)
 
 ## Route: FULL (3 gates)
 

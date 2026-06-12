@@ -27,6 +27,8 @@ Resume from a paused session by reading the state artifact.
 3.5. **Link session to cost ledger** (silent, never blocks):
    `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js open {TICKET}`
 
+   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints resume-restore` (advisory; resume reads latest). If `{SESSION_DIR}/checkpoints/` exists, read latest via `latest` sub-command first; MISSING or empty checkpoints → fall back to existing artifact discovery, never error.
+
 4. **Restore context** from artifact paths:
    - Read `intent.json` (from `intent` field)
    - Read `plan.json` (from `plan` field)

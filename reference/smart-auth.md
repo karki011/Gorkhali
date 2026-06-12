@@ -64,14 +64,3 @@ Every navigation goes through redirect-aware auth detection.
 
 One login attempt per route. If it fails, move on.
 
-## Playwright Fallback
-
-Same redirect-aware flow with different tools:
-```
-browser_navigate → target route
-browser_snapshot → check URL + snapshot for redirect / login form
-browser_fill_form → enter username + password
-browser_click → submit button
-browser_snapshot → verify login succeeded
-```
-No persistent session — must re-auth if browser closes.

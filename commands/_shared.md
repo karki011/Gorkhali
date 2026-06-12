@@ -27,6 +27,7 @@ Symbolic placeholders — defined HERE only (single home); resolve per-repo, nev
 
 REPO_NAME = $PHANTOM_REPO if set, else basename of git root, else "_default"
 TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
+SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
 DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md
 DECISIONS_SESSION  = {TEAM_DIR}/sessions/{TICKET}/decisions.md
