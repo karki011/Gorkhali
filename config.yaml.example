@@ -47,3 +47,7 @@ queue:
   max_concurrent: 3            # Max tickets in flight at once
   planner_timeout_minutes: 30  # Abandon a planner run stuck longer than this
   jira_status: "Ready for Implementation"  # Jira status that admits tickets to the queue
+
+routing:
+  enforce: false               # Deterministic routing gate: deny implementation edits outside a phantom session (opt-in; see reference/routing.md)
+  nudge: true                  # One-shot per-session routing reminder on implementation-shaped prompts

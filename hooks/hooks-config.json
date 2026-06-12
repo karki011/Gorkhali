@@ -121,6 +121,28 @@
       "priority": 90,
       "input": "stdin-json",
       "description": "Extracts learning candidates from this turn's observations"
+    },
+    {
+      "name": "router-nudge",
+      "event": "UserPromptSubmit",
+      "matcher": ".*",
+      "script": "hooks/router-nudge.js",
+      "enabled": true,
+      "once": false,
+      "priority": 10,
+      "input": "stdin-json",
+      "description": "One-shot advisory nudge toward phantom:start when a prompt matches implementation triggers and no phantom session is active (never blocks)"
+    },
+    {
+      "name": "routing-gate",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "script": "hooks/routing-gate.js",
+      "enabled": true,
+      "once": false,
+      "priority": 55,
+      "input": "stdin-json",
+      "description": "Opt-in discipline gate (routing.enforce: true): denies edits in phantom-known repos outside a phantom session; fails OPEN; PHANTOM_ADHOC=1 bypasses with logging"
     }
   ]
 }
