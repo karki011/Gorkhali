@@ -1,6 +1,6 @@
 {
   "skill_name": "phantom",
-  "version": "2.0",
+  "version": "2.1",
   "created": "2026-05-23",
   "evals": [
     {
@@ -221,6 +221,164 @@
       "prompt": "start working on CP-4521 again, we need to add GBP support",
       "should_trigger": false,
       "expected_behavior": "Should route to phantom:start — user wants to add new scope (GBP support), not just resume saved state. Resume restores context; start creates new work scope."
+    },
+
+    {
+      "id": 31,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "ENG-123: there's a typo in the empty state on the settings page — 'Recieve notifications' should be 'Receive notifications', it's in EmptyState.tsx",
+      "expected_route": "DIRECT",
+      "expected_behavior": "Parse ENG-123 as the ticket via the generic [A-Z][A-Z0-9]+-\\d+ match (no hardcoded project prefix), classify DIRECT (single known file, known pattern, confidence >=0.9), report '[DIRECT] {rationale}' with zero human gates, spawn a Blade immediately"
+    },
+    {
+      "id": 32,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "rename the formatTotal helper to formatInvoiceTotal in src/utils/invoice.ts — all call sites are in that same file",
+      "expected_route": "DIRECT",
+      "expected_behavior": "Single-file mechanical rename with clear scope and a known pattern → DIRECT. Transcript shows the '[DIRECT] {rationale}' route report and a Blade spawn with no plan-approval gate"
+    },
+    {
+      "id": 33,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "PLAT-4567: add a CSV export button to the cost report table. AC: button sits in the table toolbar, export respects the active filters, file downloads as UTF-8 CSV. It mirrors the existing PDF export — touches the toolbar, the table container, a new export util, and the download hook.",
+      "expected_route": "PLAN",
+      "expected_behavior": "Parse PLAT-4567 via the generic ticket regex. Clear scope, ~4 files, known approach (mirrors existing PDF export), confidence >=0.7 → PLAN. Transcript shows '[PLAN] {rationale}', Planner↔Challenger deliberation, and exactly one human gate (plan approval) before execution"
+    },
+    {
+      "id": 34,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "the analytics dashboard feels slow and clunky — improve the loading experience somehow. not sure if we want skeletons, prefetching, streaming, or caching. open to ideas",
+      "expected_route": "BRAINSTORM",
+      "expected_behavior": "Ambiguous scope ('somehow'), competing patterns (skeletons vs prefetch vs streaming vs caching), confidence <0.7 → BRAINSTORM. Transcript shows '[BRAINSTORM] {rationale}', invokes Skill(skill=\"phantom:brainstorm\"), and presents a direction gate before any plan gate (2 gates total)"
+    },
+    {
+      "id": 35,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "ACME-89: migrate authentication from session cookies to OAuth2 with PKCE across the gateway, web app, and CLI — auth middleware, token storage, the login UI, and the public token endpoints all change",
+      "expected_route": "FULL",
+      "expected_behavior": "Parse ACME-89 via the generic ticket regex. 10+ files across 3+ packages, cross-layer, security + public-API surface → FULL. Transcript shows '[FULL] {rationale}' and three human gates in order: direction (brainstorm), plan, and wiring via Skill(skill=\"phantom:wire\")"
+    },
+    {
+      "id": 36,
+      "kind": "route",
+      "skill": "phantom:start",
+      "prompt": "a teammate logged abc-123 in our internal tracker — it's just a typo: 'occured' should be 'occurred' in the error toast in Toast.tsx",
+      "expected_route": "DIRECT",
+      "expected_behavior": "Lowercase abc-123 must NOT match the ticket pattern [A-Z][A-Z0-9]+-\\d+ — no Jira fetch is attempted for abc-123; ticket resolution falls back to the current branch or the no-ticket flow. The single-file typo still classifies DIRECT with a '[DIRECT] {rationale}' report"
+    },
+
+    {
+      "id": 37,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
+      "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  sage: opus\nThe Blade hits a hard decision (2+ viable approaches) mid-task and escalates to Sage.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?model[\"':\\s]*\"?opus\"?"
+      },
+      "expected_behavior": "Blade reads config.yaml before spawning Sage; the Agent-tool spawn params in the transcript show subagent_type sage WITH model opus passed as the override"
+    },
+    {
+      "id": 38,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
+      "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Blade escalates to Sage mid-task.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "^(?![\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?\"?\\bmodel\\b\"?\\s*:)[\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?"
+      },
+      "expected_behavior": "The Sage spawn in the transcript omits the model param entirely, so sage.md's front-matter pin (model: fable) applies — no model: line appears in the spawn params"
+    },
+    {
+      "id": 39,
+      "kind": "convention",
+      "skill": "phantom:verify",
+      "prompt": "does it pass? run the full verification suite before I push",
+      "setup": "Repo root contains yarn.lock (no pnpm-lock.yaml, no bun.lockb, no package-lock.json). Neither CLAUDE.md nor package.json scripts define explicit test/lint/build commands, so tier-3 stack defaults apply.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "^(?![\\s\\S]*\\bpnpm\\b)[\\s\\S]*\\byarn (test|lint|build)\\b"
+      },
+      "expected_behavior": "Verification plan resolves {TEST_CMD}/{LINT_CMD}/{BUILD_CMD} via the lockfile table to yarn commands (yarn test, yarn lint, yarn build); the string 'pnpm' never appears in the transcript"
+    },
+    {
+      "id": 40,
+      "kind": "convention",
+      "skill": "phantom:visual",
+      "prompt": "visual check the new pricing card — does it look right across viewports?",
+      "setup": "vite.config.ts sets server: { port: 5173 }. The dev server is running on 5173. No other port configuration exists.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "^(?![\\s\\S]*localhost:3000)[\\s\\S]*localhost:5173"
+      },
+      "expected_behavior": "The visual flow resolves {DEV_PORT} from the dev-server config (vite.config.ts) and Lens navigates to localhost:5173; it never assumes or mentions the fixed default localhost:3000"
+    },
+    {
+      "id": 41,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "quick fix: update the copyright year in src/components/Footer.tsx",
+      "setup": "Repo's origin/HEAD points at trunk (the default branch is named trunk). No git.protected_branches in config.yaml and PHANTOM_PROTECTED_BRANCHES is unset. Current branch is trunk; an Edit is attempted on src/components/Footer.tsx.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "BLOCKED: Cannot edit source files on trunk branch"
+      },
+      "expected_behavior": "feature-branch-gate auto-detects trunk via origin/HEAD (even though the configured fallback list is only main/master/develop) and blocks the Edit, printing the BLOCKED message plus the 'git checkout -b {ticket}/{slug}' instruction"
+    },
+    {
+      "id": 42,
+      "kind": "convention",
+      "skill": "phantom:greploop",
+      "prompt": "wrap it up and create the PR",
+      "setup": "config.yaml has no integrations: section — integrations.greptile is absent. A draft PR was just created by wrap, which auto-invokes greploop.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "greploop skipped \\(integrations\\.greptile not enabled in config\\.yaml\\)"
+      },
+      "expected_behavior": "Greploop prints the one-line skip note '○ greploop skipped (integrations.greptile not enabled in config.yaml)' and stops — no @greptileai comment is posted and no error is raised; wrap continues normally"
+    },
+    {
+      "id": 43,
+      "kind": "convention",
+      "skill": "phantom:greploop",
+      "prompt": "greploop this PR until it's clean",
+      "setup": "config.yaml has integrations.greptile: true but no greptile.reply_tone key. Greptile left one actionable inline comment; greploop fixes it, pushes, and drafts an in-thread reply.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "Every drafted Greptile reply uses the neutral default tone: factual acknowledgment with a fix reference (commit hash or what changed) and ends with @greptileai. No roast, self-deprecating humor, snark, or jokes — roast styling requires an explicit greptile.reply_tone: roast in config.yaml."
+      },
+      "expected_behavior": "With reply_tone absent, greploop defaults to neutral: replies read like 'Fixed in `abc1234` — take another look @greptileai' with no CZ-style roast humor"
+    },
+    {
+      "id": 44,
+      "kind": "convention",
+      "skill": "phantom:learn",
+      "prompt": "record what we learned from this session",
+      "setup": "python3 is not on PATH (command -v python3 fails). A learnings file exceeds the compress threshold during the learn flow.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "Skipping caveman compress: python3 or scripts/compress not available"
+      },
+      "expected_behavior": "The learn flow prints the exact skip note and completes successfully — learnings are still recorded, with no error, stack trace, or nonzero exit from the compress step"
+    },
+    {
+      "id": 45,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "where do the phantom coding principles and base agent protocol live? print the paths",
+      "setup": "Plugin installed natively (CLAUDE_PLUGIN_ROOT is set by Claude Code). The flow does not touch the learn/compress path.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)[\\s\\S]*\\$\\{CLAUDE_PLUGIN_ROOT\\}"
+      },
+      "expected_behavior": "All plugin paths in the response use ${CLAUDE_PLUGIN_ROOT}; the legacy ~/.claude/phantom literal never appears. The only allowed literals are the executable shell-guard fallbacks in commands/learn.md and reference/wrap/learnings.md, which this flow does not invoke"
     }
   ]
 }
