@@ -119,6 +119,7 @@ ${CLAUDE_PLUGIN_ROOT}/           # plugin root
 │   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
 ├── agents/            # 11 agent personas
+├── bin/               # thin executable entry shims; logic lives in scripts/ (e.g., bin/phantom-preflight → scripts/preflight.js)
 ├── scripts/           # deterministic helpers (no LLM needed)
 │   ├── validate-artifact.js   # JSON schema validation
 │   ├── check-learnings-index.js

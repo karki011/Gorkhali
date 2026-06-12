@@ -72,6 +72,7 @@ if (toolName !== 'Skill' || !/(^|:)fix$/.test(String(toolInput.skill || ''))) {
 // in attended (hook bugs never block a human session).
 // ---------------------------------------------------------------------------
 let stateDir, sessionsDir, detectRepo, loopController, execFileSync;
+let MARKER_MAX_AGE_MS = 12 * 60 * 60 * 1000; // fallback if constants unavailable
 try {
   ({ stateDir, sessionsDir, detectRepo } = require('../scripts/lib/phantom-paths'));
   loopController = require('./loop-controller');
@@ -82,9 +83,11 @@ try {
   }
   process.exit(0);
 }
+try {
+  MARKER_MAX_AGE_MS = require('../scripts/lib/constants').MARKER_FRESHNESS_MS ?? MARKER_MAX_AGE_MS;
+} catch (_) { /* fail open: constants missing → inline default above */ }
 
 const TICKET_RE = /[A-Z][A-Z0-9]+-\d+/;
-const MARKER_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 const cwd = payload.cwd || process.cwd();
 const repo = detectRepo(cwd);

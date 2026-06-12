@@ -165,6 +165,10 @@ mutation {
 
 Then `sleep 5` and return to **A**.
 
+## Availability guard
+
+After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — the `integrations.greptile` config flag is global, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
+
 ## 2. Report
 
 | Field | Value |

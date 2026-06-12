@@ -36,7 +36,8 @@ const DENY_PATTERNS = [
 
 module.exports = { DENY_PATTERNS };
 
-const MARKER_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// Default used before constants.js is lazily loaded past the fast path.
+let MARKER_MAX_AGE_MS = 12 * 60 * 60 * 1000; // fallback if constants unavailable
 
 function emit(obj) {
   process.stdout.write(JSON.stringify(obj));
@@ -103,6 +104,11 @@ function main() {
   // -------------------------------------------------------------------------
   // FAST PATH: attended session (no env) with no arming marker → free no-op.
   // -------------------------------------------------------------------------
+  // Lazy constants load — must stay after the fast path above.
+  try {
+    MARKER_MAX_AGE_MS = require('../scripts/lib/constants').MARKER_FRESHNESS_MS ?? MARKER_MAX_AGE_MS;
+  } catch (_) { /* fail open: inline default above */ }
+
   let marker = null;
   if (!ENV_ARMED) {
     if (!markerPath || !fs.existsSync(markerPath)) process.exit(0);

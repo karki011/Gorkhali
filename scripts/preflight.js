@@ -21,10 +21,10 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const { phantomData, stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
-const { PREFLIGHT_MAX_FILES } = require('./lib/constants');
+const { PREFLIGHT_MAX_FILES, MARKER_FRESHNESS_MS } = require('./lib/constants');
 
 // Matches the gate hook's freshness window for both collision and arming markers.
-const FRESH_WINDOW_MS = 12 * 60 * 60 * 1000;
+const FRESH_WINDOW_MS = MARKER_FRESHNESS_MS;
 
 const USAGE =
   'usage: phantom-preflight --ticket <T> [--repo <path>] [--max-files <N>] ' +

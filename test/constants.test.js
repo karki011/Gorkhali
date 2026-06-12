@@ -18,6 +18,7 @@ const OVERRIDE_ENVS = [
   'PHANTOM_LEARNING_STALE_DAYS',
   'PHANTOM_LEARNING_REMOVE_DAYS',
   'PHANTOM_LEARNING_DISTILL_CAP',
+  'PHANTOM_MARKER_FRESHNESS_MS',
 ];
 
 // Env is read at require time — bust the cache around each load, clearing all
@@ -53,6 +54,7 @@ test('defaults match the pre-centralization literals exactly', () => {
   assert.equal(C.LEARNING_REMOVE_DAYS, 60);
   assert.equal(C.LEARNING_DISTILL_CAP, 50);
   assert.equal(C.DEFAULT_HOOK_TIMEOUT_SECONDS, 10);
+  assert.equal(C.MARKER_FRESHNESS_MS, 12 * 60 * 60 * 1000);
 });
 
 test('env overrides apply to every numeric constant', () => {
