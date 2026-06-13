@@ -1,0 +1,323 @@
+#!/usr/bin/env bash
+# Author: Subash Karki
+# phantom-loop — Mission Control queue launcher.
+#
+# This script IS the user's keystroke: a standing instruction from the user to
+# run the /phantom:queue pass. Distinction (workflow-no-autolaunch): agents,
+# skills, and workflows must NEVER launch this themselves — autonomous queue
+# work is authorized only by the user invoking this directly, or by launchd
+# via install-autolaunch (which the user ran). This script is the launchd
+# autolaunch vehicle.
+#
+# Subcommands:
+#   (none)                looped interactive queue pass (caffeinate + /loop)
+#   --once                single interactive queue pass
+#   --headless            locked, logged, non-interactive pass (launchd entry)
+#   install-autolaunch    [--interval-minutes N] install launchd agent (default 30)
+#   uninstall-autolaunch  remove the launchd agent
+#   status                show autolaunch + queue state
+#   --help                usage
+set -u
+
+PHANTOM_DATA="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"
+PLIST_LABEL="com.phantom.queue"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
+SHIM_PATH="$PHANTOM_DATA/bin/phantom-loop-shim"
+
+usage() {
+  cat <<'EOF'
+usage: phantom-loop [subcommand]
+  (none)                 looped interactive queue pass (caffeinate + /loop)
+  --once                 single interactive queue pass
+  --headless             non-interactive locked pass (used by launchd)
+  install-autolaunch     [--interval-minutes N]  install launchd agent (default 30)
+  uninstall-autolaunch   remove the launchd agent
+  status                 show autolaunch + queue state
+  --help                 this help
+EOF
+}
+
+# Best-effort visibility before launching: resolved config + queue flags.
+# Never blocks the launch — every failure path degrades to a one-line note.
+pre_echo() {
+  local cache_dir cfg_lib
+  cache_dir="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"
+  [ -n "$cache_dir" ] || cache_dir="$HOME/.claude/phantom"
+  cfg_lib="${cache_dir%/}/scripts/lib/config-lite.js"
+  if command -v node >/dev/null 2>&1; then
+    CONFIG_LITE_PATH="$cfg_lib" node -e '
+      try {
+        const c = require(process.env.CONFIG_LITE_PATH);
+        console.log("config:            " + (c.resolveConfigPath() || "(none)"));
+        console.log("queue.enabled:     " + c.readFlag("queue", "enabled", false));
+        console.log("queue.jira_status: " + c.readString("queue", "jira_status", "(unset)"));
+      } catch (e) {
+        console.log("pre-echo unavailable: " + e.message);
+      }
+    ' 2>/dev/null || true
+  else
+    echo "pre-echo unavailable: node not on PATH"
+  fi
+}
+
+cmd_default() {
+  pre_echo
+  if command -v caffeinate >/dev/null 2>&1; then
+    export PHANTOM_UNATTENDED=1; exec caffeinate -i claude --permission-mode bypassPermissions "/loop /phantom:queue"
+  fi
+  echo "note: caffeinate not on PATH — running without sleep prevention"
+  export PHANTOM_UNATTENDED=1; exec claude --permission-mode bypassPermissions "/loop /phantom:queue"
+}
+
+cmd_once() {
+  export PHANTOM_UNATTENDED=1; exec claude --permission-mode bypassPermissions "/phantom:queue"
+}
+
+cmd_headless() {
+  local state_dir="$PHANTOM_DATA/state"
+  local logs_dir="$PHANTOM_DATA/logs"
+  mkdir -p "$state_dir" "$logs_dir"
+  local pidfile="$state_dir/phantom-loop.pid"
+
+  # Hardened lock: a pidfile only blocks when ALL THREE hold — pid alive,
+  # command looks like ours ('claude' child or this 'phantom-loop' wrapper;
+  # guards against PID reuse by unrelated processes), and pidfile younger
+  # than 6h (guards against a wedged prior pass holding the lock forever).
+  if [ -f "$pidfile" ]; then
+    local pid valid=0
+    pid="$(cat "$pidfile" 2>/dev/null || true)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      local cmd
+      cmd="$(ps -o command= -p "$pid" 2>/dev/null || true)"
+      case "$cmd" in
+        *claude*|*phantom-loop*)
+          local now mtime age
+          now="$(date +%s)"
+          mtime="$(stat -f %m "$pidfile" 2>/dev/null || stat -c %Y "$pidfile" 2>/dev/null || echo 0)"
+          age=$((now - mtime))
+          [ "$age" -lt 21600 ] && valid=1
+          ;;
+      esac
+    fi
+    if [ "$valid" -eq 1 ]; then
+      echo "pass skipped: prior pass (pid $pid) still running"
+      exit 0
+    fi
+    echo "WARNING: removing stale pidfile (pid ${pid:-unknown} is not a live claude pass)"
+    rm -f "$pidfile"
+  fi
+
+  echo $$ > "$pidfile"
+  trap 'rm -f "$pidfile"' EXIT
+
+  # Log retention: keep the newest 20 queue-pass logs, delete older.
+  ls -t "$logs_dir"/queue-pass-*.log 2>/dev/null | tail -n +21 | while IFS= read -r old; do
+    rm -f "$old"
+  done
+
+  local log="$logs_dir/queue-pass-$(date +%Y%m%d-%H%M%S).log"
+  PHANTOM_UNATTENDED=1 PHANTOM_QUEUE_HEADLESS=1 claude -p "/phantom:queue" --permission-mode bypassPermissions 2>&1 | tee "$log"
+  local rc="${PIPESTATUS[0]}"
+  touch "$state_dir/queue-last-pass"
+  exit "$rc"
+}
+
+cmd_install_autolaunch() {
+  local minutes=30
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --interval-minutes)
+        shift
+        minutes="${1:-}"
+        case "$minutes" in
+          ''|*[!0-9]*)
+            echo "error: --interval-minutes requires a positive integer" >&2
+            usage >&2
+            exit 2
+            ;;
+        esac
+        ;;
+      *)
+        echo "error: unknown argument: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+    shift
+  done
+
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "error: claude not found on PATH — install Claude Code first" >&2
+    exit 2
+  fi
+
+  mkdir -p "$PHANTOM_DATA/bin" "$PHANTOM_DATA/logs"
+
+  # Resolver shim: launchd points at this STABLE path under PHANTOM_DATA; the
+  # shim re-resolves the newest plugin cache dir at RUN time, so plugin
+  # updates never strand the launchd agent on a deleted versioned path.
+  cat > "$SHIM_PATH" <<'SHIM_EOF'
+#!/usr/bin/env bash
+# Author: Subash Karki
+# phantom-loop-shim — stable launchd entry point (generated by install-autolaunch).
+set -u
+cache_dir="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"
+if [ -z "$cache_dir" ]; then
+  echo "phantom-loop-shim: no phantom plugin cache found — skipping pass"
+  exit 0
+fi
+exec "${cache_dir%/}/bin/phantom-loop" --headless
+SHIM_EOF
+  chmod +x "$SHIM_PATH"
+
+  # xml_escape: & must be replaced FIRST to avoid double-escaping.
+  xml_escape() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+
+  local interval=$((minutes * 60))
+  local xml_path xml_shim xml_data
+  xml_path="$(xml_escape "$PATH")"
+  xml_shim="$(xml_escape "$SHIM_PATH")"
+  xml_data="$(xml_escape "$PHANTOM_DATA")"
+
+  mkdir -p "$(dirname "$PLIST_PATH")"
+  cat > "$PLIST_PATH" <<PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$PLIST_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>$xml_shim</string>
+    <string>--headless</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>$interval</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>$xml_path</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>$xml_data/logs/queue-launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>$xml_data/logs/queue-launchd.log</string>
+</dict>
+</plist>
+PLIST_EOF
+
+  if command -v plutil >/dev/null 2>&1; then
+    local lint_out
+    lint_out="$(plutil -lint "$PLIST_PATH" 2>&1)"
+    local lint_rc=$?
+    if [ $lint_rc -ne 0 ]; then
+      echo "ERROR: plist XML is malformed — plutil -lint failed:" >&2
+      echo "$lint_out" >&2
+      rm -f "$PLIST_PATH"
+      exit 1
+    fi
+  fi
+
+  if [ "${PHANTOM_LOOP_SKIP_LAUNCHCTL:-}" != "1" ]; then
+    launchctl unload "$PLIST_PATH" 2>/dev/null
+    launchctl load "$PLIST_PATH"
+    local load_rc=$?
+    if [ $load_rc -ne 0 ]; then
+      echo "ERROR: launchctl load failed (rc $load_rc) — autolaunch NOT installed" >&2
+      exit 1
+    fi
+  fi
+
+  echo "autolaunch installed:"
+  echo "  plist:    $PLIST_PATH"
+  echo "  shim:     $SHIM_PATH"
+  echo "  interval: every ${minutes}m"
+  echo "  logs:     $PHANTOM_DATA/logs/queue-launchd.log"
+  echo "caveat: the plist bakes the CURRENT \$PATH — re-run install-autolaunch after claude/node upgrades or PATH changes."
+}
+
+cmd_uninstall_autolaunch() {
+  if [ "${PHANTOM_LOOP_SKIP_LAUNCHCTL:-}" != "1" ]; then
+    launchctl unload "$PLIST_PATH" 2>/dev/null
+  fi
+  rm -f "$PLIST_PATH"
+  echo "autolaunch removed: $PLIST_PATH (shim left in place at $SHIM_PATH)"
+}
+
+cmd_status() {
+  local interval=1800
+
+  if [ -f "$PLIST_PATH" ]; then
+    echo "autolaunch: installed ($PLIST_PATH)"
+    local parsed
+    parsed="$(awk '/StartInterval/ { getline; gsub(/[^0-9]/, ""); print; exit }' "$PLIST_PATH" 2>/dev/null)"
+    [ -n "$parsed" ] && interval="$parsed"
+    echo "interval: ${interval}s"
+  else
+    echo "autolaunch: not installed"
+  fi
+
+  if [ "${PHANTOM_LOOP_SKIP_LAUNCHCTL:-}" != "1" ] && command -v launchctl >/dev/null 2>&1; then
+    launchctl list 2>/dev/null | grep "$PLIST_LABEL" || echo "launchd: $PLIST_LABEL not loaded"
+  fi
+
+  local launchd_log="$PHANTOM_DATA/logs/queue-launchd.log"
+  if [ -f "$launchd_log" ]; then
+    echo "--- last 10 lines of queue-launchd.log ---"
+    tail -10 "$launchd_log"
+  fi
+
+  local marker="$PHANTOM_DATA/state/queue-last-pass"
+  if [ -f "$marker" ]; then
+    local now mtime age
+    now="$(date +%s)"
+    mtime="$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)"
+    age=$((now - mtime))
+    echo "last pass: ${age}s ago"
+    if [ -f "$PLIST_PATH" ] && [ "$age" -gt $((interval * 3)) ]; then
+      echo "WARNING: autolaunch installed but last pass is older than 3 intervals (${age}s > $((interval * 3))s)"
+    fi
+  else
+    echo "last pass: never recorded"
+  fi
+
+  echo "queue:"
+  local found=0 repo state n counts
+  for repo in "$PHANTOM_DATA"/repos/*/; do
+    [ -d "$repo" ] || continue
+    found=1
+    counts=""
+    for state in queued approved running rejected; do
+      n="$(ls "${repo%/}/approval-queue/$state" 2>/dev/null | wc -l | tr -d ' ')"
+      counts="$counts $state=$n"
+    done
+    echo "  $(basename "$repo"):$counts"
+  done
+  [ "$found" -eq 1 ] || echo "  (no repos with an approval queue)"
+
+  exit 0
+}
+
+main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    "") cmd_default ;;
+    --once) cmd_once ;;
+    --headless) cmd_headless ;;
+    install-autolaunch) shift; cmd_install_autolaunch "$@" ;;
+    uninstall-autolaunch) cmd_uninstall_autolaunch ;;
+    status) cmd_status ;;
+    --help|-h) usage ;;
+    *)
+      echo "error: unknown argument: $cmd" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

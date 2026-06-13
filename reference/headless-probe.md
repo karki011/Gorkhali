@@ -15,7 +15,8 @@ Record the outcome as a learning either way — a negative finding (mode-2 block
 
 Before running the probe, verify all of the following:
 
-- **`config.yaml` has `queue.enabled: true`**, top-level `jira.project` set, and `queue.jira_status` set.
+- **Resolve `config.yaml` FIRST** via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`) and read values via config-lite `readFlag`/`readString` semantics — never a bare/hardcoded `config.yaml` path.
+- **The resolved `config.yaml` has `queue.enabled: true`**, top-level `jira.project` set, and `queue.jira_status` set.
 - **A real ticket exists** in the Jira project with the status matching `queue.jira_status` (the status that signals "ready to plan"). The ticket must have a populated description — skeletal tickets produce low-quality plans and make pass/fail harder to assess.
 - **Atlassian MCP authenticated** in the headless context. Interactively-authed MCP servers (OAuth flows completed in a browser session) may not carry over to a `claude -p` subprocess. If Atlassian MCP is absent headless, that absence is itself a probe finding: record it as a learning and block mode-2 until the auth path is solved.
 - **Prepared worktree** at the path Phantom expects:

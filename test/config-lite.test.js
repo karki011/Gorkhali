@@ -90,16 +90,15 @@ test('PHANTOM_DATA config used when PHANTOM_CONFIG absent', () => {
   }
 });
 
-test('resolveConfigPath returns null or string when no controlled config exists', () => {
+test('resolveConfigPath returns null when no config exists anywhere', () => {
   const tmpB = mkTmp(); // empty — no config.yaml
   const missingCfg = path.join(tmpB, 'does-not-exist.yaml');
   try {
-    withEnv({ PHANTOM_CONFIG: missingCfg, PHANTOM_DATA: tmpB }, ({ resolveConfigPath }) => {
+    withEnv({ PHANTOM_CONFIG: missingCfg, PHANTOM_DATA: tmpB, PHANTOM_LEGACY_HOME: tmpB }, ({ resolveConfigPath }) => {
       // PHANTOM_CONFIG points at a missing file (skipped).
       // PHANTOM_DATA dir has no config.yaml (skipped).
-      // Legacy ~/.claude/phantom/config.yaml may or may not exist on this host.
-      const result = resolveConfigPath();
-      assert.ok(result === null || typeof result === 'string', 'must be null or string');
+      // PHANTOM_LEGACY_HOME isolates from any real ~/.claude/phantom/config.yaml.
+      assert.equal(resolveConfigPath(), null);
     });
   } finally {
     fs.rmSync(tmpB, { recursive: true, force: true });
@@ -202,7 +201,7 @@ test('missing file returns default for readFlag', () => {
   const tmp = mkTmp(); // no config.yaml written
   const missing = path.join(tmp, 'no-such.yaml');
   try {
-    withEnv({ PHANTOM_CONFIG: missing, PHANTOM_DATA: tmp }, ({ readFlag }) => {
+    withEnv({ PHANTOM_CONFIG: missing, PHANTOM_DATA: tmp, PHANTOM_LEGACY_HOME: tmp }, ({ readFlag }) => {
       assert.equal(readFlag('routing', 'enforce', true), true);
       assert.equal(readFlag('routing', 'enforce', false), false);
     });
@@ -353,7 +352,7 @@ test('readString missing file returns default', () => {
   const tmp = mkTmp();
   const missing = path.join(tmp, 'no-such.yaml');
   try {
-    withEnv({ PHANTOM_CONFIG: missing, PHANTOM_DATA: tmp }, ({ readString }) => {
+    withEnv({ PHANTOM_CONFIG: missing, PHANTOM_DATA: tmp, PHANTOM_LEGACY_HOME: tmp }, ({ readString }) => {
       assert.equal(readString('models', 'sage', 'sentinel'), 'sentinel');
     });
   } finally {
@@ -366,12 +365,12 @@ test('readString missing file returns default', () => {
 test('PHANTOM_CONFIG pointing at a directory does not throw, returns default', () => {
   const tmp = mkTmp(); // a directory, not a file
   try {
-    withEnv({ PHANTOM_CONFIG: tmp, PHANTOM_DATA: tmp }, ({ resolveConfigPath, readFlag, readString }) => {
+    withEnv({ PHANTOM_CONFIG: tmp, PHANTOM_DATA: tmp, PHANTOM_LEGACY_HOME: tmp }, ({ resolveConfigPath, readFlag, readString }) => {
       let resolvedResult;
       assert.doesNotThrow(() => { resolvedResult = resolveConfigPath(); });
       // tmp is a directory → skipped. PHANTOM_DATA has no config.yaml → skipped.
-      // Result is null or a string (legacy path may exist on host).
-      assert.ok(resolvedResult === null || typeof resolvedResult === 'string');
+      // PHANTOM_LEGACY_HOME isolates from the host legacy config → null.
+      assert.equal(resolvedResult, null);
       assert.doesNotThrow(() => readFlag('routing', 'enforce', false));
       assert.doesNotThrow(() => readString('routing', 'enforce', 'default'));
       // Both must return their defaults (no valid config was readable)

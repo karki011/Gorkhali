@@ -113,6 +113,62 @@ test('queue.md: contains planner_timeout_minutes config key', () => {
   );
 });
 
+test('queue.md: mandates resolveConfigPath for config reads', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('resolveConfigPath'),
+    'commands/queue.md must mandate config-lite resolveConfigPath — never a bare config.yaml path'
+  );
+});
+
+test('queue.md: contains PHANTOM_QUEUE_HEADLESS contract with foreground planners', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('PHANTOM_QUEUE_HEADLESS'),
+    'commands/queue.md must contain the PHANTOM_QUEUE_HEADLESS headless contract'
+  );
+  assert.ok(
+    /foreground/i.test(content),
+    'commands/queue.md headless contract must mandate FOREGROUND planner spawns'
+  );
+});
+
+test('queue.md: contains planner_max_concurrent interactive planner cap', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('planner_max_concurrent'),
+    'commands/queue.md must reference the planner_max_concurrent config key — no hardcoded planner cap'
+  );
+});
+
+test('queue.md: launch instructions lead with phantom-loop', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('phantom-loop'),
+    'commands/queue.md launch instructions must lead with the phantom-loop launcher'
+  );
+});
+
+test('queue.md: visibility block covers agents view and /background', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('agents view'),
+    'commands/queue.md must point at Claude Code\'s agents view for watching planners'
+  );
+  assert.ok(
+    content.includes('/background'),
+    'commands/queue.md must mention sending the coordinator session to the background via /background'
+  );
+});
+
+test('queue.md: fires display notification when plans are queued', () => {
+  const content = read('commands/queue.md');
+  assert.ok(
+    content.includes('display notification'),
+    'commands/queue.md must fire an osascript display notification when a pass queues new plans'
+  );
+});
+
 // ---------------------------------------------------------------------------
 // commands/approve.md
 // ---------------------------------------------------------------------------
@@ -149,6 +205,22 @@ test('approve.md: uses git status --porcelain for clean-check', () => {
   );
 });
 
+test('approve.md: mandates resolveConfigPath for config reads', () => {
+  const content = read('commands/approve.md');
+  assert.ok(
+    content.includes('resolveConfigPath'),
+    'commands/approve.md must mandate config-lite resolveConfigPath — never a bare config.yaml path'
+  );
+});
+
+test('approve.md: warns on unarmed dispatch (advisory mode)', () => {
+  const content = read('commands/approve.md');
+  assert.ok(
+    /without enforced safety gates/i.test(content),
+    'commands/approve.md must warn when PHANTOM_UNATTENDED is unset at dispatch (advisory mode)'
+  );
+});
+
 // ---------------------------------------------------------------------------
 // commands/wrap.md
 // ---------------------------------------------------------------------------
@@ -182,6 +254,26 @@ test('config.yaml.example: queue section with enabled: false', () => {
   assert.ok(
     content.includes('queue:'),
     'config.yaml.example must contain a "queue:" section'
+  );
+});
+
+test('config.yaml.example: queue section declares planner_max_concurrent', () => {
+  const content = read('config.yaml.example');
+  assert.ok(
+    content.includes('planner_max_concurrent'),
+    'config.yaml.example must declare planner_max_concurrent in the queue section'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// reference/headless-probe.md
+// ---------------------------------------------------------------------------
+
+test('headless-probe.md: mandates resolveConfigPath in prerequisites', () => {
+  const content = read('reference/headless-probe.md');
+  assert.ok(
+    content.includes('resolveConfigPath'),
+    'reference/headless-probe.md must mandate config-lite resolveConfigPath — never a bare config.yaml path'
   );
 });
 

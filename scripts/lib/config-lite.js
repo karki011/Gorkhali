@@ -5,6 +5,8 @@
 //   1. process.env.PHANTOM_CONFIG  — explicit override; tests and CI set this
 //   2. phantomData()/config.yaml   — stable mutable-state root; survives plugin updates
 //   3. ~/.claude/phantom/config.yaml — legacy install dir (pre-PHANTOM_DATA era)
+//      Base dir overridable via PHANTOM_LEGACY_HOME (test seam: lets tests
+//      isolate from a real ~/.claude/phantom/config.yaml on the host).
 //
 // NEVER reads from the versioned plugin cache (CLAUDE_PLUGIN_ROOT or __dirname).
 // An operator's routing.enforce=true must not silently revert when the plugin updates.
@@ -27,7 +29,7 @@ function resolveConfigPath() {
   const candidates = [
     process.env.PHANTOM_CONFIG,
     path.join(_phantomData(), 'config.yaml'),
-    path.join(os.homedir(), '.claude', 'phantom', 'config.yaml'),
+    path.join(process.env.PHANTOM_LEGACY_HOME || os.homedir(), '.claude', 'phantom', 'config.yaml'),
   ];
   for (const p of candidates) {
     if (!p) continue;

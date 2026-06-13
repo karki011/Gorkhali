@@ -17,11 +17,15 @@ Mission Control coordinator: ONE poll pass — gates → poll → dedup → spaw
 
 ONE poll pass per invocation. Recurrence comes from the user-run `/loop` wrapper — this skill NEVER launches `/loop` itself (validated learning: skills cannot self-launch loops/workflows). Every report — active or INACTIVE — ends with this literal launch instruction block:
 
-> To run the coordinator: launch a dedicated session with `PHANTOM_UNATTENDED=1 claude`, then type `/loop /phantom:queue`.
+> To run the coordinator: `phantom-loop` (one word — launches the armed coordinator terminal). Scheduled passes: `phantom-loop install-autolaunch`. Token-free dashboard: `phantom-loop status`. Manual fallback: launch a dedicated session with `PHANTOM_UNATTENDED=1 claude`, then type `/loop /phantom:queue`.
+
+**Visibility**: every planner (and later executor) appears in Claude Code's agents view — status bar `← for agents` — open any to watch it live. The coordinator session itself can be sent to the background with `/background` to free the terminal, and revisited from the same list.
 
 The coordinator NEVER writes inside any worktree — planner agents author all in-worktree artifacts. The coordinator's only writable surfaces are the queue state dirs and `<data>/state/queue-<repo>.json`.
 
 ## Step 0: Hard Gates (fail-safe — check in order, first failure wins)
+
+Before reading ANY config value: resolve the config path FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading flags via config-lite `readFlag`/`readString` semantics. NEVER a bare/hardcoded `config.yaml` path — an armed coordinator once read the legacy file and went falsely INACTIVE.
 
 `--status` in $ARGUMENTS → skip gates (a)-(d), read-only: render the Step 5 report from the queue dirs + state file, then stop. No polling, no spawning, no state-file write.
 
@@ -59,6 +63,8 @@ EVERY skip appears in the report with its reason + the manual unblock (delete th
 
 ANY failure parks that ticket with a reason row and the pass continues with the next ticket. Take new tickets only while in-flight (entries in `running/` + live planner spawns) stays under `queue.max_concurrent`; overflow waits for a later pass.
 
+**Planner cap (interactive)**: before spawning background planners, count planners currently in flight — spawned by this coordinator, queue entry not yet appeared. At or over `queue.planner_max_concurrent` (config, default 3) → remaining tickets are reported `waiting (planner cap)` and picked up next pass. Never hardcode the operative number.
+
 a. `git fetch origin` in the source repo first.
 b. `bin/phantom-preflight --ticket <TICKET> --repo <repo-path> --json` — REPORT-ONLY. Exit non-zero → park with the failing check name. NEVER pass the arming flag here: arming is the session env set at launch, not per-ticket markers.
 c. Worktree: resolve `node -p "require('${CLAUDE_PLUGIN_ROOT}/scripts/lib/phantom-paths').worktreeDir('<TICKET>')"`, then `git worktree add <dir> -b feat/<ticket-lower> origin/<default-branch>`. Branch-exists / path collision / dirty source → park + print the cleanup hint (`git worktree remove <dir>`; `git branch -D feat/<ticket-lower>`).
@@ -77,6 +83,17 @@ d. Spawn the Phase A planner:
 
 The COORDINATOR never writes inside any worktree — planner agents author all in-worktree artifacts.
 
+### Headless Contract (`PHANTOM_QUEUE_HEADLESS=1`)
+
+When env `PHANTOM_QUEUE_HEADLESS=1` (a `claude -p` scheduled pass — the pass IS the process):
+
+- Planner spawns run FOREGROUND — no `run_in_background`; background agents die at process exit.
+- Reap (Step 4) completes within the same pass.
+- Per-pass planner cap = min(`queue.max_concurrent`, 2).
+- Pass start touches `${PHANTOM_DATA}/state/queue-last-pass` (the status tripwire marker).
+
+Interactive (`/loop`) mode unchanged: background planners.
+
 ## Step 4: Reap Prior Spawns
 
 For each previously spawned planner:
@@ -94,9 +111,17 @@ Next-wake recommendation: `queue.poll_minutes` normally; `queue.backoff_minutes`
 
 Worktree lifecycle is manual in v1: after a ticket's PR merges, `git worktree remove <dir>` + delete the `feat/<ticket-lower>` branch (wrap prints this hint too).
 
-End every report with the launch instruction block from the Contract.
+End every report with the launch instruction block from the Contract, plus one line pointing at the agents view (status bar `← for agents`) for watching live planners.
 
 ## Notify (seam)
+
+When a pass queues >=1 NEW plan (both modes), fire a desktop notification:
+
+```sh
+osascript -e 'display notification "Phantom queued N plan(s) (TICKETS) — run /phantom:approve" with title "Phantom"'
+```
+
+Substitute N and the ticket list. Failure ignored — never blocks the pass.
 
 If config `integrations.slack_mcp` && `slack.enabled` && `slack.dm_channel` non-empty → send a one-line pass summary via the Slack MCP message tool to `slack.dm_channel`.
 Else append `slack: skipped (not configured)` to the report and continue.
