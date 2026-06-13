@@ -63,14 +63,14 @@ pre_echo() {
 cmd_default() {
   pre_echo
   if command -v caffeinate >/dev/null 2>&1; then
-    export PHANTOM_UNATTENDED=1; exec caffeinate -i claude --permission-mode bypassPermissions "/loop /phantom:queue"
+    exec caffeinate -i claude --permission-mode bypassPermissions "/loop /phantom:queue"
   fi
   echo "note: caffeinate not on PATH — running without sleep prevention"
-  export PHANTOM_UNATTENDED=1; exec claude --permission-mode bypassPermissions "/loop /phantom:queue"
+  exec claude --permission-mode bypassPermissions "/loop /phantom:queue"
 }
 
 cmd_once() {
-  export PHANTOM_UNATTENDED=1; exec claude --permission-mode bypassPermissions "/phantom:queue"
+  exec claude --permission-mode bypassPermissions "/phantom:queue"
 }
 
 cmd_headless() {
@@ -116,7 +116,7 @@ cmd_headless() {
   done
 
   local log="$logs_dir/queue-pass-$(date +%Y%m%d-%H%M%S).log"
-  PHANTOM_UNATTENDED=1 PHANTOM_QUEUE_HEADLESS=1 claude -p "/phantom:queue" --permission-mode bypassPermissions 2>&1 | tee "$log"
+  PHANTOM_QUEUE_HEADLESS=1 claude -p "/phantom:queue" --permission-mode bypassPermissions 2>&1 | tee "$log"
   local rc="${PIPESTATUS[0]}"
   touch "$state_dir/queue-last-pass"
   exit "$rc"

@@ -1,54 +1,20 @@
-# Unattended Run Guardrails
+# Mission Control Recurrence
 
-How Phantom protects unattended (`bypassPermissions`) runs. Two layers: operator-level `settings.json` deny rules (hard boundary) and the Phantom gate hooks (tripwire / defense-in-depth).
+How to run the Mission Control queue once and how to make it recur, per environment. `/phantom:loop` is the portable entry; the rest is the recurrence backend for each environment.
 
-## Two-Layer Model
+## /phantom:loop — portable queue entry (any session)
 
-| Layer | Mechanism | Bypassable? |
-|-------|-----------|-------------|
-| 1 — Operator | `permissions.deny` rules in `settings.json` | No — enforced by the harness itself |
-| 2 — Phantom | PreToolUse hooks (`unattended-guard.js`, `fix-loop-gate.js`) | Yes — regex tripwires; `sh -c`, variable expansion, and heredocs can slip past |
+`/phantom:loop` (alias `/phantom:q`, `commands/loop.md`) is the portable entry to start the Mission Control queue, with no PATH binary required. It works in a local terminal, headless/scheduled passes, and cloud (claude.ai/code). It reuses `/phantom:queue` for the actual pass (no duplicated poll/dedup/spawn/reap) and respects the validated learning that a skill never self-launches `/loop`.
 
-Deny rules cannot be bypassed while hooks can — treat the hooks as a tripwire that catches the common destructive shapes, never as the security boundary. Always pair an unattended launcher with operator deny rules:
+**Bare = one pass; continuous = the wrapper.** A bare `/phantom:loop` runs ONE `/phantom:queue` pass and then prints the recurrence command for the detected environment. It does not daemonize itself. Typing it IS the authorization to run — there is no separate arming step.
 
-```json
-{
-  "permissions": {
-    "deny": [
-      "Bash(git push --force*)",
-      "Bash(rm -rf*)",
-      "Read(**/.env*)",
-      "Read(**/*.pem)"
-    ]
-  }
-}
-```
+| Environment | Run once with | Recur with |
+|---|---|---|
+| Local terminal (interactive) | `/phantom:loop`, or the `phantom-loop` wrapper | `/loop /phantom:loop` (or the `phantom-loop` wrapper) |
+| Cloud (claude.ai/code) | `/phantom:loop` | a `/schedule` routine running `/phantom:loop` on a cron interval (recommended, never auto-created) |
+| Headless / scheduled | `phantom-loop --headless`, or `phantom-loop install-autolaunch` | launchd handles recurrence; `phantom-loop status` for the dashboard |
 
-## Activation Flow
-
-1. The launcher sets `PHANTOM_UNATTENDED=1` for the process tree it spawns.
-2. The launcher runs `bin/phantom-preflight --ticket T --arm`.
-3. On a pass verdict, preflight writes the arming marker `<stateDir>/unattended/<repo>.json` (`{worktreeRoot, ticket, ts}` — `worktreeRoot` is the realpath of the repo root).
-4. Both gate hooks are now active for that repo: env var (primary channel) or a fresh marker whose `worktreeRoot` contains `realpath(cwd)` (marker channel).
-
-Either channel alone activates enforcement; sessions in other repos or outside the armed worktree are untouched.
-
-## Disarming
-
-- **Clear the marker**: `rm <stateDir>/unattended/<repo>.json`.
-- **Expiry**: the marker self-expires 12h after its mtime; every preflight `--arm` rewrite refreshes the window.
-- **NEVER export `PHANTOM_UNATTENDED` globally** (shell profile, `.zshrc`, CI base image): it arms enforcement in every session, including attended ones — the env var belongs to the launcher's process tree only.
-
-## What Each Hook Denies When Active
-
-| Hook | Tool(s) | Denies |
-|------|---------|--------|
-| `unattended-guard.js` | Bash | `rm -rf`/`-fr`/split `-r -f`, `rm --no-preserve-root`, `git push -f`/`--force` (`--force-with-lease` allowed), `git reset --hard` against `@{u}`/`origin/` refs, `git clean -fd` variants, `chmod -R 777` |
-| `unattended-guard.js` | Read | `.env*` (except `.env.example`), `*.pem`, `*.key`, `*credentials*` |
-| `unattended-guard.js` | Write / Edit / MultiEdit / NotebookEdit | Targets outside the active worktree root and the `PHANTOM_DATA` subtree; undeterminable root → deny fail-safe |
-| `fix-loop-gate.js` | Skill (`phantom:fix`) | Fix-loop ceiling reached, same-finding-class repeat, or unverifiable loop state |
-
-Both hooks always exit 0 — denials ride the stdout decision JSON. In attended sessions (no env, no marker) both are silent no-ops.
+The `phantom-loop` binary below is a **local power-user optimization** (caffeinate + launchd convenience) — not the only entry. Prefer `/phantom:loop` for portability.
 
 ## phantom-loop
 
@@ -56,7 +22,7 @@ One-word launcher for the Mission Control queue. Lives in `bin/phantom-loop` (th
 
 | Subcommand | What it does |
 |---|---|
-| *(none)* | Armed coordinator: caffeinate + `/loop /phantom:queue` with `PHANTOM_UNATTENDED=1` and `bypassPermissions`. This is the standing interactive mode. |
+| *(none)* | Coordinator: caffeinate + `/loop /phantom:queue` with `bypassPermissions`. This is the standing interactive mode. |
 | `--once` | Single interactive queue pass — no loop, no caffeinate. Useful for a manual sanity check. |
 | `--headless` | One scheduled-style pass: hardened pidfile lock, timestamped log written to `${PHANTOM_DATA}/logs/`, `queue-last-pass` marker touched. Used by launchd via the shim. |
 | `install-autolaunch [--interval-minutes N]` | Writes the shim, generates the launchd plist at `~/Library/LaunchAgents/com.phantom.queue.plist`, loads it. Default interval: 30 minutes. |

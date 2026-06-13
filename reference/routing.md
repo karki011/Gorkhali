@@ -48,12 +48,13 @@ ROUTING GATE: implementation edit outside a phantom session — run
 
 ## Inverse Polarity — This Gate Fails Open
 
-This is the most important thing to understand about routing-gate.js. It has the **opposite** failure polarity of `unattended-guard.js`.
+This is the most important thing to understand about routing-gate.js: it is a **fail-open discipline gate**, not a fail-closed safety gate.
 
 | Gate | Kind | Fails | Why that direction is correct |
 |------|------|-------|-------------------------------|
 | `routing-gate.js` | Discipline (opt-in) | **Open** — crash, missing config, garbage config, or missing `readFlag` module all allow the edit | Blocking legitimate work because the gate misbehaved would be worse than a missed routing event. The cost of a false-positive deny is high; the cost of a false-negative allow is a process note. A missing or unparseable config can **never** enable the gate — only the literal `true` arms it. |
-| `unattended-guard.js` | Safety | **Closed** — any ambiguity or error denies the destructive action | The cost of a false-negative allow is data loss or an unrecoverable state. Blocking on uncertainty is the safe choice. |
+
+A fail-closed safety gate would invert this: any ambiguity or error would deny, because the cost of a false-negative allow (data loss, an unrecoverable state) outweighs the cost of blocking on uncertainty. This gate is the opposite — it never blocks on its own malfunction.
 
 `enforce` defaults to `false`. If config-lite is unavailable, `readFlag` is `null` and the gate exits immediately. No path through a broken or absent config can arm the gate.
 

@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// preflight.js — go/no-go gate for autonomous (unattended) ticket runs.
+// preflight.js — report-only go/no-go gate for a ticket run.
 //
-// REPORT-ONLY BY DEFAULT: this script writes NOTHING unless --arm is passed
-// AND every gate passes. The arming marker <stateDir>/unattended/<repo>.json
-// is the contract with the unattended gate hook: the hook reads ONLY the
-// `worktreeRoot` field and uses the marker file's MTIME for its 12h freshness
-// window — so worktreeRoot must be the realpath of the repo root, and
-// (re)writing the marker refreshes the window.
+// REPORT-ONLY: this script has NO side effects — it runs the gates and prints
+// the verdict. queue.md Step 3b calls it as a per-ticket readiness check.
 //
 // Usage:
 //   phantom-preflight --ticket <T> [--repo <path>] [--max-files <N>]
-//                     [--strict-jira] [--json] [--arm]
+//                     [--strict-jira] [--json]
 //
 // Exit codes: 0 = all gates pass; 1 = any gate fails; 2 = usage/env error.
 
@@ -23,12 +19,12 @@ const { execFileSync, spawnSync } = require('child_process');
 const { phantomData, stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
 const { PREFLIGHT_MAX_FILES, MARKER_FRESHNESS_MS } = require('./lib/constants');
 
-// Matches the gate hook's freshness window for both collision and arming markers.
+// Staleness window for the current-session collision marker.
 const FRESH_WINDOW_MS = MARKER_FRESHNESS_MS;
 
 const USAGE =
   'usage: phantom-preflight --ticket <T> [--repo <path>] [--max-files <N>] ' +
-  '[--strict-jira] [--json] [--arm]\n';
+  '[--strict-jira] [--json]\n';
 
 function git(args, cwd) {
   return execFileSync('git', args, {
@@ -150,8 +146,7 @@ function checkJira(ticket, strictJira) {
 
 /**
  * Run all preflight gates. Throws Error with code 'ENOTGIT' if repoPath is not
- * inside a git repo. Writes the arming marker ONLY when opts.arm is true AND
- * the verdict is pass — otherwise this function has no side effects.
+ * inside a git repo. Report-only — no side effects.
  */
 function runPreflight(opts) {
   const repoPath = path.resolve(opts.repoPath || process.cwd());
@@ -176,24 +171,7 @@ function runPreflight(opts) {
   };
   const verdict = Object.values(checks).some((c) => c.status === 'fail') ? 'fail' : 'pass';
 
-  // ARMING POLARITY: the ONLY write in this script. Explicit --arm AND a pass
-  // verdict are both required; --arm on a fail verdict writes nothing.
-  let armed = false;
-  if (opts.arm === true && verdict === 'pass') {
-    const markerDir = path.join(stateDir(), 'unattended');
-    fs.mkdirSync(markerDir, { recursive: true });
-    const marker = {
-      worktreeRoot: fs.realpathSync(repoPath),
-      ticket,
-      ts: new Date().toISOString(),
-    };
-    // Plain write (no atomic-rename dance): the gate hook keys its 12h window
-    // off this file's mtime, and every (re)write must refresh it.
-    fs.writeFileSync(path.join(markerDir, repo + '.json'), JSON.stringify(marker, null, 2) + '\n');
-    armed = true;
-  }
-
-  return { ticket, repo, ts: new Date().toISOString(), checks, verdict, armed };
+  return { ticket, repo, ts: new Date().toISOString(), checks, verdict };
 }
 
 function usageError(msg) {
@@ -209,7 +187,6 @@ function parseArgs(argv) {
     maxFiles: null,
     strictJira: false,
     json: false,
-    arm: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -221,7 +198,6 @@ function parseArgs(argv) {
       opts.maxFiles = n;
     } else if (a === '--strict-jira') opts.strictJira = true;
     else if (a === '--json') opts.json = true;
-    else if (a === '--arm') opts.arm = true;
     else throw usageError('unknown option: ' + a);
   }
   if (!opts.ticket || !opts.ticket.trim()) throw usageError('--ticket is required');
@@ -235,9 +211,7 @@ function printHuman(result) {
       '  ' + name.padEnd(18) + check.status.toUpperCase().padEnd(6) + check.detail + '\n'
     );
   }
-  process.stdout.write(
-    'verdict: ' + result.verdict + (result.armed ? ' (armed for unattended run)' : '') + '\n'
-  );
+  process.stdout.write('verdict: ' + result.verdict + '\n');
 }
 
 function main(argv = process.argv.slice(2)) {

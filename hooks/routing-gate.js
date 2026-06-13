@@ -3,10 +3,9 @@
 // routing-gate.js — PreToolUse hook that denies implementation edits in
 // phantom-known repos when no phantom session is active.
 //
-// INVERSE POLARITY — read this before editing: this is an opt-in DISCIPLINE
+// FAIL-OPEN POLARITY — read this before editing: this is an opt-in DISCIPLINE
 // gate, NOT a safety gate. It FAILS OPEN: any crash, missing config, garbage
-// config, or ambiguity in the enforce branch must ALLOW the edit. This is the
-// exact opposite of unattended-guard's fail-closed safety polarity. A missing
+// config, or ambiguity in the enforce branch must ALLOW the edit. A missing
 // or unparseable config can NEVER enable the gate (enforce defaults to false,
 // and only the literal `true` arms it). Always exits 0 — the decision rides
 // the stdout JSON.
@@ -50,7 +49,6 @@ function sessionActive() {
 
 // Resolve symlinks via the nearest EXISTING ancestor, then re-join the
 // not-yet-existing tail — write targets usually don't exist yet.
-// (Same approach as unattended-guard.js.)
 function realResolve(p) {
   let dir = p;
   const rest = [];

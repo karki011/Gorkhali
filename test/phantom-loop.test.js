@@ -49,7 +49,6 @@ function makeFixture({ claudeSleep = 0, withClaude = true } = {}) {
       '#!/usr/bin/env bash',
       '{',
       '  echo "args: $*"',
-      '  echo "PHANTOM_UNATTENDED=${PHANTOM_UNATTENDED:-}"',
       '  echo "PHANTOM_QUEUE_HEADLESS=${PHANTOM_QUEUE_HEADLESS:-}"',
       '} >> "${CLAUDE_STUB_LOG:-/dev/null}"',
       'echo "stub claude output"',
@@ -98,9 +97,9 @@ async function waitFor(predicate, timeoutMs) {
 
 // ── source pins ──────────────────────────────────────────────────────────────
 
-test('source: all phantom:queue invocations carry PHANTOM_UNATTENDED=1 and bypassPermissions', () => {
+test('source: all phantom:queue invocations carry bypassPermissions', () => {
   // Collect ALL lines that invoke claude with phantom:queue (regex: /claude.*phantom:queue/).
-  // Filter out comments and shim/plist heredocs. Assert each carries both flags.
+  // Filter out comments and shim/plist heredocs. Assert each carries bypassPermissions.
   const claudeQueueLines = SRC_LINES.filter(l => {
     const trimmed = l.trim();
     if (trimmed.startsWith('#') || trimmed === '') return false;
@@ -111,10 +110,6 @@ test('source: all phantom:queue invocations carry PHANTOM_UNATTENDED=1 and bypas
   assert.ok(claudeQueueLines.length >= 3, `must have at least 3 claude phantom:queue invocations (default + once + headless); found ${claudeQueueLines.length}`);
 
   for (const line of claudeQueueLines) {
-    assert.ok(
-      line.includes('PHANTOM_UNATTENDED=1'),
-      `missing PHANTOM_UNATTENDED=1: ${line}`
-    );
     assert.ok(
       line.includes('--permission-mode bypassPermissions'),
       `missing --permission-mode bypassPermissions: ${line}`
@@ -166,7 +161,6 @@ test('--headless runs claude with headless env/args and writes a queue-pass log'
 
     const stub = fs.readFileSync(fx.stubLog, 'utf8');
     assert.match(stub, /args: -p \/phantom:queue --permission-mode bypassPermissions/);
-    assert.match(stub, /PHANTOM_UNATTENDED=1/);
     assert.match(stub, /PHANTOM_QUEUE_HEADLESS=1/);
 
     const logs = fs.readdirSync(path.join(fx.data, 'logs'))

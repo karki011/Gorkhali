@@ -32,14 +32,14 @@ Before running the probe, verify all of the following:
 
   The worktree must be clean (`git status --porcelain` empty) before the probe starts — a dirty worktree produces a false positive on pass condition 3.
 
-- **`PHANTOM_UNATTENDED=1` scoped to the probe process only** — do not export it globally. See [Unattended Run Guardrails](unattended.md) for why global export is harmful.
+See [Mission Control Recurrence](unattended.md) for how to run and recur the queue once the probe passes.
 
 ## The Command
 
 Run this verbatim, substituting `<TICKET>` and `<worktree>`:
 
 ```sh
-cd <worktree> && PHANTOM_UNATTENDED=1 claude -p "/phantom:start <TICKET> --to-plan" --permission-mode bypassPermissions --output-format stream-json --max-turns 40
+cd <worktree> && claude -p "/phantom:start <TICKET> --to-plan" --permission-mode bypassPermissions --output-format stream-json --max-turns 40
 ```
 
 `<worktree>` is the path produced by `phantom-paths.worktreeDir('<TICKET>')` above. `--max-turns 40` is a ceiling; a healthy run completes well under that.
@@ -47,7 +47,7 @@ cd <worktree> && PHANTOM_UNATTENDED=1 claude -p "/phantom:start <TICKET> --to-pl
 Capture stdout to a file if you want to inspect the stream-json events afterward:
 
 ```sh
-cd <worktree> && PHANTOM_UNATTENDED=1 claude -p "/phantom:start <TICKET> --to-plan" \
+cd <worktree> && claude -p "/phantom:start <TICKET> --to-plan" \
   --permission-mode bypassPermissions \
   --output-format stream-json \
   --max-turns 40 \

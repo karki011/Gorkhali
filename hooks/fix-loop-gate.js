@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// fix-loop-gate.js — PreToolUse hook that machine-enforces the fix-loop ceiling
-// at the Skill boundary. Decision logic lives in hooks/loop-controller.js (the
-// loop authority) — this hook only resolves the artifact and applies polarity:
+// fix-loop-gate.js — PreToolUse hook that surfaces the fix-loop ceiling at the
+// Skill boundary. Decision logic lives in hooks/loop-controller.js (the loop
+// authority) — this hook only resolves the artifact and emits an advisory:
 //
-//   ATTENDED   (default)        → NEVER deny; at/over ceiling emits an advisory
-//                                 via additionalContext only.
-//   UNATTENDED (explicit opt-in) → deny at/over ceiling, same-class repeat, AND
-//                                 fail-safe deny on any ambiguity (missing/garbage
-//                                 verification.json, unresolvable ticket, crash).
+//   at/over ceiling (or same-class repeat) → advisory via additionalContext.
+//   NEVER denies — worst case is an advisory; under-ceiling/errors stay silent.
 //
-// Prime invariant: absence/ambiguity → MORE gating in unattended, ZERO gating in
-// attended. Always exits 0 — the decision rides the stdout JSON; a non-zero exit
-// would block attended sessions on hook bugs, which is forbidden.
+// Always exits 0 — the advisory rides the stdout JSON; a non-zero exit would
+// block sessions on hook bugs, which is forbidden.
 'use strict';
 
 const fs = require('fs');
@@ -39,16 +35,6 @@ function advisory(text) {
   });
 }
 
-function deny(reason) {
-  emit({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: reason,
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Line-1 fast path: not a fix-skill invocation → silent exit before loading
 // any further machinery.
@@ -68,46 +54,21 @@ if (toolName !== 'Skill' || !/(^|:)fix$/.test(String(toolInput.skill || ''))) {
 
 // ---------------------------------------------------------------------------
 // Shared resolution helpers (loaded only past the fast path). A require failure
-// must still honor polarity: deny in unattended (can't evaluate → gate), exit 0
-// in attended (hook bugs never block a human session).
+// stays silent — hook bugs never block or nag a session.
 // ---------------------------------------------------------------------------
 let stateDir, sessionsDir, detectRepo, loopController, execFileSync;
-let MARKER_MAX_AGE_MS = 12 * 60 * 60 * 1000; // fallback if constants unavailable
 try {
   ({ stateDir, sessionsDir, detectRepo } = require('../scripts/lib/phantom-paths'));
   loopController = require('./loop-controller');
   ({ execFileSync } = require('child_process'));
 } catch (_) {
-  if (process.env.PHANTOM_UNATTENDED === '1') {
-    deny('FIX LOOP gate (unattended): support libraries unavailable — denying fail-safe');
-  }
   process.exit(0);
 }
-try {
-  MARKER_MAX_AGE_MS = require('../scripts/lib/constants').MARKER_FRESHNESS_MS ?? MARKER_MAX_AGE_MS;
-} catch (_) { /* fail open: constants missing → inline default above */ }
 
 const TICKET_RE = /[A-Z][A-Z0-9]+-\d+/;
 
 const cwd = payload.cwd || process.cwd();
 const repo = detectRepo(cwd);
-
-function isUnattended() {
-  if (process.env.PHANTOM_UNATTENDED === '1') return true;
-  try {
-    const markerPath = path.join(stateDir(), 'unattended', repo + '.json');
-    if (Date.now() - fs.statSync(markerPath).mtimeMs > MARKER_MAX_AGE_MS) return false;
-    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf-8'));
-    if (typeof marker.worktreeRoot !== 'string' || !marker.worktreeRoot) return false;
-    const realCwd = fs.realpathSync(cwd);
-    const realRoot = fs.realpathSync(marker.worktreeRoot);
-    return realCwd === realRoot || realCwd.startsWith(realRoot + path.sep);
-  } catch (_) {
-    // Marker missing/garbage/unverifiable cwd → marker channel does NOT activate.
-    // A dropped marker must never silently enforce.
-    return false;
-  }
-}
 
 function resolveTicket() {
   const fromArgs = String(toolInput.args || '').match(TICKET_RE);
@@ -135,15 +96,13 @@ function resolveTicket() {
   return null;
 }
 
-// Returns { decision, loops, ceiling } or throws/returns error markers for the
-// caller to apply polarity-appropriate handling.
+// Returns { decision, loops, ceiling } or an { error } marker. Errors stay
+// silent in advisory mode — they never block.
 function evaluate() {
   const ticket = resolveTicket();
   if (!ticket) return { error: 'ticket-unresolvable' };
 
   const verificationPath = path.join(sessionsDir(repo), ticket, 'verification.json');
-  // Explicit existence check: do NOT lean on getFixLoops fail-open-to-0 for a
-  // missing artifact — in unattended mode "no artifact" must gate, not allow.
   if (!fs.existsSync(verificationPath)) return { error: 'verification-missing', ticket };
 
   let verification;
@@ -165,31 +124,14 @@ function evaluate() {
 }
 
 // ---------------------------------------------------------------------------
-// Polarity branches
+// Advisory-only: never deny; worst case is an advisory. Errors / under-ceiling
+// stay silent. Hook bugs never block or nag a session.
 // ---------------------------------------------------------------------------
-if (isUnattended()) {
-  // UNATTENDED: fail-safe — any ambiguity or error denies.
-  try {
-    const result = evaluate();
-    if (result.error) {
-      deny(`FIX LOOP gate (unattended): ${result.error} — cannot verify loop state; denying fail-safe`);
-    } else if (result.decision.continue === true) {
-      // allow: exit 0 with no decision JSON
-    } else {
-      deny(`FIX LOOP ${result.loops}/${result.ceiling}: ${result.decision.reason}`);
-    }
-  } catch (_err) {
-    deny('FIX LOOP gate (unattended): internal error evaluating loop state — denying fail-safe');
+try {
+  const result = evaluate();
+  if (!result.error && result.decision.continue !== true) {
+    advisory(`FIX LOOP advisory: ${result.loops}/${result.ceiling} — ${result.decision.reason}`);
   }
-} else {
-  // ATTENDED: never deny; worst case is an advisory.
-  try {
-    const result = evaluate();
-    if (!result.error && result.decision.continue !== true) {
-      advisory(`FIX LOOP advisory: ${result.loops}/${result.ceiling} — ${result.decision.reason}`);
-    }
-    // errors / under-ceiling → stay silent
-  } catch (_err) { /* attended sessions are never blocked or nagged by hook bugs */ }
-}
+} catch (_err) { /* never blocked or nagged by hook bugs */ }
 
 process.exit(0);

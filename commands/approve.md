@@ -42,10 +42,6 @@ Concurrency cap = `queue.max_concurrent` from config.yaml. NEVER hardcode the op
 
 Resolve config.yaml FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading values via config-lite `readFlag`/`readString` semantics — this applies to EVERY config read in this skill. NEVER a bare/hardcoded `config.yaml` path.
 
-Before dispatch: if env `PHANTOM_UNATTENDED` is unset, print:
-`WARNING: executors will run WITHOUT enforced safety gates (advisory mode) — recommend approving from an armed session (the phantom-loop terminal).`
-Warn only — do NOT block.
-
 1. Count entries in `running/` → current in-flight count.
 2. For each entry in `approved/` (oldest `approvedAt` first) while in-flight < cap:
    - **ATOMIC CLAIM**: rename `approved/<T>.json` → `running/<T>.json` BEFORE spawning, then add `"runStartedAt"` (ISO 8601) to the file. The rename IS the claim — an overlapping approve/queue pass that loses the race finds the source file gone and skips, so no entry can double-spawn.

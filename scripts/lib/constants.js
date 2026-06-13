@@ -51,7 +51,7 @@ module.exports = {
   // Preflight blast-radius ceiling: max unique plan.json files for an autonomous run.
   PREFLIGHT_MAX_FILES: intFromEnv('PHANTOM_PREFLIGHT_MAX_FILES', 10),
 
-  // Freshness window for unattended arming and session-collision markers. Both
-  // gate hooks and preflight use this same window so the three can't drift.
+  // Staleness window for the current-session collision marker (preflight's
+  // checkSessionCollision). A marker older than this is treated as absent.
   MARKER_FRESHNESS_MS: numFromEnv('PHANTOM_MARKER_FRESHNESS_MS', 12 * 60 * 60 * 1000),
 };

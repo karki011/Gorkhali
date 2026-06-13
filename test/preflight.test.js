@@ -1,7 +1,7 @@
 // Author: Subash Karki
-// preflight.test.js — gate-by-gate coverage for scripts/preflight.js, with the
-// arming polarity (report-only default, marker ONLY on --arm + pass) proven by
-// spawning the REAL CLI against throwaway tmpdir git repos.
+// preflight.test.js — gate-by-gate coverage for scripts/preflight.js, proven by
+// spawning the REAL CLI against throwaway tmpdir git repos. Report-only: the
+// script has no side effects.
 'use strict';
 
 const { test } = require('node:test');
@@ -62,10 +62,6 @@ function parse(res) {
   }
 }
 
-function markerPath(dataDir, repoDir) {
-  return path.join(dataDir, 'state', 'unattended', path.basename(repoDir) + '.json');
-}
-
 function cleanup(...dirs) {
   for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
 }
@@ -84,7 +80,6 @@ test('all gates green: verdict pass, exit 0', () => {
     assert.equal(out.checks.sessionCollision.status, 'pass');
     assert.equal(out.checks.blastRadius.status, 'pass');
     assert.equal(out.checks.jira.status, 'skip');
-    assert.equal(out.armed, false);
   } finally {
     cleanup(repo, data);
   }
@@ -182,46 +177,18 @@ test('plan files over --max-files: blastRadius fails', () => {
   }
 });
 
-test('POLARITY: pass WITHOUT --arm writes no marker (report-only default)', () => {
+test('report-only: a pass run has no side effects (no marker, no unattended dir)', () => {
   const repo = mkRepo();
   const data = mkData();
   try {
     writePlan(data, repo, ['a.ts']);
     const res = cli(['--ticket', TICKET, '--repo', repo], data);
     assert.equal(res.status, 0);
-    assert.equal(parse(res).armed, false);
-    assert.ok(!fs.existsSync(markerPath(data, repo)), 'no arming marker without --arm');
+    assert.equal(parse(res).armed, undefined, 'no armed field — arming is gone');
     assert.ok(
       !fs.existsSync(path.join(data, 'state', 'unattended')),
-      'unattended dir is not even created in report-only mode'
+      'report-only run writes nothing under state/'
     );
-  } finally {
-    cleanup(repo, data);
-  }
-});
-
-test('POLARITY: --arm + pass writes marker with realpath worktreeRoot; rewrite refreshes mtime', async () => {
-  const repo = mkRepo();
-  const data = mkData();
-  try {
-    writePlan(data, repo, ['a.ts']);
-    const res = cli(['--ticket', TICKET, '--repo', repo, '--arm'], data);
-    assert.equal(res.status, 0);
-    assert.equal(parse(res).armed, true);
-
-    const marker = markerPath(data, repo);
-    assert.ok(fs.existsSync(marker), 'arming marker written');
-    const body = JSON.parse(fs.readFileSync(marker, 'utf-8'));
-    assert.equal(body.worktreeRoot, fs.realpathSync(repo), 'worktreeRoot is the repo realpath');
-    assert.equal(body.ticket, TICKET);
-    assert.ok(body.ts, 'marker carries an ISO timestamp');
-
-    // Gate-hook contract: re-arming must refresh the marker mtime (12h window).
-    const before = fs.statSync(marker).mtimeMs;
-    await new Promise((r) => setTimeout(r, 50));
-    const res2 = cli(['--ticket', TICKET, '--repo', repo, '--arm'], data);
-    assert.equal(res2.status, 0);
-    assert.ok(fs.statSync(marker).mtimeMs > before, 're-arm refreshes marker mtime');
   } finally {
     cleanup(repo, data);
   }
@@ -237,7 +204,6 @@ test('jira stub: --strict-jira with no provider fails; without it, skip + stubbe
     const strictOut = parse(strict);
     assert.equal(strict.status, 1);
     assert.equal(strictOut.checks.jira.status, 'fail');
-    assert.ok(!fs.existsSync(markerPath(data, repo)), 'strict fail never arms');
 
     const lax = cli(['--ticket', TICKET, '--repo', repo], data);
     const laxOut = parse(lax);

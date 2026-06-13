@@ -65,14 +65,6 @@ test('start.md: queue entry carries status: "queued"', () => {
 // commands/queue.md
 // ---------------------------------------------------------------------------
 
-test('queue.md: contains PHANTOM_UNATTENDED=1 hard-gate and launch instruction', () => {
-  const content = read('commands/queue.md');
-  assert.ok(
-    content.includes('PHANTOM_UNATTENDED=1'),
-    'commands/queue.md must contain the PHANTOM_UNATTENDED=1 launch instruction'
-  );
-});
-
 test('queue.md: contains /loop /phantom:queue recurrence instruction', () => {
   const content = read('commands/queue.md');
   assert.ok(
@@ -213,14 +205,6 @@ test('approve.md: mandates resolveConfigPath for config reads', () => {
   );
 });
 
-test('approve.md: warns on unarmed dispatch (advisory mode)', () => {
-  const content = read('commands/approve.md');
-  assert.ok(
-    /without enforced safety gates/i.test(content),
-    'commands/approve.md must warn when PHANTOM_UNATTENDED is unset at dispatch (advisory mode)'
-  );
-});
-
 // ---------------------------------------------------------------------------
 // commands/wrap.md
 // ---------------------------------------------------------------------------
@@ -274,18 +258,6 @@ test('headless-probe.md: mandates resolveConfigPath in prerequisites', () => {
   assert.ok(
     content.includes('resolveConfigPath'),
     'reference/headless-probe.md must mandate config-lite resolveConfigPath — never a bare config.yaml path'
-  );
-});
-
-// ---------------------------------------------------------------------------
-// hooks/unattended-guard.js
-// ---------------------------------------------------------------------------
-
-test('unattended-guard.js: contains worktrees carve-out marker comment', () => {
-  const content = read('hooks/unattended-guard.js');
-  assert.ok(
-    /worktrees carve-out/.test(content),
-    'hooks/unattended-guard.js must contain the "worktrees carve-out" marker comment'
   );
 });
 

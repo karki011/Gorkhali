@@ -17,7 +17,7 @@ Mission Control coordinator: ONE poll pass — gates → poll → dedup → spaw
 
 ONE poll pass per invocation. Recurrence comes from the user-run `/loop` wrapper — this skill NEVER launches `/loop` itself (validated learning: skills cannot self-launch loops/workflows). Every report — active or INACTIVE — ends with this literal launch instruction block:
 
-> To run the coordinator: `phantom-loop` (one word — launches the armed coordinator terminal). Scheduled passes: `phantom-loop install-autolaunch`. Token-free dashboard: `phantom-loop status`. Manual fallback: launch a dedicated session with `PHANTOM_UNATTENDED=1 claude`, then type `/loop /phantom:queue`.
+> To run the coordinator (local + headless + cloud): `/phantom:loop` (alias `/phantom:q`) — runs one pass and prints the recurrence command for your environment. Recur per environment: local terminal `/loop /phantom:loop`; cloud (claude.ai/code) a `/schedule` routine running `/phantom:loop` on a cron interval; headless/launchd `phantom-loop install-autolaunch`. Local power-user optimization (caffeinate + launchd): `phantom-loop` (one word — launches the coordinator terminal); token-free dashboard `phantom-loop status`. Manual fallback: type `/loop /phantom:queue` in a running session.
 
 **Visibility**: every planner (and later executor) appears in Claude Code's agents view — status bar `← for agents` — open any to watch it live. The coordinator session itself can be sent to the background with `/background` to free the terminal, and revisited from the same list.
 
@@ -25,18 +25,15 @@ The coordinator NEVER writes inside any worktree — planner agents author all i
 
 ## Step 0: Hard Gates (fail-safe — check in order, first failure wins)
 
-Before reading ANY config value: resolve the config path FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading flags via config-lite `readFlag`/`readString` semantics. NEVER a bare/hardcoded `config.yaml` path — an armed coordinator once read the legacy file and went falsely INACTIVE.
+Before reading ANY config value: resolve the config path FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading flags via config-lite `readFlag`/`readString` semantics. NEVER a bare/hardcoded `config.yaml` path — reading the legacy file directly once made a coordinator go falsely INACTIVE.
 
-`--status` in $ARGUMENTS → skip gates (a)-(d), read-only: render the Step 5 report from the queue dirs + state file, then stop. No polling, no spawning, no state-file write.
+`--status` in $ARGUMENTS → skip gates (a)-(c), read-only: render the Step 5 report from the queue dirs + state file, then stop. No polling, no spawning, no state-file write.
 
-a. `PHANTOM_UNATTENDED` env unset → print
-   `QUEUE INACTIVE: session not armed — relaunch with PHANTOM_UNATTENDED=1 (see reference/unattended.md). Nothing polled, nothing spawned.`
-   and STOP. This is a HARD gate: the Phase-0 gate hooks must be live before any autonomous spawning — an unarmed session must refuse, not run ungated.
-b. config.yaml `queue.enabled` false or missing →
+a. config.yaml `queue.enabled` false or missing →
    `QUEUE INACTIVE: queue.enabled is false — nothing polled, nothing spawned.`
-c. config.yaml `jira.project` missing →
+b. config.yaml `jira.project` missing →
    `QUEUE INACTIVE: jira.project not configured — nothing polled, nothing spawned.`
-d. Atlassian MCP unavailable →
+c. Atlassian MCP unavailable →
    `QUEUE INACTIVE: Atlassian MCP unavailable — nothing polled, nothing spawned.`
 
 ## Step 1: Poll
@@ -66,7 +63,7 @@ ANY failure parks that ticket with a reason row and the pass continues with the 
 **Planner cap (interactive)**: before spawning background planners, count planners currently in flight — spawned by this coordinator, queue entry not yet appeared. At or over `queue.planner_max_concurrent` (config, default 3) → remaining tickets are reported `waiting (planner cap)` and picked up next pass. Never hardcode the operative number.
 
 a. `git fetch origin` in the source repo first.
-b. `bin/phantom-preflight --ticket <TICKET> --repo <repo-path> --json` — REPORT-ONLY. Exit non-zero → park with the failing check name. NEVER pass the arming flag here: arming is the session env set at launch, not per-ticket markers.
+b. `bin/phantom-preflight --ticket <TICKET> --repo <repo-path> --json` — REPORT-ONLY. Exit non-zero → park with the failing check name.
 c. Worktree: resolve `node -p "require('${CLAUDE_PLUGIN_ROOT}/scripts/lib/phantom-paths').worktreeDir('<TICKET>')"`, then `git worktree add <dir> -b feat/<ticket-lower> origin/<default-branch>`. Branch-exists / path collision / dirty source → park + print the cleanup hint (`git worktree remove <dir>`; `git branch -D feat/<ticket-lower>`).
 d. Spawn the Phase A planner:
    ```

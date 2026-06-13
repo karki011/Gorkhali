@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // marker-freshness.test.js — pins MARKER_FRESHNESS_MS as the single source for
 // the 12h freshness window. Asserts the default, env override, and — critically
-// — that none of the three consumer files contain a re-hardcoded literal.
+// — that the consumer file does not contain a re-hardcoded literal.
 // Zero external deps: node:test + node:assert + node:child_process + node:fs.
 'use strict';
 
@@ -60,12 +60,10 @@ test('garbage env value for MARKER_FRESHNESS_MS fails open to default', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Lockstep pin: none of the three consumer files may re-hardcode the literal.
-// If any does, a future drift would silently break the single-source guarantee.
+// Lockstep pin: the consumer file may not re-hardcode the literal.
+// If it does, a future drift would silently break the single-source guarantee.
 // ---------------------------------------------------------------------------
 const CONSUMERS = [
-  require.resolve('../hooks/fix-loop-gate.js'),
-  require.resolve('../hooks/unattended-guard.js'),
   require.resolve('../scripts/preflight.js'),
 ];
 

@@ -21,18 +21,7 @@
       "once": false,
       "priority": 15,
       "input": "stdin-json",
-      "description": "Enforces the fix-loop ceiling at the phantom:fix Skill boundary (deny in unattended mode, advisory in attended)"
-    },
-    {
-      "name": "unattended-guard",
-      "event": "PreToolUse",
-      "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|Read",
-      "script": "hooks/unattended-guard.js",
-      "enabled": true,
-      "once": false,
-      "priority": 16,
-      "input": "stdin-json",
-      "description": "Tripwire for unattended runs: denies destructive Bash patterns, sensitive Reads, and writes outside the active worktree / PHANTOM_DATA (no-op in attended sessions)"
+      "description": "Surfaces the fix-loop ceiling at the phantom:fix Skill boundary (advisory only; never denies)"
     },
     {
       "name": "apex-subagent-law",
