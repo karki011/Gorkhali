@@ -41,8 +41,9 @@ For any pattern with `[validated:5+]` that is technology-generic (not repo-speci
 
 For each learnings file that was modified this session, run:
 ```bash
-SCRIPTS="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts"
-if command -v python3 >/dev/null 2>&1 && [ -d "$SCRIPTS/compress" ]; then
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+SCRIPTS="$PR/scripts"
+if [ -n "$PR" ] && command -v python3 >/dev/null 2>&1 && [ -d "$SCRIPTS/compress" ]; then
   (cd "$SCRIPTS" && python3 -m compress <absolute_path>) || echo "Skipping caveman compress: compression unavailable."
 else
   echo "Skipping caveman compress: python3 or scripts/compress not available."

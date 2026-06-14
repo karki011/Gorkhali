@@ -11,7 +11,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 
 Human batch-approval gate for Mission Control. Reviews plans parked by `/phantom:start --to-plan`, approves or rejects them, and dispatches approved plans to background executors (Phase B).
 
-Queue layout: `<data>/repos/<repo>/approval-queue/{queued,approved,running,rejected}/<TICKET>.json` — resolve paths via `node -p "require('${CLAUDE_PLUGIN_ROOT}/scripts/lib/phantom-paths').queueEntryPath('<TICKET>','<state>')"` (entry schema: `reference/artifact-schemas.md` → Approval-Queue Entry). **Directory placement is the authoritative lifecycle state**; the `status` field inside the JSON is informational only. Every state transition is a `mv` within the same filesystem.
+Queue layout: `<data>/repos/<repo>/approval-queue/{queued,approved,running,rejected}/<TICKET>.json` — self-resolve the plugin dir env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }`), then resolve paths via `node -p "require('$PR/scripts/lib/phantom-paths').queueEntryPath('<TICKET>','<state>')"` (entry schema: `reference/artifact-schemas.md` → Approval-Queue Entry). **Directory placement is the authoritative lifecycle state**; the `status` field inside the JSON is informational only. Every state transition is a `mv` within the same filesystem.
 
 > **Invariants:** The coordinator NEVER writes inside a worktree — executor agents author all in-worktree changes. NEVER touch `<data>/state/queue-<repo>.json` — single-writer: `queue.md` owns it.
 
@@ -40,14 +40,14 @@ For each named ticket (or every `queued/` entry when `--all`):
 
 Concurrency cap = `queue.max_concurrent` from config.yaml. NEVER hardcode the operative number — `3` is only the config default, the config value rules.
 
-Resolve config.yaml FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading values via config-lite `readFlag`/`readString` semantics — this applies to EVERY config read in this skill. NEVER a bare/hardcoded `config.yaml` path.
+Self-resolve the plugin dir, then resolve config.yaml FIRST via `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }; node -p "require('$PR/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading values via config-lite `readFlag`/`readString` semantics — this applies to EVERY config read in this skill. NEVER a bare/hardcoded `config.yaml` path. Empty `$PR` aborts cleanly (the `[ -z "$PR" ]` guard) — never run `node "$PR/scripts/..."` with an empty `$PR`.
 
 1. Count entries in `running/` → current in-flight count.
 2. For each entry in `approved/` (oldest `approvedAt` first) while in-flight < cap:
    - **ATOMIC CLAIM**: rename `approved/<T>.json` → `running/<T>.json` BEFORE spawning, then add `"runStartedAt"` (ISO 8601) to the file. The rename IS the claim — an overlapping approve/queue pass that loses the race finds the source file gone and skips, so no entry can double-spawn.
    - Spawn the executor: Agent tool, `run_in_background: true`, `mode: "bypassPermissions"`, **`model: "sonnet"` (pinned — executors never inherit the top-tier session model)**, cwd = the entry's worktree, prompt:
 
-     > Execute the approved plan for <TICKET>: read `${CLAUDE_PLUGIN_ROOT}/commands/execute.md`, `verify.md`, `fix.md`, `wrap.md` and follow them as a procedure with `--chained` threading: execute → verify `--chained` (auto-fix loop, ceiling enforced by hooks) → wrap. The approval entry at `running/<T>.json` stands in for wrap's ship gate: DRAFT PR only. Plan at <planRef>.
+     > Execute the approved plan for <TICKET>: self-resolve the plugin dir env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`), then read `$PR/commands/execute.md`, `verify.md`, `fix.md`, `wrap.md` and follow them as a procedure with `--chained` threading: execute → verify `--chained` (auto-fix loop, ceiling enforced by hooks) → wrap. The approval entry at `running/<T>.json` stands in for wrap's ship gate: DRAFT PR only. Plan at <planRef>.
 
    - Increment in-flight.
 3. Over cap → the entry STAYS in `approved/`; report it as `waiting (cap {queue.max_concurrent})`. A later approve/queue pass picks it up — no entry is lost by waiting.

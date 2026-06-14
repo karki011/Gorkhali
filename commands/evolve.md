@@ -31,7 +31,7 @@ Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 - mode: `bypassPermissions`
 
 **Ward prompt must include:**
-- Script path: `${CLAUDE_PLUGIN_ROOT}/scripts/evolution-runner.js`
+- Script path: `{PLUGIN_ROOT}/scripts/evolution-runner.js` — self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; evolution skipped"; exit 0; }`, use `$PR/scripts/evolution-runner.js` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
 - Flag: `--dry-run` if user requested preview, otherwise no flag
 - Instructions to run the script and capture full output
 - Instructions to return structured report:

@@ -12,6 +12,6 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 1. Invoke `/phantom:queue` for ONE pass — reuse it, do not reimplement gates/poll/dedup/spawn/reap. Pass `--status` through if present.
 2. After the pass, print ONE line: that it ran one pass, and how to keep looping —
 
-   > Ran one pass. To keep looping: `/loop /phantom:loop` (local terminal) · a `/schedule` routine running `/phantom:loop` (cloud) · `phantom-loop install-autolaunch` (launchd). This never self-launches `/loop`.
+   > Ran one pass. To keep looping: `/loop /phantom:loop`. This never self-launches `/loop`.
 
 `/phantom:q` is the alias of this skill — identical behavior.

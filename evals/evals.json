@@ -373,12 +373,12 @@
       "kind": "convention",
       "skill": "phantom:start",
       "prompt": "where do the phantom coding principles and base agent protocol live? print the paths",
-      "setup": "Plugin installed natively (CLAUDE_PLUGIN_ROOT is set by Claude Code). The flow does not touch the learn/compress path.",
+      "setup": "Plugin installed natively at ~/.claude/plugins/cache/phantom/phantom/<version>/. CLAUDE_PLUGIN_ROOT is NOT relied on by skills/agents (it is reserved for hooks/hooks.json only). The flow does not touch the learn/compress path.",
       "expected_check": {
         "type": "regex",
-        "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)[\\s\\S]*\\$\\{CLAUDE_PLUGIN_ROOT\\}"
+        "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)(?![\\s\\S]*CLAUDE_PLUGIN_ROOT)[\\s\\S]*plugins/cache/phantom/phantom/\\*?/"
       },
-      "expected_behavior": "All plugin paths in the response use ${CLAUDE_PLUGIN_ROOT}; the legacy ~/.claude/phantom literal never appears. The only allowed literals are the executable shell-guard fallbacks in commands/learn.md and reference/wrap/learnings.md, which this flow does not invoke"
+      "expected_behavior": "The response resolves the plugin dir env-free by globbing ~/.claude/plugins/cache/phantom/phantom/*/ (e.g. `ls -dt ...plugins/cache/phantom/phantom/*/ | head -1`) and prints {PLUGIN_ROOT}/reference/coding-principles.md and {PLUGIN_ROOT}/reference/_base-agent.md from it. It must NOT depend on the CLAUDE_PLUGIN_ROOT env var (that string never appears) and must NOT use the legacy ~/.claude/phantom literal"
     }
   ]
 }

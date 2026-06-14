@@ -13,7 +13,7 @@ user-invocable: false
 
 Run validation scripts to check shadows guidance compliance. Layers: `plan`, `output`, `session`, `all`.
 
-**Scripts location:** `${CLAUDE_PLUGIN_ROOT}/scripts/`
+**Scripts location:** `{PLUGIN_ROOT}/scripts/` — self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; validation skipped"; exit 0; }` (gate-critical — the validate scripts ARE the skill; empty `$PR` aborts readable, never `$PR/scripts/...` with an empty `$PR`)
 
 ---
 
@@ -58,7 +58,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 ### Layer: `plan`
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+$PR/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
 ```
 
 Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
@@ -66,7 +66,7 @@ Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedba
 ### Layer: `output`
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/validate-output.sh <agent-name> "<file1>,<file2>" /path/to/project
+$PR/scripts/validate-output.sh <agent-name> "<file1>,<file2>" /path/to/project
 ```
 
 Checks: file ownership violations, copyright headers, inline hex/px values, barrel exports, filename conventions.
@@ -74,7 +74,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 ### Layer: `session`
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+$PR/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
 ```
 
 Checks: required fields, phase/task status enums, verification block after verify phase, visual verification block when visualVerify: true, loop count bounds, board JSON freshness.

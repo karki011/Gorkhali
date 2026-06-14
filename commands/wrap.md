@@ -77,8 +77,9 @@ Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead
 Close the ticket's cost interval and report total AI spend (never blocks the wrap if it fails):
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js close {TICKET}
-node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-report.js {TICKET}
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}
+[ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}
 ```
 
 Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report's `Total:`). Telemetry batches ~60s, so the figure may trail the last minute of work.

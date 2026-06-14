@@ -18,7 +18,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 2. **Load plan**: Read `{TEAM_DIR}/sessions/{TICKET}/plan.json`
    - If missing: "No plan found. Run `/phantom:start` first."
-   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints plan-loaded` (advisory; resume reads latest).
+   Checkpoint (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`): `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded` (advisory; resume reads latest; empty `$PR` skips silently).
 
 3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
@@ -43,7 +43,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
 
-   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints dispatch-wave-complete` (advisory; resume reads latest).
+   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete` (advisory; resume reads latest; empty `$PR` skips silently).
 
 7. **Deactivate blade marker**: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 
@@ -83,7 +83,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 <no_git_until_wrap>
 
-   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints execution-json-written` (advisory; resume reads latest).
+   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written` (advisory; resume reads latest; empty `$PR` skips silently).
 
 9. **No git operations.** All work is local until wrap.
 

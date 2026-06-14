@@ -11,16 +11,12 @@ export PHANTOM_DATA
 : "${PHANTOM_GLOBAL_PATTERNS_DIR:=$PHANTOM_DATA/global/patterns}"
 export PHANTOM_STATE_DIR PHANTOM_AUDIT_DIR PHANTOM_GLOBAL_PATTERNS_DIR
 
-# Plugin root: CLAUDE_PLUGIN_ROOT (guaranteed in plugin context); else
-# script-relative — this lib lives at <root>/scripts/lib/, so root is two
-# levels up. ${BASH_SOURCE:-$0}: bash sets BASH_SOURCE when sourced; zsh's
-# $0 is the sourced file. cd runs in a subshell; empty on failure, never errors.
+# Plugin root: script-relative self-location (env-free) — this lib lives at
+# <root>/scripts/lib/, so root is two levels up. ${BASH_SOURCE:-$0}: bash sets
+# BASH_SOURCE when sourced; zsh's $0 is the sourced file. cd runs in a subshell;
+# empty on failure, never errors.
 if [ -z "${PHANTOM_PLUGIN_ROOT:-}" ]; then
-  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-    PHANTOM_PLUGIN_ROOT=$CLAUDE_PLUGIN_ROOT
-  else
-    PHANTOM_PLUGIN_ROOT=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE:-$0}")/../.." 2>/dev/null && pwd)
-  fi
+  PHANTOM_PLUGIN_ROOT=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE:-$0}")/../.." 2>/dev/null && pwd)
 fi
 export PHANTOM_PLUGIN_ROOT
 

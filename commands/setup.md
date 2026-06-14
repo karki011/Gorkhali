@@ -10,7 +10,9 @@ description: "Use to initialize or re-initialize Phantom after a plugin install 
 Run the setup wizard from the install dir:
 
 ```bash
-SETUP="${CLAUDE_PLUGIN_ROOT}/setup.sh"
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 1; }
+SETUP="$PR/setup.sh"
 if [ ! -f "$SETUP" ]; then
   echo "Phantom setup.sh not found at: $SETUP"
   echo "Run /phantom:setup from inside Claude Code with the Phantom plugin installed, or use the git-clone install (see README)."

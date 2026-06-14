@@ -5,20 +5,29 @@
 ## Governance
 
 1. Read repo `AGENTS.md` + `.claude/rules/`
-2. Coding principles (first found): repo `.claude/rules/coding-principles.md` → `${CLAUDE_PLUGIN_ROOT}/reference/coding-principles.md` → defaults
+2. Coding principles (first found): repo `.claude/rules/coding-principles.md` → `{PLUGIN_ROOT}/reference/coding-principles.md` → defaults
 
 <context>
 
 ## Paths
 
 ```
-PLUGIN_ROOT = ${CLAUDE_PLUGIN_ROOT}   # guaranteed by Claude Code for plugin-loaded commands/agents/hooks
-              # legacy `install.sh --legacy` symlink installs run OUTSIDE plugin context (var unset there):
-              # resolve to the clone dir instead — ${PHANTOM_INSTALL_DIR:-~/.claude/phantom}
-              # EXCEPTION: commands/learn.md + reference/wrap/learnings.md keep the literal
-              # ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom} fallback INTENTIONALLY — they are
-              # executable shell guards (bash cannot resolve prose conventions), and the fallback
-              # keeps caveman-compress working on legacy clone installs. Do NOT change those two.
+PLUGIN_ROOT = self-resolved, env-free (deterministic). Bash bootstrap:
+              PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+              then: node -p "require('$PR/scripts/...')"  (or node "$PR/scripts/...", etc.)
+              NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/phantom} —
+              pure self-resolve. (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it
+              at hook-exec — the one reliable surface; nothing else relies on the env var.)
+
+              EMPTY-GUARD (REQUIRED — fresh machine / dev clone has no cache dir, so $PR resolves EMPTY;
+              an unguarded `node "$PR/scripts/..."` then becomes `node "/scripts/..."` → MODULE_NOT_FOUND crash).
+              Every copy of the bootstrap MUST include one of two guards, by context:
+                • GATE-CRITICAL (config/queue/path resolution that must succeed) — fail READABLE, never crash:
+                    [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+                  (queue.md uses the INACTIVE-style variant: "QUEUE INACTIVE: phantom plugin dir not resolvable — run /plugin to install. Nothing polled, nothing spawned.")
+                • ADVISORY (checkpoints, cost-link, cost-report, compress — already 'never error / never blocks') — SKIP SILENTLY:
+                    [ -n "$PR" ] && node "$PR/scripts/..."
+                  (run only when $PR is non-empty; empty → no-op, the surrounding flow continues.)
 
 Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
 {TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in reference/verification.md

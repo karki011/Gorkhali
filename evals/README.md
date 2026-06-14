@@ -69,7 +69,7 @@ done
 
 ## Adding New Evals
 
-1. Read the target skill's command file in `${CLAUDE_PLUGIN_ROOT}/commands/`
+1. Read the target skill's command file in `{PLUGIN_ROOT}/commands/` (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found — run /plugin to install"; exit 0; }`)
 2. Note the `description` field — that's what the skill router uses for matching
 3. Write 2 trigger prompts (one casual, one formal) and 1 near-miss
 4. Add to `evals.json` with the next available `id`

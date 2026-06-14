@@ -32,7 +32,7 @@ Stop Signal: [only if action=stop -- explain why]
 
 ## Decision Framework
 
-Apply coding principles from repo's `.claude/rules/coding-principles.md` or `${CLAUDE_PLUGIN_ROOT}/reference/coding-principles.md`. Priority: KISS > codebase-first > smallest blast radius.
+Apply coding principles from repo's `.claude/rules/coding-principles.md` or `{PLUGIN_ROOT}/reference/coding-principles.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/coding-principles.md"` — empty `$PR` skips the read silently). Priority: KISS > codebase-first > smallest blast radius.
 
 ## What You Receive
 

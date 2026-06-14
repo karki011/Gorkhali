@@ -113,18 +113,6 @@ test('queue.md: mandates resolveConfigPath for config reads', () => {
   );
 });
 
-test('queue.md: contains PHANTOM_QUEUE_HEADLESS contract with foreground planners', () => {
-  const content = read('commands/queue.md');
-  assert.ok(
-    content.includes('PHANTOM_QUEUE_HEADLESS'),
-    'commands/queue.md must contain the PHANTOM_QUEUE_HEADLESS headless contract'
-  );
-  assert.ok(
-    /foreground/i.test(content),
-    'commands/queue.md headless contract must mandate FOREGROUND planner spawns'
-  );
-});
-
 test('queue.md: contains planner_max_concurrent interactive planner cap', () => {
   const content = read('commands/queue.md');
   assert.ok(
@@ -133,11 +121,11 @@ test('queue.md: contains planner_max_concurrent interactive planner cap', () => 
   );
 });
 
-test('queue.md: launch instructions lead with phantom-loop', () => {
+test('queue.md: launch instructions lead with /phantom:loop', () => {
   const content = read('commands/queue.md');
   assert.ok(
-    content.includes('phantom-loop'),
-    'commands/queue.md launch instructions must lead with the phantom-loop launcher'
+    content.includes('/phantom:loop'),
+    'commands/queue.md launch instructions must lead with the /phantom:loop entry'
   );
 });
 
@@ -246,18 +234,6 @@ test('config.yaml.example: queue section declares planner_max_concurrent', () =>
   assert.ok(
     content.includes('planner_max_concurrent'),
     'config.yaml.example must declare planner_max_concurrent in the queue section'
-  );
-});
-
-// ---------------------------------------------------------------------------
-// reference/headless-probe.md
-// ---------------------------------------------------------------------------
-
-test('headless-probe.md: mandates resolveConfigPath in prerequisites', () => {
-  const content = read('reference/headless-probe.md');
-  assert.ok(
-    content.includes('resolveConfigPath'),
-    'reference/headless-probe.md must mandate config-lite resolveConfigPath — never a bare config.yaml path'
   );
 });
 

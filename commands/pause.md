@@ -57,10 +57,11 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
 
 7. **Close cost interval + report**:
    ```bash
-   node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js close {TICKET}
-   node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-report.js {TICKET}
+   PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+   [ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}
+   [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}
    ```
-   Include the report's `Total:` line in the pause summary. Never block the pause if it fails.
+   Include the report's `Total:` line in the pause summary. Never block the pause if it fails. Empty `$PR` (no plugin cache) → the `[ -n "$PR" ]` guards skip both silently; the pause still completes.
 
 **Running workflow + pause.** A Claude Code dynamic workflow does NOT survive exiting Claude Code —
 it restarts fresh next session (per docs), and `phantom:resume` cannot restore an in-flight run.

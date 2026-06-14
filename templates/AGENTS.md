@@ -31,4 +31,4 @@ Plan (Apex) → Challenge (Rival) → Build (Blade) → Verify (Ward) → Simpli
 
 ## Configuration
 
-See `${CLAUDE_PLUGIN_ROOT}/` for full skill system.
+See the installed plugin dir for the full skill system (self-resolve: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && echo "phantom: plugin dir not found — run /plugin to install"`).

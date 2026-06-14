@@ -17,7 +17,7 @@ Mission Control coordinator: ONE poll pass — gates → poll → dedup → spaw
 
 ONE poll pass per invocation. Recurrence comes from the user-run `/loop` wrapper — this skill NEVER launches `/loop` itself (validated learning: skills cannot self-launch loops/workflows). Every report — active or INACTIVE — ends with this literal launch instruction block:
 
-> To run the coordinator (local + headless + cloud): `/phantom:loop` (alias `/phantom:q`) — runs one pass and prints the recurrence command for your environment. Recur per environment: local terminal `/loop /phantom:loop`; cloud (claude.ai/code) a `/schedule` routine running `/phantom:loop` on a cron interval; headless/launchd `phantom-loop install-autolaunch`. Local power-user optimization (caffeinate + launchd): `phantom-loop` (one word — launches the coordinator terminal); token-free dashboard `phantom-loop status`. Manual fallback: type `/loop /phantom:queue` in a running session.
+> To run the coordinator: `/phantom:loop` (alias `/phantom:q`) — runs one pass and prints the recurrence command. Recur with `/loop /phantom:loop`. Manual fallback: type `/loop /phantom:queue` in a running session.
 
 **Visibility**: every planner (and later executor) appears in Claude Code's agents view — status bar `← for agents` — open any to watch it live. The coordinator session itself can be sent to the background with `/background` to free the terminal, and revisited from the same list.
 
@@ -25,7 +25,7 @@ The coordinator NEVER writes inside any worktree — planner agents author all i
 
 ## Step 0: Hard Gates (fail-safe — check in order, first failure wins)
 
-Before reading ANY config value: resolve the config path FIRST via `node -p "require(process.env.CLAUDE_PLUGIN_ROOT + '/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading flags via config-lite `readFlag`/`readString` semantics. NEVER a bare/hardcoded `config.yaml` path — reading the legacy file directly once made a coordinator go falsely INACTIVE.
+Before reading ANY config value: self-resolve the plugin dir, then resolve the config path FIRST via `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "QUEUE INACTIVE: phantom plugin dir not resolvable — run /plugin to install. Nothing polled, nothing spawned."; exit 0; }; node -p "require('$PR/scripts/lib/config-lite.js').resolveConfigPath()"` (resolution order: `PHANTOM_CONFIG` env → `${PHANTOM_DATA}/config.yaml` → legacy `~/.claude/phantom/config.yaml`), reading flags via config-lite `readFlag`/`readString` semantics. NEVER a bare/hardcoded `config.yaml` path — reading the legacy file directly once made a coordinator go falsely INACTIVE. **Empty `$PR` is a hard gate** (gate 0): the `[ -z "$PR" ]` check above STOPS cleanly with the INACTIVE line — never proceed into config resolution with an empty `$PR` (would make `node "$PR/scripts/..."` → `node "/scripts/..."` → MODULE_NOT_FOUND).
 
 `--status` in $ARGUMENTS → skip gates (a)-(c), read-only: render the Step 5 report from the queue dirs + state file, then stop. No polling, no spawning, no state-file write.
 
@@ -50,7 +50,7 @@ Status name ALWAYS from config (`queue.jira_status`) — never hardcode it. Veri
 
 Skip any ticket that has:
 
-- an entry in ANY of `queued/` `approved/` `running/` `rejected/` — resolve per state via `node -p "require('${CLAUDE_PLUGIN_ROOT}/scripts/lib/phantom-paths').queueEntryPath('<TICKET>','<state>')"` (states from `QUEUE_STATES`), OR
+- an entry in ANY of `queued/` `approved/` `running/` `rejected/` — resolve per state via `node -p "require('$PR/scripts/lib/phantom-paths').queueEntryPath('<TICKET>','<state>')"` (`$PR` = the self-resolved plugin dir from Step 0; states from `QUEUE_STATES`), OR
 - an existing `sessions/<TICKET>/` dir, OR
 - a parked record in `<data>/state/queue-<repo>.json` (see Step 4).
 
@@ -64,7 +64,7 @@ ANY failure parks that ticket with a reason row and the pass continues with the 
 
 a. `git fetch origin` in the source repo first.
 b. `bin/phantom-preflight --ticket <TICKET> --repo <repo-path> --json` — REPORT-ONLY. Exit non-zero → park with the failing check name.
-c. Worktree: resolve `node -p "require('${CLAUDE_PLUGIN_ROOT}/scripts/lib/phantom-paths').worktreeDir('<TICKET>')"`, then `git worktree add <dir> -b feat/<ticket-lower> origin/<default-branch>`. Branch-exists / path collision / dirty source → park + print the cleanup hint (`git worktree remove <dir>`; `git branch -D feat/<ticket-lower>`).
+c. Worktree: resolve `node -p "require('$PR/scripts/lib/phantom-paths').worktreeDir('<TICKET>')"` (`$PR` = the self-resolved plugin dir from Step 0), then `git worktree add <dir> -b feat/<ticket-lower> origin/<default-branch>`. Branch-exists / path collision / dirty source → park + print the cleanup hint (`git worktree remove <dir>`; `git branch -D feat/<ticket-lower>`).
 d. Spawn the Phase A planner:
    ```
    Agent call:
@@ -74,22 +74,11 @@ d. Spawn the Phase A planner:
      # model omitted — inherits the session model
      # cwd = the ticket's worktree; PHANTOM_REPO=<repo> is conceptually per-spawn — record the repo in the prompt
      prompt: |
-       Read ${CLAUDE_PLUGIN_ROOT}/commands/start.md and execute it as a procedure for <TICKET> --to-plan. Never ask the user questions — pick recommended defaults and record every assumption. You are in the ticket's worktree; the queue entry write and EXIT protocol are defined in start.md's '## Mode: --to-plan' section.
+       Self-resolve the plugin dir env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`), then read $PR/commands/start.md and execute it as a procedure for <TICKET> --to-plan. Never ask the user questions — pick recommended defaults and record every assumption. You are in the ticket's worktree; the queue entry write and EXIT protocol are defined in start.md's '## Mode: --to-plan' section.
        Repo: <repo> (PHANTOM_REPO).
    ```
 
 The COORDINATOR never writes inside any worktree — planner agents author all in-worktree artifacts.
-
-### Headless Contract (`PHANTOM_QUEUE_HEADLESS=1`)
-
-When env `PHANTOM_QUEUE_HEADLESS=1` (a `claude -p` scheduled pass — the pass IS the process):
-
-- Planner spawns run FOREGROUND — no `run_in_background`; background agents die at process exit.
-- Reap (Step 4) completes within the same pass.
-- Per-pass planner cap = min(`queue.max_concurrent`, 2).
-- Pass start touches `${PHANTOM_DATA}/state/queue-last-pass` (the status tripwire marker).
-
-Interactive (`/loop`) mode unchanged: background planners.
 
 ## Step 4: Reap Prior Spawns
 

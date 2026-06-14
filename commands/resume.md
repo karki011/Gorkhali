@@ -24,10 +24,10 @@ Resume from a paused session by reading the state artifact.
      Ask: "Continue from saved state or start fresh?"
 </staleness_check>
 
-3.5. **Link session to cost ledger** (silent, never blocks):
-   `node ${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/phantom}/scripts/cost-link.js open {TICKET}`
+3.5. **Link session to cost ledger** (silent, never blocks; self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`):
+   `[ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}`
 
-   Checkpoint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lib/checkpoint.js write {SESSION_DIR}/checkpoints resume-restore` (advisory; resume reads latest). If `{SESSION_DIR}/checkpoints/` exists, read latest via `latest` sub-command first; MISSING or empty checkpoints → fall back to existing artifact discovery, never error.
+   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints resume-restore` (advisory; resume reads latest; empty `$PR` skips silently). If `{SESSION_DIR}/checkpoints/` exists, read latest via `latest` sub-command first; MISSING or empty checkpoints → fall back to existing artifact discovery, never error.
 
 4. **Restore context** from artifact paths:
    - Read `intent.json` (from `intent` field)

@@ -102,10 +102,10 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 ## Folder Structure
 
-Repo root (the plugin install root, `CLAUDE_PLUGIN_ROOT`):
+Repo root (the plugin install root). Skills/agents self-resolve it env-free (deterministic) — `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }` (the empty-guard makes a fresh machine / dev clone fail readable instead of crashing on `node "/scripts/..."`) — never via `CLAUDE_PLUGIN_ROOT` (that env var is used ONLY inside `hooks/hooks.json`, where Claude Code substitutes it at hook-exec):
 
 ```
-${CLAUDE_PLUGIN_ROOT}/           # plugin root
+{PLUGIN_ROOT}/           # plugin root (self-resolved as above)
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
@@ -230,7 +230,7 @@ git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
 ~/.claude/phantom/setup.sh
 ```
 
-> **Note:** `/phantom:setup` needs the plugin context (`CLAUDE_PLUGIN_ROOT` populated) or an existing git-clone install at `~/.claude/phantom`. A bare-terminal copy-paste with neither will not find `setup.sh` and exits with a helpful error.
+> **Note:** `/phantom:setup` finds `setup.sh` by self-locating from the running script (`BASH_SOURCE`) or self-resolving the install in `~/.claude/plugins/cache/phantom/phantom/*/`. A bare-terminal copy-paste with neither present will not find `setup.sh` and exits with a helpful error.
 
 **Previously used the legacy symlink install?** That flow registered 5 Phantom hooks in `~/.claude/settings.json` with absolute paths. The plugin's `hooks/hooks.json` now owns those same hooks, so to avoid double-firing, those legacy entries must be removed:
 

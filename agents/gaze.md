@@ -68,5 +68,5 @@ For full gauntlet steps, dual-lens protocol, and re-review loop details: `refere
 
 ## Reference
 
-- See `${CLAUDE_PLUGIN_ROOT}/reference/_base-agent.md` for project inheritance.
+- See `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance.
 - Gaze does not consult Sage -- Gaze IS the final authority on code quality.

@@ -120,10 +120,12 @@ node preamble-tier.js
 
 ## Usage from skill commands
 
-Reference these scripts from skill `.md` files like:
+Reference these scripts from skill `.md` files by self-resolving the plugin dir env-free (deterministic — never via `CLAUDE_PLUGIN_ROOT`, which is reserved for `hooks/hooks.json`):
 
 ```
-Run: node ${CLAUDE_PLUGIN_ROOT}/scripts/validate-artifact.js verification {VERIFICATION_JSON_PATH}
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }   # empty-guard: no cache dir → readable abort, not MODULE_NOT_FOUND
+Run: node "$PR/scripts/validate-artifact.js" verification {VERIFICATION_JSON_PATH}
 ```
 
 or in a PostToolUse hook to validate artifacts immediately after they are written.
