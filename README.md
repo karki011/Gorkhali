@@ -3,7 +3,7 @@
 **Author: Subash Karki**
 
 > Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
-> Say `/phantom arise` and they answer.
+> Say `/phantom:recruit` — "Arise!" — and they answer.
 
 ## What It Does
 
@@ -188,7 +188,7 @@ Fable 5 (`claude-fable-5`, the recommended session model) is a step change on lo
 | `/phantom:review` | — | Trigger Gaze quality gate |
 | `/phantom:visual` | — | Trigger Lens visual inspection |
 | `/phantom:scout` | — | Background research agents |
-| `/phantom:arise` | — | Spawn specialist agent (role focus) |
+| `/phantom:recruit` | — | Spawn specialist agent (role focus) |
 | `/phantom:grill` | — | Quiz yourself on the diff before shipping |
 | `/phantom:contract` | — | Create contract (feature/api/testing/ui/fix) |
 | `/phantom:execute` | — | Execute a saved plan |

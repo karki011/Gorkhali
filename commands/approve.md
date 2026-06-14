@@ -1,6 +1,6 @@
 ---
 name: phantom:approve
-description: "Use when reviewing, approving, or rejecting queued Mission Control plans. Also use when user says 'approve', 'what's queued', or 'review the queue'."
+description: "Use when approving or rejecting queued Mission Control plans. Also use when user says 'approve the queue', 'approve the plans', 'what's queued', or 'reject this ticket'. NOT for code review of a diff — use phantom:review."
 argument-hint: "<TICKET|--all> [--reject <TICKET> --reason <text>]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---

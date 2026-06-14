@@ -363,11 +363,7 @@
     </div>
     <div class="score-bar"><div class="fill s90" style="width: 93%"></div></div>
     <ul class="strengths">
-      <li><strong>NEW:</strong> Unified <code>hook-router.js</code> (115 lines) — config-driven dispatch</li>
-      <li><strong>NEW:</strong> <code>hooks-config.json</code> — declarative registry for all 7 hooks</li>
-      <li><strong>NEW:</strong> <code>once: true</code> support with session state tracking</li>
-      <li><strong>NEW:</strong> <code>--list</code> and <code>--dry-run</code> flags for introspection</li>
-      <li>Local override via <code>hooks-config.local.json</code></li>
+      <li>Native Claude Code plugin hooks via <code>hooks/hooks.json</code></li>
     </ul>
   </div>
 
@@ -474,10 +470,10 @@
 
 <div class="roadmap-item">
   <div class="ri-header">
-    <span class="ri-title">3. Unified Hook Router — DEPLOYED</span>
+    <span class="ri-title">3. Native Plugin Hooks — DEPLOYED</span>
     <span class="tag tag-done">DONE</span>
   </div>
-  <p><code>hooks/hook-router.js</code> (115 lines) + <code>hooks-config.json</code> (82 lines). Config-driven dispatch, <code>once: true</code> with session state tracking, <code>--list</code>/<code>--dry-run</code> flags, local override via <code>.local.json</code>. Handles 3 input conventions (arg1/arg2/stdin JSON). (Hooks: 82 → 93)</p>
+  <p><code>hooks/hooks.json</code> — native Claude Code plugin hook config wiring PreToolUse/SubagentStop/UserPromptSubmit/PreCompact/Stop events directly to hook scripts.</p>
 </div>
 
 <div class="roadmap-item">

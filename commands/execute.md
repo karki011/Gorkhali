@@ -1,7 +1,8 @@
 ---
 name: phantom:execute
-description: "Use when a plan is already ready and you want to run it — dispatch agents, kick off implementation, or start execution. Also use when user says 'run the plan', 'start executing', 'go', 'let's do it', 'dispatch agents', or 'implement now'. NOT for new work without a plan — use phantom:start instead."
+description: "Use when an APPROVED plan already exists and you want to run it — dispatch the agents the plan defined and execute its waves. Also use when user says 'run the approved plan', 'run the plan', 'dispatch the agents', or 'execute the plan'. NOT for net-new work without a plan (use phantom:start) and NOT to continue a prior session (use phantom:resume)."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+# Broad/imperative triggers ('go', 'let's do it') are intentionally muted by user-invocable:false — execute is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety: a bare 'go' would auto-dispatch agents.
 user-invocable: false
 ---
 

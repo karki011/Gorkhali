@@ -45,7 +45,7 @@ module.exports = {
   LEARNING_REMOVE_DAYS: numFromEnv('PHANTOM_LEARNING_REMOVE_DAYS', 60),
   LEARNING_DISTILL_CAP: numFromEnv('PHANTOM_LEARNING_DISTILL_CAP', 50),
 
-  // hook-router per-hook timeout default, in SECONDS (parity with hooks.json `timeout`).
+  // Per-hook timeout default, in SECONDS (parity with hooks.json `timeout`).
   DEFAULT_HOOK_TIMEOUT_SECONDS: 10,
 
   // Preflight blast-radius ceiling: max unique plan.json files for an autonomous run.

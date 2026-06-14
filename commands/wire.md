@@ -3,6 +3,7 @@ name: phantom:wire
 description: "Map dependency topology from approved plan — wave assignments, integration points, risk detection. Use after plan approval on FULL route or optionally on PLAN route (>5 files). Also use when user says 'wire it', 'show dependencies', 'what order', or 'map the topology'."
 argument-hint: "[TICKET]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+# Generic triggers ('what order', 'show dependencies') are intentionally muted by user-invocable:false — wire is dispatched after plan approval, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety.
 user-invocable: false
 ---
 

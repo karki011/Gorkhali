@@ -3,6 +3,7 @@ name: phantom:brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
 argument-hint: "<requirement or problem statement> [--council|--simple]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+# Generic triggers ('explore options', 'let's think about this') are intentionally muted by user-invocable:false — brainstorm is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety (it would over-fire on casual "let's think" prose).
 user-invocable: false
 ---
 

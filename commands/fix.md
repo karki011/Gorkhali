@@ -1,6 +1,6 @@
 ---
 name: phantom:fix
-description: "Use when verification failed, tests broke, build errors occurred, lint issues found, or CI is red — and the root cause is known or narrowed down. Also use when user says 'fix it', 'it's broken', 'tests failing', 'build failed', 'errors', 'something broke', or 'make it pass'. NOT for investigation — use phantom:hound when you need to find the cause first. Triages failures, assigns scoped repairs, re-verifies. Loop ceiling owned by hooks/loop-controller.js."
+description: "Use when verification just failed inside an active phantom session — tests broke, build failed, lint issues, or CI went red and the failing step is known. Repairs a KNOWN failure; it does not start net-new work. Also use when user says 'fix the failing test', 'tests failing', 'build failed', or 'make it pass'. NOT for cold-start 'fix X' requests (those route to phantom:start) and NOT for unknown causes (use phantom:hound to investigate first). Triages failures, assigns scoped repairs, re-verifies. Loop ceiling owned by hooks/loop-controller.js."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 

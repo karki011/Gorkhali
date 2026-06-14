@@ -1,6 +1,6 @@
 ---
 name: phantom:health
-description: "Use when something seems wrong with the Phantom system, learnings are stale, sessions are corrupted, or artifacts are missing. Diagnoses knowledge layer health — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is the Phantom broken', 'check health', 'diagnose', or 'something is wrong'."
+description: "Use when the Phantom SYSTEM ITSELF seems broken — learnings index is stale, sessions are corrupted, or artifacts are missing. Diagnoses the knowledge layer — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is phantom broken', 'is the phantom broken', 'phantom seems broken', 'check phantom health', or 'diagnose phantom'. NOT for broken user code (use phantom:fix for known failures, phantom:hound to investigate unknown ones)."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only

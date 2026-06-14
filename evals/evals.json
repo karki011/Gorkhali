@@ -159,21 +159,21 @@
 
     {
       "id": 22,
-      "skill": "phantom:arise",
+      "skill": "phantom:recruit",
       "prompt": "I need an accessibility specialist to audit the new currency picker — focus on keyboard nav and screen reader support",
       "should_trigger": true,
       "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Blade with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
     },
     {
       "id": 23,
-      "skill": "phantom:arise",
+      "skill": "phantom:recruit",
       "prompt": "get me a performance expert to look at why the billing dashboard is loading slowly — I want someone focused on bundle size and render cost",
       "should_trigger": true,
       "expected_behavior": "Parse role focus as 'performance specialist', spawn Blade to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
     },
     {
       "id": 24,
-      "skill": "phantom:arise",
+      "skill": "phantom:recruit",
       "prompt": "do a code review of the currency formatter",
       "should_trigger": false,
       "expected_behavior": "Should route to phantom:review — a general code review is Gaze's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."

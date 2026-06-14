@@ -2,6 +2,7 @@
 name: phantom:contract
 description: "Use when you need to define scope, write an interface contract, or create acceptance criteria before implementation. Creates structured contracts from templates (feature/api/testing/ui/fix) that agents must satisfy. Also use when user says 'define the interface', 'what are the requirements', 'scope this', or 'acceptance criteria'."
 argument-hint: "<type>"
+# Generic triggers ('scope this', 'what are the requirements') are intentionally muted by user-invocable:false — contract is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety.
 user-invocable: false
 ---
 

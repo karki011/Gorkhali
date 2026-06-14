@@ -1,6 +1,6 @@
 ---
 name: phantom:verify
-description: "Use when checking if code works, running tests, verifying changes, or before claiming work is done. Also use when user says 'does it pass', 'run tests', 'check the build', 'lint it', 'is it working', or 'test this'. Runs correctness checks (lint + build + tests) then a power level for quality."
+description: "Use to RUN correctness checks — execute the tests, build, and lint and observe whether they pass. Also use when user says 'run the tests', 'does it pass', 'check the build', 'lint it', 'run verification', or 'is the build green'. NOT for repairing a known failure (use phantom:fix), code-quality review (use phantom:review), or requirements coverage (use phantom:validate). Runs correctness checks (lint + build + tests) then a power level for quality."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: phantom:eval
 description: "Use when you want to evaluate how well the agents performed, score the session quality, or review shadows effectiveness. Produces a rubric-based evaluation of agent outputs, coordination, and outcome quality. Also use when user says 'how did that go', 'rate the work', 'score this session', or 'performance review'."
+# Conversational triggers ('how did that go') are intentionally muted by user-invocable:false — eval is an orchestration step, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety ('how did that go' is filler that would over-fire if invocable).
 user-invocable: false
 ---
 

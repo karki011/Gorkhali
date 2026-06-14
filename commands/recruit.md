@@ -1,13 +1,13 @@
 ---
-name: phantom:arise
-description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, audit, or focused coding job. Spawns a Blade agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer', 'accessibility expert', 'performance auditor', 'security reviewer'). Also use when user says 'spawn an agent', 'I need help with', 'get someone to', 'specialist for', 'expert on', or 'audit this'."
+name: phantom:recruit
+description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, audit, or focused coding job. Spawns a Blade agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer', 'accessibility expert', 'performance auditor', 'security reviewer'). Also use when user says 'spawn an agent', 'spawn a specialist', 'get a specialist for', 'expert on', or 'audit this with an agent'. NOT for generic 'I need help' — net-new work routes to phantom:start."
 argument-hint: "<role-focus>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---
 
 > **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
 
-# /phantom:arise $ARGUMENTS
+# /phantom:recruit $ARGUMENTS
 
 > **Note:** The previous ally recruitment system has been replaced. Apex now spawns Blade agents with specific ROLE FOCUS directives for specialized work.
 

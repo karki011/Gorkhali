@@ -1,8 +1,9 @@
 ---
 name: phantom:validate
-description: "Use when you want to check plan completeness, verify outputs match contracts, or audit whether the session covered all requirements. Also use when user says 'is this complete', 'did we miss anything', 'sanity check', or 'check against requirements'. NOT for code quality review (use phantom:review) or test runs (use phantom:verify)."
+description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy the contracts/requirements. Also use when user says 'validate the session', 'check outputs against the contract', or 'did we cover all the requirements'. NOT for code quality review (use phantom:review), test/build runs (use phantom:verify), or repairing failures (use phantom:fix)."
 argument-hint: "[layer]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+# Generic affirm-check triggers ('sanity check', 'did we miss anything', 'is this complete') are intentionally muted by user-invocable:false — validate is an internal/orchestration step, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety against verify/review/approve.
 user-invocable: false
 ---
 

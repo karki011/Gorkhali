@@ -8,7 +8,7 @@
 
 - **Name**: Phantom
 - **Tagline**: "Your shadow army of AI agents."
-- **Signature command**: `/phantom arise`
+- **Signature command**: `/phantom:recruit` — the "Arise!" summon
 - **Theme**: Solo Leveling / Korean manhwa system RPG
 - **Target market**: US developers
 
@@ -18,7 +18,7 @@
 |---|---|
 | Shadow Monarch | The developer (you) |
 | Shadow Army | The AI agent shadows |
-| "Arise" | `/phantom arise` — summon an agent |
+| "Arise" | `/phantom:recruit` — summon an agent |
 | The System | Phantom itself |
 | Shadow Soldiers | Individual agents (Apex, Blade, etc.) |
 | Gates / Dungeons | Tasks to clear |
@@ -88,7 +88,7 @@ All `/phantom` prefix. English verbs. One manhwa verb: `arise`.
 
 ### The signature command
 ```
-/phantom arise {role}        # Summon a shadow
+/phantom:recruit {role}      # Summon a shadow ("Arise!")
 ```
 
 ### Session management
@@ -159,7 +159,7 @@ All `/phantom` prefix. English verbs. One manhwa verb: `arise`.
 > **Phantom** — a multi-agent development system that levels up with you.
 >
 > Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
-> Say `/phantom arise` and they answer.
+> Say `/phantom:recruit` — "Arise!" — and they answer.
 >
 > Every task is a Gate. Phantom reads the difficulty, assembles the right shadows,
 > and clears it. After every run, the system gains EXP — learning what works,
@@ -174,7 +174,7 @@ All `/phantom` prefix. English verbs. One manhwa verb: `arise`.
 | `/team:start` | `/phantom:start` |
 | `/team:verify` | `/phantom:verify` |
 | `/team:wrap` | `/phantom:wrap` |
-| `/team:recruit` | `/phantom:arise` |
+| `/team:recruit` | `/phantom:recruit` |
 | `/team:brainstorm` | `/phantom:brainstorm` |
 | `/team:grill` | `/phantom:grill` |
 | `/team:detective` | `/phantom:hound` |
