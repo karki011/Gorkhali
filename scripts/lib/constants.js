@@ -40,7 +40,7 @@ module.exports = {
   // Dirname under ~/.claude for the mutable data root (PHANTOM_DATA env overrides the full path).
   PHANTOM_DATA_DIRNAME: 'phantom-data',
 
-  // Learning retention tiers (evolution-runner). config.yaml learning.* documents these.
+  // Learning retention tiers (evolution-runner); tune via the PHANTOM_LEARNING_* env vars below.
   LEARNING_STALE_DAYS: numFromEnv('PHANTOM_LEARNING_STALE_DAYS', 30),
   LEARNING_REMOVE_DAYS: numFromEnv('PHANTOM_LEARNING_REMOVE_DAYS', 60),
   LEARNING_DISTILL_CAP: numFromEnv('PHANTOM_LEARNING_DISTILL_CAP', 50),

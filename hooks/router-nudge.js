@@ -21,13 +21,6 @@ try {
   stateDir = () => path.join(phantomData(), 'state');
 }
 
-let readFlag;
-try {
-  ({ readFlag } = require('../scripts/lib/config-lite'));
-} catch (_) {
-  readFlag = (_section, _key, defaultValue) => defaultValue;
-}
-
 // SHARED SEMANTICS — keep identical in hooks/routing-gate.js: a phantom
 // session is active when <PHANTOM_DATA>/.apex-active exists AND its mtime is
 // younger than 24h. A stale marker left by a crashed session must NOT
@@ -79,7 +72,8 @@ function main() {
   // Cheapest check first: live phantom session → routing already happened.
   if (sessionActive()) process.exit(0);
 
-  if (readFlag('routing', 'nudge', true) === false) process.exit(0);
+  // Advisory nudge is on by default; silence it with PHANTOM_ROUTING_NUDGE=0.
+  if (process.env.PHANTOM_ROUTING_NUDGE === '0') process.exit(0);
 
   if (!classify(String(payload.prompt || ''))) process.exit(0);
 

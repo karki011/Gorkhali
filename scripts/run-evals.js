@@ -118,7 +118,7 @@ function matchesFilter(c, filter) {
   return filter.split(',').some((f) => f === String(c.id) || f === kindOf(c) || c.skill.includes(f));
 }
 
-// `setup` is a fixture DESCRIPTION (config.yaml content / lockfile / env vars),
+// `setup` is a fixture DESCRIPTION (lockfile / env vars / file contents),
 // not machine-readable — it is fed to the agent as assumed context, not materialized on disk.
 function casePrompt(c) {
   if (kindOf(c) !== 'convention' || !c.setup) return c.prompt;

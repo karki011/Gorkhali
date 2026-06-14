@@ -1,6 +1,6 @@
 // Author: Subash Karki
 // routing-prose.test.js — pins structural and content invariants for the
-// routing discipline system: reference/routing.md, hooks, and config.
+// routing discipline system: reference/routing.md and the hooks.
 // Zero external deps: node:test + node:assert only.
 'use strict';
 
@@ -49,17 +49,13 @@ test('routing.md documents phantom-known scoping', () => {
   );
 });
 
-// ── config.yaml.example ───────────────────────────────────────────────────
+// ── env-var toggle (replaces the removed config.yaml) ─────────────────────
 
-test('config.yaml.example has routing section with enforce: false', () => {
-  const content = read('config.yaml.example');
+test('routing.md documents the PHANTOM_ROUTING_ENFORCE env toggle', () => {
+  const content = read('reference/routing.md');
   assert.ok(
-    /routing:/i.test(content),
-    'config.yaml.example must contain a routing: section'
-  );
-  assert.ok(
-    /enforce:\s*false/i.test(content),
-    'config.yaml.example routing section must show enforce: false as the default'
+    /PHANTOM_ROUTING_ENFORCE/.test(content),
+    'routing.md must document PHANTOM_ROUTING_ENFORCE as the opt-in arm toggle'
   );
 });
 

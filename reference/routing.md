@@ -9,9 +9,9 @@ Phantom's routing system has two layers: an advisory nudge that fires at prompt 
 | Layer | Hook | Event | Behavior |
 |-------|------|-------|----------|
 | 1 — Nudge | `router-nudge.js` | `UserPromptSubmit` | Detects implementation-intent prompts; injects a routing reminder. ONE-SHOT per session (first matching prompt only). Never blocks. |
-| 2 — Gate | `routing-gate.js` | `PreToolUse` | Denies Edit/Write/MultiEdit/NotebookEdit into phantom-known repos when no phantom session is active. Fires only when `routing.enforce: true`. |
+| 2 — Gate | `routing-gate.js` | `PreToolUse` | Denies Edit/Write/MultiEdit/NotebookEdit into phantom-known repos when no phantom session is active. Fires only when `PHANTOM_ROUTING_ENFORCE=1`. |
 
-Layer 1 is always on (unless `routing.nudge: false`). Layer 2 is off by default; it requires an explicit opt-in.
+Layer 1 is always on (unless `PHANTOM_ROUTING_NUDGE=0`). Layer 2 is off by default; it requires an explicit opt-in.
 
 ### Layer 1 — Nudge (router-nudge.js)
 
@@ -33,7 +33,7 @@ One-shot semantics: a marker is written to `<PHANTOM_DATA>/state/routing-nudge/<
 Fires on `PreToolUse` for Edit, Write, MultiEdit, and NotebookEdit. Checks three conditions in order:
 
 1. Is a phantom session currently active? (`.apex-active` marker, younger than 24h) → allow.
-2. Is `routing.enforce` explicitly `true` in config? → if not, allow.
+2. Is `PHANTOM_ROUTING_ENFORCE=1` set in the environment? → if not, allow.
 3. Is the target file inside a phantom-known repo? → if not, allow.
 
 All three must fail before a deny fires. The deny message:
@@ -52,17 +52,17 @@ This is the most important thing to understand about routing-gate.js: it is a **
 
 | Gate | Kind | Fails | Why that direction is correct |
 |------|------|-------|-------------------------------|
-| `routing-gate.js` | Discipline (opt-in) | **Open** — crash, missing config, garbage config, or missing `readFlag` module all allow the edit | Blocking legitimate work because the gate misbehaved would be worse than a missed routing event. The cost of a false-positive deny is high; the cost of a false-negative allow is a process note. A missing or unparseable config can **never** enable the gate — only the literal `true` arms it. |
+| `routing-gate.js` | Discipline (opt-in) | **Open** — crash or any unset/unrecognized value of `PHANTOM_ROUTING_ENFORCE` all allow the edit | Blocking legitimate work because the gate misbehaved would be worse than a missed routing event. The cost of a false-positive deny is high; the cost of a false-negative allow is a process note. An unset env var can **never** enable the gate — only `PHANTOM_ROUTING_ENFORCE=1` arms it. |
 
 A fail-closed safety gate would invert this: any ambiguity or error would deny, because the cost of a false-negative allow (data loss, an unrecoverable state) outweighs the cost of blocking on uncertainty. This gate is the opposite — it never blocks on its own malfunction.
 
-`enforce` defaults to `false`. If config-lite is unavailable, `readFlag` is `null` and the gate exits immediately. No path through a broken or absent config can arm the gate.
+Enforcement defaults to off. If `PHANTOM_ROUTING_ENFORCE` is unset or anything other than `1`, the gate exits immediately. No path other than an explicit `PHANTOM_ROUTING_ENFORCE=1` can arm the gate.
 
 ---
 
 ## Honest Efficacy
 
-With the default config (`routing.enforce: false` or absent), the gate never fires. The missed-routing incident class — implementation work that bypasses phantom and runs directly — is mitigated only by the advisory nudge in Layer 1. The deterministic enforcement layer exists for operators who explicitly set `routing.enforce: true` after reviewing the bypass log. If you haven't done that, the gate is documentation, not enforcement.
+By default (`PHANTOM_ROUTING_ENFORCE` unset), the gate never fires. The missed-routing incident class — implementation work that bypasses phantom and runs directly — is mitigated only by the advisory nudge in Layer 1. The deterministic enforcement layer exists for operators who explicitly set `PHANTOM_ROUTING_ENFORCE=1` after reviewing the bypass log. If you haven't done that, the gate is documentation, not enforcement.
 
 ---
 

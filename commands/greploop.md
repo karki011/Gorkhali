@@ -6,15 +6,15 @@ allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 
 > **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
 >
-> Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only; multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are intentional mechanics; reply tone is configurable via `greptile.reply_tone` (`neutral` default, `roast` for CZ-style replies).
+> Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only; multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are intentional mechanics; reply tone is configurable via env `PHANTOM_GREPTILE_TONE` (`neutral` default, `roast` for CZ-style replies).
 
 # /phantom:greploop
 
 Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confidence, zero unresolved comments**.
 
-## Gate: `integrations.greptile`
+## Gate: `PHANTOM_GREPTILE`
 
-Read config.yaml. If `integrations.greptile` is `false` or absent: print "○ greploop skipped (integrations.greptile not enabled in config.yaml)" and stop. Not an error — installs without the Greptile bot simply don't loop.
+If env `PHANTOM_GREPTILE` is not `1`: print "○ greploop skipped (set PHANTOM_GREPTILE=1 to enable)" and stop. Not an error — installs without the Greptile bot simply don't loop.
 
 ## Inputs
 
@@ -28,7 +28,7 @@ Apply every iteration:
 
 - Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger comment. For re-trigger/fallback only, post `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
 - **Reply in-thread**, never as a top-level PR comment. Endpoint: `gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies -f body="..." --method POST` (no PR number in the path).
-- **Reply tone** — read `greptile.reply_tone` from config.yaml (default `neutral`):
+- **Reply tone** — read env `PHANTOM_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
   - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
   - `roast`: self-deprecating humor (CZ style). Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai". Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai".
   - Whatever the tone: include the fix reference (commit hash / what changed) and **always end with `@greptileai`** so re-review triggers.
@@ -130,7 +130,7 @@ git push
 
 ### G. Reply in-thread + resolve
 
-For each comment, post an in-thread reply in the configured tone (`greptile.reply_tone`), ending with `@greptileai`:
+For each comment, post an in-thread reply in the configured tone (`PHANTOM_GREPTILE_TONE`), ending with `@greptileai`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies \
@@ -167,7 +167,7 @@ Then `sleep 5` and return to **A**.
 
 ## Availability guard
 
-After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — the `integrations.greptile` config flag is global, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
+After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — `PHANTOM_GREPTILE=1` only opts this run in, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
 
 ## 2. Report
 

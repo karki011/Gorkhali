@@ -4,11 +4,10 @@
 // phantom-known repos when no phantom session is active.
 //
 // FAIL-OPEN POLARITY — read this before editing: this is an opt-in DISCIPLINE
-// gate, NOT a safety gate. It FAILS OPEN: any crash, missing config, garbage
-// config, or ambiguity in the enforce branch must ALLOW the edit. A missing
-// or unparseable config can NEVER enable the gate (enforce defaults to false,
-// and only the literal `true` arms it). Always exits 0 — the decision rides
-// the stdout JSON.
+// gate, NOT a safety gate. It FAILS OPEN: any crash or ambiguity in the enforce
+// branch must ALLOW the edit. The gate is armed ONLY by the env var
+// PHANTOM_ROUTING_ENFORCE=1; with it unset (the default) the gate is a no-op.
+// Always exits 0 — the decision rides the stdout JSON.
 'use strict';
 
 const fs = require('fs');
@@ -22,13 +21,6 @@ try {
   // fail open: inline fallback matching phantom-paths.js logic
   phantomData = () => process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
   stateDir = () => path.join(phantomData(), 'state');
-}
-
-let readFlag = null;
-try {
-  ({ readFlag } = require('../scripts/lib/config-lite'));
-} catch (_) {
-  // config reader unavailable → gate can never arm (fail open)
 }
 
 // SHARED SEMANTICS — keep identical in hooks/router-nudge.js: a phantom
@@ -77,8 +69,8 @@ function main() {
   // live phantom session → routing requirement is satisfied.
   if (sessionActive()) return;
 
-  // Opt-in only: anything other than an explicit routing.enforce: true → no-op.
-  if (!readFlag || readFlag('routing', 'enforce', false) !== true) return;
+  // Opt-in only: armed solely by PHANTOM_ROUTING_ENFORCE=1 → otherwise no-op.
+  if (process.env.PHANTOM_ROUTING_ENFORCE !== '1') return;
 
   // ── Enforce branch: every error path below ALLOWS (fail open). ──
   try {

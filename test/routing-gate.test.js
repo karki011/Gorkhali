@@ -1,13 +1,12 @@
 // Author: Subash Karki
 // routing-gate.test.js — proves the routing gate's INVERSE polarity: an opt-in
-// discipline gate that fails OPEN. Only routing.enforce: true arms it; it
+// discipline gate that fails OPEN. Only PHANTOM_ROUTING_ENFORCE=1 arms it; it
 // covers only phantom-known repos; PHANTOM_ADHOC=1 bypasses with a logged
 // line; any ambiguity (no target, non-repo, unknown repo) allows.
 //
 // Spawns the REAL hook process. Env is read at INVOCATION time, so every
-// spawn pins PHANTOM_DATA to a tmpdir AND PHANTOM_CONFIG to a controlled
-// file — this dev machine has a legacy ~/.claude/phantom/config.yaml that
-// would otherwise win resolution.
+// spawn pins PHANTOM_DATA to a tmpdir and sets PHANTOM_ROUTING_ENFORCE only
+// when the case under test arms the gate.
 'use strict';
 
 const { test } = require('node:test');
@@ -23,6 +22,8 @@ function runGate(envOverrides, stdinText) {
   const env = { ...process.env, ...envOverrides };
   delete env.PHANTOM_ADHOC; // never inherit from the outer session
   if (envOverrides.PHANTOM_ADHOC) env.PHANTOM_ADHOC = envOverrides.PHANTOM_ADHOC;
+  // Same isolation for the arm toggle: outer shell state must not leak in.
+  if (!envOverrides.PHANTOM_ROUTING_ENFORCE) delete env.PHANTOM_ROUTING_ENFORCE;
   try {
     const stdout = execFileSync('node', [HOOK], {
       input: stdinText,
@@ -42,8 +43,6 @@ function runGate(envOverrides, stdinText) {
 // gitKind: 'dir' (normal repo) | 'file' (worktree pointer) | 'none'.
 function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-data-'));
-  const cfg = path.join(data, 'test-config.yaml');
-  fs.writeFileSync(cfg, `routing:\n  enforce: ${enforce}\n`);
 
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-repo-'));
   if (gitKind === 'dir') {
@@ -63,7 +62,7 @@ function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
     data,
     repoRoot,
     target,
-    env: { PHANTOM_DATA: data, PHANTOM_CONFIG: cfg },
+    env: { PHANTOM_DATA: data, ...(enforce ? { PHANTOM_ROUTING_ENFORCE: '1' } : {}) },
     cleanup: () => {
       fs.rmSync(data, { recursive: true, force: true });
       fs.rmSync(repoRoot, { recursive: true, force: true });

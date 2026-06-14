@@ -1,6 +1,6 @@
 ---
 name: phantom:review
-description: "Use when you want a CODE review of current changes — quality, KISS/DRY, architecture, a second opinion on the diff. Spawns Gaze for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review my changes', 'review my code', 'code review this', 'second opinion on this code', or 'is this code quality good'. NOT for test/build checks (use phantom:verify), requirements coverage (use phantom:validate), or approving queued plans (use phantom:approve)."
+description: "Use when you want a CODE review of current changes — quality, KISS/DRY, architecture, a second opinion on the diff. Spawns Gaze for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review my changes', 'review my code', 'code review this', 'second opinion on this code', or 'is this code quality good'. NOT for test/build checks (use phantom:verify) or requirements coverage (use phantom:validate)."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 

@@ -105,24 +105,6 @@ function runDir(ticket, ts, repo = detectRepo()) { return path.join(runsDir(tick
 /** Path to the current-run pointer file: <data>/repos/<repo>/sessions/<ticket>/runs/current */
 function currentRunPointer(ticket, repo = detectRepo()) { return path.join(runsDir(ticket, repo), 'current'); }
 
-/** Mission Control queue lifecycle states (directory names under approvalQueueDir). */
-const QUEUE_STATES = Object.freeze(['queued', 'approved', 'running', 'rejected']);
-
-/** Per-repo approval queue dir: <data>/repos/<repo>/approval-queue */
-function approvalQueueDir(repo = detectRepo()) {
-  return path.join(repoDir(repo), 'approval-queue');
-}
-
-/** Queue entry file: <approvalQueueDir>/<state>/<ticket>.json. Throws on unknown state — callers pass literals, so a typo must fail loud, not mint a new state dir. */
-function queueEntryPath(ticket, state = 'queued', repo = detectRepo()) {
-  if (!QUEUE_STATES.includes(state)) {
-    throw new Error(
-      "queueEntryPath: unknown queue state '" + state + "' (expected one of: " + QUEUE_STATES.join(', ') + ')'
-    );
-  }
-  return path.join(approvalQueueDir(repo), state, ticket + '.json');
-}
-
 /** Worktrees root: <data>/worktrees — FLAT, directly under the data root (NOT under repos/). */
 function worktreesRoot() {
   return path.join(phantomData(), 'worktrees');
@@ -149,9 +131,6 @@ module.exports = {
   runsDir,
   runDir,
   currentRunPointer,
-  QUEUE_STATES,
-  approvalQueueDir,
-  queueEntryPath,
   worktreesRoot,
   worktreeDir,
 };

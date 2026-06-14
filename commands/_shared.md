@@ -22,9 +22,8 @@ PLUGIN_ROOT = self-resolved, env-free (deterministic). Bash bootstrap:
               EMPTY-GUARD (REQUIRED — fresh machine / dev clone has no cache dir, so $PR resolves EMPTY;
               an unguarded `node "$PR/scripts/..."` then becomes `node "/scripts/..."` → MODULE_NOT_FOUND crash).
               Every copy of the bootstrap MUST include one of two guards, by context:
-                • GATE-CRITICAL (config/queue/path resolution that must succeed) — fail READABLE, never crash:
+                • GATE-CRITICAL (path resolution that must succeed) — fail READABLE, never crash:
                     [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
-                  (queue.md uses the INACTIVE-style variant: "QUEUE INACTIVE: phantom plugin dir not resolvable — run /plugin to install. Nothing polled, nothing spawned.")
                 • ADVISORY (checkpoints, cost-link, cost-report, compress — already 'never error / never blocks') — SKIP SILENTLY:
                     [ -n "$PR" ] && node "$PR/scripts/..."
                   (run only when $PR is non-empty; empty → no-op, the surrounding flow continues.)

@@ -42,7 +42,7 @@ Agent spawn rules (all routes):
 
 > All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
 
-1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123); resolve the expected project key from `jira.project` in config.yaml at runtime, never hardcode prefixes
+1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
    `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
 2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active`
@@ -114,28 +114,21 @@ Phases chain autonomously without returning to the human between phases. The onl
 
 Between phases: if heavy context, `Skill(skill="phantom:pause")`. Resume reads `route-decision.json`.
 
-## Mode: --to-plan (queue planning, no human present)
+## Mode: --to-plan (plan-only, no human present)
 
-Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` at Phase A step 1). Planning runs headless; the finished plan parks in the approval queue instead of executing.
+Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` at Phase A step 1). Planning runs headless and produces a plan only — it NEVER executes. There is no queue: the plan lands in the session dir as `plan.json` and the run stops.
 
-> The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, no git mutations, no `.blade-editing` marker. Approval via `phantom:approve` is the only path from a queued plan to execution.
+> The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, no git mutations, no `.blade-editing` marker. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
 
 **Route collapse:**
-- DIRECT → still produce a minimal `plan.json` (plan-only — even trivial work queues for approval).
-- BRAINSTORM / FULL → collapse to PLAN-grade planning. No human is present to pick a direction: pick the conservative option and record the alternatives in the plan + entry summary for the approver.
+- DIRECT → still produce a minimal `plan.json` (plan-only — even trivial work produces a plan).
+- BRAINSTORM / FULL → collapse to PLAN-grade planning. No human is present to pick a direction: pick the conservative option and record the alternatives in the plan for the human who reviews it later.
 
 **Headless contract:**
-- NEVER ask the user questions in this mode. Pick recommended defaults; record every assumption made in an `assumptions[]` array carried into the queue entry.
-- If nested agent spawns are unavailable in the runtime, run plan-checker/rival-grade self-checks INLINE — degradation is acceptable because the human approval gate is the backstop.
+- NEVER ask the user questions in this mode. Pick recommended defaults; record every assumption made in an `assumptions[]` array inside `plan.json`.
+- If nested agent spawns are unavailable in the runtime, run plan-checker/rival-grade self-checks INLINE — degradation is acceptable because a human still reviews the plan before any execution.
 
-**Self-checks replace the gate:**
-- Run plan-checker + rival review of `plan.json`. On failure: revise ONCE, then park — write the entry anyway with `selfCheck: "flagged"` + a finding summary. The approver decides.
+**Inline self-checks:**
+- Run plan-checker + rival review of `plan.json` INLINE. On failure: revise ONCE, then record the finding anyway in `plan.json` with `selfCheck: "flagged"` + a finding summary. A human decides later.
 
-**Source-clean invariant:**
-- Before writing the entry: `git status --porcelain` in the worktree (read-only check, allowed). ANY dirt → attempt revert of unintended edits; still dirty → park with `selfCheck: "dirty-worktree"`. Never queue a dirty tree.
-
-**Queue entry write:**
-- Resolve path (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 1; }; node -p "require('$PR/scripts/lib/phantom-paths').queueEntryPath('<TICKET>','queued')"` — states: `queued|approved|running|rejected`; dir placement is authoritative. Ensure parent dirs exist.
-- Entry JSON: `{ticket, repo, worktree (realpath cwd), planRef (abs path to sessions/<TICKET>/plan.json), summary (1-2 lines), assumptions[], selfCheck ("pass"|"flagged"|"dirty-worktree"), ts (ISO), status: "queued" (informational only)}`. Schema: `reference/artifact-schemas.md` → approval-queue entry.
-
-**EXIT:** print exactly one report line — `[QUEUED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, `.blade-editing` marker.
+**EXIT:** write `plan.json` to the session dir, then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, `.blade-editing` marker, worktree creation.

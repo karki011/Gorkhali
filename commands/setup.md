@@ -1,6 +1,6 @@
 ---
 name: phantom:setup
-description: "Use to initialize or re-initialize Phantom after a plugin install — sets up PHANTOM_DATA dirs, the learnings INDEX, and config.yaml. Run once after installing the plugin. Also use when user says 'set up phantom', 'init phantom', 'first-run setup', or 'configure phantom'. Safe to re-run."
+description: "Use to initialize or re-initialize Phantom after a plugin install — sets up PHANTOM_DATA dirs and the learnings INDEX. Run once after installing the plugin. Also use when user says 'set up phantom', 'init phantom', 'first-run setup', or 'configure phantom'. Safe to re-run."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
@@ -21,6 +21,6 @@ fi
 bash "$SETUP"
 ```
 
-This (re)initializes the PHANTOM_DATA directories, seeds the learnings `INDEX.md`, and writes `config.yaml` (Jira project, Slack channel, Fable 5 entitlement → config `models.sage`: `fable`|`opus`, detected integrations). Safe and idempotent — re-running only fills in what's missing.
+This (re)initializes the PHANTOM_DATA directories and seeds the learnings `INDEX.md`. Safe and idempotent — re-running only fills in what's missing. Runtime behavior is driven by env vars (e.g. `PHANTOM_DATA`, `PHANTOM_GREPTILE`, `PHANTOM_PROTECTED_BRANCHES`), not a config file.
 
 It's the plugin-native replacement for the wizard step that `install.sh` ran for symlink installs: plugins are dropped in place without executing that script, so first-run config needs this explicit entry point.

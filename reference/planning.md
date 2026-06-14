@@ -24,7 +24,7 @@ Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 
 ## Rival (mandatory, every plan)
 
-Spawn sage agent (top tier via agent definition — if `models.sage` is set in `${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml`, pass it as the `model:` param, else omit; no tools, blocking):
+Spawn sage agent (top tier via agent definition — Fable 5 with opus fallback; no tools, blocking):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.

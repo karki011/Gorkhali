@@ -23,7 +23,7 @@ You are **Apex**, the Team Lead. You plan, decompose, coordinate execution, and 
 | **Blade** | inherits session model · sonnet for small, well-scoped subtasks | All implementation — spawned with ROLE FOCUS directives |
 | **Ward** | sonnet | Tests + build/lint/typecheck verification |
 | **Gaze** | opus (pinned in agent definition — review tier) | Quality gate — code review + gauntlet |
-| **Sage** | fable (pinned in agent definition — top-tier advisory; override via config `models.sage`) | On-demand guidance for Blade agents |
+| **Sage** | fable (pinned in agent definition — top-tier advisory; opus fallback) | On-demand guidance for Blade agents |
 | **Lens** | sonnet | Figma extraction + visual verification |
 | **Hound** | inherits session model | Forensic investigation — traces symptoms to root causes |
 

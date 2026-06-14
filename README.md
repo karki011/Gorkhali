@@ -156,7 +156,7 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 | Blade | inherits session model · sonnet (small tasks) | high | Implementation — parallel execution with ROLE FOCUS directives |
 | Ward | sonnet | high | QA — lint, build, test verification |
 | Gaze | opus (pinned — review tier) | high | Quality gate — power level (scored, P0-P3) |
-| Sage | fable (pinned — top tier; override via config `models.sage`) | high | Advisory — guidance for stuck agents (<100 words) |
+| Sage | fable (pinned — top tier; opus fallback) | high | Advisory — guidance for stuck agents (<100 words) |
 | Lens | sonnet | high | Visual verification — screenshot + diff |
 | Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
 | Rival | inherits session model | high | Plan challenger — adversarial review (no tools, forced precision) |
@@ -164,7 +164,7 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 | Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
 | Base Agent | — | — | Template for spawning new agent types |
 
-No agent pins a model except three deliberate exceptions: **Gaze** and **Archer** pin `opus` (review tier — independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; the pin is the default; no Fable 5 entitlement? Set `models.sage: opus` in `${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml` — spawners pass it as a model override). Everyone else — including Apex — leaves model unset and inherits the session model (Fable 5 recommended). Apex tunes per spawn only to downshift (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. Use bare aliases only; never pin dated or prior-generation model IDs.
+No agent pins a model except three deliberate exceptions: **Gaze** and **Archer** pin `opus` (review tier — independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; no Fable 5 entitlement falls back to `opus`). Everyone else — including Apex — leaves model unset and inherits the session model (Fable 5 recommended). Apex tunes per spawn only to downshift (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. Use bare aliases only; never pin dated or prior-generation model IDs.
 
 ## Models & Effort
 
@@ -172,13 +172,14 @@ Phantom runs every agent at **`high`** effort. Agents leave model + effort unset
 
 **Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 
-Fable 5 (`claude-fable-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law. Note it is usage-credit-gated; sessions without entitlement run cleanly on Opus 4.8 since no agent except Sage hard-pins the new tier (and Sage's pin is config-overridable via `models.sage`).
+Fable 5 (`claude-fable-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law. Note it is usage-credit-gated; sessions without entitlement run cleanly on Opus 4.8 since no agent except Sage hard-pins the new tier (and Sage falls back to `opus` when Fable 5 is unavailable).
 
 ## Commands
 
 | Command | Route | Description |
 |---------|-------|-------------|
 | `/phantom:start` | Entry | Adaptive router → classify → execute appropriate route |
+| `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop — polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a draft PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
 | `/phantom:verify` | — | Power Level with auto-fix for P0/P1 |
 | `/phantom:wrap` | — | Commit, push, PR, Jira transition |
 | `/phantom:fix` | — | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
@@ -214,10 +215,10 @@ Phantom is a **native Claude Code plugin**. Install it from the self-hosted mark
 ```
 /plugin marketplace add Cloudzero/research-phantom-skills
 /plugin install phantom@phantom
-/phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX, config.yaml
+/phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX
 ```
 
-The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs, the learnings `INDEX.md`, and `config.yaml` — it is safe to re-run. Update later with `/plugin update phantom`.
+The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs and the learnings `INDEX.md` — it is safe to re-run. There is no config file: all optional behavior is controlled by environment variables (see **Configuration — Environment Variables** below). Update later with `/plugin update phantom`.
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
 

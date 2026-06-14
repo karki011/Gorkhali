@@ -54,11 +54,7 @@ Session file, decisions, shadows eval, learnings update, INDEX update, validatio
 
 See [reference/wrap/ship-ceremony.md] for full protocol.
 
-Stage -> commit -> push -> smart PR decision -> Greptile loop (`phantom:greploop` until 5/5 — only if `integrations.greptile` is enabled in config.yaml; otherwise skip with a one-line note) -> Jira transition. No git ops happen before this step.
-
-In a queue-approved `--chained` run (a `running/<TICKET>.json` approval-queue entry exists for this ticket), that approval stands in for the ship gate — proceed directly to a draft PR, never ready-for-review; the GitHub review remains the second human checkpoint.
-
-> Queue-worktree hint: when running from a queue worktree, print the cleanup reminder alongside the PR-creation output — `git worktree remove <dir>` + delete the feat branch after merge.
+Stage -> commit -> push -> smart PR decision -> Greptile loop (run `phantom:greploop` until 5/5 ONLY if env `PHANTOM_GREPTILE=1`; otherwise skip with a one-line note) -> Jira transition. No git ops happen before this step.
 
 ## Step 7: Evolution & Shutdown
 

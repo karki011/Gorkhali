@@ -37,7 +37,8 @@ const WHITELIST_DIRS = [
   'repos',
   'global',
 ];
-const WHITELIST_FILES = ['config.yaml'];
+// No data-root files to migrate (config.yaml removed — Phantom is config-free).
+const WHITELIST_FILES = [];
 
 const DEST = phantomData();
 const MARKER = path.join(DEST, '.migrated');

@@ -10,43 +10,6 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO_DIR/scripts/lib/phantom-paths.sh"
 COMMANDS_LINK="$HOME/.claude/commands/phantom"
 
-# Merge generated config into target. Fresh target gets the full file; an
-# existing target keeps every user value — only missing top-level sections
-# (and models.sage) are appended.
-phantom_merge_config() {
-  local generated="$1" target="$2"
-
-  if [ ! -f "$target" ]; then
-    cp "$generated" "$target"
-    echo "  ✓ Config written to $target"
-    return 0
-  fi
-
-  local added="" section
-  for section in $(grep -E '^[a-z_]+:' "$generated" | cut -d: -f1); do
-    if ! grep -q "^${section}:" "$target"; then
-      printf '\n' >> "$target"
-      awk -v s="$section" '$0 == s":" {p=1} p && $0 ~ /^[a-z_]+:/ && $0 != s":" {exit} p {print}' "$generated" >> "$target"
-      added="$added $section"
-    fi
-  done
-
-  if grep -q '^models:' "$target" && ! grep -qE '^[[:space:]]+sage:' "$target"; then
-    local sage_line tmp
-    sage_line="$(grep -m1 -E '^[[:space:]]+sage:' "$generated")"
-    tmp="$(mktemp "${TMPDIR:-/tmp}/phantom-config.XXXXXX")"
-    awk -v line="$sage_line" '{print} /^models:/ {print line}' "$target" > "$tmp"
-    mv "$tmp" "$target"
-    added="$added models.sage"
-  fi
-
-  if [ -n "$added" ]; then
-    echo "  ✓ Existing config preserved at $target — added missing:$added"
-  else
-    echo "  ✓ Existing config preserved at $target — nothing to add"
-  fi
-}
-
 # Test seam: source with PHANTOM_SETUP_SOURCE_ONLY=1 to load functions only.
 if [ "${PHANTOM_SETUP_SOURCE_ONLY:-0}" = "1" ]; then
   return 0 2>/dev/null || exit 0
@@ -89,142 +52,14 @@ INDEXEOF
   echo "  ✓ Created learnings/INDEX.md"
 fi
 
-# 4. Configuration
+# 4. Configuration — none required.
+# Phantom is config-free. Optional behavior is tuned with env vars at runtime:
+#   PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES,
+#   PHANTOM_GREPTILE. MCP integrations are auto-detected at use time.
 echo ""
-echo "  Configuration"
-echo "  ─────────────"
+echo "  ✓ No configuration file needed (optional env vars: PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES, PHANTOM_GREPTILE)"
 
-# Jira project key
-read -rp "  ? Jira project key (e.g., CP) [skip]: " JIRA_PROJECT
-JIRA_PROJECT="${JIRA_PROJECT:-}"
-
-# Slack DM channel
-read -rp "  ? Slack DM channel ID for notifications [skip]: " SLACK_CHANNEL
-SLACK_CHANNEL="${SLACK_CHANNEL:-}"
-
-# Sage escalation model — models.sage is the only live model key; all other
-# agents inherit the session model.
-read -rp "  ? Do you have Fable 5 model entitlement? (Y/n) [Y]: " FABLE_ENTITLED
-case "${FABLE_ENTITLED:-Y}" in
-  [Nn]*) SAGE_MODEL="opus" ;;
-  *)     SAGE_MODEL="fable" ;;
-esac
-
-# Greptile review loop — opt-in (requires the Greptile bot on your repos)
-read -rp "  ? Enable Greptile PR review loop? (y/N) [N]: " GREPTILE_ENABLED
-case "${GREPTILE_ENABLED:-N}" in
-  [Yy]*) GREPTILE_AVAILABLE="true" ;;
-  *)     GREPTILE_AVAILABLE="false" ;;
-esac
-
-# 5. Auto-detect integrations
-echo ""
-echo "  Detecting integrations..."
-
-ATLASSIAN_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "atlassian" 2>/dev/null; then
-  ATLASSIAN_AVAILABLE="true"
-  echo "  ✓ Atlassian MCP: detected"
-else
-  echo "  ○ Atlassian MCP: not found (Jira features disabled)"
-fi
-
-PHANTOM_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "phantom" 2>/dev/null; then
-  PHANTOM_AVAILABLE="true"
-  echo "  ✓ phantom-ai MCP: detected"
-else
-  echo "  ○ phantom-ai MCP: not found (graph features disabled)"
-fi
-
-SLACK_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "Slack" 2>/dev/null; then
-  SLACK_AVAILABLE="true"
-  echo "  ✓ Slack MCP: detected"
-else
-  echo "  ○ Slack MCP: not found (notifications disabled)"
-fi
-
-CODE_GRAPH_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "code-review-graph" 2>/dev/null; then
-  CODE_GRAPH_AVAILABLE="true"
-  echo "  ✓ code-review-graph MCP: detected"
-else
-  echo "  ○ code-review-graph MCP: not found (structural analysis disabled)"
-fi
-
-CONTEXT_MODE_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "context-mode" 2>/dev/null; then
-  CONTEXT_MODE_AVAILABLE="true"
-  echo "  ✓ context-mode MCP: detected"
-else
-  echo "  ○ context-mode MCP: not found (context window protection disabled)"
-fi
-
-CLAUDE_FLOW_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -q "claude-flow" 2>/dev/null; then
-  CLAUDE_FLOW_AVAILABLE="true"
-  echo "  ✓ claude-flow MCP: detected"
-else
-  echo "  ○ claude-flow MCP: not found (cross-session memory disabled)"
-fi
-
-FIGMA_AVAILABLE="false"
-if claude --print 2>/dev/null | grep -qi "figma" 2>/dev/null; then
-  FIGMA_AVAILABLE="true"
-  echo "  ✓ Figma MCP: detected"
-else
-  echo "  ○ Figma MCP: not found (design extraction falls back to exported screenshots)"
-fi
-
-# 6. Write config (mutable — under PHANTOM_DATA); merge-safe on re-run
-PHANTOM_GEN_CONFIG="$(mktemp "${TMPDIR:-/tmp}/phantom-config-gen.XXXXXX")"
-cat > "$PHANTOM_GEN_CONFIG" << CONFIGEOF
-# Phantom Works — User Configuration
-# Generated by setup.sh on $(date +%Y-%m-%d)
-
-jira:
-  project: "${JIRA_PROJECT}"
-  auto_transition: true
-
-git:
-  protected_branches: [main, master, develop]
-
-slack:
-  dm_channel: "${SLACK_CHANNEL}"
-  enabled: ${SLACK_AVAILABLE}
-
-models:
-  sage: ${SAGE_MODEL}
-
-integrations:
-  atlassian_mcp: ${ATLASSIAN_AVAILABLE}
-  phantom_ai: ${PHANTOM_AVAILABLE}
-  slack_mcp: ${SLACK_AVAILABLE}
-  code_review_graph: ${CODE_GRAPH_AVAILABLE}
-  context_mode: ${CONTEXT_MODE_AVAILABLE}
-  claude_flow: ${CLAUDE_FLOW_AVAILABLE}
-  figma_mcp: ${FIGMA_AVAILABLE}
-  greptile: ${GREPTILE_AVAILABLE}
-
-greptile:
-  reply_tone: neutral
-
-learning:
-  stale_days: 30
-  remove_days: 60
-  distill_cap: 50
-
-preferences:
-  auto_draft_pr: true
-  caveman_output: true
-  fun_fact_in_pr: false
-CONFIGEOF
-echo ""
-phantom_merge_config "$PHANTOM_GEN_CONFIG" "$PHANTOM_DATA/config.yaml"
-rm -f "$PHANTOM_GEN_CONFIG"
-
-# 7. Make all hooks and scripts executable (shipped code — under REPO_DIR)
+# 5. Make all hooks and scripts executable (shipped code — under REPO_DIR)
 for hook in "$REPO_DIR"/hooks/*.sh "$REPO_DIR"/hooks/*.js; do
   [ -f "$hook" ] && chmod +x "$hook"
 done
@@ -282,7 +117,7 @@ else
   fi
 fi
 
-# 8. Prerequisites check
+# 6. Prerequisites check
 echo ""
 echo "  Prerequisites"
 echo "  ─────────────"
@@ -299,7 +134,7 @@ else
   echo "  ○ gh CLI — install and run 'gh auth login' for PR features"
 fi
 
-# 9. Migrate legacy data into PHANTOM_DATA (one-time, idempotent, non-fatal)
+# 7. Migrate legacy data into PHANTOM_DATA (one-time, idempotent, non-fatal)
 echo ""
 node "$REPO_DIR/scripts/migrate-data.js" || echo "  ○ migration skipped/failed (non-fatal)"
 

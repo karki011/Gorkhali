@@ -2,36 +2,15 @@
 # feature-branch-gate.sh — PreToolUse hook
 # Blocks Edit/Write on source files when on a default/protected branch.
 # Protected set = auto-detected origin/HEAD ∪ configured list
-# (PHANTOM_PROTECTED_BRANCHES env > git.protected_branches in config.yaml > main master develop).
+# (PHANTOM_PROTECTED_BRANCHES env > main master develop default).
 # Core Discipline #1: Feature branch enforcement
 # Author: Subash Karki
 
-# Emits git.protected_branches from config.yaml (inline [a, b] or "- item" list), empty if absent.
-phantom_config_protected() {
-  local cfg="${PHANTOM_DATA:-$HOME/.claude/phantom-data}/config.yaml"
-  [ -f "$cfg" ] || return 0
-  local section inline
-  section=$(sed -n '/^git:/,/^[a-z_][a-z_-]*:/{/^git:/d;/^[a-z_][a-z_-]*:/d;p;}' "$cfg") || true
-  [ -n "$section" ] || return 0
-  inline=$(echo "$section" | grep -m1 'protected_branches:[[:space:]]*\[') || true
-  if [ -n "$inline" ]; then
-    echo "$inline" | sed 's/.*\[//;s/\].*//;s/,/ /g;s/["'"'"']//g'
-    return 0
-  fi
-  if echo "$section" | grep -q 'protected_branches:[[:space:]]*$'; then
-    echo "$section" \
-      | sed -n '/protected_branches:[[:space:]]*$/,/^[[:space:]]*[a-z_]/{s/^[[:space:]]*-[[:space:]]*//p;}' \
-      | sed 's/["'"'"']//g;s/[[:space:]]*#.*//' | tr '\n' ' '
-  fi
-}
-
-# Configured protected list: env var > config.yaml > default.
+# Configured protected list: env var > default.
 phantom_protected_branches() {
   local configured=""
   if [ -n "${PHANTOM_PROTECTED_BRANCHES:-}" ]; then
     configured=$(echo "$PHANTOM_PROTECTED_BRANCHES" | tr ',' ' ')
-  else
-    configured=$(phantom_config_protected) || true
   fi
   if [ -n "${configured// /}" ]; then
     echo "$configured"

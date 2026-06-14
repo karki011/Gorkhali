@@ -2,12 +2,11 @@
 // router-nudge.test.js — proves the routing nudge's ADVISORY polarity: it only
 // ever adds additionalContext (never a permissionDecision), is one-shot per
 // session, skips interrogative prompts (precision over recall), and goes
-// silent when a phantom session is live or routing.nudge is false.
+// silent when a phantom session is live or PHANTOM_ROUTING_NUDGE=0.
 //
 // Spawns the REAL hook process (seam-integration pattern). Env is read at
-// INVOCATION time, so every spawn pins PHANTOM_DATA to a tmpdir AND
-// PHANTOM_CONFIG to a controlled file — this dev machine has a legacy
-// ~/.claude/phantom/config.yaml that would otherwise win resolution.
+// INVOCATION time, so every spawn pins PHANTOM_DATA to a tmpdir and sets
+// PHANTOM_ROUTING_NUDGE only when the case under test silences the nudge.
 'use strict';
 
 const { test } = require('node:test');
@@ -21,6 +20,8 @@ const HOOK = path.join(__dirname, '..', 'hooks', 'router-nudge.js');
 
 function runHook(envOverrides, stdinText) {
   const env = { ...process.env, ...envOverrides };
+  // Outer shell state must not leak the silence toggle into default cases.
+  if (!envOverrides.PHANTOM_ROUTING_NUDGE) delete env.PHANTOM_ROUTING_NUDGE;
   try {
     const stdout = execFileSync('node', [HOOK], {
       input: stdinText,
@@ -36,13 +37,11 @@ function runHook(envOverrides, stdinText) {
   }
 }
 
-function setup(configContent = '# no routing overrides\n') {
+function setup(envExtra = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rn-data-'));
-  const cfg = path.join(data, 'test-config.yaml');
-  fs.writeFileSync(cfg, configContent);
   return {
     data,
-    env: { PHANTOM_DATA: data, PHANTOM_CONFIG: cfg },
+    env: { PHANTOM_DATA: data, ...envExtra },
     cleanup: () => fs.rmSync(data, { recursive: true, force: true }),
   };
 }
@@ -138,8 +137,8 @@ test('6. STALE .apex-active (25h) → emitted (crashed session must not disable 
   }
 });
 
-test('7. routing.nudge: false → silent', () => {
-  const { env, cleanup } = setup('routing:\n  nudge: false\n');
+test('7. PHANTOM_ROUTING_NUDGE=0 → silent', () => {
+  const { env, cleanup } = setup({ PHANTOM_ROUTING_NUDGE: '0' });
   try {
     const res = runHook(env, payload('fix the login bug'));
     assertSilent(res);

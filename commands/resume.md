@@ -10,7 +10,7 @@ description: "Use when continuing PREVIOUS work from a paused or prior session �
 Resume from a paused session by reading the state artifact.
 
 <instructions>
-1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/phantom:resume PROJ-123`; any `[A-Z][A-Z0-9]+-\d+` key, project prefix comes from `jira.project` in config.yaml)
+1. **Detect ticket** from `$ARGUMENTS` (required — e.g., `/phantom:resume PROJ-123`; accept any `[A-Z][A-Z0-9]+-\d+` key as-is, no project-prefix validation)
 
 2. **Read state artifact**: `{TEAM_DIR}/sessions/{TICKET}/pause-state.json`
    - If missing: list available sessions in `{TEAM_DIR}/sessions/`, ask user to pick
