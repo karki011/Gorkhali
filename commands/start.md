@@ -94,7 +94,7 @@ READ `reference/router.md` for full algorithm.
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest; empty `$PR` skips silently).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
-6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap except the wrap ship gate.
+6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap — wrap proceeds autonomously to a **draft PR**; the human gate is post-PR (review the draft, mark it ready-to-review).
 
 ## Route: BRAINSTORM (2 gates)
 
@@ -104,11 +104,11 @@ Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION
 
 ## Route: FULL (3 gates)
 
-`Skill(skill="phantom:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="phantom:wire")` → **GATE 3** → `Skill(skill="phantom:execute")` → `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap except the wrap ship gate.
+`Skill(skill="phantom:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="phantom:wire")` → **GATE 3** → `Skill(skill="phantom:execute")` → `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap — wrap proceeds autonomously to a **draft PR**; the human gate is post-PR (review the draft, mark it ready-to-review).
 
 ## Auto-chaining (default flow)
 
-Phases chain autonomously without returning to the human between phases. The only stops are: (a) the PLAN/FULL plan-approval gate(s), (b) the wrap ship/git gate, and (c) fix-loop exhaustion (ceiling owned by `hooks/loop-controller.js`). On verify PASS the chain auto-continues to wrap; on verify FAIL it auto-invokes the fix-loop, then re-verifies — it does not wait for the human to type the next phase.
+Phases chain autonomously without returning to the human between phases. The only stops are: (a) the PLAN/FULL plan-approval gate(s) and (b) fix-loop exhaustion (ceiling owned by `hooks/loop-controller.js`). Wrap proceeds autonomously to a **draft PR** with no ship confirmation; the human gate is post-PR (review the draft, mark it ready-to-review). On verify PASS the chain auto-continues to wrap; on verify FAIL it auto-invokes the fix-loop, then re-verifies — it does not wait for the human to type the next phase.
 
 > The `args="--chained"` token threaded into the `phantom:verify` calls above is what makes verify/fix run autonomously (auto-invoke fix, auto-proceed past fix-packet approval). Its ABSENCE is the safe standalone default: verify/fix fall back to gated report+suggest and wait for the human. So a dropped token degrades to MORE gating, never less.
 

@@ -40,6 +40,8 @@ PRs are ALWAYS created as drafts. Never ready-to-review. Reasons:
 
 ### Create draft PR
 
+Create the draft PR **autonomously** — do NOT ask the user to confirm before creating it, and do NOT offer a "spin up the app for a live look vs ship it" choice here. The draft PR itself is the post-PR review point: the human inspects it and marks it ready-to-review (that action stays human).
+
 ```
 gh pr create --draft --title "{TICKET}: {summary}" --body "{body}"
 ```
@@ -60,11 +62,11 @@ If `gh` not available: print branch name + "run `gh pr create --draft` when read
 
 If skipped: log reason to wrap.json, print "PR skipped ({reason}). Branch pushed — create manually when ready."
 
-## 5. Greptile Review Loop (gated on `PHANTOM_GREPTILE`)
+## 5. Greptile Review Loop (on by default; opt out with `PHANTOM_GREPTILE=0`)
 
-Check the `PHANTOM_GREPTILE` env var. If unset or not `1`: print "○ Greptile loop skipped (PHANTOM_GREPTILE not enabled)", record `greptile: { requested: false, status: "skipped" }` in `wrap.json`, and continue to section 6.
+Check the `PHANTOM_GREPTILE` env var. The loop runs **by default** — skip it only when explicitly disabled. If `PHANTOM_GREPTILE=0`: print "○ Greptile loop skipped (PHANTOM_GREPTILE=0)", record `greptile: { requested: false, status: "skipped" }` in `wrap.json`, and continue to section 6.
 
-When enabled: Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We drive it explicitly and loop until it's happy.
+Otherwise (the default path): Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We drive it explicitly and loop until it's happy.
 
 After the draft PR is created, hand off to the greploop skill:
 

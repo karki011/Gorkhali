@@ -39,7 +39,7 @@ Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
 - Prompt: load from `reference/power-level.md` — "Review Agent Prompt" section
 - Output: JSON array of P0/P1 findings (P2/P3 dropped)
 
-If `[]` → verdict: pass. Skip to Write Artifact.
+If `[]` → no P0/P1 code findings; skip Step 3 and proceed to Step 4 (visual).
 
 ## Step 3: Auto-Address (only if P0/P1 exist)
 
@@ -47,6 +47,15 @@ If `[]` → verdict: pass. Skip to Write Artifact.
 2. Re-run Step 1 correctness only
 3. Re-review ONLY the fix diff
 4. Loop until the fix-loop ceiling (`FIX_LOOP_CEILING` from `scripts/lib/constants.js`, enforced by `hooks/loop-controller.js`; protocol: `reference/temperature-review.md`). Clean → pass. Still P0/P1 → escalate to user.
+
+## Step 4: Visual Verification (auto — UI changes only)
+
+If `HAS_UI = true` (per `_shared-repo-detection.md`) AND `git diff --name-only main...HEAD` touches UI files, a browser agent must confirm the change actually renders before anything ships — correctness commands don't catch visual regressions.
+
+- **CHAINED (`--chained` present)** → auto-invoke `Skill(skill="phantom:visual", args="--autonomous")`. Lens drives a real browser: screenshots the affected routes across viewports/states, compares against intent/Figma, and runs its own ≤3-iteration fix loop. Do not wait for the human.
+- **STANDALONE (token absent)** → `Skill(skill="phantom:visual")` (interactive: shows results, asks before fixing).
+
+Fold Lens's outcome into the verdict and record it in `visualVerification` (verification.json): resolved → pass; `partial`/unresolved after the loop ceiling → escalate, do not silently pass. Skip (and note why) only when `HAS_UI = false`, no UI files changed, or `agent-browser` is unavailable (per `phantom:visual` step 3).
 
 </instructions>
 

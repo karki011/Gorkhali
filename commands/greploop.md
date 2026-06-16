@@ -14,7 +14,7 @@ Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confide
 
 ## Gate: `PHANTOM_GREPTILE`
 
-If env `PHANTOM_GREPTILE` is not `1`: print "○ greploop skipped (set PHANTOM_GREPTILE=1 to enable)" and stop. Not an error — installs without the Greptile bot simply don't loop.
+Greploop is **on by default**. Only if env `PHANTOM_GREPTILE` is explicitly `0`: print "○ greploop skipped (PHANTOM_GREPTILE=0)" and stop. Not an error — this is the opt-out for installs that don't want the loop. Repos that simply lack the Greptile bot need no opt-out: they're handled gracefully by the Availability guard below.
 
 ## Inputs
 
@@ -174,7 +174,7 @@ Then `sleep 5` and return to **A**.
 
 ## Availability guard
 
-After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — `PHANTOM_GREPTILE=1` only opts this run in, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
+After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — greploop is on by default, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
 
 ## 2. Report
 

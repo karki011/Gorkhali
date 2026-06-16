@@ -52,9 +52,11 @@ Session file, decisions, shadows eval, learnings update, INDEX update, validatio
 
 ## Step 6: Ship Ceremony
 
+Wrap creates the **draft PR autonomously** once verification + the review panel pass — no "ship it?" confirmation. The draft PR is the review surface: the human reviews it and marks it ready-to-review (that action stays human).
+
 See [reference/wrap/ship-ceremony.md] for full protocol.
 
-Stage -> commit -> push -> smart PR decision -> Greptile loop (run `phantom:greploop` until 5/5 ONLY if env `PHANTOM_GREPTILE=1`; otherwise skip with a one-line note) -> Jira transition. No git ops happen before this step.
+Stage -> commit -> push -> smart PR decision -> Greptile loop (run `phantom:greploop` until 5/5 by default; skip only if env `PHANTOM_GREPTILE=0`, or `--no-greploop` for a single Greptile trigger without the loop, with a one-line note) -> Jira transition. No git ops happen before this step.
 
 ## Step 7: Evolution & Shutdown
 
