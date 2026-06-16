@@ -72,13 +72,20 @@ HEAD_SHA=$(gh pr view {PR} --json headRefOid -q .headRefOid)
 
 WAITED=0
 while true; do
+  # Select exactly ONE greptile check-run (latest by started_at) so gh's --jq emits a
+  # single clean JSON value. A bare `.check_runs[] | select(...)` emits multiple
+  # concatenated objects when several greptile runs exist (re-runs, staging+prod), which
+  # makes the STATUS test below silently never match. Run this block verbatim — do NOT
+  # improvise a `gh api … | jq` poll that re-pipes a Greptile comment body, or jq throws
+  # "Invalid string: control characters from U+0000 through U+001F must be escaped".
   CHECK=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
-    --jq '.check_runs[] | select(.name | test("greptile"; "i"))' 2>/dev/null)
+    --jq '[.check_runs[] | select(.name | test("greptile"; "i"))]
+          | sort_by(.started_at) | last // empty' 2>/dev/null)
   if [ -z "$CHECK" ]; then
     if [ "$WAITED" -ge 180 ]; then break; fi   # no auto-review coming → fall back to trigger in A
     echo "waiting for greptile check…"; sleep 5; WAITED=$((WAITED+5)); continue
   fi
-  STATUS=$(echo "$CHECK" | jq -r '.status // "completed"')
+  STATUS=$(printf '%s' "$CHECK" | jq -r '.status // "completed"')
   [ "$STATUS" = "completed" ] && break
   echo "greptile running (status: $STATUS)…"; sleep 10
 done
