@@ -12,9 +12,9 @@ allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 
 Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confidence, zero unresolved comments**.
 
-## Gate: `PHANTOM_GREPTILE`
+## Always on
 
-Greploop is **on by default**. Only if env `PHANTOM_GREPTILE` is explicitly `0`: print "○ greploop skipped (PHANTOM_GREPTILE=0)" and stop. Not an error — this is the opt-out for installs that don't want the loop. Repos that simply lack the Greptile bot need no opt-out: they're handled gracefully by the Availability guard below.
+Greploop always runs — there is no opt-out. Repos that lack the Greptile bot are handled gracefully by the Availability guard below (they don't need to opt out).
 
 ## Inputs
 

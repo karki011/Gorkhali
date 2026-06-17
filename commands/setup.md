@@ -21,6 +21,6 @@ fi
 bash "$SETUP"
 ```
 
-This (re)initializes the PHANTOM_DATA directories and seeds the learnings `INDEX.md`. Safe and idempotent — re-running only fills in what's missing. Runtime behavior is driven by env vars (e.g. `PHANTOM_DATA`, `PHANTOM_GREPTILE`, `PHANTOM_PROTECTED_BRANCHES`), not a config file.
+This (re)initializes the PHANTOM_DATA directories and seeds the learnings `INDEX.md`. Safe and idempotent — re-running only fills in what's missing. Runtime behavior is driven by env vars (e.g. `PHANTOM_DATA`, `PHANTOM_PROTECTED_BRANCHES`), not a config file.
 
 It's the plugin-native replacement for the wizard step that `install.sh` ran for symlink installs: plugins are dropped in place without executing that script, so first-run config needs this explicit entry point.

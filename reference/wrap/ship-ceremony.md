@@ -62,11 +62,9 @@ If `gh` not available: print branch name + "run `gh pr create --draft` when read
 
 If skipped: log reason to wrap.json, print "PR skipped ({reason}). Branch pushed — create manually when ready."
 
-## 5. Greptile Review Loop (on by default; opt out with `PHANTOM_GREPTILE=0`)
+## 5. Greptile Review Loop (always runs)
 
-Check the `PHANTOM_GREPTILE` env var. The loop runs **by default** — skip it only when explicitly disabled. If `PHANTOM_GREPTILE=0`: print "○ Greptile loop skipped (PHANTOM_GREPTILE=0)", record `greptile: { requested: false, status: "skipped" }` in `wrap.json`, and continue to section 6.
-
-Otherwise (the default path): Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We drive it explicitly and loop until it's happy.
+The loop **always runs**. Greptile does NOT auto-trigger on draft PRs (only on ready-to-review). We drive it explicitly and loop until it's happy.
 
 After the draft PR is created, hand off to the greploop skill:
 
@@ -77,7 +75,6 @@ Skill(skill="phantom:greploop", args="{PR_NUMBER}")
 This triggers Greptile (`@greptileai review`), polls the check-run, fixes actionable comments, replies in-thread (tone from `PHANTOM_GREPTILE_TONE`: `neutral` default, `roast` opt-in), resolves threads, and re-reviews — looping until **5/5 confidence with zero unresolved comments** or the iteration ceiling (default 5).
 
 - Skip if section 4 skipped the PR (no PR → no greploop).
-- User override: `--no-greploop` on wrap → fall back to a single trigger (`gh pr comment {PR_NUMBER} --body "@greptileai review"`) and stop.
 - If `gh`/Greptile unavailable or greploop errors: log a warning and tell the user "Greptile loop not run — request manually with `@greptileai review` or mark PR ready-to-review." Do not block the wrap.
 
 Record greploop's final confidence + remaining-comment count into `wrap.json` `greptile`.

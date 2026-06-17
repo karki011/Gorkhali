@@ -56,7 +56,7 @@ Wrap creates the **draft PR autonomously** once verification + the review panel 
 
 See [reference/wrap/ship-ceremony.md] for full protocol.
 
-Stage -> commit -> push -> smart PR decision -> Greptile loop (run `phantom:greploop` until 5/5 by default; skip only if env `PHANTOM_GREPTILE=0`, or `--no-greploop` for a single Greptile trigger without the loop, with a one-line note) -> Jira transition. No git ops happen before this step.
+Stage -> commit -> push -> smart PR decision -> Greptile loop (always runs: `phantom:greploop` until 5/5) -> Jira transition. No git ops happen before this step.
 
 ## Step 7: Evolution & Shutdown
 
@@ -80,7 +80,7 @@ PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head
 [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}
 ```
 
-Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report's `Total:`). Telemetry batches ~60s, so the figure may trail the last minute of work.
+Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report's `Total:`). The report prices live Claude Code transcripts, so the figure tracks current work — only the very last assistant turn may not be flushed to disk yet.
 
 ---
 

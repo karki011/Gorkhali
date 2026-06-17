@@ -54,10 +54,10 @@ fi
 
 # 4. Configuration — none required.
 # Phantom is config-free. Optional behavior is tuned with env vars at runtime:
-#   PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES,
-#   PHANTOM_GREPTILE. MCP integrations are auto-detected at use time.
+#   PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES.
+#   MCP integrations are auto-detected at use time.
 echo ""
-echo "  ✓ No configuration file needed (optional env vars: PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES, PHANTOM_GREPTILE)"
+echo "  ✓ No configuration file needed (optional env vars: PHANTOM_ROUTING_ENFORCE, PHANTOM_ROUTING_NUDGE, PHANTOM_PROTECTED_BRANCHES)"
 
 # 5. Make all hooks and scripts executable (shipped code — under REPO_DIR)
 for hook in "$REPO_DIR"/hooks/*.sh "$REPO_DIR"/hooks/*.js; do
