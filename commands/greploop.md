@@ -120,6 +120,8 @@ Stop the loop if **either** holds:
 - Confidence is **5/5 AND zero unresolved comments**, or
 - iteration count reached `--max` (report remaining).
 
+On exit, **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "done"` into the session `wrap.json`. greploop is the SOLE writer of `greptile.status` — the Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing until this is recorded.
+
 ### E. Fix actionable comments
 
 For each unresolved comment (skip this whole step under `--no-fix`):
@@ -174,7 +176,39 @@ Then `sleep 5` and return to **A**.
 
 ## Availability guard
 
-After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — greploop is on by default, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering.
+After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — greploop is on by default, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering. Then **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "skipped"` into the session `wrap.json`.
+
+## Release the gate (write `greptile.status` to wrap.json)
+
+The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a draft PR's `greptile.status` is missing/`pending`. At **both** exit points above, patch the session `wrap.json` to release it: `done` on successful completion (5/5, zero unresolved), `skipped` when Greptile is unavailable on the repo.
+
+The wrap.json path MUST be resolved with the SAME phantom-paths helpers the gate reads with (`detectRepo` + `current-session/<repo>.json` ticket precedence + `sessionsDir`) so the write lands in the byte-identical file the gate checks — a hand-built `basename $(git rev-parse --show-toplevel)` path shards under the ticket name inside worktrees and the gate never releases. Non-blocking and fail-soft — a write failure must not error the loop:
+
+```bash
+# STATUS = "done" (5/5 exit) or "skipped" (Greptile unavailable)
+STATUS="done"
+node -e '
+  const fs=require("fs"), path=require("path");
+  const root=process.env.CLAUDE_PLUGIN_ROOT
+    || path.join(process.env.HOME,".claude","plugins","marketplaces","phantom");
+  let pp; try{ pp=require(path.join(root,"scripts","lib","phantom-paths")); }
+  catch(e){ process.exit(0); /* helper missing → fail-soft */ }
+  try{
+    const TICKET_RE=/[A-Z][A-Z0-9]+-\d+/;
+    const repo=pp.detectRepo();
+    let ticket=null;
+    try{ const s=JSON.parse(fs.readFileSync(path.join(pp.stateDir(),"current-session",repo+".json"),"utf8"));
+      if(typeof s.ticket==="string"&&TICKET_RE.test(s.ticket)) ticket=s.ticket.match(TICKET_RE)[0]; }catch(_){}
+    if(!ticket){ try{ const b=require("child_process").execFileSync("git",["branch","--show-current"],{encoding:"utf8"});
+      const m=b.match(TICKET_RE); if(m) ticket=m[0]; }catch(_){ } }
+    if(!repo||!ticket) process.exit(0);
+    const f=path.join(pp.sessionsDir(repo),ticket,"wrap.json");
+    const w=JSON.parse(fs.readFileSync(f,"utf8"));
+    w.greptile=Object.assign({},w.greptile,{status:process.argv[1]});
+    fs.writeFileSync(f,JSON.stringify(w,null,2));
+  }catch(e){/* fail-soft */}
+' "$STATUS" || true
+```
 
 ## 2. Report
 

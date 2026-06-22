@@ -77,7 +77,7 @@ This triggers Greptile (`@greptileai review`), polls the check-run, fixes action
 - Skip if section 4 skipped the PR (no PR → no greploop).
 - If `gh`/Greptile unavailable or greploop errors: log a warning and tell the user "Greptile loop not run — request manually with `@greptileai review` or mark PR ready-to-review." Do not block the wrap.
 
-Record greploop's final confidence + remaining-comment count into `wrap.json` `greptile`.
+Record greploop's final confidence + remaining-comment count into `wrap.json` `greptile`. greploop is the SOLE owner of writing `greptile.status` (`done`/`skipped`) back to `wrap.json` — wrap leaves it as `pending` after pinging and does not separately set it. The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a draft PR's `greptile.status` is still `pending`/missing, which is what forces greploop to run.
 
 ## 6. Jira Transition (non-blocking)
 
