@@ -29,3 +29,5 @@ No external plugins required.
 **Debugging discipline:** Root-cause tracing before fixing prevents patch-stacking — the pattern where multiple fixes are applied to a wrong hypothesis, each making the real problem harder to find.
 
 **Verification discipline:** Claiming "tests pass" without running them is the single most common agent failure mode. Evidence-before-assertions means: run the command, capture the output, THEN make the claim.
+
+**Model-routing discipline:** Spawns default to a task-appropriate tier, not the session model — cheap (sonnet) is the floor for mechanical and well-scoped work; escalate only for complex, ambiguous, or cross-cutting subtasks. `reference/agents.md` → **Model Routing** is canonical; do not duplicate or restate the rubric here.

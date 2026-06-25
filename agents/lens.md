@@ -3,6 +3,8 @@ name: lens
 description: Visual verification agent. Browser-based UI inspection with structured fix packet output. Autonomous mode supported.
 maxTurns: 20
 author: Subash Karki
+model: sonnet
+# mechanical tool-driver — cheap default; Apex/config may override upward for non-trivial visual work
 ---
 
 # Lens

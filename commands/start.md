@@ -30,7 +30,7 @@ No git operations until wrap. All work is local.
 
 Agent spawn rules (all routes):
 - `mode: "bypassPermissions"` — always
-- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, lens, archer, rival, plan-checker). **Apex picks the `model:` per spawn** — default omit (inherits session model; Fable 5 recommended), `sonnet` for small, well-scoped subtasks (see `reference/agents.md` → Model Routing). Effort is uniform `high` (session-inherited); there is no per-spawn effort param.
+- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, lens, archer, rival, plan-checker). **Apex picks the `model:` per spawn** — default = task-appropriate tier: cheap (`sonnet`) for mechanical & well-scoped work, escalate to session/opus for complex, ambiguous, or cross-cutting work (canonical rules: `reference/agents.md` → Model Routing). Effort is uniform `high` (session-inherited); there is no per-spawn effort param.
 - `model: "haiku"` override ONLY for trivial mechanical single-file edits (rename, import, typo) — spawn `subagent_type: "blade"` with `model: "haiku"`.
 - SOLO (1-3 files): single Blade, foreground
 - SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
@@ -71,7 +71,7 @@ READ `reference/router.md` for full algorithm.
      description: "Blade: {1-line task summary}"
      subagent_type: "blade"
      mode: "bypassPermissions"
-     # model: Apex picks per Model Routing (default: omit → inherits session model; sonnet for small, well-scoped). effort = session high.
+     # model: Apex picks per Model Routing (default: task-appropriate tier — sonnet for mechanical/well-scoped, escalate to session/opus for complex). effort = session high.
      prompt: |
        You are a BLADE — implementation agent.
        {task description from intent.json}

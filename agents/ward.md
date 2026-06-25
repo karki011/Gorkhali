@@ -3,6 +3,8 @@ name: ward
 description: QA and build verification. Tests, lint, typecheck, build.
 maxTurns: 20
 author: Subash Karki
+model: sonnet
+# mechanical tool-driver — cheap default; Apex/config may override upward for non-trivial verification
 ---
 
 # Ward

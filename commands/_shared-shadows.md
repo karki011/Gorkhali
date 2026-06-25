@@ -6,24 +6,24 @@
 
 ## Model Routing
 
-**Apex routes the model; effort is uniform.** Apex pins only effort (`high`) in frontmatter — `model` is UNSET everywhere except gaze/archer (`opus`, review tier) and sage (`fable`, top-tier advisory). Unset model = inherit the session model (Fable 5 recommended). Apex tunes the `model:` param per spawn only to downshift. There is no per-spawn effort param.
+**Apex routes the model; effort is uniform.** Apex pins only effort (`high`) in frontmatter. Default = task-appropriate tier, NOT "inherit the session model" — the session model is the ceiling, not the floor. Mechanical/tool-driver roles (sweep/ward/lens/plan-checker) pin `sonnet`; gaze/archer pin `opus` (review tier); sage pins `fable` (top-tier advisory). Apex picks the `model:` param per spawn — cheap (sonnet) for mechanical & well-scoped work, escalate to session/opus for complex, ambiguous, or cross-cutting work. There is no per-spawn effort param.
 
 | Agent | default model | role |
 |-------|---------------|------|
 | apex | inherits session model (effort high) | orchestrator |
-| blade | inherits session model · sonnet for small, well-scoped subtasks | implementation |
+| blade | sonnet for well-scoped/contract-backed work · escalate to session/opus for complex, ambiguous, cross-cutting | implementation |
 | hound | inherits session model | forensics |
 | sage | fable (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
 | gaze | opus (pinned — review tier) | quality gate |
 | archer | opus (pinned — review tier) | cross-file review |
 | rival | inherits session model | adversarial plan review |
-| plan-checker | inherits session model · sonnet for simple plans | plan validation |
+| plan-checker | sonnet (frontmatter pin) · escalate for large/complex plans | plan validation |
 | ward | sonnet | build/test QA |
 | lens | sonnet | visual QA |
 | sweep | sonnet | simplification |
 
 - `fable` resolves to `claude-fable-5` (Mythos tier above Opus, 1M context, 128K output, $10/$50 per MTok); `opus` to `claude-opus-4-8`; `sonnet` to `claude-sonnet-4-6`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
-- **Default = inherit.** Leave `model` unset so the agent runs the session model. Use `model: "sonnet"` only for small, single-concern subtasks with a tight contract and no open design decisions. "Good tasking earns Sonnet."
+- **Default = task-appropriate tier.** Sonnet is the floor for mechanical and well-scoped, contract-backed subtasks; escalate to the session model (or `opus`) for complex, ambiguous, or cross-cutting work, or where decomposition left a subtask fuzzy. "Good tasking earns Sonnet" — fix weak scoping by re-decomposing, not by throwing the expensive model at it.
 - `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
 - Effort is uniform `high` (session-inherited); never set effort at spawn. Check MODEL_OVERRIDE at session start.
 

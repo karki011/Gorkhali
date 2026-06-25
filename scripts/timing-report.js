@@ -56,12 +56,20 @@ function median(nums) {
   return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
 }
 const fmt = (ms) => (ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(1)}s`);
-// bucket across eras: 'inherited' (and legacy 'opus(inherited)') = session model; aliases collapse pinned variants
-const norm = (m) =>
-  m === 'inherited' || m === 'opus(inherited)' ? 'inherited'
-    : m.startsWith('opus') ? 'opus'
-    : m.startsWith('fable') ? 'fable'
-    : m;
+// bucket across eras: records with modelSource 'session' (or legacy records missing modelSource)
+// fall in the 'inherited' bucket; records with modelSource 'param' or 'pinned' count under their
+// real tier. 'opus(inherited)' is kept for backward compat with old logs.
+const norm = (m, modelSource) => {
+  // Legacy records (no modelSource) and session-inherited records → 'inherited' bucket.
+  if (!modelSource || modelSource === 'session') {
+    return m === 'inherited' || m === 'opus(inherited)' ? 'inherited' : m;
+  }
+  // param or pinned: count under real model tier.
+  if (m === 'inherited' || m === 'opus(inherited)') return 'inherited';
+  if (m.startsWith('opus')) return 'opus';
+  if (m.startsWith('fable')) return 'fable';
+  return m;
+};
 
 function main() {
   const args = parseArgs();
@@ -80,7 +88,7 @@ function main() {
   // ── Routing split (exact) ──────────────────────────────────────────────
   const byModel = {};
   for (const s of spawns) {
-    const m = norm(s.model || 'inherited');
+    const m = norm(s.model || 'inherited', s.modelSource);
     byModel[m] = byModel[m] || { count: 0, durations: [] };
     byModel[m].count++;
   }
@@ -114,7 +122,7 @@ function main() {
     }
     if (!stop) continue;
     const dur = Date.parse(stop.ts) - Date.parse(sp.ts);
-    if (dur >= 0) byModel[norm(sp.model || 'inherited')].durations.push(dur);
+    if (dur >= 0) byModel[norm(sp.model || 'inherited', sp.modelSource)].durations.push(dur);
   }
 
   console.log('\n  DURATION PER MODEL (paired spawn→stop)');

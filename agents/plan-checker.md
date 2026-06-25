@@ -3,6 +3,8 @@ name: plan-checker
 description: Pre-execution plan validator. Checks learnings collisions, blast radius, coverage gaps, scope creep, dependency order.
 maxTurns: 10
 author: Subash Karki
+model: sonnet
+# mechanical validator — cheap default; Apex/config may override upward for large/complex plans
 ---
 
 # Plan Checker
