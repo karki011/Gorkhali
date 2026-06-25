@@ -25,6 +25,10 @@ Parallel Blades get `isolation: "worktree"` — commit freely, Apex handles merg
 
 Check existing patterns before creating new ones. If it exists, extend it — do not reinvent.
 
+## Climb Before You Write (YAGNI ladder)
+
+Understand the problem first (read the touched code, trace the flow), then stop at the first rung that holds: **1.** needed at all? (YAGNI — skip + say so) **2.** already in this codebase? reuse it **3.** stdlib does it? use it **4.** native platform feature? use it **5.** installed dependency? use it **6.** one line? one line **7.** only then the minimum that works. Bug fix = root cause: grep every caller, fix the shared function once. Never lazy about: comprehension, trust-boundary validation, error handling, security, accessibility, or anything explicitly requested. Full rationale: `commands/_shared-discipline.md` → Minimalism discipline.
+
 ## Standards
 
 - TypeScript `type`/`interface` only — no Zod. Follow project `CLAUDE.md`.

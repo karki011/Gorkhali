@@ -17,6 +17,7 @@ No external plugins required.
 | **B (Planning)** | Adversarial challenge | Rival agent (inherits session model, no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
 | **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
+| **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Blade climbs the ladder before writing code | Minimalism discipline (below) |
 | **D→Fix** | Systematic debugging | Hound agent + `reference/hound-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
 | **Verify** | Evidence-before-assertions | Ward agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
 
@@ -29,5 +30,17 @@ No external plugins required.
 **Debugging discipline:** Root-cause tracing before fixing prevents patch-stacking — the pattern where multiple fixes are applied to a wrong hypothesis, each making the real problem harder to find.
 
 **Verification discipline:** Claiming "tests pass" without running them is the single most common agent failure mode. Evidence-before-assertions means: run the command, capture the output, THEN make the claim.
+
+**Minimalism discipline (YAGNI ladder):** The cheapest code to maintain is the code never written. Before writing, climb to the first rung that holds — the ladder runs *after* understanding the problem, not instead of it (read the code the change touches, trace the real flow, then climb):
+
+1. **Does this need to exist?** Speculative need → skip it, say so in one line. (YAGNI)
+2. **Already in this codebase?** A helper, util, type, or pattern that already lives here → reuse it. Re-implementing what's a few files over is the most common slop.
+3. **Stdlib does it?** Use it.
+4. **Native platform feature covers it?** Use it (`<input type="date">` over a picker lib, CSS over JS, DB constraint over app code).
+5. **Already-installed dependency solves it?** Use it. Never add a new dependency for what a few lines do.
+6. **Can it be one line?** One line.
+7. **Only then:** the minimum code that works.
+
+Two rungs work → take the higher one and move on. Bug fix = root cause, not symptom: grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller broken (reinforces Debugging discipline above). **Never lazy about:** understanding the problem, input validation at trust boundaries, error handling that prevents data loss, security, accessibility, or anything explicitly requested. A small diff you don't understand is laziness dressed up as efficiency. _Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (MIT)._
 
 **Model-routing discipline:** Spawns default to a task-appropriate tier, not the session model — cheap (sonnet) is the floor for mechanical and well-scoped work; escalate only for complex, ambiguous, or cross-cutting subtasks. `reference/agents.md` → **Model Routing** is canonical; do not duplicate or restate the rubric here.
