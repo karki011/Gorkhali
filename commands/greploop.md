@@ -24,15 +24,12 @@ Greploop always runs — there is no opt-out. Repos that lack the Greptile bot a
 
 ## Conventions (mechanics non-negotiable, tone configurable)
 
-Apply every iteration:
-
-- Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger comment. For re-trigger/fallback only, post `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
-- **Reply in-thread**, never as a top-level PR comment. Endpoint: `gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies -f body="..." --method POST` (no PR number in the path).
+- Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger comment. Fallback only: `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
 - **Reply tone** — read env `PHANTOM_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
   - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
   - `roast`: self-deprecating humor (CZ style). Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai". Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai".
-  - Whatever the tone: include the fix reference (commit hash / what changed) and **always end with `@greptileai`** so re-review triggers.
-- **Push before you reply.** Always `git push` the fix commit before posting the in-thread reply, so the reply references code that actually exists on the remote.
+  - Whatever the tone: include the fix reference and **always end with `@greptileai`** so re-review triggers.
+- **Push before you reply.** Always `git push` before posting replies so they reference code that exists on the remote.
 
 ## 0. Identify the PR
 
@@ -48,13 +45,11 @@ If no PR exists, stop and tell the user. Switch to the PR branch if not already 
 
 ### A. Push and let Greptile review
 
-Greptile auto-reviews every PR on creation (drafts included) — **never post an initial `@greptileai review` comment**; it just stacks a redundant duplicate review. Push any pending local changes and go straight to polling (B):
+Push pending local changes; Greptile auto-reviews on push. On later iterations, re-review is triggered by in-thread replies ending in `@greptileai` (section G). **Fallback only:** if poll B times out on a stale run, post `@greptileai review` once, guarded against an already-running review:
 
 ```bash
 git push
 ```
-
-On later iterations, re-review is triggered by the in-thread fix replies ending in `@greptileai` (section G) — no separate trigger comment needed there either. **Fallback only:** if no new Greptile check-run appears within ~3 minutes of a push (poll B times out on a stale run), post `@greptileai review` once, guarded against an already-running review:
 
 ```bash
 GREPTILE_STATE=$(gh pr checks {PR} --json name,state \
@@ -108,23 +103,30 @@ gh api repos/{owner}/{repo}/pulls/{PR}/reviews
 
 # 3. Unresolved inline diff comments
 gh api repos/{owner}/{repo}/pulls/{PR}/comments
+
+# 4. Comments Outside Diff — parse the most-recent Greptile summary comment body for
+#    <details><summary><h3>Comments Outside Diff</h3> block. Extract each numbered item:
+#    file path, line(s), title, description. These have NO comment ID — they live only in
+#    the summary comment body and can only be addressed via a top-level PR comment.
+#    Mark extracted items source: "outside-diff".
 ```
 
 Parse for:
 - **Confidence score** — pattern like `4/5` or `Confidence: 5/5`.
-- **Unresolved inline comments** — plus any actionable items carried in the latest summary's "Prompt to fix all with AI" section, **even if the inline endpoint returns zero**.
+- **Unresolved inline comments** — plus any actionable items in the summary's "Prompt to fix all with AI" section, **even if the inline endpoint returns zero**.
+- **Outside-diff items** — numbered items extracted from the `<details>...Comments Outside Diff...` block; treat as unresolved until addressed.
 
 ### D. Exit conditions
 
 Stop the loop if **either** holds:
-- Confidence is **5/5 AND zero unresolved comments**, or
+- Confidence is **5/5 AND zero unresolved comments AND zero outside-diff items remaining**, or
 - iteration count reached `--max` (report remaining).
 
 On exit, **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "done"` into the session `wrap.json`. greploop is the SOLE writer of `greptile.status` — the Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing until this is recorded.
 
 ### E. Fix actionable comments
 
-For each unresolved comment (skip this whole step under `--no-fix`):
+For each unresolved comment — inline and outside-diff — (skip this whole step under `--no-fix`):
 1. Read the file and understand the comment in context (read the full file, not just the diff).
 2. Decide: actionable (code change) vs informational / false-positive.
 3. If actionable, make the fix. For a substantial multi-file change, prefer spawning a `blade` (`mode: "bypassPermissions"`) rather than editing inline.
@@ -139,14 +141,31 @@ git push
 
 ### G. Reply in-thread + resolve
 
-For each comment, post an in-thread reply in the configured tone (`PHANTOM_GREPTILE_TONE`), ending with `@greptileai`:
+**Inline comments** — post an in-thread reply in the configured tone (`PHANTOM_GREPTILE_TONE`), ending with `@greptileai`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies \
   -f body="Fixed in {sha} — take another look @greptileai" --method POST
 ```
 
-Then batch-resolve addressed threads via GraphQL. Fetch unresolved thread IDs:
+**Outside-diff items** — these have no comment ID and are not review threads. Batch all outside-diff responses into ONE top-level PR comment (they cannot be GraphQL-resolved; addressing them = the fix + this reply):
+
+```bash
+gh pr comment {PR} --body "$(cat <<'EOF'
+### Responses to Comments Outside Diff
+
+**1. `{file}` line {N} — {title}**
+Fixed in {sha} — take another look @greptileai
+
+**2. `{file}` line {N} — {title}**
+Intentional — matches the backend contract, no churn needed @greptileai
+EOF
+)"
+```
+
+Use the same tone rules as inline (`PHANTOM_GREPTILE_TONE`), always end each entry with `@greptileai`.
+
+**Resolve inline threads** via GraphQL. Fetch unresolved thread IDs:
 
 ```bash
 gh api graphql -f query='

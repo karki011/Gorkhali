@@ -85,3 +85,5 @@ Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report'
 ---
 
 > **Output:** SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.
+>
+> **Next step after PR is merged:** run `/phantom:close {TICKET}` — Jira→Done, branch/worktree cleanup, final cost archive.
