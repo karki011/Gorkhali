@@ -62,6 +62,23 @@ Use bare aliases (fable/opus/sonnet/haiku); never pin dated or prior-generation 
 - Sage: max 3 calls per Blade. No tools. No user output.
 - Background: use `run_in_background: true` for non-blocking agents
 
+## Context Discipline
+
+**Rationale:** Apex is the dominant cost — its long-lived loop is the bulk of spend, and most of that is
+cache-read from re-carrying artifacts. Keep Apex's window lean. These rules are canonical; other files
+point here.
+
+1. **Pass paths, not content.** When spawning a subagent, give it FILE PATHS to read itself — never paste
+   large file bodies into the spawn prompt. Already-extracted task scope inline is fine; full file
+   contents are not. The subagent loads them in its own window so Apex's context stays lean.
+2. **Never double-read.** Do not Read a file that the subagent will read for you. Let the subagent load it
+   in its own context.
+3. **Verify by spot-check, not re-read.** Confirm a subagent's work via filesystem/git spot-check (target
+   file exists, ≥1 commit present, no `Self-Check: FAILED` / verdict-failure line) instead of pulling full
+   outputs or file bodies back into Apex context.
+4. **Ingest verdicts, not bodies.** Apex consumes each subagent's verdict/summary section, never the full
+   output or logs. Summaries enter the conversation; full outputs stay in their files.
+
 ## SOLO vs SHADOWS Routing
 
 | Condition | Route |

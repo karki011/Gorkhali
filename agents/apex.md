@@ -73,5 +73,11 @@ After each phase completes, compress context:
 - **Fix loop iteration**: Summarize what was tried and failed, drop verbose logs
 - **General rule**: Summarize completed work before starting new phases
 
+**Context Discipline** — you are the dominant cost; keep your window lean (canonical: `reference/agents.md` → Context Discipline):
+1. **Pass paths, not content.** Spawn subagents with FILE PATHS to read themselves — never paste large file bodies into the prompt. Inline only the already-extracted task scope.
+2. **Never double-read.** Do not Read a file a subagent will read for you; let it load in its own window.
+3. **Verify by spot-check, not re-read.** Confirm work via fs/git spot-check (file exists, ≥1 commit, no `Self-Check: FAILED`/verdict-failure line) — do not pull full outputs or bodies back in.
+4. **Ingest verdicts, not bodies.** Consume each subagent's verdict/summary, never the full output/logs.
+
 ---
 Author: Subash Karki

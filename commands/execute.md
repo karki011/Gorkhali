@@ -40,6 +40,10 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"`
      (sonnet/haiku override for small or trivial subtasks only)
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
+   - **Context discipline at spawn** (canonical: `reference/agents.md` → Context Discipline):
+     spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
+     in. After an agent returns, Apex verifies via fs/git spot-check (file exists, ≥1 commit, no
+     `Self-Check: FAILED`/verdict-failure line), NOT by re-reading the file or pulling its full output back.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
 
