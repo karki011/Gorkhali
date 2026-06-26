@@ -15,6 +15,7 @@ Resume from a paused session by reading the state artifact.
 2. **Read state artifact**: `{TEAM_DIR}/sessions/{TICKET}/pause-state.json`
    - If missing: list available sessions in `{TEAM_DIR}/sessions/`, ask user to pick
    - If found: load and display summary
+   - Note: `pause-state.json` is same-machine resume state (what this command reads). Its sibling `handoff.md` is a portable, self-contained packet for cold/cross-context continuation (a fresh session or another agent) — not needed here.
 
 <staleness_check>
 3. **Staleness check**: Compare `_meta.gitHead` to current `git rev-parse --short HEAD`

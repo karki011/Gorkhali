@@ -44,18 +44,61 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    ```
 </output_format>
 
-3. **Write session log** to `{TEAM_DIR}/sessions/{TICKET}/{date}_{slug}.md`
+3. **Write portable handoff packet** to `{SESSION_DIR}/handoff.md` AND print its full contents inline (so it can be pasted into a fresh session, another agent like Codex/Cursor, or Slack). Self-contained: inline the state, don't just reference local paths — the reader may not have them. Source from existing artifacts (`intent.json`, `plan.json`, `decisions.json`/`decisions.md`, contracts, the `pause-state.json` just written) + git state. No new user input. Any artifact missing → omit that section or write `n/a`; never block the pause.
+
+<output_format>
+   ```markdown
+   # Handoff: {TICKET} — {one-line goal}
+
+   _Generated {ISO 8601 now} · branch `{branch}` · HEAD `{short sha}` · PR {#number or "none"}_
+
+   ## Goal
+   {what we're trying to achieve}
+
+   ## Status
+   Phase {A/B/C/D} · route {solo|shadows} · {N done / M pending} · verify {pass|fail|n/a}
+
+   ## Done
+   - {completed work}
+
+   ## Next
+   1. {immediate actionable step}
+   2. {…}
+
+   ## Key decisions & constraints
+   - {from decisions.json/intent.json; n/a if none}
+
+   ## Files touched
+   - `{path}` — {what changed}
+
+   ## How to verify
+   ```bash
+   {TEST_CMD}
+   {LINT_CMD}
+   {BUILD_CMD}
+   ```
+
+   ## Gotchas / learnings
+   - {from learnings written this session; n/a if none}
+
+   ## To continue
+   - **Same machine:** `/phantom:resume {TICKET}`
+   - **Fresh session / another agent:** paste this entire packet as your first message.
+   ```
+</output_format>
+
+4. **Write session log** to `{TEAM_DIR}/sessions/{TICKET}/{date}_{slug}.md`
    - Summary of work done
    - Key decisions made
    - Resume instructions
 
-4. **Append learnings** to relevant domain files in `learnings/`
+5. **Append learnings** to relevant domain files in `learnings/`
 
-5. **Update INDEX.md** with new entries
+6. **Update INDEX.md** with new entries
 
-6. **Update auto-memory** in project memory directory
+7. **Update auto-memory** in project memory directory
 
-7. **Close cost interval + report**:
+8. **Close cost interval + report**:
    ```bash
    PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
    [ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}
@@ -69,4 +112,4 @@ Before a cross-session pause, finish or stop the workflow (`/workflows` → `x`)
 report into session artifacts.
 </instructions>
 
-Print: "Session paused. Run `/clear` then `/phantom:resume {TICKET}` to continue."
+Print: "Session paused. Handoff packet written to `{SESSION_DIR}/handoff.md` and printed above — copy-paste it to continue in a fresh session or another agent. Same machine: run `/clear` then `/phantom:resume {TICKET}`."
