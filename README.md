@@ -13,23 +13,6 @@ Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex 
 
 Zero external plugin dependencies. Fully self-contained.
 
-## Install
-
-Native plugin install (preferred), in Claude Code:
-
-```bash
-/plugin marketplace add Cloudzero/research-phantom-skills
-/plugin install phantom@phantom
-```
-
-Fallback (legacy symlink install) from a shell:
-
-```bash
-bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantom-skills/main/install.sh) --legacy
-```
-
-Set `PHANTOM_INSTALL_DIR` to override the install location for `install.sh --legacy` (default `~/.claude/phantom`).
-
 ## Quick Start
 
 ```bash
@@ -37,7 +20,7 @@ Set `PHANTOM_INSTALL_DIR` to override the install location for `install.sh --leg
 /phantom:start "the dashboard feels slow"  # ambiguous → brainstorm → plan → execute → verify
 /phantom:verify                            # power level (P0/P1 fix, P2/P3 drop)
 /phantom:wrap                              # commit, push, PR, Jira transition
-/phantom:pause → /clear → /phantom:resume     # context management
+/phantom:pause → /clear → /phantom:resume     # context mgmt + portable handoff packet
 ```
 
 ## Architecture — Adaptive Cognitive Router
@@ -92,13 +75,15 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 **Wiring Mode** — Novel: explicit dependency topology between plan tasks. Maps producers/consumers, assigns parallel execution waves, flags integration risk points. No other system does this. See `reference/wiring.md`.
 
-**Core Disciplines** — 13 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
+**Core Disciplines** — 14 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
 
 **Power Level** — P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
 
 **Anti-Repetition** — Scans learnings before every approach. `[failed]` entries are blocked. `[validated:5+]` entries auto-apply.
 
-**Self-Evolution** — Tier 1: reference auto-promote. Tier 2: skill edits (user approval). Tier 3: skill spawning (user approval).
+**Self-Evolution** — Tier 0: external absorption (user approval). Tier 1: reference auto-promote. Tier 2: skill edits (user approval). Tier 3: skill spawning (user approval).
+
+**Final Status Block** — every skill ends with a clear 🟢 done / 🟡 done-with-caveat / 🔴 blocked work-state signal.
 
 ## Folder Structure
 
@@ -109,7 +94,7 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
-├── commands/          # 21 skill directives (30-150 lines each)
+├── commands/          # 29 command directives (+ 9 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
@@ -160,6 +145,7 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 | Lens | sonnet | high | Visual verification — screenshot + diff |
 | Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
 | Rival | inherits session model | high | Plan challenger — adversarial review (no tools, forced precision) |
+| Plan-checker | inherits session model | high | Pre-execution plan validator — learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
 | Hound | inherits session model | high | Forensic investigator — 7-step protocol, HTML reports |
 | Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
 | Base Agent | — | — | Template for spawning new agent types |
@@ -181,9 +167,11 @@ Fable 5 (`claude-fable-5`, the recommended session model) is a step change on lo
 | `/phantom:start` | Entry | Adaptive router → classify → execute appropriate route |
 | `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop — polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a draft PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
 | `/phantom:verify` | — | Power Level with auto-fix for P0/P1 |
-| `/phantom:wrap` | — | Commit, push, PR, Jira transition |
+| `/phantom:wrap` | — | Commit, push, PR, Jira transition (+ optional `--recap` HTML diff recap) |
+| `/phantom:close` | — | Post-merge closeout — Jira→Done, finalize+archive session, cleanup branch/worktree, final cost |
+| `/phantom:greploop` | — | Drive a PR to a perfect Greptile review (auto-invoked by wrap) |
 | `/phantom:fix` | — | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
-| `/phantom:pause` | — | Save session state for context management |
+| `/phantom:pause` | — | Save session state + emit a portable handoff packet (`handoff.md`) for cold/cross-session continuation |
 | `/phantom:resume` | — | Restore session from saved state |
 | `/phantom:hound` | — | Forensic investigation with HTML report |
 | `/phantom:review` | — | Trigger Gaze quality gate |
@@ -193,6 +181,8 @@ Fable 5 (`claude-fable-5`, the recommended session model) is a step change on lo
 | `/phantom:recruit` | — | Spawn specialist agent (role focus) |
 | `/phantom:grill` | — | Quiz yourself on the diff before shipping |
 | `/phantom:contract` | — | Create contract (feature/api/testing/ui/fix) |
+| `/phantom:brainstorm` | — | Diverge/converge approaches for ambiguous scope (usually auto-invoked by start) |
+| `/phantom:wire` | — | Map dependency topology → execution waves (auto/optional after plan) |
 | `/phantom:execute` | — | Execute a saved plan |
 | `/phantom:learn` | — | Capture a learning mid-session |
 | `/phantom:evolve` | — | Scan learnings, propose promotions |
@@ -209,6 +199,23 @@ Fable 5 (`claude-fable-5`, the recommended session model) is a step change on lo
 - Feature-dev: disabled, reference removed from gaze.md
 - Code-sweep: absorbed into `agents/sweep.md` (plugin still enabled as backup, can be disabled)
 
+## Configuration — Environment Variables
+
+There is no config file. All optional behavior is controlled by environment variables. The user-relevant ones:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PHANTOM_DATA` | `~/.claude/phantom-data` | Root for all mutable state (sessions, learnings) |
+| `PHANTOM_REPO` | git-root basename | Override the repo name used for state partitioning |
+| `PHANTOM_ROUTING_NUDGE` | `1` (on) | Prompt-time routing reminder; set `0` to silence |
+| `PHANTOM_ROUTING_ENFORCE` | `0` (off) | When `1`, hard-block implementation edits outside a phantom session |
+| `PHANTOM_ADHOC` | unset | Set `1` for logged ad-hoc edits when routing enforcement is on |
+| `PHANTOM_PROTECTED_BRANCHES` | `main,master` | Branches Phantom refuses to commit to directly |
+| `PHANTOM_GREPTILE_TONE` | `neutral` | Tone for greploop's in-thread review replies |
+| `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` / `PHANTOM_VISUAL_LOOP_CEILING` | — | Loop ceilings for fix / greploop / visual loops |
+
+Many more internal vars exist (eval, migration, learning-decay tuning) — grep `PHANTOM_` across `hooks/` and `reference/` for the full set.
+
 ## Install
 
 Phantom is a **native Claude Code plugin**. Install it from the self-hosted marketplace in this repo — no symlinks, no `settings.json` juggling.
@@ -219,7 +226,7 @@ Phantom is a **native Claude Code plugin**. Install it from the self-hosted mark
 /phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX
 ```
 
-The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs and the learnings `INDEX.md` — it is safe to re-run. There is no config file: all optional behavior is controlled by environment variables (see **Configuration — Environment Variables** below). Update later with `/plugin update phantom`.
+The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs and the learnings `INDEX.md` — it is safe to re-run. There is no config file: all optional behavior is controlled by environment variables (see **Configuration — Environment Variables** above). Update later with `/plugin update phantom`.
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
 
@@ -231,6 +238,8 @@ The original git-clone + symlink flow still works and is handy when developing P
 git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
 ~/.claude/phantom/setup.sh
 ```
+
+There is also a one-shot script form — `bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantom-skills/main/install.sh) --legacy`. Set `PHANTOM_INSTALL_DIR` to override the install location for `install.sh --legacy` (default `~/.claude/phantom`).
 
 > **Note:** `/phantom:setup` finds `setup.sh` by self-locating from the running script (`BASH_SOURCE`) or self-resolving the install in `~/.claude/plugins/cache/phantom/phantom/*/`. A bare-terminal copy-paste with neither present will not find `setup.sh` and exits with a helpful error.
 
