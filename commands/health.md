@@ -29,11 +29,11 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 9. **File size caps**: Check all skill/reference/learnings files against caps:
    - `commands/*.md` (non-shared) > 80 lines → needs trimming
-   - `reference/*.md` > 100 lines → needs distillation
+   - `reference/*.md` > 100 lines → needs distillation (EXCLUDE `*-template.md` — HTML templates are intentionally large, not prose to distill)
    - `learnings/INDEX.md` > 80 entries → needs pruning
    - `learnings/{domain}.md` > 50 entries → needs condensing
    Report oversized files. Remediation by class:
-   - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via a Blade (compress prose; preserve every instruction, gate, and reference). NOT evolve — evolve only touches the learnings layer.
+   - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via a Blade (compress prose; preserve every instruction, gate, and reference). `*-template.md` files are exempt — they hold full HTML documents by design, not prose. NOT evolve — evolve only touches the learnings layer.
    - Oversized `learnings/INDEX.md` or `learnings/{domain}.md` → suggest `/phantom:evolve`.
 
 10. **Stale sessions**: Sessions in `{TEAM_DIR}/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `{TEAM_DIR}/completed/`.
