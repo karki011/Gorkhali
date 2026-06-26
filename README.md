@@ -188,6 +188,7 @@ Fable 5 (`claude-fable-5`, the recommended session model) is a step change on lo
 | `/phantom:hound` | — | Forensic investigation with HTML report |
 | `/phantom:review` | — | Trigger Gaze quality gate |
 | `/phantom:visual` | — | Trigger Lens visual inspection |
+| `/phantom:visualflow` | — | Visual flow pass for net-new UI (auto-recommended, user-gated) |
 | `/phantom:scout` | — | Background research agents |
 | `/phantom:recruit` | — | Spawn specialist agent (role focus) |
 | `/phantom:grill` | — | Quiz yourself on the diff before shipping |

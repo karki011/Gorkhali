@@ -20,30 +20,33 @@ Context -> Router(PLAN) -> Capture Intent -> Codebase Research
 - 1 human gate: approve plan after deliberation
 - Lightweight wiring auto-generated (wave assignments, no separate approval)
 - **Optional wiring**: if plan touches >5 files, invoke `Skill(skill="phantom:wire")` for topology -- no human gate on PLAN route, wiring is informational only
-- Artifacts: + intent.json, plan.json, deliberation.json, wiring.json (auto or via phantom:wire)
+- **Optional visual flow**: when `net_new_ui` is strong, before contracts -> `Skill(skill="phantom:visualflow")` (visual flow, user-gated) -- Apex recommends, user approves; no new hard gate
+- Artifacts: + intent.json, plan.json, deliberation.json, wiring.json (auto or via phantom:wire), visualflow.json (when net_new_ui)
 
 ## BRAINSTORM
 ```
 Context -> Router(BRAINSTORM) -> Skill(skill="phantom:brainstorm")
   -> Diverge (explore + questions + 2-3 approaches)
   -> Converge (human picks direction, decision locked)
--> Standard PLAN flow (decompose -> deliberate -> approve -> execute -> verify)
+-> [net_new_ui: Skill(skill="phantom:visualflow")] -> Standard PLAN flow (decompose -> deliberate -> approve -> execute -> verify)
 ```
 - 2 human gates: approve direction (in brainstorm) + approve plan
 - Brainstorm phase invoked via `Skill(skill="phantom:brainstorm")` -- see `commands/brainstorm.md`
-- Artifacts: + decisions.json (from brainstorm), intent.json (updated with chosen approach)
+- **Visual flow**: when `net_new_ui` fires, before contracts/plan -> `Skill(skill="phantom:visualflow")` (visual flow, user-gated) -- Apex recommends, user approves; no new hard gate
+- Artifacts: + decisions.json (from brainstorm), intent.json (updated with chosen approach), visualflow.json (when net_new_ui)
 
 ## FULL
 ```
 Context -> Router(FULL) -> Skill(skill="phantom:brainstorm") (diverge/converge)
--> Direction locked -> PLAN (decompose/deliberate) -> Plan approved
+-> Direction locked -> [net_new_ui: Skill(skill="phantom:visualflow")] -> PLAN (decompose/deliberate) -> Plan approved
 -> Skill(skill="phantom:wire") (dependency topology, wave assignments, risk points) -> Human approves wiring
 -> EXECUTE (wave-based dispatch) -> VERIFY -> Done
 ```
 - 3 human gates: direction + plan + wiring
 - Brainstorm invoked via `Skill(skill="phantom:brainstorm")` -- see `commands/brainstorm.md`
+- **Visual flow**: when `net_new_ui` fires, before contracts/plan -> `Skill(skill="phantom:visualflow")` (visual flow, user-gated) -- Apex recommends, user approves; no new hard gate
 - Wiring invoked via `Skill(skill="phantom:wire")` -- see `commands/wire.md` and `reference/wiring.md`
-- Artifacts: + decisions.json (from brainstorm), wiring.json (gated)
+- Artifacts: + decisions.json (from brainstorm), wiring.json (gated), visualflow.json (when net_new_ui)
 
 ## Route Decision Artifact
 

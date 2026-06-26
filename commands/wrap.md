@@ -32,6 +32,10 @@ Run `git diff main...HEAD --stat` + full diff. Apex reviews alignment with contr
 Flag: scope creep (files outside contract), stray formatting, debug statements, orphan TODOs.
 Scope creep -> present to user, they decide before PR. Clean -> proceed.
 
+### Optional: Visual Recap (`--recap`, or auto when diff is large / UI-affecting)
+
+Lightweight, skip by default. When invoked with `--recap` — or auto when the diff is large or touches UI — emit a self-contained HTML recap of the change (files changed, key diffs, schema/API moves, UI impact) to `{TEAM_DIR}/sessions/{TICKET}/wrap-recap.html`, then reference its path in the wrap output. Reuse the visualflow aesthetic — see `reference/visualflow/flow-template.md` (shared styling). Never blocks; if it fails, proceed with the wrap.
+
 ## Step 3: Grill Gate (auto-triggered if 3+ agent-changed files)
 
 Run `Skill(skill="phantom:grill", args="--quick")` — 3-question rapid grill.

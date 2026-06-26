@@ -75,6 +75,20 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.
 
 All true? Feature branch, verify ran, anti-repetition, rival, simplify, intent, learnings, subagent-only. If ANY no → fix first.
 
+## Final Status Block
+
+Every `/phantom:*` skill ENDS its response with one single-line work-state signal — last line, nothing after it:
+
+- 🟢 = done & verified
+- 🟡 = done but needs a specific non-routine follow-up — name it
+- 🔴 = blocked — state the blocker
+
+One line, one color. Examples:
+
+- `🟢 Wired usePagination into the list view; tests green`
+- `🟡 Code updated — set STRIPE_KEY in env before testing`
+- `🔴 Blocked: missing DB credential, cannot run migration`
+
 ## Learning & Self-Correction
 - When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
 - Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.

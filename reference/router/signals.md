@@ -17,6 +17,14 @@
 - **public_api_change** -- external-facing contract changes -> forces FULL
 - **high_churn_files** -- files with >20 changes in 6 months (from hound pre-scan)
 
+## UI Signals (recommendation trigger, NOT a route)
+Like `workflow_candidate`, orthogonal to route selection — does not feed the uncertainty/scope score.
+Flags net-new UI work with no design to follow, so Apex RECOMMENDS a visual flow pass before
+contracts/plan. Apex cannot self-launch — it recommends; the user gates the flow.
+- **net_new_ui** -- fires when the work is a NET-NEW screen / route / major UI surface AND there is
+  NO existing design/Figma to follow. Narrow on purpose: does NOT fire for tweaks to existing UI,
+  backend-only work, or work where a Figma/design already exists.
+
 ## Confidence Signals (route DOWN)
 - **known_pattern** -- learnings have `[validated:5+]` approach for this type
 - **clear_spec** -- Jira AC present, explicit "done when"
@@ -46,5 +54,6 @@ shadows. Apex cannot self-launch — it recommends; the user triggers. Full test
 | competing_patterns | `semantic_search_nodes` for task keywords | 1 MCP call |
 | missing_acceptance_criteria | Jira parse result (already in context.json) | Free |
 | past_routing_success | `learnings/shadows.md` routing-history section | 1 file read |
+| net_new_ui | Description keywords ("new screen", "new page", "build a UI for", "flow for") + absence of a design/Figma reference + path heuristic (net-new route/component file) | low |
 
 **Total cost:** 2-3 MCP calls + 2 file reads. Under 5 seconds.

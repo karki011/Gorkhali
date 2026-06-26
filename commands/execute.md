@@ -28,6 +28,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 5. **Activate blade marker**: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
 
 6. **Dispatch per plan**:
+   - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
    - READ `reference/agents.md` for spawn patterns and task tier classification
    - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
      (see `reference/agents.md` → Model Routing):
