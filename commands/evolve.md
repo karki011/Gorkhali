@@ -63,6 +63,9 @@ After Ward returns:
 | Flag | Effect |
 |------|--------|
 | `--dry-run` | Preview changes without writing any files |
+| `--scout` | Run Tier 0 instead of the learnings pipeline: spawn a read-only scout for external-framework absorption (`reference/evolution.md` → Tier 0), produce a ranked backlog under `research/`, propose nothing without approval. |
+
+When `--scout` is passed, skip the Ward learnings sidecar (Steps 2–3 above) and run the Tier 0 recipe instead — it scans outward, not the inward learnings layer.
 
 ## When to Run
 
@@ -70,3 +73,4 @@ After Ward returns:
 - When `learnings/INDEX.md` feels bloated
 - Before archiving a milestone
 - At `/phantom:wrap` time (evolution check in wrap protocol)
+- `--scout`: quarterly, or when you spot a notable agent framework worth comparing (the outward feed — keeps phantom from only ever recycling its own ideas)
