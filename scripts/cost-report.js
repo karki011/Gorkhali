@@ -23,13 +23,24 @@ const path = require('path');
 const readline = require('readline');
 const { sessionsDir, stateDir, detectRepo } = require('./lib/phantom-paths');
 
-const COST_MODEL_VERSION = '2026-05-09';
+const COST_MODEL_VERSION = '2026-06-30';
 
 // USD per MILLION tokens. Longest-prefix match on lowercased model id.
+// Cache read ~= 0.1x input, cache write (5m) ~= 1.25x input.
+// Source: Anthropic public pricing. Opus 4.5+ dropped to $5/$25; Opus 4.0/4.1 stay $15/$75.
 const PRICES = [
+  { prefix: 'claude-opus-4-8', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
+  { prefix: 'claude-opus-4-7', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
+  { prefix: 'claude-opus-4-6', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
+  { prefix: 'claude-opus-4-5', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
   { prefix: 'claude-opus-4', in: 15.0, out: 75.0, cacheRead: 1.5, cacheWrite: 18.75 },
+  { prefix: 'claude-opus', in: 15.0, out: 75.0, cacheRead: 1.5, cacheWrite: 18.75 },
+  { prefix: 'claude-fable-5', in: 10.0, out: 50.0, cacheRead: 1.0, cacheWrite: 12.5 },
+  { prefix: 'claude-mythos-5', in: 10.0, out: 50.0, cacheRead: 1.0, cacheWrite: 12.5 },
   { prefix: 'claude-sonnet-4', in: 3.0, out: 15.0, cacheRead: 0.3, cacheWrite: 3.75 },
-  { prefix: 'claude-haiku', in: 0.25, out: 1.25, cacheRead: 0.03, cacheWrite: 0.3 },
+  { prefix: 'claude-sonnet', in: 3.0, out: 15.0, cacheRead: 0.3, cacheWrite: 3.75 },
+  { prefix: 'claude-haiku-4', in: 1.0, out: 5.0, cacheRead: 0.1, cacheWrite: 1.25 },
+  { prefix: 'claude-haiku', in: 0.25, out: 1.25, cacheRead: 0.025, cacheWrite: 0.3125 },
 ];
 
 function priceFor(model) {
