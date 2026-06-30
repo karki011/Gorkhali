@@ -22,7 +22,7 @@
 | lens | sonnet | visual QA |
 | sweep | sonnet | simplification |
 
-- `fable` resolves to `claude-fable-5` (Mythos tier above Opus, 1M context, 128K output, $10/$50 per MTok); `opus` to `claude-opus-4-8`; `sonnet` to `claude-sonnet-4-6`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
+- `fable` resolves to `claude-fable-5` (Mythos tier above Opus, 1M context, 128K output, $10/$50 per MTok); `opus` to `claude-opus-4-8`; `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
 - **Default = task-appropriate tier.** Sonnet is the floor for mechanical and well-scoped, contract-backed subtasks; escalate to the session model (or `opus`) for complex, ambiguous, or cross-cutting work, or where decomposition left a subtask fuzzy. "Good tasking earns Sonnet" — fix weak scoping by re-decomposing, not by throwing the expensive model at it.
 - `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
 - Effort is uniform `high` (session-inherited); never set effort at spawn. Check MODEL_OVERRIDE at session start.
