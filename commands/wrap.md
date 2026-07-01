@@ -21,6 +21,17 @@ Check `{TEAM_DIR}/sessions/{TICKET}/verification.json`. Auto-run `Skill(skill="p
 
 Single ship ceremony. All git operations happen here — no commits, pushes, or PRs before wrap.
 
+<execution>
+## Model split (hybrid)
+
+Wrap is reasoning-heavy, so it stays on the **session model** for judgment steps and pushes only the **mechanical plumbing** down to the pinned cheap `warden` agent:
+
+- **Session model (Apex)** — Steps 2 (diff/scope review), 3 (grill), 5 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 7 evolution already runs on pinned `ward`.
+- **Pinned `warden` (sonnet)** — the mechanical tail: Step 6 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 9 cost report, and the Step 8 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
+
+`warden` does plumbing only — never scope judgment, session-brief authoring, or learnings synthesis (those stay with Apex). If `warden` is unavailable (older install), run the mechanical tail inline. The Greptile loop (`phantom:greploop`) is its own skill and runs as before.
+</execution>
+
 ## Step 1: Pre-Wrap Hook
 
 1. Run Pre-Wrap Hook — verify implementation, test, and review status is recorded

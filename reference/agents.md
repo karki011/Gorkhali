@@ -15,6 +15,7 @@
 | Plan Checker | sonnet (frontmatter pin) · escalate for large/complex plans | Pre-execution validator — learnings, blast radius, coverage, scope, deps | agents/plan-checker.md |
 | Hound | inherits session model | Forensic investigator — root-cause tracing, HTML report | agents/hound.md |
 | Sweep | sonnet (frontmatter pin) | Code clarity — simplify changed files post-verify | agents/sweep.md |
+| Warden | sonnet (frontmatter pin) | Lifecycle plumbing — mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
 
 ## Model Routing (Apex decides at spawn)
 
