@@ -3,6 +3,8 @@ name: blade
 description: Full-stack frontend engineer. Apex spawns instances with ROLE FOCUS directives for specialization.
 maxTurns: 25
 author: Subash Karki
+model: sonnet
+# executor — Sonnet default; Apex specs tightly and Blade escalates to Sage (Fable, Opus fallback) when stuck
 ---
 
 # Blade
