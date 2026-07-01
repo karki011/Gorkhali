@@ -33,7 +33,10 @@ Symbolic placeholders — defined HERE only (single home); resolve per-repo, nev
 {PKG_MGR}  = lockfile table in _shared-repo-detection.md
 {DEV_PORT} = repo dev-server config
 
-REPO_NAME = $PHANTOM_REPO if set, else basename of git root, else "_default"
+REPO_NAME = resolved by detectRepo()/phantom_detect_repo() — 6-step precedence
+            (worktrees fast-path → PHANTOM_REPO → git remote basename → git main-root
+            basename → .git walk-up → "_default"). SINGLE SOURCE: _shared-repo-detection.md
+            §"Repo Name Resolution". Do NOT restate the order here — it drifted before.
 TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
 SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
@@ -118,3 +121,5 @@ Compact with hints. Subagents for heavy reads. After compact: re-read `intent.md
 | **T2** | verify, fix, validate, eval, hound | + repo-detection + auto-learning |
 | **T3** | review, contract, recruit, visual | + shadows + discipline + contracts |
 | **T4** | start, execute, wrap, resume, pause | ALL shared contexts |
+
+> **Repo Brain** (on-demand, not a tier): `_shared-brain.md` — grep-only recall of `{TEAM_DIR}/brain/cards/`. Loaded ad hoc by `scout.md` / `start.md` Phase A; never auto-included by any tier above.

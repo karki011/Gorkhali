@@ -66,3 +66,7 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 - Sharpen: remove session-specific context, keep the rule
 - Preserve `[validated:N]` counts (merge = sum counts)
 - Never delete `[failed]` entries unless explicitly overridden
+
+## Brain Card Decay
+
+Knowledge captured in Repo Brain cards decays via the `status=superseded` marker. When a newer card obsoletes an older one, the old card's `status` flips to `superseded` and gains `superseded_by: rb-<id>`, while the new card gets the `supersedes: rb-<id>` edge. Cards are **never deleted** — the full lineage remains queryable via these edges.

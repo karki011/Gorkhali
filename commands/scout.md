@@ -21,6 +21,13 @@ Parse `$ARGUMENTS`:
 
 Resolve TICKET from session state or `git branch --show-current`.
 
+## Step 1.5: Brain Recall (Optional)
+
+On-demand only — never preloaded. Coordinator MAY grep `{TEAM_DIR}/brain/cards/`
+for cards matching TICKET or the target area's file paths (recipes: `_shared-brain.md`).
+Matched card `id`s go into each scout's prompt as extra context; cite them in
+`scout-results.json` `crossCutting`. No matches → proceed without mention.
+
 ## Step 2: Spawn Scout Agents (Parallel)
 
 One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).

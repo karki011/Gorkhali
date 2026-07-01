@@ -8,6 +8,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 let DATA_DIRNAME = 'phantom-data';
 try {
@@ -19,20 +20,71 @@ function phantomData() {
   return process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', DATA_DIRNAME);
 }
 
+// Per-process memoization. Hooks are hot paths (detectRepo runs on every
+// PreToolUse); a cold resolve shells out to git twice. Key on the inputs that
+// change the answer — resolved cwd + PHANTOM_REPO + data root — so env flips
+// (and tests) stay correct while the warm path is a single Map hit (<10ms).
+const REPO_CACHE = new Map();
+
 /**
- * Resolve the current repo name. Precedence:
- *   1. cwd inside <data>/worktrees/<repo>/... -> that <repo> path segment.
- *      Ground truth, beats everything: inside a git worktree the .git-FILE
- *      walk-up returns the worktree dir basename — the TICKET — which would
- *      shard session state under ticket-named repos.
- *   2. PHANTOM_REPO env override (per-spawn only — set it on a child process
- *      env, never export globally).
- *   3. Walk up from cwd to the first dir holding a `.git` entry (dir or file)
- *      and take its basename.
- *   4. '_default'. Never throws.
+ * Run a git subcommand, capturing trimmed stdout or null. Guards the RUN, not
+ * just the precondition (per [guards]): a missing binary, non-git dir, timeout,
+ * or nonzero exit all degrade to null and the caller falls through to the next
+ * precedence step.
+ */
+function gitCapture(cwd, gitArgs) {
+  try {
+    const out = execSync('git ' + gitArgs, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 2000,
+      encoding: 'utf8',
+    });
+    const value = out.trim();
+    return value || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Repo name from a remote URL: last path/scp segment, minus a trailing .git. */
+function repoNameFromRemote(url) {
+  let s = url.trim().replace(/[/\\]+$/, '');
+  s = s.slice(s.lastIndexOf('/') + 1);   // https/ssh path segment
+  s = s.slice(s.lastIndexOf(':') + 1);   // scp-short host:repo (no slash)
+  return s.replace(/\.git$/, '');
+}
+
+/**
+ * Resolve the current repo name. Precedence (identical in phantom-paths.sh):
+ *   1. cwd inside <data>/worktrees/<repo>/... -> that <repo> segment. Phantom-
+ *      MANAGED worktrees only. NOTE: user worktrees at ~/.phantom-os/worktrees/
+ *      are NOT this root — they never hit this step and are resolved by (3).
+ *   2. PHANTOM_REPO env override (per-spawn; never export globally).
+ *   3. `git remote get-url origin` basename minus .git — worktree-invariant and
+ *      clone-name-invariant, so it survives the ~/.phantom-os/worktrees/{repo}/
+ *      {branch} layout where a walk-up would return the BRANCH, not the repo.
+ *   4. `git rev-parse --git-common-dir` -> main-root basename. No-remote,
+ *      worktree-safe fallback (common-dir points at the MAIN checkout's .git).
+ *   5. Walk up to the first `.git` entry (dir or file) and take its basename.
+ *   6. '_default'. Never throws; git absent/erroring degrades to (5).
  */
 function detectRepo(cwd = process.cwd()) {
+  let key;
   try {
+    key = path.resolve(cwd) + '\0' + (process.env.PHANTOM_REPO || '') + '\0' + phantomData();
+  } catch (_) {
+    key = String(cwd);
+  }
+  if (REPO_CACHE.has(key)) return REPO_CACHE.get(key);
+  const result = resolveRepo(cwd);
+  REPO_CACHE.set(key, result);
+  return result;
+}
+
+function resolveRepo(cwd) {
+  try {
+    // (1) phantom-managed <data>/worktrees/<repo> fast-path.
     try {
       // realpath both sides: macOS tmp/home symlinks (/var -> /private/var).
       const realRoot = fs.realpathSync(worktreesRoot());
@@ -41,16 +93,39 @@ function detectRepo(cwd = process.cwd()) {
         const repo = realCwd.slice(realRoot.length + 1).split(path.sep)[0];
         if (repo) return repo;
       }
-    } catch (_) { /* root or cwd unresolvable -> fall through */ }
+    } catch (_) { /* root or cwd unresolvable -> next step */ }
+
+    // (2) PHANTOM_REPO override.
     const override = process.env.PHANTOM_REPO;
     if (override && override.trim()) return override.trim();
-    let dir = path.resolve(cwd);
+
+    const resolvedCwd = path.resolve(cwd);
+
+    // (3) git remote origin basename.
+    const remote = gitCapture(resolvedCwd, 'remote get-url origin');
+    if (remote) {
+      const name = repoNameFromRemote(remote);
+      if (name) return name;
+    }
+
+    // (4) main-root basename via git common dir (no-remote / worktree-safe).
+    const commonDir = gitCapture(resolvedCwd, 'rev-parse --path-format=absolute --git-common-dir');
+    if (commonDir) {
+      const name = path.basename(path.dirname(path.resolve(resolvedCwd, commonDir)));
+      if (name && name !== '.git' && name !== '.') return name;
+    }
+
+    // (5) walk-up to the first .git entry basename.
+    let dir = resolvedCwd;
     while (true) {
       if (fs.existsSync(path.join(dir, '.git'))) return path.basename(dir);
       const parent = path.dirname(dir);
-      if (parent === dir) return '_default'; // reached filesystem root
+      if (parent === dir) break; // reached filesystem root
       dir = parent;
     }
+
+    // (6) default.
+    return '_default';
   } catch (_err) {
     return '_default';
   }

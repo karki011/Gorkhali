@@ -133,6 +133,12 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
         └── learnings/     # Per-repo scored knowledge
 ```
 
+## Repo Brain
+
+**Per-session distilled knowledge cards.** After every session, Phantom writes a lightweight card to the Repo Brain — one card per ticket. Cards live in `${PHANTOM_DATA}/repos/{REPO_NAME}/brain/cards/` as markdown files and grow monotonically (never deleted, only superseded). On-demand grep retrieval retrieves relevant cards at task start (see `commands/_shared-brain.md` for the retrieval query, and `reference/brain.md` for the card schema).
+
+**Auto-migration on first run:** Branch-named repo dirs (leftover from old detection logic) are consolidated on first run via `scripts/migrate-repo-dirs.js` — idempotent and non-destructive.
+
 ## Shadows
 
 | Agent | Model | Effort | Role |

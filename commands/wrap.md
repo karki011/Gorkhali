@@ -84,7 +84,7 @@ Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermission
 <output_format>
 ## Step 8: Write Wrap Artifact
 
-Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 9 after the card is emitted; `null` if the emit was skipped).
 
 ### Session Brief
 
@@ -98,7 +98,33 @@ Synthesize a short, plain-language recap of the WHOLE session — not a file-by-
 Store it as `brief` in wrap.json and render it as a **Session Brief** section directly above the SESSION WRAPPED box.
 </output_format>
 
-## Step 9: Cost Report
+## Step 9: Emit Brain Card
+
+Distill this session into ONE **Repo Brain** card (schema: `reference/brain.md`; writer: `scripts/lib/brain-card.js`). Runs AFTER wrap.json exists — wrap.json's brief, plus intent/decisions/execution, is the seed. This is the DOGFOOD step: this session's own wrap emits the repo's first real card.
+
+**Guard the RUN, not the precondition** — a card-write failure NEVER blocks the wrap. Wrap the emit in `|| true`.
+
+1. Build the card object from session artifacts:
+   - `ticket` = `{TICKET}`; `title` = short human title of the change.
+   - `type` = `episode` (default), or `decision` when the session's headline is an architecture choice.
+   - `files` = the changed files from the `main...HEAD` diff (repo-relative).
+   - `what` = the wrap.json `brief` (distilled, not a changelog).
+   - `why` = **REQUIRED** — the chosen approach AND the rejected alternatives with reasons, pulled from `decisions.json` (`alternatives[]`) and `intent.json` (`exploredAlternatives`, `tradeoffs`). A card with an empty Why defeats the design — do not emit one.
+   - `gotchas` = corrections, known gaps, and follow-ups left open.
+   - `edges` = `{relates_to: rb-*}` for any brain cards cited in `context.json` at task start (T4 recall); `{supersedes: rb-*}` when this session replaces a prior decision.
+   - `trace` = `{ session: <session dir>, transcript: <transcript JSONL path>, pr: <pr.url from wrap.json>, commit: "" }` — `commit` is enriched by `/phantom:close` after merge.
+2. Resolve the repo name and PLUGIN_ROOT, then emit as a guarded RUN:
+
+```bash
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"
+# CARD_JSON = the card object built above, as JSON
+[ -n "$PR" ] && [ -n "$REPO" ] && printf '%s' "$CARD_JSON" | node "$PR/scripts/lib/brain-card.js" write "$REPO" || true
+```
+
+Write the emitted `id` back into wrap.json as `brainCard: {"id": "rb-...", "status": "active"}` (so `/phantom:close` can enrich its trace), and show it in the SESSION WRAPPED box (`Brain card: rb-...`). If the emit fails or is skipped, set `brainCard: null`, note `Brain card: skipped`, and continue — never fail the wrap.
+
+## Step 10: Cost Report
 
 Close the ticket's cost interval and report total AI spend (never blocks the wrap if it fails):
 

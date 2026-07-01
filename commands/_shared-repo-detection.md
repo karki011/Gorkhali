@@ -5,6 +5,32 @@
 
 ---
 
+## Repo Name Resolution
+
+`REPO_NAME` is the shard key for ALL per-repo state (`<data>/repos/<REPO_NAME>/…`).
+It is resolved by a single seam — `detectRepo(cwd)` in `scripts/lib/phantom-paths.js`
+and its byte-for-byte mirror `phantom_detect_repo` in `scripts/lib/phantom-paths.sh`.
+**This section is the single documented source of the precedence.** Do not restate
+the order elsewhere (it drifted once, in `_shared.md`).
+
+Precedence — first match wins, never throws:
+
+| # | Step | Why |
+|---|------|-----|
+| 1 | cwd inside `<data>/worktrees/<repo>/…` → that `<repo>` segment | Phantom-**managed** worktrees. **`~/.phantom-os/worktrees` is NOT this root** — user worktrees never hit this step; they resolve at step 3. |
+| 2 | `PHANTOM_REPO` env (trimmed) | Per-spawn override; never export globally. |
+| 3 | `git remote get-url origin` → basename minus `.git` | **The fix.** Worktree- and clone-name-invariant. User worktrees live at `~/.phantom-os/worktrees/{repo}/{branch}`, so a naive `.git` walk-up returns the **BRANCH**, sharding state under branch names. The remote name is stable across every checkout. |
+| 4 | `git rev-parse --path-format=absolute --git-common-dir` → main-root basename | No-remote fallback. Common-dir points at the MAIN checkout's `.git`, so it is worktree-safe (returns the real repo dir, not the worktree/branch dir). |
+| 5 | Walk up to the first `.git` entry (dir or file) → basename | Last resort when git is unavailable or the dir is a bare tree. |
+| 6 | `_default` | Nothing matched. |
+
+**Guards:** every `git` invocation (not just `command -v git`) is wrapped; a
+missing binary, non-git dir, timeout, or nonzero exit degrades to the next step.
+**Perf:** the JS resolver memoizes per resolved cwd (+ `PHANTOM_REPO` + data root),
+so the hot hook path is a single map hit after the first call.
+
+---
+
 ## Stack Detection
 
 ### Language / Runtime

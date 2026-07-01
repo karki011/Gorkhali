@@ -48,6 +48,9 @@ Agent spawn rules (all routes):
 2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active`
 2.6. Link session to cost ledger (silent, never blocks; self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`): `[ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (empty `$PR` → skip silently)
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
+3.5. Brain recall (optional, on-demand — never preloaded): grep `{TEAM_DIR}/brain/cards/`
+     by TICKET and touched file paths (recipes: `_shared-brain.md`). Cite matched card
+     `id`s in `context.json`; no matches → skip silently.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context` (advisory; resume reads latest; empty `$PR` skips silently).
 5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`

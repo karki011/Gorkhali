@@ -86,7 +86,28 @@ PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head
 
 Capture the report's `Total:` line for the output box. Never blocks — empty `$PR` (no plugin cache) → guards skip both silently.
 
-## Step 6: Write Close Artifact
+## Step 6: Enrich Brain Card
+
+The wrap emitted a Repo Brain card with an empty `trace.commit` (the merge commit didn't exist yet). Now that the PR is merged, backfill `trace.pr` + `trace.commit` on that card (schema: `reference/brain.md`). The card's `status` stays `active` — supersession is a separate lifecycle handled by evolution, not close.
+
+Read `brainCard.id` from wrap.json (skip cleanly if absent/`null`). Enrich as a **guarded RUN** — a card failure NEVER blocks the close:
+
+```bash
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"
+CARD_ID="{brainCard.id from wrap.json}"
+[ -n "$PR" ] && [ -n "$REPO" ] && [ -n "$CARD_ID" ] && node -e '
+  const b = require(process.argv[1] + "/scripts/lib/brain-card");
+  const [, root, repo, id, prurl, commit] = process.argv;
+  const c = b.readCard(repo, id);
+  if (!c) process.exit(0);
+  if (prurl) c.trace.pr = prurl;
+  if (commit) c.trace.commit = commit;
+  b.writeCard(c, { repo });
+' "$PR" "$REPO" "$CARD_ID" "{pr.url}" "{mergeCommit.oid}" || true
+```
+
+## Step 7: Write Close Artifact
 
 Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
 
@@ -126,7 +147,7 @@ Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
 ```
 </output_format>
 
-## Step 7: Future Autonomy Note
+## Step 8: Future Autonomy Note
 
 Full autonomy — a Mission Control watcher that auto-fires `phantom:close` on merge and advances the ticket queue — is a future layer. This manual skill is the primitive it will call.
 

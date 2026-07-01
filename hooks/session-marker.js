@@ -12,15 +12,38 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawn, spawnSync } = require('child_process');
 
-let stateDir, detectRepo;
+let stateDir, detectRepo, phantomData;
 try {
-  ({ stateDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, detectRepo, phantomData } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   const os = require('os');
   const data = process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
   stateDir = () => path.join(data, 'state');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
+  phantomData = () => data;
+}
+
+// Cut-over auto-run: on the FIRST prompt after the detection fix ships, sweep the
+// branch-named orphan repo dirs into their canonical dirs so detection and data
+// agree in one version (per [guards]: gate is cheap, the RUN is wrapped and can
+// never block the prompt). Marker-gated so we spawn the migrator at most once;
+// the migrator itself is independently idempotent.
+function maybeMigrateRepoDirs() {
+  try {
+    const marker = path.join(phantomData(), '.repo-dirs-migrated');
+    if (fs.existsSync(marker)) return; // already migrated — skip the spawn entirely
+    const script = path.join(__dirname, '..', 'scripts', 'migrate-repo-dirs.js');
+    if (!fs.existsSync(script)) return;
+    const opts = { stdio: 'ignore', timeout: 30000 };
+    if (process.env.PHANTOM_MIGRATE_SYNC) {
+      spawnSync(process.execPath, [script, '--apply'], opts); // deterministic for tests
+    } else {
+      const child = spawn(process.execPath, [script, '--apply'], { ...opts, detached: true });
+      child.unref(); // fire-and-forget: never delays the prompt
+    }
+  } catch (_) { /* silent — migration must never break a prompt */ }
 }
 
 function readPayload() {
@@ -52,5 +75,8 @@ try {
     fs.renameSync(tmp, file);
   }
 } catch (_) { /* silent — never block the prompt */ }
+
+// Runs after the primary marker job so a migration hiccup can never affect it.
+maybeMigrateRepoDirs();
 
 process.exit(0);
