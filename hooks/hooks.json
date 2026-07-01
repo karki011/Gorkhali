@@ -35,6 +35,11 @@
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js spawn",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/blade-model-gate.js",
+            "timeout": 5
           }
         ]
       },
