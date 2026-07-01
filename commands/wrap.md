@@ -68,10 +68,23 @@ See [reference/wrap/evolution.md] for full protocol.
 
 Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermissions"`; model + effort come from the agent definition) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
 
+**Confirm subagents terminated:** before declaring the session wrapped, verify no spawned subagent is still running or idle (check `TaskList` / running-agent state). Any lingering agent must be explicitly stopped — a wrap with live background agents is not complete.
+
 <output_format>
 ## Step 8: Write Wrap Artifact
 
-Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned).
+
+### Session Brief
+
+Synthesize a short, plain-language recap of the WHOLE session — not a file-by-file changelog. Draw from intent, decisions, the `main...HEAD` diff, corrections, and learnings. Cover, in 3-6 sentences:
+
+- **What we set out to do** — the problem or ticket goal.
+- **What we changed** — the approach taken and the key files/areas touched.
+- **Notable decisions or course corrections** — anything that shifted mid-session.
+- **Outcome** — what now works, plus any known gaps or follow-ups left open.
+
+Store it as `brief` in wrap.json and render it as a **Session Brief** section directly above the SESSION WRAPPED box.
 </output_format>
 
 ## Step 9: Cost Report
@@ -88,6 +101,6 @@ Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report'
 
 ---
 
-> **Output:** SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.
+> **Output:** Session Brief (3-6 sentence recap of the whole session), then the SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.
 >
 > **Next step after PR is merged:** run `/phantom:close {TICKET}` — Jira→Done, branch/worktree cleanup, final cost archive.

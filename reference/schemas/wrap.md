@@ -4,6 +4,7 @@ Written by `phantom:wrap` after all post-merge actions complete.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| brief | string | yes | 3-6 sentence plain-language recap of the whole session: goal, what changed, notable decisions/corrections, outcome + open follow-ups. Rendered above the SESSION WRAPPED box. |
 | pr | object \| `null` | yes | PR details, or null if no PR |
 | pr.number | number | yes | PR number |
 | pr.url | string | yes | PR URL |
@@ -24,6 +25,7 @@ Written by `phantom:wrap` after all post-merge actions complete.
 ```json
 {
   "_meta": { "...": "..." },
+  "brief": "Set out to fix the Explorer usage_amount bug where totals double-counted on date-range changes. Traced it to a stale timestamp in the range reducer, fixed the reducer and added a regression test. Mid-session we switched from patching the component to fixing the shared hook after finding two other callers. Ships green; follow-up: backfill tests for the sibling callers.",
   "pr": {
     "number": 1042,
     "url": "https://github.com/org/repo/pull/1042",
