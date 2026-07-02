@@ -73,6 +73,12 @@ See [reference/wrap/ship-ceremony.md] for full protocol.
 
 Stage -> commit -> push -> smart PR decision -> Greptile loop (always runs: `phantom:greploop` until 5/5) -> Jira transition. No git ops happen before this step.
 
+The PR body must include a `## Validation` section built from session artifacts: verify verdict + test counts (`verification.json`), RPSL panel outcome including any fixes applied during the panel (`review-panel.json`), and grill verdict (`wrap.json`). Never commit session artifacts into the repo. Omit a subsection if its artifact is missing; never invent content to fill it. This is a PUBLIC PR body — treat it as such:
+
+- **Redact absolute local paths.** Strip any `/Users/<name>/...` (or other machine-local home) prefix down to a repo-relative path before writing it. No local filesystem layout in a public body.
+- **Never embed or upload Lens screenshots without explicit user approval in-conversation.** Uploading publishes them (they may be cached/indexed even if later deleted). Absent that approval, reference screenshots by repo-relative path or a short description instead of embedding.
+- When in doubt, less detail in a public PR body.
+
 ## Step 7: Evolution & Shutdown
 
 See [reference/wrap/evolution.md] for full protocol.

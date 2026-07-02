@@ -15,6 +15,8 @@ Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads 
 | tasks[].selfReviewScore | number | no | Agent's self-review score (0-10) |
 | tasks[].testResult | object \| string | no | `{ passed: bool, summary?: string }` or a short string |
 | tasks[].blocker | string \| null | no | Blocker description; null/absent when none |
+| tasks[].wave | object | no | Wave membership `{ index, isLastInWave }` — drives the wake classifier's last-in-wave surface |
+| tasks[].drift | boolean | no | True when output drifted from stated intent; drives an actionable wake |
 | tasks[].outputSummary | string | yes | 1-2 sentence summary of what was done |
 | totalSpawns | number | yes | Total agent instances spawned |
 | agentOutputs | string | no | Path to raw agent output logs |

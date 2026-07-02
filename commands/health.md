@@ -44,6 +44,8 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
     - Any tier 2-3 proposals pending user approval
     - Any reverted changes
 
+12. **Wake queue liveness** — a `.wake-queue` older than ~10 min (drain stalled) or any per-repo `state/.active-wake-session.<repo>` pointer (glob the suffixed names; the bare `.active-wake-session` is the no-repo fallback) naming a dir that no longer exists (dangling). Report as `WAKE STALLED: {sessionDir}/.wake-queue aged {N}m — drain not running` / `WAKE POINTER DANGLING: {pointer} → {missing dir}`.
+
 ## Output Format
 
 ```

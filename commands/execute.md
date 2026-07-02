@@ -45,6 +45,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
      in. After an agent returns, Apex verifies via fs/git spot-check (file exists, ≥1 commit, no
      `Self-Check: FAILED`/verdict-failure line), NOT by re-reading the file or pulling its full output back.
+   - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/<agent-name>.json` (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
 

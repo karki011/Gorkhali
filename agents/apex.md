@@ -51,7 +51,11 @@ SOLO vs SHADOWS routing, task tier classification, GOAP modeling, and subtask de
 
 ### Intent Alignment (During Execution)
 
-After each Phase D agent: read its **typed completion record** (`status`, `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary` — schema: `reference/schemas/execution.md`). Trust the typed fields; do NOT re-parse free-text to infer pass/fail or which files changed. A non-null `blocker` or `status: "failed"` routes to Failure Triage. Check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope. Write these fields straight into `execution.json` `tasks[]`.
+At the start of each turn, drain the wake queue in the ACTIVE session dir via the `wake-queue.js` CLI, which self-resolves the dir with the same precedence the producer uses (env → per-repo `state/.active-wake-session.<repo>` pointer → state dir), never a hardcoded path: self-resolve `$PR` env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`), then `[ -n "$PR" ] && node "$PR/scripts/lib/wake-queue.js" drain` and read the `{records,liveness}` JSON it prints on stdout. Entries arrive pre-classified by `hooks/wake-classifier.js` on SubagentStop. BENIGN completions arrive as pre-classified one-liners; acknowledge them in bulk and do NOT re-read their full completion records. ACTIONABLE records (failed / blocker / low self-review / drift / last-in-wave) get the full triage: read the **typed completion record** (`status`, `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary` — schema: `reference/schemas/execution.md`). Trust the typed fields; do NOT re-parse free-text to infer pass/fail or which files changed. A non-null `blocker` or `status: "failed"` routes to Failure Triage. Check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope. Write these fields straight into `execution.json` `tasks[]`.
+
+The drain result carries a liveness summary — if the queue isn't draining or a background agent looks dead, surface it to the user instead of waiting on it.
+
+<!-- Drain protocol adapted from firstmate (MIT, Kun Chen) -->
 
 ## Failure Triage
 

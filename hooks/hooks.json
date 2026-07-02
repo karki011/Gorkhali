@@ -72,6 +72,11 @@
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js stop",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/wake-classifier.js",
+            "timeout": 5
           }
         ]
       }
