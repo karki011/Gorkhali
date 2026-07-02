@@ -21,6 +21,7 @@ Zero external plugin dependencies. Fully self-contained.
 /phantom:verify                            # power level (P0/P1 fix, P2/P3 drop)
 /phantom:wrap                              # commit, push, PR, Jira transition
 /phantom:pause → /clear → /phantom:resume     # context mgmt + portable handoff packet
+/phantom:annotate artifact.html            # annotate any HTML artifact in-browser (auto-invoked by brainstorm/plan/visualflow)
 ```
 
 ## Architecture — Adaptive Cognitive Router
@@ -75,9 +76,11 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 **Wiring Mode** — Novel: explicit dependency topology between plan tasks. Maps producers/consumers, assigns parallel execution waves, flags integration risk points. No other system does this. See `reference/wiring.md`.
 
-**Core Disciplines** — 14 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
+**Core Disciplines** — 15 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
 
 **Power Level** — P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
+
+**Annotate Review Loop** — HTML artifacts from brainstorm/plan/visualflow open automatically in the browser for inline annotation (wraps lavish-axi via npx; element/text comments flow back to the agent as structured feedback). Degrades to plain `open` when unavailable; headless runs never start it. See `commands/annotate.md`.
 
 **Anti-Repetition** — Scans learnings before every approach. `[failed]` entries are blocked. `[validated:5+]` entries auto-apply.
 
@@ -94,7 +97,7 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
-├── commands/          # 29 command directives (+ 9 _shared partials)
+├── commands/          # 30 command directives (+ 10 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
@@ -103,7 +106,7 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 │   ├── hound-protocol.md  # 7-step investigation with HTML reports
 │   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
-├── agents/            # 11 agent personas
+├── agents/            # 12 agent personas
 ├── bin/               # thin executable entry shims; logic lives in scripts/ (e.g., bin/phantom-preflight → scripts/preflight.js)
 ├── scripts/           # deterministic helpers (no LLM needed)
 │   ├── validate-artifact.js   # JSON schema validation
@@ -111,7 +114,7 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 │   ├── session-health.sh
 │   ├── preamble-tier.js
 │   └── timing-report.js       # per-model agent timing (wall-clock by model)
-├── evals/             # 30 test cases for skill triggering verification
+├── evals/             # 45 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
 │   ├── hooks.json         # Plugin-owned hook registrations
 │   └── timing-capture.js  # records agent spawn/stop + model (PreToolUse Agent + SubagentStop)

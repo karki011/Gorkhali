@@ -2,7 +2,7 @@
 name: phantom:brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
 argument-hint: "<requirement or problem statement> [--council|--simple]"
-allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # Generic triggers ('explore options', 'let's think about this') are intentionally muted by user-invocable:false — brainstorm is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety (it would over-fire on casual "let's think" prose).
 user-invocable: false
 ---
@@ -81,7 +81,7 @@ Risk:       {low | medium | high — with reason}
 
 ## Phase 2: Converge
 
-1. Present approaches with clear recommendation (cite specifics, not "it's simpler")
+1. Present approaches with clear recommendation (cite specifics, not "it's simpler"). If rendered as an HTML artifact, surface via `Skill(skill="phantom:annotate", args="<artifact.html>")` (fallback: plain open).
 2. **HUMAN GATE** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 

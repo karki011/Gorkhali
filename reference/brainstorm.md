@@ -96,7 +96,8 @@ its output feeds the human gate below.
 ## Convergence
 
 1. Present approaches to human — the Chairman synthesis + peer-ranking summary (council), or the 2-3
-   approaches (simple path).
+   approaches (simple path). If rendered as an HTML artifact, surface via
+   `Skill(skill="phantom:annotate", args="<artifact.html>")` (fallback: plain open).
 2. Human picks one OR asks for more exploration (max 2 rounds total).
 3. On decision → write to `intent.json`:
    - `approach`: chosen approach name

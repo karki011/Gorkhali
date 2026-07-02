@@ -16,7 +16,7 @@ Uses `agent-browser` CLI — a Rust daemon speaking CDP directly. Faster startup
 agent-browser --session-name lens-qa open <url>
 
 # Accessibility snapshot — returns @eN-tagged element tree for LLM reasoning
-agent-browser --session-name lens-qa snapshot
+agent-browser --session-name lens-qa snapshot -i
 
 # Screenshot — saves to file for visual evidence
 agent-browser --session-name lens-qa screenshot /tmp/lens-<route>.png
@@ -36,16 +36,30 @@ agent-browser --session-name lens-qa screenshot /tmp/lens-<route>-desktop.png
 
 **Do NOT fall back to playwright MCP tools (`mcp__plugin_playwright_*`) — agent-browser is the only Lens backend.**
 
+## Ref Hygiene
+
+<!-- Discipline adapted from chrome-devtools-axi (MIT, Kun Chen) -->
+
+A snapshot ref (`@eN`) is only valid against the snapshot that produced it. agent-browser re-numbers refs on every snapshot with no staleness detection, so a ref carried over from a prior snapshot can silently act on a different element than intended.
+
+- Re-snapshot before every ref interaction — never reuse refs from an earlier snapshot.
+- Never carry a ref across a page-changing action (navigation, modal open/close, route change). Re-snapshot first.
+
+## Output Hygiene
+
+Pipe large `snapshot`/`eval` output through `grep`/`head` rather than dumping it in full. Save large bodies (full-page snapshots, verbose eval results) to files instead of inlining them in the report.
+
 ## Visual Inspection Steps
 
 For each route (same regardless of backend):
 
 1. **Navigate** -- Load the page, wait for content
-2. **Snapshot** -- Get accessibility tree (`agent-browser --session-name lens-qa snapshot`)
+2. **Snapshot** -- Get accessibility tree (`agent-browser --session-name lens-qa snapshot -i`)
 3. **Auth check** -- If snapshot shows login form, run Smart Auth Protocol (`reference/smart-auth.md`), then re-navigate
 4. **Screenshot** -- Capture full page at default viewport
 5. **Analyze** -- Check layout, typography, colors, responsiveness, empty states, loading states, alignment, completeness
 6. **Interact** -- Test buttons, inputs, toggles, modals, navigation using element refs
+6.5. **Verify before success** -- After every state-changing action, re-snapshot AND re-screenshot before recording any result. No PASS verdict without a post-action capture — a valid-ref click can still silently no-op.
 7. **Multi-viewport** -- Repeat screenshots at mobile (375px), tablet (768px), desktop (1440px)
 
 ## Fix Loop Protocol

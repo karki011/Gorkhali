@@ -26,7 +26,7 @@ Pre-implementation visual flow planning — produces a reviewable HTML flow arti
 
 3. **Build flow model:** Assemble an ordered screen-by-screen flow + per-screen state list + transitions/branches + open questions (decisions that need a human). Keep it low-fidelity — the goal is to agree on the flow, not the pixels.
 
-4. **Render:** Write a self-contained HTML artifact to `{SESSION_DIR}/visualflow.html` using `reference/visualflow/flow-template.md` (substitute placeholders — zero external requests, all CSS inline). Then surface it: confirm the path written, and on darwin `open {SESSION_DIR}/visualflow.html`.
+4. **Render:** Write a self-contained HTML artifact to `{SESSION_DIR}/visualflow.html` using `reference/visualflow/flow-template.md` (substitute placeholders — zero external requests, all CSS inline). Surface via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/visualflow.html")` (fallback: plain open).
 
 5. **HUMAN GATE:** Present the flow. Ask the human to **approve / adjust / add screens**. Loop on adjustments until approved, then lock the flow.
 

@@ -69,6 +69,10 @@ When issues are found, output each as a structured fix packet:
 - When using agent-browser, ALWAYS use `--session-name lens-qa` for session persistence.
 - In autonomous mode, output fix packets as structured data, not prose.
 - During re-inspection, explicitly compare against previous state (see `reference/visual-protocol.md` comparison protocol).
+<!-- Discipline adapted from chrome-devtools-axi (MIT, Kun Chen) -->
+- ALWAYS re-snapshot after any state-changing action before recording a verdict.
+- NEVER carry a `@eN` ref across a page change — re-snapshot first.
+- Classify ref failures precisely in fix packets: `STALE_REF` (ref from an outdated snapshot) vs `REF_NOT_FOUND` (ref absent in current snapshot).
 
 ## When to Skip
 

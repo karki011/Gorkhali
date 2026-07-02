@@ -55,7 +55,7 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.
 
 ## Core Disciplines
 
-14 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
+15 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
 
 1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `PHANTOM_PROTECTED_BRANCHES`)
 2. **Verify** — run commands, read output, confirm
@@ -71,6 +71,7 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.
 12. **Parallel agents** — independent files → concurrent spawn
 13. **Subagent-driven** — all edits via Agent tool
 14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Apex can't self-launch). See `reference/workflow-delegation.md`.
+15. **Output contract** — script/skill output is minimal-field, counted, truncated-with-escape-hatch, `help[N]`-hinted, fails loud on unknown flags; human-facing deliverables (plans, research, reports, summaries) are self-contained HTML, never markdown. See `reference/output-contract.md`.
 
 </constraints>
 

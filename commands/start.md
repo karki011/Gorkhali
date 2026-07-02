@@ -93,7 +93,7 @@ READ `reference/router.md` for full algorithm.
 
 1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`)
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
-3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`)
+3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). If the plan is HTML, present via `Skill(skill="phantom:annotate", args="<plan.html>")` — annotations count as feedback, chat approval still gates (fallback: plain open).
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest; empty `$PR` skips silently).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
@@ -134,4 +134,4 @@ Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` a
 **Inline self-checks:**
 - Run plan-checker + rival review of `plan.json` INLINE. On failure: revise ONCE, then record the finding anyway in `plan.json` with `selfCheck: "flagged"` + a finding summary. A human decides later.
 
-**EXIT:** write `plan.json` to the session dir, then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, `.blade-editing` marker, worktree creation.
+**EXIT:** write `plan.json` to the session dir, then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, `.blade-editing` marker, worktree creation, opening browsers, invoking `phantom:annotate`.
