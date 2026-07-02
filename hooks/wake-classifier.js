@@ -75,15 +75,19 @@ function resolveSessionDir() {
 // <wakeDir>/agent-records/<id>.json, resolved on SubagentStop. The stub is keyed
 // by agent identity; we try each identity field the payload may carry.
 //
-// LIMITATION (payload identity): native SubagentStop does NOT guarantee an
-// agent-name — timing-capture.js, the actual production reader, extracts only
-// session_id + tool_use_id on stop. So this resolves only when the runtime
-// surfaces a per-agent id (agent name or tool_use_id); when it does not, we fall
-// through to null → classify() returns actionable('missing-record'), i.e.
-// fail-open (surface rather than absorb — never lose a wake).
+// IDENTITY (payload): native SubagentStop surfaces the spawn's `name:` param as
+// `payload.agent_type` (empirically confirmed against the live runtime — it is
+// EXACTLY the string passed to the Agent tool at spawn, empty when none was
+// passed). commands/execute.md mandates every spawn pass `name:` equal to its
+// stub filename, so agent_type is the primary resolver and is tried first. We do
+// NOT parse `agent_id` — it embeds the name but its format is fragile.
+//
+// Fail-open remains for name-less spawns: when no id field resolves a stub we
+// fall through to null → classify() returns actionable('missing-record'), i.e.
+// surface rather than absorb — never lose a wake.
 function readAgentRecordFile(payload, wakeDir) {
   if (!wakeDir || !payload) return null;
-  const ids = [payload.agent, payload.subagent_type, payload.tool_use_id, payload.toolUseId, payload.id];
+  const ids = [payload.agent_type, payload.agent, payload.subagent_type, payload.tool_use_id, payload.toolUseId, payload.id];
   for (const id of ids) {
     if (typeof id !== 'string' || !id.trim()) continue;
     // basename guards against a crafted id escaping the agent-records dir.
@@ -98,12 +102,12 @@ function readAgentRecordFile(payload, wakeDir) {
   return null;
 }
 
-// Load the execution record for the stopping agent, or null if none can be
-// resolved. Sources, in order: inline env JSON, env file path, on-disk
-// agent-records stub, inline payload field. An execution.json (tasks[] shape)
-// resolves to the matching task (by tool_use_id/agent, else the last task);
-// wave bookkeeping is carried alongside so the last-in-wave test can run.
-function resolveRecord(payload, wakeDir) {
+// Load the on-disk / injected stub record for the stopping agent, or null if
+// none can be resolved. Sources, in order: inline env JSON, env file path,
+// on-disk agent-records stub, inline payload field. An execution.json (tasks[]
+// shape) resolves to the matching task (by tool_use_id/agent, else the last
+// task); wave bookkeeping is carried alongside so the last-in-wave test can run.
+function resolveStubRecord(payload, wakeDir) {
   let raw = null;
   const candidates = [
     () => process.env.PHANTOM_EXECUTION_RECORD,
@@ -133,6 +137,121 @@ function resolveRecord(payload, wakeDir) {
     return { ...task, wave: raw.wave !== undefined ? raw.wave : task.wave };
   }
   return raw;
+}
+
+// Return the substring from the '{' at `start` to its matching '}', honoring
+// string literals and escapes so braces inside a JSON string value don't
+// miscount. Returns null when unbalanced. Never throws.
+function balancedObject(s, start) {
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+// The Blade's typed completion record is the LAST thing in its final message
+// (a Blade's convention), so we scan only the message TAIL and walk '{' positions
+// from the END backwards. Front-truncation is the correct direction — records come
+// last — and the FIRST status-bearing object found scanning backwards IS the last
+// one, which both picks the trailing record over any earlier decoy (a stray
+// `{"status":"ok"}` in prose no longer shadows it) and bounds the work.
+const MSG_TAIL_LIMIT = 32 * 1024; // chars (~32KB ASCII); tail is where records live
+const MAX_BRACE_STARTS = 50; // cap balancedObject attempts over untrusted input
+
+// Extract the Blade's typed completion record from its final message.
+// `last_assistant_message` carries that message verbatim (confirmed against the
+// live SubagentStop payload). It is UNTRUSTED free text: find the LAST balanced-
+// brace object that BOTH parses as JSON AND carries a `status` field. Bounded to
+// MAX_BRACE_STARTS attempts over the last MSG_TAIL_LIMIT chars so brace-dense or
+// unterminated input can't spin the synchronous hook. Never throws — any failure
+// yields a null record.
+//
+// Both bounds are deliberate but can cut off a REAL trailing record: a long tail
+// past MSG_TAIL_LIMIT, or more than MAX_BRACE_STARTS trailing brace-starts, can
+// push the record outside the scanned window. Returns `{ record, capped }` —
+// `capped` is true when the scan was truncated (tail cut, or the brace-start cap
+// was hit while braces remained unexamined). A capped scan that finds nothing is
+// "unknown, not proven absent": the caller must escalate rather than silently
+// treating it the same as a message that said nothing.
+function extractMessageRecord(payload) {
+  const full = payload && payload.last_assistant_message;
+  if (typeof full !== 'string' || full.indexOf('{') === -1) return { record: null, capped: false };
+  const tailTruncated = full.length > MSG_TAIL_LIMIT;
+  const msg = tailTruncated ? full.slice(full.length - MSG_TAIL_LIMIT) : full;
+  let start = msg.lastIndexOf('{');
+  let attempts = 0;
+  let braceCapHit = false;
+  while (start !== -1 && ++attempts <= MAX_BRACE_STARTS) {
+    const slice = balancedObject(msg, start);
+    if (slice) {
+      try {
+        const obj = JSON.parse(slice);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj) && 'status' in obj) {
+          return { record: obj, capped: tailTruncated };
+        }
+      } catch (_) {
+        /* not a JSON object from this brace — try an earlier '{' */
+      }
+    }
+    if (start === 0) break;
+    start = msg.lastIndexOf('{', start - 1);
+  }
+  if (attempts > MAX_BRACE_STARTS && start !== -1) braceCapHit = true;
+  return { record: null, capped: tailTruncated || braceCapHit };
+}
+
+// Merge the live message record over the on-disk stub, ESCALATE-ONLY: the message
+// may raise the verdict to actionable but must never lower it. Apex updates the
+// stub with the real typed record after reading results (commands/execute.md), so
+// on a resume/re-fire the stub can already carry status:'failed' / a blocker / a
+// low score. A stale or hallucinated 'passed' in the message must not flip that
+// benign — that would lose the wake.
+//
+// Rule: if the stub ALONE already classifies actionable (same classify() and
+// threshold main() uses), keep the stub and ignore the message. Only a non-
+// actionable (or absent) stub yields to the message, whose status/blocker/score/
+// drift then override it; the stub still contributes wave bookkeeping the message
+// can't know (isLastInWave), so wave stays from the stub when present.
+//
+// The remaining absorption path — message-says-passed over a non-actionable
+// 'spawned' mid-wave stub → benign — is DESIGNED: at stop time a not-yet-updated
+// stub is non-actionable, and the message is the agent's own self-report. A
+// genuinely failed agent surfaces via its own message record ('failed'). This is
+// an escalate-only rule, not the old "the stub never carries failed at stop time"
+// timing assumption — that assumption was never enforced.
+function mergeRecords(stub, message, threshold) {
+  if (stub && message) {
+    if (classify(stub, threshold).verdict === 'actionable') return stub;
+    return { ...stub, ...message, wave: stub.wave !== undefined ? stub.wave : message.wave };
+  }
+  return message || stub || null;
+}
+
+// Load the execution record for the stopping agent, or null if none resolves.
+// Merges the live message record (last_assistant_message) over the on-disk stub,
+// escalate-only (see mergeRecords), using the same threshold main() classifies with.
+// `truncated` is true only when the message scan was capped AND found nothing —
+// a capped scan that DID find a record already governs normally via mergeRecords.
+function resolveRecord(payload, wakeDir, threshold) {
+  const stub = resolveStubRecord(payload, wakeDir);
+  const { record: message, capped } = extractMessageRecord(payload);
+  const record = mergeRecords(stub, message, threshold);
+  return { record, truncated: capped && !message };
 }
 
 /**
@@ -192,8 +311,12 @@ function main() {
   }
   if (source === 'state') return;
 
-  const record = resolveRecord(payload, sessionDir);
-  const { verdict, reason } = classify(record, SELF_REVIEW_THRESHOLD);
+  const { record, truncated } = resolveRecord(payload, sessionDir, SELF_REVIEW_THRESHOLD);
+  let { verdict, reason } = classify(record, SELF_REVIEW_THRESHOLD);
+  if (verdict === 'benign' && truncated) {
+    verdict = 'actionable';
+    reason = 'record-truncated';
+  }
   const key = agentKey(payload, record);
 
   if (verdict === 'benign') {
