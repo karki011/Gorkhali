@@ -99,3 +99,12 @@ The apex agent MUST reject `plan.json` with `verdict: REVISE` if:
 ## Task Structure
 
 See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`).
+
+## Plan Artifacts
+
+Every plan produces two files, each with one job:
+
+- **`plan.json`** — the machine source of truth. `phantom:execute`, `phantom:wire`, and `phantom:resume` all read this file, never `plan.html`.
+- **`plan.html`** — the human gate surface. Always rendered from `plan.json` via `node scripts/render-plan.js <path-to-plan.json>` (see `commands/start.md` PLAN route, HUMAN GATE step). Never hand-authored, never parsed back into anything.
+
+If `plan.json` changes after the initial render — during deliberation, a fix-loop revision, or a resumed session — re-run the renderer so `plan.html` stays in sync before the next human review.

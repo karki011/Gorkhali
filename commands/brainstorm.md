@@ -81,7 +81,7 @@ Risk:       {low | medium | high — with reason}
 
 ## Phase 2: Converge
 
-1. Present approaches with clear recommendation (cite specifics, not "it's simpler"). If rendered as an HTML artifact, surface via `Skill(skill="phantom:annotate", args="<artifact.html>")` (fallback: plain open).
+1. Present approaches with clear recommendation (cite specifics, not "it's simpler"). The approaches artifact MUST be written as a self-contained HTML file before GATE 1 and surfaced via `Skill(skill="phantom:annotate", args="<artifact.html>")`, with a fallback chain - never block the gate - of `phantom:annotate` unavailable, then plain `open` of the HTML, then the artifact cannot be rendered or opened, then chat-only approval with the reason stated; every step still ends at GATE 1.
 2. **HUMAN GATE** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 
