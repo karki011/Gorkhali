@@ -76,7 +76,8 @@ let input = {};
 let sessionId = 'unknown';
 
 try {
-  input = JSON.parse(fs.readFileSync('/dev/stdin', 'utf-8'));
+  // fd 0, not '/dev/stdin' — the device path ENXIOs on Linux pipe spawns (CI-discovered).
+  input = JSON.parse(fs.readFileSync(0, 'utf-8'));
   sessionId = input.session_id || process.env.CLAUDE_SESSION_ID || 'unknown';
 } catch {
   sessionId = process.env.CLAUDE_SESSION_ID || 'unknown';

@@ -524,7 +524,8 @@ try {
   // Read stdin-json for session info
   let stdinData = '';
   try {
-    stdinData = fs.readFileSync('/dev/stdin', 'utf-8');
+    // fd 0, not '/dev/stdin' — the device path ENXIOs on Linux pipe spawns (CI-discovered).
+    stdinData = fs.readFileSync(0, 'utf-8');
   } catch {
     // No stdin available
   }

@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
+      - name: Install ripgrep (T4 recipe dependency)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
       - run: npm test
       - name: Schema docs are in sync
         run: node scripts/gen-schema-docs.js --check

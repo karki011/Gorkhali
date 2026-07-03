@@ -23,7 +23,8 @@ try {
   const MAX_INJECTION_CHARS = 1600; // ~400 tokens
 
   // --- Step 1: Read stdin ---
-  const input = JSON.parse(fs.readFileSync('/dev/stdin', 'utf-8'));
+  // fd 0, not '/dev/stdin' — the device path ENXIOs on Linux pipe spawns (CI-discovered).
+  const input = JSON.parse(fs.readFileSync(0, 'utf-8'));
   const prompt = (input.prompt || input.content || input.message || '').toLowerCase();
 
   if (!prompt) process.exit(0);
