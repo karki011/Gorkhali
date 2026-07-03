@@ -218,6 +218,135 @@ const renderOtherField = (key, value) => {
   return `<div class="of-row">${label}<pre class="of-pre">${escapeHtml(JSON.stringify(value, null, 2))}</pre></div>`;
 };
 
+// ── plan-check section ─────────────────────────────────────────────────────────
+// A sibling plan-check.json (the plan-checker's verdict) is rendered as a "Plan
+// Check" section when present. Same tolerance contract as the rest of the file:
+// render what exists, escape everything, let unknown keys fall through visibly,
+// NEVER throw. Real shape (see menu-bar-claude-status/plan-check.json):
+//   { _meta, checks: { <name>: { result, details:[...] } }, additionalFindings:[],
+//     verdict, summary }
+// loadPlanCheck distinguishes the three outcomes the renderer cares about:
+//   absent (ENOENT)     -> null            -> no section
+//   unreadable / invalid -> { error: msg } -> a single loud, escaped note
+//   valid JSON           -> { data }        -> the full section
+// Absence means something different depending on how the path was chosen: a
+// sibling plan-check.json is auto-discovered, so its absence is normal (null,
+// no section). An explicit --check-file is a stated expectation, so a missing
+// path there is loud (an error note), not silently absorbed like the sibling
+// case - same mechanism as the existing malformed/EACCES note.
+const loadPlanCheck = (checkPath, { explicit = false } = {}) => {
+  let raw;
+  try {
+    raw = fs.readFileSync(checkPath, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return explicit ? { error: `--check-file path not found: ${checkPath}` } : null;
+    }
+    return { error: `cannot read plan-check file ${checkPath} (${err.code || err.message})` };
+  }
+  try {
+    return { data: JSON.parse(raw) };
+  } catch (err) {
+    return { error: `invalid JSON in plan-check file ${checkPath}: ${err.message}` };
+  }
+};
+
+// Known verdict/result words get a stable colour class; anything else is neutral.
+// The word itself is never interpolated into a class name (untrusted).
+const VERDICT_CLASS = {
+  proceed: 'badge-pass', pass: 'badge-pass', go: 'badge-pass', ok: 'badge-pass',
+  warn: 'badge-warn', revise: 'badge-warn', caution: 'badge-warn',
+  fail: 'badge-fail', block: 'badge-fail', blocked: 'badge-fail', 'no-go': 'badge-fail', stop: 'badge-fail',
+};
+const verdictBadge = (value, label = '') => {
+  const cls = VERDICT_CLASS[String(value).toLowerCase().trim()] ?? '';
+  return `<span class="badge${cls ? ' ' + cls : ''}">${label ? escapeHtml(label) + ' ' : ''}${escapeHtml(value)}</span>`;
+};
+
+// One row per named check. Known keys (result, details) get dedicated elements;
+// everything else on the check object falls through so nothing is dropped, and a
+// non-object check value is shown raw rather than vanishing.
+const renderCheckRow = (name, c) => {
+  if (!isPlainObject(c)) return renderOtherField(name, c);
+  const consumed = new Set();
+  const head = [`<span class="check-name">${escapeHtml(name)}</span>`];
+  if (isScalar(c.result) && c.result != null && String(c.result) !== '') {
+    head.push(verdictBadge(c.result));
+    consumed.add('result');
+  }
+  const detailsIsArray = Array.isArray(c.details);
+  if (detailsIsArray) consumed.add('details');
+  const detailsHtml = detailsIsArray && c.details.length
+    ? `<ul class="check-details">${c.details
+        .map((d) => `<li>${isScalar(d) ? escapeHtml(d) : `<code>${escapeHtml(JSON.stringify(d))}</code>`}</li>`)
+        .join('')}</ul>`
+    : '';
+  const rest = Object.entries(c).filter(([k]) => !consumed.has(k));
+  const restHtml = rest.length ? rest.map(([k, v]) => renderOtherField(k, v)).join('\n') : '';
+  return [
+    '<div class="check-row">',
+    `<div class="check-head">${head.join(' ')}</div>`,
+    detailsHtml,
+    restHtml,
+    '</div>',
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
+
+// Renders the section from the loadPlanCheck result. null -> '' (no section).
+// The section renders from file content only, so determinism is preserved.
+const renderPlanCheckSection = (loaded) => {
+  if (loaded == null) return '';
+  const parts = ['<h2>Plan Check</h2>'];
+  if (loaded.error) {
+    parts.push(`<div class="callout callout-warn"><p class="muted">${escapeHtml(loaded.error)}</p></div>`);
+    return parts.join('\n');
+  }
+  const check = loaded.data;
+  // Tolerate a non-object plan-check.json: preserve the value rather than hide it.
+  if (!isPlainObject(check)) {
+    parts.push(renderOtherField('plan-check', check));
+    return parts.join('\n');
+  }
+
+  const consumed = new Set();
+  const badges = [];
+  if (isScalar(check.verdict) && check.verdict != null && String(check.verdict) !== '') {
+    badges.push(verdictBadge(check.verdict));
+    consumed.add('verdict');
+  }
+  if (isScalar(check.score) && check.score != null && String(check.score) !== '') {
+    badges.push(verdictBadge(check.score, 'Score:'));
+    consumed.add('score');
+  }
+  if (badges.length) parts.push(`<div class="check-badges">${badges.join('')}</div>`);
+
+  if (isScalar(check.summary) && check.summary != null && String(check.summary) !== '') {
+    consumed.add('summary');
+    parts.push(`<p class="check-summary">${escapeHtml(check.summary)}</p>`);
+  }
+
+  if (isPlainObject(check.checks)) {
+    consumed.add('checks');
+    const rows = Object.entries(check.checks).map(([name, c]) => renderCheckRow(name, c));
+    if (rows.length) parts.push(`<div class="checks">${rows.join('\n')}</div>`);
+  }
+
+  if (Array.isArray(check.additionalFindings)) {
+    consumed.add('additionalFindings');
+    if (check.additionalFindings.length) {
+      parts.push('<div class="check-findings-label">Additional findings</div>');
+      parts.push(renderListCallout(check.additionalFindings));
+    }
+  }
+
+  const rest = Object.entries(check).filter(([k]) => !consumed.has(k));
+  if (rest.length) parts.push(rest.map(([k, v]) => renderOtherField(k, v)).join('\n'));
+
+  return parts.join('\n');
+};
+
 const STYLE = `
   :root {
     --bg:#0d1117; --surface:#161b22; --surface-2:#21262d; --border:#30363d;
@@ -281,10 +410,25 @@ const STYLE = `
     padding:.6rem .8rem; overflow-x:auto; font-size:.8rem; white-space:pre; }
   .footer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border);
     color:var(--text-muted); font-size:.8rem; text-align:center; }
+  .check-badges { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.8rem; }
+  .badge-pass { background:rgba(63,185,80,.15); color:var(--green); border-color:var(--green); }
+  .badge-warn { background:rgba(210,153,34,.15); color:var(--yellow); border-color:var(--yellow); }
+  .badge-fail { background:rgba(248,81,73,.15); color:var(--red); border-color:var(--red); }
+  .check-summary { font-size:.92rem; margin-bottom:1rem; }
+  .checks { display:flex; flex-direction:column; gap:.6rem; }
+  .check-row { background:var(--surface); border:1px solid var(--border);
+    border-radius:6px; padding:.75rem 1rem; }
+  .check-head { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .check-name { font-family:var(--mono); font-size:.85rem; font-weight:600; color:var(--text); }
+  .check-details { margin:.55rem 0 0; padding-left:1.2rem; font-size:.86rem; color:var(--text-muted); }
+  .check-details li { padding:.15rem 0; }
+  .callout-warn { border-left-color:var(--red); }
+  .check-findings-label { font-size:.85rem; font-weight:600; color:var(--text);
+    margin:1rem 0 .5rem; }
 `;
 
 // ── page assembly ────────────────────────────────────────────────────────────
-const renderPlanHtml = (plan, { sourcePath = '' } = {}) => {
+const renderPlanHtml = (plan, { sourcePath = '', planCheck = null } = {}) => {
   // Tolerate a non-object top-level: preserve the value under Other fields
   // rather than throwing, so `{}`, arrays, and scalars all still render a page.
   const isObj = isPlainObject(plan);
@@ -316,6 +460,11 @@ const renderPlanHtml = (plan, { sourcePath = '' } = {}) => {
   if (route) metaBits.push(`<span class="badge">${escapeHtml(route)}</span>`);
 
   const sections = [];
+
+  // Plan-checker verdict, when a sibling plan-check.json was loaded. Rendered
+  // first - it's a gate verdict about the whole plan. Absent file => ''.
+  const checkSection = renderPlanCheckSection(planCheck);
+  if (checkSection) sections.push(checkSection);
 
   // collectWaves reads both waves and tasks; each is consumed only when it's
   // the array shape the renderer actually understands, independent of
@@ -383,13 +532,20 @@ ${sections.join('\n\n')}
 // ── CLI ──────────────────────────────────────────────────────────────────────
 const HELP =
   'render-plan - deterministic plan.json -> plan.html renderer\n\n' +
-  'Usage: node scripts/render-plan.js <path-to-plan.json> [--out <path>]\n' +
+  'Usage: node scripts/render-plan.js <path-to-plan.json> [--out <path>] [--check-file <path>]\n' +
   '       node scripts/render-plan.js --help\n\n' +
   'Writes plan.html beside the input file (or to --out). Exit 0 on success;\n' +
-  'missing arg / unreadable file / invalid JSON -> exit 2 (VALIDATION_ERROR).\n';
+  'missing arg / unreadable file / invalid JSON -> exit 2 (VALIDATION_ERROR).\n\n' +
+  'If a plan-check.json sibling exists next to the input plan.json, its verdict\n' +
+  'is rendered as a "Plan Check" section. Use --check-file <path> to point at a\n' +
+  'plan-check.json elsewhere. An absent auto-discovered sibling renders no section\n' +
+  '(its absence is normal). A missing, unreadable, or invalid --check-file renders\n' +
+  'a one-line note instead (an explicit flag is an explicit expectation) - never an\n' +
+  'error exit.\n';
 
 const parseArgs = (args) => {
   let out = null;
+  let checkFile = null;
   const positional = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--out') {
@@ -400,11 +556,19 @@ const parseArgs = (args) => {
           'node scripts/render-plan.js <path-to-plan.json> --out <path>',
         ]);
       }
+    } else if (args[i] === '--check-file') {
+      checkFile = args[i + 1];
+      i++;
+      if (checkFile == null) {
+        throw new PhantomError('--check-file requires a path argument', VALIDATION_ERROR, [
+          'node scripts/render-plan.js <path-to-plan.json> --check-file <path>',
+        ]);
+      }
     } else {
       positional.push(args[i]);
     }
   }
-  return { out, input: positional[0] };
+  return { out, checkFile, input: positional[0] };
 };
 
 const run = (argv) => {
@@ -414,10 +578,10 @@ const run = (argv) => {
     return;
   }
 
-  const { out, input } = parseArgs(args);
+  const { out, checkFile, input } = parseArgs(args);
   if (!input) {
     throw new PhantomError('missing required <path-to-plan.json> argument', VALIDATION_ERROR, [
-      'node scripts/render-plan.js <path-to-plan.json> [--out <path>]',
+      'node scripts/render-plan.js <path-to-plan.json> [--out <path>] [--check-file <path>]',
     ]);
   }
 
@@ -439,13 +603,16 @@ const run = (argv) => {
     ]);
   }
 
-  const html = renderPlanHtml(plan, { sourcePath: input });
+  const checkPath = checkFile || path.join(path.dirname(input), 'plan-check.json');
+  const planCheck = loadPlanCheck(checkPath, { explicit: checkFile != null });
+
+  const html = renderPlanHtml(plan, { sourcePath: input, planCheck });
   const target = out || path.join(path.dirname(input), 'plan.html');
   fs.writeFileSync(target, html);
   process.stdout.write(`wrote ${target}\n`);
 };
 
-module.exports = { renderPlanHtml, escapeHtml, collectWaves, run };
+module.exports = { renderPlanHtml, escapeHtml, collectWaves, loadPlanCheck, run };
 
 if (require.main === module) {
   try {

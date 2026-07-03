@@ -35,6 +35,20 @@ The review surface for HTML artifacts. Opens an artifact in a local browser via 
    - **Re-open etiquette:** a session the human ended from the browser will NOT reopen on a plain `npx -y lavish-axi {ARTIFACT}`. Pass `--reopen` ONLY when the human asks for more review or something genuinely important needs their visual attention. Otherwise deliver remaining updates directly in chat.
 7. **On `layout_warnings` from poll** — follow the returned `next_step`: fix fresh **error-severity** findings and re-check them before asking the human to look. When every current warning is **persistent** or **low-severity**, proceed with a note instead of looping — never loop forever on heuristic warnings.
 
+### Plan-gate case (artifact is a rendered `plan.html`)
+
+When the artifact is a rendered plan (auto-invoked from `commands/start.md` PLAN route), the general "revise the artifact" flow in item 6 does NOT apply: **feedback is NEVER applied to the HTML.** `plan.html` is a rendered view; `plan.json` is the source of truth. Run this loop instead:
+
+   a. **Classify** each annotation — **COSMETIC** (wording, rendering, typo) vs **MATERIAL** (scope, waves, files, tasks, assumptions, risks).
+   b. **Apply ALL of them to `plan.json`** (the SSoT) — cosmetic and material alike. Never edit `plan.html` directly.
+   c. **Re-validate material changes** — any MATERIAL change re-runs plan-checker on the revised `plan.json`; if scope moved (files added/removed, a new wave, a changed goal) re-run rival too. Cosmetic-only cycles skip re-validation.
+   d. **Re-render** — `node scripts/render-plan.js {SESSION_DIR}/plan.json` regenerates `plan.html` from the revised source.
+   e. **Re-present** — `npx -y lavish-axi poll {ARTIFACT} --agent-reply "<one-line summary of what changed>"`. If the human's browser session is still open, the refreshed `plan.html` is already live on reload; use `--reopen` ONLY per the re-open etiquette in item 6.
+   f. **Record the cycle** — append a revision entry to `{SESSION_DIR}/decisions.json` (`revisions[]` array): `{cycle, annotations[], classification, planChanges, recheck}` where `recheck` holds the plan-checker/rival verdicts (or `null` on a cosmetic-only cycle).
+   g. **Cycle ceiling: 3.** After 3 revise cycles without chat approval, STOP looping and escalate to plain chat discussion of the sticking points — say so explicitly rather than opening a 4th cycle.
+
+Chat approval remains the gate exit throughout — annotations are feedback that feed this loop, not a second gate.
+
 ## Step 4: End
 
 8. When the human signals done — browser **End session** / **Send & end session**, poll returns `status: ended`, or the human approves in chat — run `npx -y lavish-axi end {ARTIFACT}`. On `status: ended`, stop polling and do not reopen uninvited; deliver any remaining updates in chat.

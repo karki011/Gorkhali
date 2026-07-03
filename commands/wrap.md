@@ -26,8 +26,8 @@ Single ship ceremony. All git operations happen here — no commits, pushes, or 
 
 Wrap is reasoning-heavy, so it stays on the **session model** for judgment steps and pushes only the **mechanical plumbing** down to the pinned cheap `warden` agent:
 
-- **Session model (Apex)** — Steps 2 (diff/scope review), 3 (grill), 5 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 7 evolution already runs on pinned `ward`.
-- **Pinned `warden` (sonnet)** — the mechanical tail: Step 6 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 9 cost report, and the Step 8 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
+- **Session model (Apex)** — Steps 2 (diff/scope review), 3 (grill), 5 (session eval), 6 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 8 evolution already runs on pinned `ward`.
+- **Pinned `warden` (sonnet)** — the mechanical tail: Step 7 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 11 cost report, and the Step 9 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
 
 `warden` does plumbing only — never scope judgment, session-brief authoring, or learnings synthesis (those stay with Apex). If `warden` is unavailable (older install), run the mechanical tail inline. The Greptile loop (`phantom:greploop`) is its own skill and runs as before.
 </execution>
@@ -59,13 +59,22 @@ See [reference/wrap/rpsl.md] for full protocol.
 
 4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). ALL must pass. No override. No skip flag. Writes `review-panel.json`.
 
-## Step 5: Learnings Recording
+## Step 5: Session Eval (auto, non-blocking)
+
+Score the session with the eval rubric so `wrap.json` carries a quality signal. This step **NEVER blocks** the wrap — any failure is recorded and the ceremony proceeds.
+
+Run `Skill(skill="phantom:eval")` (or spawn per its protocol) to score the active shadows against `.claude/evals/evaluation.md`. Capture the overall `score` and a one-line `rubric` summary.
+
+- Success -> hold `eval: { "score": <n>, "rubric": "<one-line summary>" }` for the wrap artifact (Step 9).
+- Any failure (skill errors, missing rubric, timeout) -> hold `eval: { "score": "eval-failed" }` (rubric omitted) and continue. An eval failure never aborts the wrap.
+
+## Step 6: Learnings Recording
 
 See [reference/wrap/learnings.md] for full protocol.
 
 Session file, decisions, shadows eval, learnings update, INDEX update, validation counters, promotion check, caveman compress, phantom outcome feedback, auto-learning trigger 3, testgaps scan.
 
-## Step 6: Ship Ceremony
+## Step 7: Ship Ceremony
 
 Wrap creates the **draft PR autonomously** once verification + the review panel pass — no "ship it?" confirmation. The draft PR is the review surface: the human reviews it and marks it ready-to-review (that action stays human).
 
@@ -79,7 +88,7 @@ The PR body must include a `## Validation` section built from session artifacts:
 - **Never embed or upload Lens screenshots without explicit user approval in-conversation.** Uploading publishes them (they may be cached/indexed even if later deleted). Absent that approval, reference screenshots by repo-relative path or a short description instead of embedding.
 - When in doubt, less detail in a public PR body.
 
-## Step 7: Evolution & Shutdown
+## Step 8: Evolution & Shutdown
 
 See [reference/wrap/evolution.md] for full protocol.
 
@@ -88,9 +97,9 @@ Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermission
 **Confirm subagents terminated:** before declaring the session wrapped, verify no spawned subagent is still running or idle (check `TaskList` / running-agent state). Any lingering agent must be explicitly stopped — a wrap with live background agents is not complete.
 
 <output_format>
-## Step 8: Write Wrap Artifact
+## Step 9: Write Wrap Artifact
 
-Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 9 after the card is emitted; `null` if the emit was skipped).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `eval` (from Step 5 — `{score, rubric}` on success, or `{score: "eval-failed"}` with rubric omitted if the eval could not run), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 10 after the card is emitted; `null` if the emit was skipped).
 
 ### Session Brief
 
@@ -104,7 +113,7 @@ Synthesize a short, plain-language recap of the WHOLE session — not a file-by-
 Store it as `brief` in wrap.json and render it as a **Session Brief** section directly above the SESSION WRAPPED box.
 </output_format>
 
-## Step 9: Emit Brain Card
+## Step 10: Emit Brain Card
 
 Distill this session into ONE **Repo Brain** card (schema: `reference/brain.md`; writer: `scripts/lib/brain-card.js`). Runs AFTER wrap.json exists — wrap.json's brief, plus intent/decisions/execution, is the seed. This is the DOGFOOD step: this session's own wrap emits the repo's first real card.
 
@@ -130,7 +139,7 @@ REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phan
 
 Write the emitted `id` back into wrap.json as `brainCard: {"id": "rb-...", "status": "active"}` (so `/phantom:close` can enrich its trace), and show it in the SESSION WRAPPED box (`Brain card: rb-...`). If the emit fails or is skipped, set `brainCard: null`, note `Brain card: skipped`, and continue — never fail the wrap.
 
-## Step 10: Cost Report
+## Step 11: Cost Report
 
 Close the ticket's cost interval and report total AI spend (never blocks the wrap if it fails):
 
@@ -144,6 +153,6 @@ Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report'
 
 ---
 
-> **Output:** Session Brief (3-6 sentence recap of the whole session), then the SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.
+> **Output:** Session Brief (3-6 sentence recap of the whole session), then the SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, Eval score (or `eval-failed`), PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.
 >
 > **Next step after PR is merged:** run `/phantom:close {TICKET}` — Jira→Done, branch/worktree cleanup, final cost archive.

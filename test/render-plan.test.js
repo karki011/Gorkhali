@@ -14,7 +14,7 @@ const os = require('os');
 const path = require('path');
 
 const SCRIPT = require.resolve('../scripts/render-plan');
-const { renderPlanHtml, collectWaves } = require(SCRIPT);
+const { renderPlanHtml, collectWaves, loadPlanCheck, escapeHtml } = require(SCRIPT);
 
 // A representative plan exercising inline-task waves, models, files, and
 // assumptions - the AXI-PLAN-HTML / AXI-PORT-W2 shape.
@@ -373,6 +373,219 @@ test('fall-through escaping: hostile value in an unclaimed task/wave key is iner
   assert.ok(!html.includes('<script>pwn()</script>'), 'wave-level fall-through escaped');
   assert.ok(!html.includes('<img src=x onerror'), 'task-level fall-through escaped');
   assert.ok(html.includes('&lt;script&gt;pwn()&lt;/script&gt;'), 'design value shown as escaped text');
+});
+
+// ── plan-check section ───────────────────────────────────────────────────────
+// Modeled on the REAL plan-check.json shape (menu-bar-claude-status):
+//   { _meta, checks: { <name>: { result, details:[...] } }, additionalFindings:[],
+//     verdict, summary }. A sibling plan-check.json renders a "Plan Check" section;
+//   absence => no section; a malformed file => a loud note, never a throw.
+const PLAN_CHECK = {
+  _meta: { ticket: 'AXI-DEMO', checker: 'plan-checker', planFile: 'plan.json' },
+  checks: {
+    learnings_collision: { result: 'pass', details: ['no corrections to collide with'] },
+    blast_radius: { result: 'warn', details: ['MetricIconCard.swift not in plan T6', 'DataStore.swift is safe'] },
+    scope_creep: { result: 'pass', details: ['all files on-domain'] },
+  },
+  additionalFindings: ['XCODE MECHANICS: file-system-synchronized groups, no pbxproj edits'],
+  verdict: 'PROCEED',
+  summary: 'No FAILs; 3 WARNs worth acting on before wave 2/3.',
+};
+
+test('plan-check: real-shape sibling renders a Plan Check section with verdict + findings', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'plan.json', planCheck: { data: PLAN_CHECK } });
+
+  assert.ok(html.includes('<h2>Plan Check</h2>'), 'Plan Check heading rendered');
+  assert.ok(html.includes('>PROCEED<'), 'verdict badge rendered');
+  assert.ok(html.includes('No FAILs; 3 WARNs'), 'summary rendered');
+  assert.ok(html.includes('learnings_collision'), 'check name rendered');
+  assert.ok(html.includes('blast_radius'), 'warn check name rendered');
+  assert.ok(html.includes('MetricIconCard.swift not in plan T6'), 'check detail rendered');
+  assert.ok(html.includes('DataStore.swift is safe'), 'second check detail rendered');
+  assert.ok(html.includes('XCODE MECHANICS'), 'additionalFindings rendered');
+  assert.ok(html.includes('badge-pass') && html.includes('badge-warn'), 'result badges get colour classes');
+});
+
+test('plan-check: BLOCKED verdict (plan-checker producer casing) gets the fail badge class', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, {
+    sourcePath: 'plan.json',
+    planCheck: { data: { ...PLAN_CHECK, verdict: 'BLOCKED', checks: {} } },
+  });
+  assert.ok(html.includes('>BLOCKED<'), 'verdict badge rendered');
+  assert.ok(html.includes('badge-fail'), 'BLOCKED verdict gets the fail colour class');
+});
+
+test('plan-check: score field renders a score badge when present', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, {
+    sourcePath: 'plan.json',
+    planCheck: { data: { verdict: 'PROCEED', score: 4.5 } },
+  });
+  assert.ok(html.includes('Score:'), 'score label rendered');
+  assert.ok(html.includes('4.5'), 'score value rendered');
+});
+
+test('plan-check: absent file (null) renders no section', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'plan.json', planCheck: null });
+  assert.ok(!html.includes('<h2>Plan Check</h2>'), 'no Plan Check section when planCheck is null');
+});
+
+test('plan-check: no planCheck option at all renders no section (regression guard)', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'plan.json' });
+  assert.ok(!html.includes('<h2>Plan Check</h2>'), 'section only appears when planCheck is provided');
+});
+
+test('plan-check: malformed file surfaces a loud escaped note, not silence', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, {
+    sourcePath: 'plan.json',
+    planCheck: { error: 'invalid JSON in plan-check file p.json: Unexpected token' },
+  });
+  assert.ok(html.includes('<h2>Plan Check</h2>'), 'section still renders for a malformed file');
+  assert.ok(html.includes('invalid JSON in plan-check file'), 'the note is shown, not hidden');
+});
+
+test('plan-check: hostile strings in plan-check fields render inert', () => {
+  const hostile = {
+    verdict: '<script>alert(1)</script>',
+    summary: '</style><img src=x onerror=pwn()>',
+    checks: {
+      '<b>evil</b>': { result: '<script>bad()</script>', details: ['<iframe></iframe>'] },
+    },
+    additionalFindings: ['"><script>go()</script>'],
+  };
+  const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'p.json', planCheck: { data: hostile } });
+
+  assert.ok(!html.includes('<script>alert(1)</script>'), 'no raw script from verdict');
+  assert.ok(!html.includes('<script>bad()</script>'), 'no raw script from check result');
+  assert.ok(!html.includes('<script>go()</script>'), 'no raw script from findings');
+  assert.ok(!html.includes('<img src=x onerror'), 'no raw img handler from summary');
+  assert.ok(!html.includes('<iframe>'), 'no raw iframe from details');
+  assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'verdict escaped');
+});
+
+test('plan-check: unknown top-level keys fall through, non-object check value not dropped', () => {
+  const html = renderPlanHtml(GOLDEN_PLAN, {
+    sourcePath: 'p.json',
+    planCheck: { data: { verdict: 'PROCEED', novel_key: 'novel-value', checks: { odd: 'just-a-string' } } },
+  });
+  assert.ok(html.includes('novel_key'), 'unknown top-level key label shown');
+  assert.ok(html.includes('novel-value'), 'unknown top-level value shown');
+  assert.ok(html.includes('just-a-string'), 'non-object check value shown, not dropped');
+});
+
+test('plan-check: determinism with a sibling present — two renders byte-identical', () => {
+  const opts = { sourcePath: 'plan.json', planCheck: { data: PLAN_CHECK } };
+  assert.equal(renderPlanHtml(GOLDEN_PLAN, opts), renderPlanHtml(GOLDEN_PLAN, opts));
+});
+
+test('loadPlanCheck: absent file -> null (no section)', () => {
+  assert.equal(loadPlanCheck(path.join(os.tmpdir(), 'no-such-plan-check-xyz.json')), null);
+});
+
+test('loadPlanCheck: absent file with explicit:true -> loud not-found note, not null', () => {
+  const missing = path.join(os.tmpdir(), 'no-such-plan-check-xyz.json');
+  const res = loadPlanCheck(missing, { explicit: true });
+  assert.notEqual(res, null, 'an explicit expectation is never silently absorbed');
+  assert.ok(res.error && res.error.includes(missing), 'note names the missing --check-file path');
+});
+
+test('loadPlanCheck: valid JSON -> { data }, malformed -> { error }', () => {
+  const dir = mkTmpDir();
+  const good = path.join(dir, 'good.json');
+  fs.writeFileSync(good, JSON.stringify({ verdict: 'PROCEED' }));
+  assert.deepEqual(loadPlanCheck(good), { data: { verdict: 'PROCEED' } });
+
+  const bad = path.join(dir, 'bad.json');
+  fs.writeFileSync(bad, '{ not json');
+  const res = loadPlanCheck(bad);
+  assert.ok(res.error && /invalid JSON in plan-check file/.test(res.error), 'malformed -> escaped note payload');
+});
+
+test('CLI: a plan-check.json sibling is picked up and rendered; exit 0', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+  fs.writeFileSync(path.join(dir, 'plan-check.json'), JSON.stringify(PLAN_CHECK));
+
+  const res = runCli([input]);
+  assert.equal(res.status, 0, res.stderr);
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(html.includes('<h2>Plan Check</h2>'), 'sibling plan-check rendered into plan.html');
+  assert.ok(html.includes('>PROCEED<'), 'verdict from sibling shown');
+});
+
+test('CLI: no sibling plan-check.json -> no section, exit 0 (this session\'s own plan)', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+
+  const res = runCli([input]);
+  assert.equal(res.status, 0, res.stderr);
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(!html.includes('<h2>Plan Check</h2>'), 'no section without a sibling');
+});
+
+test('CLI: --check-file overrides the sibling location', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  const check = path.join(dir, 'elsewhere-check.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+  fs.writeFileSync(check, JSON.stringify({ verdict: 'BLOCK', summary: 'do not ship' }));
+
+  const res = runCli([input, '--check-file', check]);
+  assert.equal(res.status, 0, res.stderr);
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(html.includes('>BLOCK<'), 'verdict from --check-file shown');
+  assert.ok(html.includes('do not ship'), 'summary from --check-file shown');
+});
+
+test('CLI: --check-file pointing at a missing path -> loud note in section, exit 0', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  const missingCheck = path.join(dir, 'does-not-exist-check.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+
+  const res = runCli([input, '--check-file', missingCheck]);
+  assert.equal(res.status, 0, 'an explicit-flag miss renders a note, not a validation error exit');
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(html.includes('<h2>Plan Check</h2>'), 'section renders even though the explicit file is missing');
+  assert.ok(html.includes(escapeHtml(missingCheck)), 'note names the missing --check-file path, escaped');
+});
+
+test('CLI: auto-discovered sibling absent (no --check-file) -> still no section, exit 0', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+
+  const res = runCli([input]);
+  assert.equal(res.status, 0, res.stderr);
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(!html.includes('<h2>Plan Check</h2>'), 'auto-discovery absence stays silent — unlike an explicit --check-file miss');
+});
+
+test('CLI: malformed sibling plan-check.json -> note in section, still exit 0', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  fs.writeFileSync(input, JSON.stringify(GOLDEN_PLAN));
+  fs.writeFileSync(path.join(dir, 'plan-check.json'), '{ not json');
+
+  const res = runCli([input]);
+  assert.equal(res.status, 0, 'a malformed plan-check never fails the render');
+  const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
+  assert.ok(html.includes('<h2>Plan Check</h2>') && html.includes('invalid JSON in plan-check file'), 'loud note rendered');
+});
+
+test('CLI: --check-file without a value -> exit 2', () => {
+  const dir = mkTmpDir();
+  const input = path.join(dir, 'plan.json');
+  fs.writeFileSync(input, '{}');
+  const res = runCli([input, '--check-file']);
+  assert.equal(res.status, 2);
+});
+
+test('CLI: --help documents --check-file', () => {
+  const res = runCli(['--help']);
+  assert.equal(res.status, 0);
+  assert.match(res.stdout, /--check-file/);
 });
 
 // ── CLI contract ─────────────────────────────────────────────────────────────

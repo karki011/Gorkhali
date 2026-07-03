@@ -27,6 +27,7 @@ Accept `{TICKET}` arg; else detect from `git branch --show-current` (branch name
 Read `{TEAM_DIR}/sessions/{TICKET}/wrap.json`. Extract:
 - `pr.number`, `pr.url` — the shipped PR
 - `jira.ticket` — the Jira key (falls back to `{TICKET}` arg)
+- `eval.score` — the wrap-time session eval score (may be absent, or `eval-failed`), carried into close.json
 
 If `wrap.json` missing → **STOP**: "No shipped session for {TICKET} — run `/phantom:wrap` first."
 
@@ -144,7 +145,8 @@ Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
   },
   "cost": {
     "total": "{cost-report Total line}"
-  }
+  },
+  "eval": { "score": "{wrap.json eval.score, or \"eval-failed\" / omitted if the wrap eval did not run}" }
 }
 ```
 </output_format>

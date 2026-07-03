@@ -102,9 +102,14 @@ See `schemas/plan.md` for the full task template, field rules, and extended fiel
 
 ## Plan Artifacts
 
-Every plan produces two files, each with one job:
+Every plan produces two required files, each with one job, plus one optional third:
 
 - **`plan.json`** — the machine source of truth. `phantom:execute`, `phantom:wire`, and `phantom:resume` all read this file, never `plan.html`.
 - **`plan.html`** — the human gate surface. Always rendered from `plan.json` via `node scripts/render-plan.js <path-to-plan.json>` (see `commands/start.md` PLAN route, HUMAN GATE step). Never hand-authored, never parsed back into anything.
+- **`plan-check.json`** (optional) — the plan-checker's verdict, written to the session directory by the plan-checker agent (`agents/plan-checker.md`). When present as a sibling of `plan.json`, `render-plan.js` auto-discovers it and renders a "Plan Check" section inside `plan.html`, so the human sees the checker's verdict alongside the plan. Absent means no section — the plan-checker didn't run, or wasn't required for this route.
 
 If `plan.json` changes after the initial render — during deliberation, a fix-loop revision, or a resumed session — re-run the renderer so `plan.html` stays in sync before the next human review.
+
+### Gate-loop revisions
+
+During the plan-gate annotate-revise loop (`commands/annotate.md`, plan-gate case), each cycle edits `plan.json` and regenerates `plan.html` — `plan.html` is never hand-edited. Every cycle is recorded as an entry in the `revisions[]` array of `{SESSION_DIR}/decisions.json`, shaped `{cycle, annotations[], classification, planChanges, recheck}` (`recheck` holds the plan-checker/rival verdicts on material changes, `null` on cosmetic-only cycles). The loop ceiling is 3 cycles; after that, unresolved sticking points move to plain chat discussion rather than a re-render.
