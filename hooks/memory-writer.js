@@ -48,6 +48,16 @@ try {
   withLock = (_filePath, fn) => fn(); // no atomic.js → run unlocked, as before
 }
 
+// ── Byte-preserving markdown surgery ─────────────────────────────────────────────
+// md-grammar keeps everything this hook does NOT mean to touch (the manual INDEX
+// preamble, sibling sections, existing domain-file entries) byte-identical while we
+// regenerate the managed section. LOAD-FAILURE fallback: absent/broken → the prior
+// string-surgery path, which reflows but never crashes the Stop hook.
+let mdGrammar = null;
+try {
+  mdGrammar = require('../scripts/lib/md-grammar');
+} catch (_) { /* fail open: md-grammar missing → string-surgery fallback below */ }
+
 // ── Parsing helpers ───────────────────────────────────────────────────────────
 
 /**
@@ -150,17 +160,33 @@ function parseIndex(content) {
 }
 
 /**
- * Rebuild INDEX.md content from preamble + auto entries.
+ * Rebuild INDEX.md from its ORIGINAL content + the regenerated auto entries.
+ * The ## Auto-Captured section is fully regenerated (intentional); everything else —
+ * the manual preamble and any sibling sections — is protected byte-for-byte by
+ * md-grammar. Falls back to the prior preamble-trim string surgery if md-grammar is
+ * unavailable or the document won't parse (never lose content to a partial render).
  */
-function rebuildIndex(preamble, autoLines) {
-  let result = preamble.trimEnd();
+function rebuildIndex(originalContent, autoLines) {
+  const serialized = autoLines.map(serializeAutoEntry);
 
-  if (autoLines.length > 0) {
-    result += '\n\n## Auto-Captured\n\n';
-    result += autoLines.map(serializeAutoEntry).join('\n');
-    result += '\n';
+  if (mdGrammar) {
+    try {
+      const doc = mdGrammar.parse(originalContent || '');
+      if (serialized.length > 0) {
+        mdGrammar.setSection(doc, 'Auto-Captured', ['', ...serialized]);
+        doc.finalNewline = true; // machine-managed file always ends in a newline
+      } else {
+        mdGrammar.removeSection(doc, 'Auto-Captured');
+      }
+      return mdGrammar.render(doc);
+    } catch (_) { /* fall through to the string-surgery path */ }
   }
 
+  // Fallback: prior behavior — trim the preamble and append a fresh auto section.
+  let result = parseIndex(originalContent || '').preamble.trimEnd();
+  if (serialized.length > 0) {
+    result += '\n\n## Auto-Captured\n\n' + serialized.join('\n') + '\n';
+  }
   return result;
 }
 
@@ -226,22 +252,39 @@ function graduateToDomainFile(domain, entry) {
     const cleanText = entry.text;
     const graduatedLine = `- ${cleanText} [validated:${entry.validatedCount}] q:${entry.confidence} u:${entry.date}`;
 
-    if (sectionIdx === -1) {
-      // Append section at end
-      content = content.trimEnd() + `\n\n${sectionHeader}\n\n${graduatedLine}\n`;
-    } else {
-      // Find end of section (next ## or end of file)
-      const afterHeader = sectionIdx + sectionHeader.length;
-      const nextSection = content.indexOf('\n## ', afterHeader + 1);
-      const insertAt = nextSection === -1 ? content.length : nextSection;
-
-      // Insert before next section
-      const before = content.slice(0, insertAt).trimEnd();
-      const after = content.slice(insertAt);
-      content = before + '\n' + graduatedLine + '\n' + after;
+    // md-grammar path: append the graduated line into ## Validated Patterns while the
+    // rest of the domain file (other patterns, other sections) stays byte-identical.
+    let written = false;
+    if (mdGrammar) {
+      try {
+        const doc = mdGrammar.parse(content);
+        const section = mdGrammar.findSection(doc, 'Validated Patterns');
+        if (section) section.entries.push(mdGrammar.newItem(graduatedLine, [graduatedLine]));
+        else mdGrammar.setSection(doc, 'Validated Patterns', [graduatedLine]);
+        doc.finalNewline = true;
+        atomicWrite(domainFile, mdGrammar.render(doc));
+        written = true;
+      } catch (_) { /* fall through to the string-surgery path */ }
     }
 
-    atomicWrite(domainFile, content);
+    if (!written) {
+      if (sectionIdx === -1) {
+        // Append section at end
+        content = content.trimEnd() + `\n\n${sectionHeader}\n\n${graduatedLine}\n`;
+      } else {
+        // Find end of section (next ## or end of file)
+        const afterHeader = sectionIdx + sectionHeader.length;
+        const nextSection = content.indexOf('\n## ', afterHeader + 1);
+        const insertAt = nextSection === -1 ? content.length : nextSection;
+
+        // Insert before next section
+        const before = content.slice(0, insertAt).trimEnd();
+        const after = content.slice(insertAt);
+        content = before + '\n' + graduatedLine + '\n' + after;
+      }
+
+      atomicWrite(domainFile, content);
+    }
   } catch {
     // Silent — graduation failure is non-fatal
   }
@@ -468,7 +511,7 @@ function updateLearnings(candidates) {
   indexParsed.autoLines = capIndexAutoLines(indexParsed.autoLines);
 
   // Step 8: Atomic Write
-  const newIndexContent = rebuildIndex(indexParsed.preamble, indexParsed.autoLines);
+  const newIndexContent = rebuildIndex(indexContent, indexParsed.autoLines);
   const newAutoCapturesContent = rebuildAutoCaptures(autoEntries);
 
   atomicWrite(INDEX_PATH, newIndexContent);

@@ -2,14 +2,16 @@
 
 Written by Phase B (`phantom:start`). Defines the goal contract for verify and wrap.
 
+<!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| --- | --- | --- | --- |
 | goal | string | yes | Single clear goal statement |
 | doneWhen | string[] | yes | Acceptance criteria (observable, testable) |
 | priority | string[] | yes | Ordered implementation priorities |
 | tradeoffs | string[] | no | Acknowledged tradeoffs |
 | nonNegotiables | string[] | no | Hard constraints that must not be violated |
 | specDelta | string | yes | What changed from original requirements — or `"none"` if first pass |
+<!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json

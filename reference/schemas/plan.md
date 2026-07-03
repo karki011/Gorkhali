@@ -2,8 +2,9 @@
 
 Written by Phase B after devil's advocate review. Drives Phase C execution.
 
+<!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| --- | --- | --- | --- |
 | route | `"solo"` \| `"shadows"` | yes | Whether to spawn agents or work inline |
 | devilsAdvocateVerdict | `"PROCEED"` \| `"REVISE"` \| `"RETHINK"` | yes | Grill gate outcome |
 | tasks | object[] | yes | Ordered list of task objects |
@@ -14,6 +15,7 @@ Written by Phase B after devil's advocate review. Drives Phase C execution.
 | tasks[].agent | string | no | Agent role for shadows route |
 | antiRepetition | string[] | no | Patterns to avoid (from learnings) |
 | estimatedSpawns | number | no | Expected agent count for shadows route |
+<!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json

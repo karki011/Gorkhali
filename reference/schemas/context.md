@@ -2,8 +2,9 @@
 
 Written by Phase A (`phantom:start`). Provides ticket context for all downstream phases.
 
+<!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| --- | --- | --- | --- |
 | ticket | string | yes | Ticket key or task label |
 | summary | string | yes | Human-readable ticket summary |
 | source | `"jira"` \| `"args"` \| `"branch"` | yes | Where context was sourced from |
@@ -12,6 +13,7 @@ Written by Phase A (`phantom:start`). Provides ticket context for all downstream
 | phantomStrategy | string | no | Strategy from phantom_orchestrator_process |
 | blastRadius | string[] | no | Files flagged by phantom_graph_blast_radius |
 | modelOverride | string \| `null` | no | Force a specific model for spawns |
+<!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json

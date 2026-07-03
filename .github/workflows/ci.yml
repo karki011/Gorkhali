@@ -1,0 +1,23 @@
+# Author: Subash Karki
+# First CI workflow for this repo. Deliberately minimal: run the test suite and
+# the schema-doc drift gate on every PR and on push to main. Plain push /
+# pull_request triggers only - no label/comment triggers, which can make a
+# workflow retrigger itself.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - run: npm test
+      - name: Schema docs are in sync
+        run: node scripts/gen-schema-docs.js --check

@@ -43,11 +43,18 @@ free-text status-verb matching to the typed execution record
 - Copyright: © 2026 Kun Chen
 - Adaptation: TypeScript → Node port of the atomic file write and advisory
   lock. Made synchronous and fail-open for the phantom hooks, which cannot
-  await.
+  await. Also a TypeScript → Node port of the task-backlog markdown grammar,
+  keeping only its byte-exact parse/render round-trip mechanism (unmodified
+  entries and free-form lines are emitted verbatim from `raw`) and dropping
+  the task-backlog semantics (in-flight/queued/done sections, blocked-by
+  edges, tag extraction) in favor of pluggable entry recognition, so the same
+  grammar serves the learnings INDEX.md, domain files, and brain cards this
+  repo writes.
 
 | Ported file | Adapted from |
 | --- | --- |
 | `scripts/lib/atomic.js` | `lock.ts` |
+| `scripts/lib/md-grammar.js` | `markdown-grammar.ts` |
 
 ## gh-axi
 
@@ -57,10 +64,22 @@ free-text status-verb matching to the typed execution record
 - Adaptation: TypeScript → Node port of the log-capture summary/truncation
   logic. Adds a head slice alongside the original's tail, and resolves the
   full-log directory through `phantom-paths.js` instead of `os.tmpdir()`.
+  Also a TypeScript → Node port of the shared output vocabulary (count
+  phrasing, numbered help hints, and the `already: true` idempotent no-op
+  convention from `pr.ts`'s close/reopen/ready handling), keeping only the
+  plain-object "key: value" phrasing and dropping the `@toon-format/toon`
+  dependency entirely — the port is a dependency-free line-per-key formatter,
+  not a TOON encoder. Also a TypeScript → Node port of the typed-error /
+  exit-code convention: a single error type carries a machine code and
+  remediation suggestions, mapped to a process exit status by callers that
+  set `process.exitCode` and return rather than calling `process.exit()`
+  (which can truncate pending stdout and skip `finally` blocks).
 
 | Ported file | Adapted from |
 | --- | --- |
 | `scripts/lib/log-capture.js` | `run.ts` |
+| `scripts/lib/render-output.js` | `format.ts`, `toon.ts`, `pr.ts` |
+| `scripts/lib/axi-error.js` | error/exit-code handling conventions |
 
 ## chrome-devtools-axi
 

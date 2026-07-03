@@ -2,8 +2,9 @@
 
 Written by `phantom:wrap` after all post-merge actions complete.
 
+<!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| --- | --- | --- | --- |
 | brief | string | yes | 3-6 sentence plain-language recap of the whole session: goal, what changed, notable decisions/corrections, outcome + open follow-ups. Rendered above the SESSION WRAPPED box. |
 | pr | object \| `null` | yes | PR details, or null if no PR |
 | pr.number | number | yes | PR number |
@@ -20,6 +21,7 @@ Written by `phantom:wrap` after all post-merge actions complete.
 | learnings.recorded | string[] | yes | Learnings written this session |
 | learnings.promoted | string[] | yes | Learnings promoted to validated |
 | learnings.pruned | string[] | yes | Stale learnings removed |
+<!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json

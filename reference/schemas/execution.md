@@ -4,8 +4,9 @@ Written by Phase C after agents complete. Summarizes what was actually done.
 
 Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads these fields directly instead of parsing free-text handoff prose.
 
+<!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| --- | --- | --- | --- |
 | tasks | object[] | yes | Per-task execution results |
 | tasks[].id | string | yes | Task ID from plan.json |
 | tasks[].status | `"done"` \| `"failed"` \| `"skipped"` | yes | Final task status |
@@ -20,6 +21,7 @@ Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads 
 | tasks[].outputSummary | string | yes | 1-2 sentence summary of what was done |
 | totalSpawns | number | yes | Total agent instances spawned |
 | agentOutputs | string | no | Path to raw agent output logs |
+<!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json

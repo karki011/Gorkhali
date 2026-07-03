@@ -18,6 +18,7 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const { phantomData, stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
 const { PREFLIGHT_MAX_FILES, MARKER_FRESHNESS_MS } = require('./lib/constants');
+const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
 
 // Staleness window for the current-session collision marker.
 const FRESH_WINDOW_MS = MARKER_FRESHNESS_MS;
@@ -174,10 +175,10 @@ function runPreflight(opts) {
   return { ticket, repo, ts: new Date().toISOString(), checks, verdict };
 }
 
+// Usage errors are VALIDATION_ERROR-class -> exitCodeForError maps them to 2,
+// preserving preflight's historical usage exit code.
 function usageError(msg) {
-  const e = new Error(msg);
-  e.code = 'EUSAGE';
-  return e;
+  return new PhantomError(msg, 'VALIDATION_ERROR');
 }
 
 function parseArgs(argv) {
@@ -220,7 +221,8 @@ function main(argv = process.argv.slice(2)) {
     opts = parseArgs(argv);
   } catch (e) {
     process.stderr.write('preflight: ' + e.message + '\n' + USAGE);
-    process.exit(2);
+    process.exitCode = exitCodeForError(e);
+    return;
   }
 
   let result;
@@ -229,16 +231,23 @@ function main(argv = process.argv.slice(2)) {
   } catch (e) {
     if (e.code === 'ENOTGIT') {
       process.stderr.write('preflight: ' + e.message + '\n');
-      process.exit(2);
+      process.exitCode = 2;
+      return;
     }
     throw e;
   }
 
   if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   else printHuman(result);
-  process.exit(result.verdict === 'pass' ? 0 : 1);
+  process.exitCode = result.verdict === 'pass' ? 0 : 1;
 }
 
 module.exports = { runPreflight, main };
 
-if (require.main === module) main();
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    reportError(err);
+  }
+}

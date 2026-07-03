@@ -61,6 +61,15 @@ try {
   };
 }
 
+// md-grammar splices the regenerated ## Auto-Captured section back into INDEX.md
+// while every other line (manual preamble, sibling sections) stays byte-identical.
+// LOAD-FAILURE fallback: absent/broken → the prior slice+trimEnd reassembly, which
+// reflows the rest but never crashes the PreCompact hook.
+let mdGrammar = null;
+try {
+  mdGrammar = require('../scripts/lib/md-grammar');
+} catch (_) { /* fail open: md-grammar missing → string-reassembly fallback below */ }
+
 // ── Step 1: Read stdin and determine session ──────────────────────────────────
 
 let input = {};
@@ -274,6 +283,19 @@ try {
           }
           if (newEntries.length > 0) {
             updatedAuto = updatedAuto.trimEnd() + '\n' + newEntries.join('\n') + '\n';
+          }
+
+          // md-grammar path: drop the regenerated body back into ## Auto-Captured and
+          // let the grammar preserve the rest of INDEX.md verbatim. The dedup/bump
+          // logic above is unchanged — only the untouched-content preservation improves.
+          if (mdGrammar) {
+            try {
+              const doc = mdGrammar.parse(indexContent);
+              const autoBodyLines = updatedAuto.replace(/\n+$/, '').split('\n').slice(1);
+              mdGrammar.setSection(doc, 'Auto-Captured', autoBodyLines);
+              doc.finalNewline = true;
+              return mdGrammar.render(doc);
+            } catch (_) { /* fall through to the string-reassembly path */ }
           }
 
           return restContent.trimEnd() + '\n\n' + updatedAuto.trimEnd() + '\n';
