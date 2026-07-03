@@ -126,20 +126,83 @@ function readLockOwner(lockPath) {
 // Stale-lock decision — lock.ts's semantics (age past staleMs, measured from the
 // lockfile mtime so it stands even when the token can't be parsed), extended with
 // pid liveness: a dead owner is stale regardless of age.
-function isStaleLock(lockPath, staleMs) {
+//
+// Returns the EXACT raw bytes of the generation judged stale (the lockToken plus its
+// trailing newline), or null when the lock is live or already gone. The takeover
+// path compares these bytes against the file it relocates: that is what makes the
+// takeover a VERIFIED single-winner — a contender only claims the precise generation
+// it judged, never a fresh live lock that replaced it after the judgment.
+function judgeStaleGeneration(lockPath, staleMs) {
   let mtimeMs;
   try {
     mtimeMs = fs.statSync(lockPath).mtimeMs;
   } catch (error) {
-    if (errno(error) === 'ENOENT') return false; // already gone → nothing to break
+    if (errno(error) === 'ENOENT') return null; // already gone → nothing to break
     throw error;
   }
   const owner = readLockOwner(lockPath);
+  if (owner == null) return null; // vanished between stat and read → nothing to break
   // Only a VALID, provably-dead owner is stale-by-pid. An unknown owner (empty or
   // mid-write lockfile) is NOT proof of death — fall through to the age check, which
   // still reclaims a genuinely orphaned empty lockfile once it passes staleMs.
-  if (owner && owner.pid != null && !pidAlive(owner.pid)) return true;
-  return Date.now() - mtimeMs > staleMs;
+  const dead = owner.pid != null && !pidAlive(owner.pid);
+  if (dead || Date.now() - mtimeMs > staleMs) return owner.raw;
+  return null;
+}
+
+// Non-clobbering restore of a lock a contender misappropriated. When takeover
+// relocates a generation it did NOT judge stale (a fresh live lock installed at the
+// path after the judgment), the displaced owner must be put back — but only if the
+// path is still empty. linkSync creates lockPath atomically and fails EEXIST when a
+// NEWER holder has already taken the momentarily-empty path; we must never overwrite
+// that live lock. Returns 'restored' when the displaced owner is reinstated,
+// 'superseded' when a newer holder already owns the path. Either way our relocated
+// copy is dropped so no `.stale.` artifact leaks. 'superseded' is the one residual
+// double-hold window pure-POSIX advisory locking cannot close (see takeoverStaleLock).
+function restoreMisappropriated(staleName, lockPath) {
+  let status;
+  try {
+    fs.linkSync(staleName, lockPath);
+    status = 'restored';
+  } catch (error) {
+    if (errno(error) !== 'EEXIST') throw error;
+    status = 'superseded';
+  }
+  try {
+    fs.unlinkSync(staleName);
+  } catch {
+    /* best-effort: the restored copy or a superseding lock is authoritative now */
+  }
+  return status;
+}
+
+// Verified single-winner takeover of the generation whose raw bytes are `judgedRaw`.
+// renameSync moves the inode atomically, so exactly one contender relocates a given
+// lockfile; the rest get ENOENT ('lost') and back off. After relocating, we CONFIRM
+// the bytes match the judged generation:
+//   'won'       → relocated the exact stale generation; caller retries the create.
+//   'lost'      → path already empty; another contender got there first.
+//   'repaired'  → relocated a fresh live lock (a winner recreated between our
+//                 judgment and our rename); restored it, we did not acquire.
+//   'superseded'→ same, but a newer holder claimed the empty path before our
+//                 restore — the displaced owner is a zombie. Irreducible residual.
+function takeoverStaleLock(lockPath, judgedRaw) {
+  const staleName = `${lockPath}.stale.${process.pid}.${randomNonce()}`;
+  try {
+    fs.renameSync(lockPath, staleName);
+  } catch (error) {
+    if (errno(error) !== 'ENOENT') throw error;
+    return 'lost'; // path already empty → another contender relocated it first
+  }
+  if (readFileSafe(staleName) === judgedRaw) {
+    try {
+      fs.unlinkSync(staleName);
+    } catch {
+      /* best-effort: never let a leftover takeover artifact block acquisition */
+    }
+    return 'won';
+  }
+  return restoreMisappropriated(staleName, lockPath) === 'restored' ? 'repaired' : 'superseded';
 }
 
 // Remove the lockfile only if we still own it: a stale-lock takeover may have
@@ -179,30 +242,18 @@ function acquireLock(targetPath, options = {}) {
     } catch (error) {
       if (errno(error) !== 'EEXIST') throw error;
 
-      // Single-winner takeover. Unlink-by-path is unsafe here: two contenders that
-      // both judged THIS lock stale would each remove whatever generation sits at
+      // Verified single-winner takeover. Unlink-by-path is unsafe here: two contenders
+      // that both judged THIS lock stale would each remove whatever generation sits at
       // lockPath when their unlink runs — the second deleting a fresh lock the first
-      // just created, so both hold at once (lost update). renameSync moves the inode
-      // atomically: exactly one contender relocates a given stale lockfile, the rest
-      // get ENOENT (the path is now empty) and fall through to a normal retry.
-      if (isStaleLock(lockPath, staleMs)) {
-        const staleName = `${lockPath}.stale.${process.pid}.${randomNonce()}`;
-        let won = false;
-        try {
-          fs.renameSync(lockPath, staleName);
-          won = true;
-        } catch (renameError) {
-          if (errno(renameError) !== 'ENOENT') throw renameError;
-          // lost the takeover race → fall through to a normal retry/backoff
-        }
-        if (won) {
-          try {
-            fs.unlinkSync(staleName);
-          } catch {
-            /* best-effort: never let a leftover takeover artifact block acquisition */
-          }
-          continue; // won the takeover — retry the create immediately
-        }
+      // just created, so both hold at once (lost update). Instead we judge the exact
+      // stale generation (its raw bytes), relocate it atomically with renameSync, and
+      // CONFIRM we moved that same generation before claiming the takeover. A contender
+      // that finds it relocated a fresh live lock (a winner recreated between judgment
+      // and rename) repairs it back without clobbering and backs off — never robs a
+      // live holder. Only 'won' means the path is ours to recreate.
+      const judgedRaw = judgeStaleGeneration(lockPath, staleMs);
+      if (judgedRaw != null && takeoverStaleLock(lockPath, judgedRaw) === 'won') {
+        continue; // took over the exact judged generation — retry the create immediately
       }
 
       const remaining = deadline - Date.now();
@@ -272,6 +323,10 @@ function atomicUpdate(filePath, transform, opts = {}) {
 }
 
 module.exports = { atomicWrite, atomicUpdate, withLock, readFileSafe, LockTimeoutError };
+
+// Internal takeover primitives, exported for deterministic single-winner tests only.
+// Not part of the public API — callers use withLock/atomicUpdate.
+module.exports._internals = { judgeStaleGeneration, takeoverStaleLock, restoreMisappropriated };
 
 // CLI: node atomic.js write <file>    # read stdin, write it atomically
 //      node atomic.js update <file>   # same, but under the advisory lock
