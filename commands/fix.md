@@ -28,7 +28,7 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/phantom:verify` first).
 2. **Check loop count** — ask `hooks/loop-controller.js` (`shouldContinue`): at the ceiling and no operator override → structured escalation (step 8).
-3. **Debugging discipline** — reproduce → trace → confirm root cause BEFORE fixing. If loop 2+, trigger hound deep investigation (step 3.5).
+3. **Debugging discipline** — reproduce (pipe the failing command through `scripts/lib/log-capture.js --label fix-repro` for a bounded summary; set `set -o pipefail` and read the captured `$?` before the pipe — `log-capture.js` always exits 0, so without pipefail a still-failing repro looks fixed) → trace → confirm root cause BEFORE fixing. If loop 2+, trigger hound deep investigation (step 3.5).
 
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).
 

@@ -18,7 +18,15 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 Discover verify commands from repo (see `_shared-repo-detection.md` protocol, `reference/verification.md` for tier precedence).
 
-Run each command. Read full output. Report: lint pass/fail, build pass/fail, tests pass/fail.
+Run each command piped through `scripts/lib/log-capture.js --label <command>` and read the bounded summary it returns. **`log-capture.js` always exits 0** (it fails open so a capture bug never hides the real output), so a bare pipe makes `$?` reflect the capture script, not your command — a red lint/build/test would read as green. Enable `set -o pipefail` first and capture the wrapped command's status, mirroring the snippet documented in `log-capture.js`'s header:
+
+```sh
+set -o pipefail
+pnpm test 2>&1 | node scripts/lib/log-capture.js --label test
+test_status=$?
+```
+
+Judge pass/fail on the captured status (non-zero = fail), not on the pipe's default exit code. Grep the full log at the path in the hint line for anything the summary trimmed. Report: lint pass/fail, build pass/fail, tests pass/fail.
 
 If ANY fail → run hound failure scan (Step 1.5), print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report + suggest `/phantom:fix` and stop.**
 

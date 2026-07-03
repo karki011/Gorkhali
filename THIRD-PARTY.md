@@ -27,8 +27,40 @@ free-text status-verb matching to the typed execution record
 - License: MIT
 - Copyright: © 2026 Kun Chen
 - Adaptation: prose / discipline adaptation of the HTML annotate review-loop
-  conventions (`commands/annotate.md`, `reference/output-contract.md`). No code
-  is vendored — the CLI is invoked on demand via `npx -y lavish-axi`.
+  conventions (`commands/annotate.md`, `reference/output-contract.md`), plus a
+  Node port of the browser-side layout auditor from `artifact-sdk.js`. The
+  annotate conventions vendor no code — that CLI is invoked on demand via
+  `npx -y lavish-axi` — but the layout auditor below is ported directly.
+
+| Ported file | Adapted from |
+| --- | --- |
+| `scripts/layout-audit.js` | `artifact-sdk.js` |
+
+## tasks-axi
+
+- Source: https://github.com/kunchenguid/tasks-axi
+- License: MIT
+- Copyright: © 2026 Kun Chen
+- Adaptation: TypeScript → Node port of the atomic file write and advisory
+  lock. Made synchronous and fail-open for the phantom hooks, which cannot
+  await.
+
+| Ported file | Adapted from |
+| --- | --- |
+| `scripts/lib/atomic.js` | `lock.ts` |
+
+## gh-axi
+
+- Source: https://github.com/kunchenguid/gh-axi
+- License: MIT
+- Copyright: © 2026 Kun Chen
+- Adaptation: TypeScript → Node port of the log-capture summary/truncation
+  logic. Adds a head slice alongside the original's tail, and resolves the
+  full-log directory through `phantom-paths.js` instead of `os.tmpdir()`.
+
+| Ported file | Adapted from |
+| --- | --- |
+| `scripts/lib/log-capture.js` | `run.ts` |
 
 ## chrome-devtools-axi
 

@@ -30,12 +30,22 @@ const MAX_INDEX_AUTO_LINES = 100;
 const STALE_DAYS = 3; // auto-capture prune window — NOT evolution-runner's LEARNING_STALE_DAYS
 const MIN_CONFIDENCE = 0.15;
 
-// ── Atomic write ──────────────────────────────────────────────────────────────
+// ── Atomic write + advisory locking ─────────────────────────────────────────────
+// DRY: the atomic temp+rename write and the read-modify-write lock both live in
+// scripts/lib/atomic.js now. Keep a LOAD-FAILURE fallback so a missing/broken
+// atomic.js degrades to the prior inline behavior (unlocked best-effort write) and
+// never crashes the Stop hook.
 
-function atomicWrite(filePath, content) {
-  const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, content);
-  fs.renameSync(tmp, filePath);
+let atomicWrite, withLock;
+try {
+  ({ atomicWrite, withLock } = require('../scripts/lib/atomic'));
+} catch (_) {
+  atomicWrite = (filePath, content) => {
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, content);
+    fs.renameSync(tmp, filePath);
+  };
+  withLock = (_filePath, fn) => fn(); // no atomic.js → run unlocked, as before
 }
 
 // ── Parsing helpers ───────────────────────────────────────────────────────────
@@ -303,49 +313,14 @@ function capIndexAutoLines(autoLines) {
   return [...rest, ...keptProposed];
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Learnings read-modify-write ─────────────────────────────────────────────────
 
-try {
-  // Read stdin-json for session info
-  let stdinData = '';
-  try {
-    stdinData = fs.readFileSync('/dev/stdin', 'utf-8');
-  } catch {
-    // No stdin available
-  }
-
-  let sessionId = 'unknown';
-  try {
-    const event = JSON.parse(stdinData || '{}');
-    sessionId = event.session_id || process.env.CLAUDE_SESSION_ID || 'unknown';
-  } catch {
-    sessionId = process.env.CLAUDE_SESSION_ID || 'unknown';
-  }
-
-  // Step 1: Get today's observations
-  const today = new Date().toISOString().slice(0, 10);
-  const obsFile = path.join(OBS_DIR, `${today}.jsonl`);
-
-  if (!fs.existsSync(obsFile)) process.exit(0);
-
-  // Step 2: Call extract-learnings.js
-  let candidates;
-  try {
-    const result = execFileSync(process.execPath, [
-      EXTRACT_SCRIPT,
-      '--input', obsFile,
-      '--window', String(TURN_WINDOW),
-      '--session', sessionId
-    ], { encoding: 'utf-8', timeout: EXTRACT_TIMEOUT_MS });
-    candidates = JSON.parse(result);
-  } catch {
-    process.exit(0);
-  }
-
-  if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
-    process.exit(0);
-  }
-
+/**
+ * Dedup, prune, graduate, and rebuild INDEX.md + auto-captures.md from `candidates`.
+ * This is a single read-modify-write over the two shared learnings files; the caller
+ * runs it under withLock so two concurrent Stop hooks can't both read-then-clobber.
+ */
+function updateLearnings(candidates) {
   // Step 3: Load current INDEX.md and auto-captures.md
   fs.mkdirSync(LEARNINGS_DIR, { recursive: true });
 
@@ -498,6 +473,55 @@ try {
 
   atomicWrite(INDEX_PATH, newIndexContent);
   atomicWrite(AUTO_CAPTURES_PATH, newAutoCapturesContent);
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+try {
+  // Read stdin-json for session info
+  let stdinData = '';
+  try {
+    stdinData = fs.readFileSync('/dev/stdin', 'utf-8');
+  } catch {
+    // No stdin available
+  }
+
+  let sessionId = 'unknown';
+  try {
+    const event = JSON.parse(stdinData || '{}');
+    sessionId = event.session_id || process.env.CLAUDE_SESSION_ID || 'unknown';
+  } catch {
+    sessionId = process.env.CLAUDE_SESSION_ID || 'unknown';
+  }
+
+  // Step 1: Get today's observations
+  const today = new Date().toISOString().slice(0, 10);
+  const obsFile = path.join(OBS_DIR, `${today}.jsonl`);
+
+  if (!fs.existsSync(obsFile)) process.exit(0);
+
+  // Step 2: Call extract-learnings.js
+  let candidates;
+  try {
+    const result = execFileSync(process.execPath, [
+      EXTRACT_SCRIPT,
+      '--input', obsFile,
+      '--window', String(TURN_WINDOW),
+      '--session', sessionId
+    ], { encoding: 'utf-8', timeout: EXTRACT_TIMEOUT_MS });
+    candidates = JSON.parse(result);
+  } catch {
+    process.exit(0);
+  }
+
+  if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
+    process.exit(0);
+  }
+
+  // Steps 3-8 are one read-modify-write over the shared learnings files; serialize
+  // it so two concurrent Stop hooks can't both read-then-clobber. run-unlocked on
+  // contention keeps the prior best-effort behavior instead of dropping the capture.
+  withLock(INDEX_PATH, () => updateLearnings(candidates), { onContended: 'run-unlocked' });
 } catch {
   // Top-level catch: exit silently on any error
   // Never throw, never log, never break the user's flow

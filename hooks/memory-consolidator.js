@@ -39,12 +39,26 @@ function domainFromFile(filePath) {
   return fileDomain(filePath) || 'other';
 }
 
-// ── Atomic write ──────────────────────────────────────────────────────────────
+// ── Atomic write + advisory locking ─────────────────────────────────────────────
+// DRY: atomic temp+rename and the read-modify-write lock live in atomic.js now.
+// Keep a LOAD-FAILURE fallback so a missing/broken atomic.js degrades to the prior
+// inline behavior (unlocked best-effort write) and never crashes the PreCompact hook.
 
-function atomicWrite(filePath, content) {
-  const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, content);
-  fs.renameSync(tmp, filePath);
+let atomicWrite, atomicUpdate;
+try {
+  ({ atomicWrite, atomicUpdate } = require('../scripts/lib/atomic'));
+} catch (_) {
+  atomicWrite = (filePath, content) => {
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, content);
+    fs.renameSync(tmp, filePath);
+  };
+  atomicUpdate = (filePath, transform) => {
+    let current = null;
+    try { current = fs.readFileSync(filePath, 'utf-8'); } catch { /* absent */ }
+    const next = transform(current);
+    if (next != null) atomicWrite(filePath, next);
+  };
 }
 
 // ── Step 1: Read stdin and determine session ──────────────────────────────────
@@ -199,70 +213,71 @@ try {
       if (matched.length > 0) {
         // Read or create INDEX.md
         fs.mkdirSync(LEARNINGS_DIR, { recursive: true });
-        let indexContent = '';
-        try {
-          indexContent = fs.readFileSync(INDEX_PATH, 'utf-8');
-        } catch { /* file doesn't exist yet */ }
+        // Serialize this read-modify-write on the shared INDEX so a concurrent
+        // memory-writer/consolidator can't clobber it. run-unlocked on contention
+        // keeps the prior best-effort write rather than dropping the update.
+        atomicUpdate(INDEX_PATH, (existing) => {
+          const indexContent = existing || '';
 
-        const autoHeader = '## Auto-Captured';
-        const todayStr = new Date().toISOString().slice(0, 10);
-        let autoSection = '';
-        let restContent = indexContent;
+          const autoHeader = '## Auto-Captured';
+          const todayStr = new Date().toISOString().slice(0, 10);
+          let autoSection = '';
+          let restContent = indexContent;
 
-        // Split existing auto-captured section
-        const autoIdx = indexContent.indexOf(autoHeader);
-        if (autoIdx !== -1) {
-          // Find next ## header or end of file
-          const afterAuto = indexContent.indexOf('\n## ', autoIdx + autoHeader.length);
-          if (afterAuto !== -1) {
-            autoSection = indexContent.slice(autoIdx, afterAuto);
-            restContent = indexContent.slice(0, autoIdx) + indexContent.slice(afterAuto);
-          } else {
-            autoSection = indexContent.slice(autoIdx);
-            restContent = indexContent.slice(0, autoIdx);
-          }
-        }
-
-        // Parse existing auto-captured entries for dedup (same format as memory-writer)
-        // Format: auto: {text} [{status}] v:{count} q:{confidence} u:{date}
-        const existingTexts = new Set();
-        const autoLines = autoSection.split('\n');
-        for (const line of autoLines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('auto:')) {
-            const textEnd = trimmed.indexOf('[');
-            if (textEnd > 0) {
-              existingTexts.add(trimmed.slice(5, textEnd).trim().toLowerCase());
+          // Split existing auto-captured section
+          const autoIdx = indexContent.indexOf(autoHeader);
+          if (autoIdx !== -1) {
+            // Find next ## header or end of file
+            const afterAuto = indexContent.indexOf('\n## ', autoIdx + autoHeader.length);
+            if (afterAuto !== -1) {
+              autoSection = indexContent.slice(autoIdx, afterAuto);
+              restContent = indexContent.slice(0, autoIdx) + indexContent.slice(afterAuto);
+            } else {
+              autoSection = indexContent.slice(autoIdx);
+              restContent = indexContent.slice(0, autoIdx);
             }
           }
-        }
 
-        // Build new entries using same format as memory-writer
-        const newEntries = [];
-        for (const m of matched) {
-          const normEntry = (m.entry || '').toLowerCase();
-          if (existingTexts.has(normEntry)) {
-            // Bump validation count on existing entry
-            autoSection = autoSection.replace(
-              new RegExp(`(auto:\\s+${m.entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\[validated:)(\\d+)(\\])`),
-              (_, prefix, count, suffix) => `${prefix}${parseInt(count, 10) + 1}${suffix}`
-            );
-          } else {
-            newEntries.push(`auto: ${m.entry} [validated:1] v:1 q:${m.confidence || 0} u:${todayStr}`);
+          // Parse existing auto-captured entries for dedup (same format as memory-writer)
+          // Format: auto: {text} [{status}] v:{count} q:{confidence} u:{date}
+          const existingTexts = new Set();
+          const autoLines = autoSection.split('\n');
+          for (const line of autoLines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('auto:')) {
+              const textEnd = trimmed.indexOf('[');
+              if (textEnd > 0) {
+                existingTexts.add(trimmed.slice(5, textEnd).trim().toLowerCase());
+              }
+            }
           }
-        }
 
-        // Reassemble
-        let updatedAuto = autoSection;
-        if (!updatedAuto.startsWith(autoHeader)) {
-          updatedAuto = autoHeader + '\n';
-        }
-        if (newEntries.length > 0) {
-          updatedAuto = updatedAuto.trimEnd() + '\n' + newEntries.join('\n') + '\n';
-        }
+          // Build new entries using same format as memory-writer
+          const newEntries = [];
+          for (const m of matched) {
+            const normEntry = (m.entry || '').toLowerCase();
+            if (existingTexts.has(normEntry)) {
+              // Bump validation count on existing entry
+              autoSection = autoSection.replace(
+                new RegExp(`(auto:\\s+${m.entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\[validated:)(\\d+)(\\])`),
+                (_, prefix, count, suffix) => `${prefix}${parseInt(count, 10) + 1}${suffix}`
+              );
+            } else {
+              newEntries.push(`auto: ${m.entry} [validated:1] v:1 q:${m.confidence || 0} u:${todayStr}`);
+            }
+          }
 
-        const finalContent = restContent.trimEnd() + '\n\n' + updatedAuto.trimEnd() + '\n';
-        atomicWrite(INDEX_PATH, finalContent);
+          // Reassemble
+          let updatedAuto = autoSection;
+          if (!updatedAuto.startsWith(autoHeader)) {
+            updatedAuto = autoHeader + '\n';
+          }
+          if (newEntries.length > 0) {
+            updatedAuto = updatedAuto.trimEnd() + '\n' + newEntries.join('\n') + '\n';
+          }
+
+          return restContent.trimEnd() + '\n\n' + updatedAuto.trimEnd() + '\n';
+        }, { onContended: 'run-unlocked' });
       }
     } catch {
       // Step 5 failed — non-fatal, continue to output

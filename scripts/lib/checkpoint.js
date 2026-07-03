@@ -7,6 +7,21 @@
 const fs = require('fs');
 const path = require('path');
 
+// DRY: the atomic temp+rename write lives in atomic.js now (unique same-dir tmp,
+// so concurrent checkpoint writers to one file never collide on the temp name).
+// Keep a LOAD-FAILURE fallback so a missing/broken atomic.js degrades to the prior
+// inline behavior rather than crashing a checkpoint write.
+let atomicWrite;
+try {
+  ({ atomicWrite } = require('./atomic'));
+} catch (_) {
+  atomicWrite = (file, content) => {
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, content, 'utf8');
+    fs.renameSync(tmp, file);
+  };
+}
+
 // Regex: matches NNN-<anything>.json at the top level of dir (no path sep in filename).
 const CHUNK_RE = /^(\d{3})-[^/\\]+\.json$/;
 
@@ -43,7 +58,6 @@ function writeCheckpoint(dir, phase, data) {
   const seq = _nextSeq(dir);
   const name = `${String(seq).padStart(3, '0')}-${phase}.json`;
   const file = path.join(dir, name);
-  const tmp = path.join(dir, `${name}.tmp`);
   const payload = {
     _meta: {
       phase,
@@ -52,8 +66,7 @@ function writeCheckpoint(dir, phase, data) {
     },
     data: data || null,
   };
-  fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
-  fs.renameSync(tmp, file);
+  atomicWrite(file, JSON.stringify(payload, null, 2));
   return { seq, file };
 }
 
