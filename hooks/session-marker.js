@@ -14,15 +14,23 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
-let stateDir, detectRepo, phantomData;
+let stateDir, detectRepo, phantomData, learningsDir;
 try {
-  ({ stateDir, detectRepo, phantomData } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, detectRepo, phantomData, learningsDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   const os = require('os');
   const data = process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
   stateDir = () => path.join(data, 'state');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
   phantomData = () => data;
+  learningsDir = (repo) => path.join(data, 'repos', repo, 'learnings');
+}
+
+let sweepStaleArtifacts;
+try {
+  ({ sweepStaleArtifacts } = require('../scripts/lib/atomic'));
+} catch (_) {
+  sweepStaleArtifacts = () => 0; // atomic.js missing -> sweep is a no-op, never block the prompt
 }
 
 // Cut-over auto-run: on the FIRST prompt after the detection fix ships, sweep the
@@ -61,6 +69,21 @@ function readPayload() {
   return {};
 }
 
+// First-prompt-of-session sweep: reclaim orphaned `*.lock.stale.<pid>.<nonce>`
+// takeover artifacts (scripts/lib/atomic.js sweepStaleArtifacts) from this repo's
+// learnings dir - the only path anything in this repo ever locks (memory-writer/
+// memory-consolidator's INDEX.md). Gated on the marker's PREVIOUS session_id so
+// it fires once per session, not once per prompt; best-effort, never blocks.
+function maybeSweepStaleLocks(markerFile, sessionId, repo) {
+  try {
+    const prev = JSON.parse(fs.readFileSync(markerFile, 'utf8'));
+    if (prev && prev.session_id === sessionId) return; // same session, already swept
+  } catch (_) { /* missing/corrupt marker -> treat as a new session, sweep */ }
+  try {
+    sweepStaleArtifacts(learningsDir(repo));
+  } catch (_) { /* best-effort - never block the prompt */ }
+}
+
 try {
   const payload = readPayload();
   const sessionId = payload.session_id;
@@ -70,6 +93,7 @@ try {
     const dir = path.join(stateDir(), 'current-session');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, repo + '.json');
+    maybeSweepStaleLocks(file, sessionId, repo);
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({ session_id: sessionId, cwd, ts: Date.now() }));
     fs.renameSync(tmp, file);

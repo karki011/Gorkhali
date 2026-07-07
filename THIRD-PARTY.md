@@ -73,13 +73,18 @@ free-text status-verb matching to the typed execution record
   exit-code convention: a single error type carries a machine code and
   remediation suggestions, mapped to a process exit status by callers that
   set `process.exitCode` and return rather than calling `process.exit()`
-  (which can truncate pending stdout and skip `finally` blocks).
+  (which can truncate pending stdout and skip `finally` blocks). Also a
+  TypeScript → Node port of `fields.ts`'s `--fields` validation/projection,
+  dropping the FieldDef/TOON extraction-def layer entirely — `parseFields`
+  returns plain field names (not TOON defs), and `pickFields` projects a
+  plain object directly, rather than validating against a FieldDef map.
 
 | Ported file | Adapted from |
 | --- | --- |
 | `scripts/lib/log-capture.js` | `run.ts` |
 | `scripts/lib/render-output.js` | `format.ts`, `toon.ts`, `pr.ts` |
 | `scripts/lib/axi-error.js` | error/exit-code handling conventions |
+| `scripts/lib/fields.js` | `fields.ts` |
 
 ## chrome-devtools-axi
 

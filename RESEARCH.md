@@ -263,7 +263,7 @@ phantom:hound ──── standalone investigation ──→ investigation.json
 - `commands/hound.md` — main hound skill (~200 lines)
 - `_shared-hound.md` — shared forensic context (~150 lines)
 - `agents/hound.md` — hound agent persona (~50 lines)
-- `reference/hound-protocol.md` — investigation protocol + artifact schema
+- `reference/detective-protocol.md` — investigation protocol + artifact schema
 
 **Modified files:**
 - `commands/start.md` — add bug detection + hound pre-scan routing

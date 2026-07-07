@@ -29,9 +29,9 @@ Written by `phantom:pause`. Read by `phantom:resume` to restore context.
   "status": "paused",
   "intent": "~/.claude/phantom-data/repos/{REPO_NAME}/sessions/ENG-1234/intent.json",
   "plan": "~/.claude/phantom-data/repos/{REPO_NAME}/sessions/ENG-1234/plan.json",
-  "contracts": ["~/.claude/phantom-data/repos/{REPO_NAME}/sessions/ENG-1234/contracts/api.md"],
+  "contracts": ["~/.claude/phantom-data/repos/{REPO_NAME}/sessions/ENG-1234/contracts/api.html"],
   "contractsCompleted": [],
-  "contractsPending": ["api.md"],
+  "contractsPending": ["api.html"],
   "route": "shadows",
   "verifyStatus": null,
   "resumeNotes": "Paused mid-spawn; frontend agent finished, backend pending."

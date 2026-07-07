@@ -2,7 +2,7 @@
 // Author: Subash Karki
 // cost-report.js — AI cost summary for a ticket from Claude Code transcripts.
 //
-// Usage: node cost-report.js <TICKET> [--repo <name>]
+// Usage: node cost-report.js <TICKET> [--repo <name>] [--fields a,b,c] [--full] [--help]
 //
 // Reads the interval ledger written by cost-link.js
 // (<sessions>/<TICKET>/costs.json) and prices each session's token usage from
@@ -13,7 +13,17 @@
 //
 // Transcripts are written live, so totals track current work closely — only the
 // very last assistant turn may not be flushed to disk yet. Subagent lines
-// (isSidechain:true) are real spend and ARE counted. Always exits 0.
+// (isSidechain:true) are real spend and ARE counted.
+//
+// Output is one plain object rendered once via render-output.js's render() -
+// no console.log mid-computation. `--fields`/`--full` narrow the default
+// {ticket, count, sessions, Total} down to or beyond that set (fields.js).
+// `Total` stays capitalized (not `total`) because commands/status.md and
+// friends grep this script's stdout for the literal `Total:` line - renaming
+// it would silently break every caller that shells out to this script.
+// Validation failures (bad --fields, unknown flags) exit 2; everything else
+// (missing ledger, no ticket) exits 0 - this is an advisory report and must
+// never break the skill that invoked it.
 
 'use strict';
 
@@ -22,6 +32,9 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const { sessionsDir, stateDir, detectRepo } = require('./lib/phantom-paths');
+const { render } = require('./lib/render-output');
+const { resolveFields, pickFields } = require('./lib/fields');
+const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
 
 const COST_MODEL_VERSION = '2026-06-30';
 
@@ -87,16 +100,6 @@ function transcriptsFor(sessionId) {
   return found;
 }
 
-const args = process.argv.slice(2);
-const ticket = args[0];
-const repoFlag = args.indexOf('--repo');
-const repo = repoFlag !== -1 ? args[repoFlag + 1] : detectRepo();
-
-if (!ticket) {
-  process.stderr.write('usage: cost-report.js <TICKET> [--repo <name>]\n');
-  process.exit(0);
-}
-
 async function accumulate(acc, file) {
   const rl = readline.createInterface({
     input: fs.createReadStream(file),
@@ -119,12 +122,30 @@ async function accumulate(acc, file) {
   }
 }
 
-async function main() {
+const DEFAULT_FIELDS = ['ticket', 'count', 'sessions', 'Total'];
+const ALL_FIELDS = ['ticket', 'note', 'count', 'sessions', 'Total'];
+
+const HELP =
+  'cost-report - AI cost summary for a ticket from Claude Code transcripts\n\n' +
+  'Usage: node cost-report.js <TICKET> [--repo <name>] [--fields a,b,c] [--full]\n\n' +
+  `Fields: ${ALL_FIELDS.join(', ')} (default: ${DEFAULT_FIELDS.join(', ')})\n\n` +
+  'Examples:\n' +
+  '  node cost-report.js CP-12345\n' +
+  '  node cost-report.js CP-12345 --repo feature-web-apps\n' +
+  '  node cost-report.js CP-12345 --fields ticket,Total\n';
+
+/**
+ * buildResult(ticket, repo) -> { full, help }
+ *
+ * Computes the full result object (every ALL_FIELDS key this ticket can
+ * populate) plus any contextual next-step hints. No printing happens here -
+ * that's the caller's job, once, at the boundary.
+ */
+async function buildResult(ticket, repo) {
   const now = Date.now();
   const ledgerPath = path.join(sessionsDir(repo), ticket, 'costs.json');
   const ledger = loadJson(ledgerPath);
 
-  // Per-session accumulators keyed by session_id.
   const bySession = new Map();
   let fallbackNote = null;
 
@@ -137,15 +158,17 @@ async function main() {
       bySession.get(e.session_id).intervals.push([e.opened_at, e.closed_at || now]);
     }
   } else {
-    // No ledger — fall back to the current-session marker, whole transcript.
+    // No ledger - fall back to the current-session marker, whole transcript.
     const marker = loadJson(path.join(stateDir(), 'current-session', repo + '.json'));
     if (marker && marker.session_id) {
       bySession.set(marker.session_id, { cost: 0, inTok: 0, outTok: 0, events: 0, first: null, intervals: [[0, now]] });
-      fallbackNote = '(no ledger — showing current session only)';
+      fallbackNote = 'no ledger - showing current session only';
     } else {
       const why = ledger ? 'ledger has no linked sessions yet' : `no cost ledger yet (${ledgerPath})`;
-      console.log(`AI cost — ${ticket}: ${why}`);
-      return;
+      return {
+        full: { ticket, note: `0 sessions found for ${ticket}: ${why}`, count: { count: 0 } },
+        help: [`Run \`node scripts/cost-link.js open ${ticket}\` to start tracking cost for this ticket`],
+      };
     }
   }
 
@@ -156,24 +179,89 @@ async function main() {
   }
 
   let total = 0;
-  const lines = [];
+  let pricedSessions = 0;
+  const rows = [];
   for (const [sid, acc] of bySession) {
     total += acc.cost;
+    if (acc.events > 0) pricedSessions += 1;
     const day = acc.first ? new Date(acc.first).toISOString().slice(0, 10) : '—';
     let suffix;
     if (acc.noTranscript) suffix = '  (transcript not found)';
     else if (acc.events) suffix = `  (in ${fmtTokens(acc.inTok)} / out ${fmtTokens(acc.outTok)} tok, ${acc.events} calls)`;
     else suffix = '  (no transcript activity in window)';
-    lines.push(`  ${sid.slice(0, 8)}  ${day}  $${acc.cost.toFixed(2)}${suffix}`);
+    rows.push(`${sid.slice(0, 8)}  ${day}  $${acc.cost.toFixed(2)}${suffix}`);
   }
 
-  console.log(`AI cost — ${ticket}`);
-  if (fallbackNote) console.log(`  ${fallbackNote}`);
-  for (const l of lines) console.log(l);
-  console.log(`  Total: $${total.toFixed(2)} across ${bySession.size} session(s)`);
+  return {
+    full: {
+      ticket,
+      ...(fallbackNote ? { note: fallbackNote } : {}),
+      count: { count: pricedSessions, totalCount: bySession.size },
+      sessions: rows.join('\n  '),
+      Total: `$${total.toFixed(2)} across ${bySession.size} session(s)`,
+    },
+    help: fallbackNote
+      ? [`Total reflects the current session only (${fallbackNote}) - run \`node scripts/cost-link.js open ${ticket}\` to track full multi-session history.`]
+      : [],
+  };
 }
 
-main().catch((err) => {
-  process.stderr.write('cost-report: ' + err.message + '\n');
-  process.exit(0);
-});
+async function main(ticket, repo, resolvedFields) {
+  const { full, help } = await buildResult(ticket, repo);
+  const projected = pickFields(full, resolvedFields);
+  for (const key of Object.keys(projected)) {
+    if (projected[key] === undefined) delete projected[key];
+  }
+  if (help.length > 0) projected.help = help;
+  process.stdout.write(render(projected) + '\n');
+}
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+
+  if (args.includes('--help')) {
+    process.stderr.write(HELP);
+    process.exit(0);
+  }
+
+  const KNOWN_FLAGS = new Set(['--repo', '--fields', '--full']);
+  const flagValue = (name) => {
+    const i = args.indexOf(name);
+    return i === -1 ? undefined : args[i + 1];
+  };
+
+  const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a));
+  if (unknownFlags.length > 0) {
+    reportError(new PhantomError(
+      `Unknown flag(s): ${unknownFlags.join(', ')}. Known flags: ${[...KNOWN_FLAGS].sort().join(', ')}, --help`,
+      VALIDATION_ERROR,
+    ));
+    return;
+  }
+
+  const ticket = args[0] && !args[0].startsWith('--') ? args[0] : undefined;
+  if (!ticket) {
+    process.stderr.write('usage: cost-report.js <TICKET> [--repo <name>] [--fields a,b,c] [--full] [--help]\n');
+    process.exit(0);
+  }
+
+  const repo = flagValue('--repo') || detectRepo();
+
+  let resolvedFields;
+  try {
+    resolvedFields = resolveFields({
+      fieldsArg: flagValue('--fields'),
+      full: args.includes('--full'),
+      defaultFields: DEFAULT_FIELDS,
+      allFields: ALL_FIELDS,
+    });
+  } catch (err) {
+    reportError(err);
+    return;
+  }
+
+  main(ticket, repo, resolvedFields).catch((err) => {
+    process.stderr.write('cost-report: ' + err.message + '\n');
+    process.exit(0);
+  });
+}

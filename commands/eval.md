@@ -22,4 +22,4 @@ Score each active agent 1-5 with confidence (high/medium/low):
 - **Blade (Documentation focus)**: documentation usefulness, ADR clarity, Storybook coverage, example accuracy
 - **Gaze**: KISS/DRY enforcement, TypeScript strictness, pattern compliance, risk call accuracy
 
-Record in session file. Use to improve shadows assignment in future sessions.
+Record in session file. Write the human-facing deliverable to `sessions/{TICKET}/eval.html`, authored from `reference/eval/eval-template.md` — this is the eval's actual output, not the session-file record. Use to improve shadows assignment in future sessions.

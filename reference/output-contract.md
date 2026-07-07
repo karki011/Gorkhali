@@ -100,7 +100,9 @@ manual dumped underneath it.
 Plans, research, specs, reports, and investigation/eval/session summaries are **self-contained
 styled HTML** — never markdown. This is already load-bearing precedent in this repo: Hound's
 `reference/detective/report-template.md` and the visualflow `reference/visualflow/flow-template.md`
-are both HTML. This section makes the rule general, not feature-local.
+are both HTML. This section makes the rule general, not feature-local. Contract
+(`contracts/{type}.html`, `reference/contract/contract-template.md`) and eval (`eval.html`,
+`reference/eval/eval-template.md`) are HTML-compliant producers alongside hound/plan/visualflow.
 
 **Stays as-is** (unaffected by this rule): machine state (`intent.json`, `plan.json`, checkpoint
 JSON), `learnings/INDEX.md` + `EDGES.md`, agent handoff output between phantom agents, portability

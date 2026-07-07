@@ -47,7 +47,7 @@ const PLAIN_TURN = '{"type":"assistant","message":{"content":[{"type":"text","te
 const SYSTEM_ONLY = '{"type":"system","subtype":"init","tools":["Bash"]}';
 const TIMEOUT_MS = 90000;
 
-test('validateEvals accepts the shipped evals.json (legacy 30-case shape)', () => {
+test('validateEvals accepts the shipped evals.json (45 cases: 30 legacy trigger + 15 extended route/convention)', () => {
   const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
   const { cases, errors } = validateEvals(doc);
   assert.deepEqual(errors, []);

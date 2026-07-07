@@ -217,6 +217,42 @@ function releaseLock(lockPath, token) {
   }
 }
 
+// Orphaned takeover artifacts: a crash between takeoverStaleLock's rename (line
+// ~192) and its own cleanup unlink (line ~199) leaves a `<lockfile>.stale.<pid>.
+// <nonce>` file on disk that nothing else ever revisits.
+const STALE_ARTIFACT_RE = /\.lock\.stale\.\d+\.[a-z0-9]+$/;
+
+/**
+ * sweepStaleArtifacts(dir, staleMs) - best-effort cleanup of orphaned
+ * `*.lock.stale.<pid>.<nonce>` files in `dir`. Removes only entries whose mtime
+ * is older than `staleMs`. Never throws: a missing `dir` returns 0, and any
+ * single bad entry (raced ENOENT, permission) is skipped rather than aborting
+ * the sweep. Returns the count of files removed.
+ */
+function sweepStaleArtifacts(dir, staleMs = LOCK_STALE_MS) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir);
+  } catch (error) {
+    if (errno(error) === 'ENOENT') return 0;
+    throw error;
+  }
+  let swept = 0;
+  for (const name of entries) {
+    if (!STALE_ARTIFACT_RE.test(name)) continue;
+    try {
+      const full = path.join(dir, name);
+      if (Date.now() - fs.statSync(full).mtimeMs > staleMs) {
+        fs.unlinkSync(full);
+        swept += 1;
+      }
+    } catch {
+      /* best-effort: a single bad entry never blocks the rest of the sweep */
+    }
+  }
+  return swept;
+}
+
 // Acquire the advisory lock for `targetPath`, or return null when the budget is
 // exhausted (fail-open — the caller decides what to do without a lock). Breaks a
 // stale lock (dead owner or aged past staleMs) and retries. Never throws on
@@ -322,7 +358,7 @@ function atomicUpdate(filePath, transform, opts = {}) {
   );
 }
 
-module.exports = { atomicWrite, atomicUpdate, withLock, readFileSafe, LockTimeoutError };
+module.exports = { atomicWrite, atomicUpdate, withLock, readFileSafe, LockTimeoutError, sweepStaleArtifacts };
 
 // Internal takeover primitives, exported for deterministic single-winner tests only.
 // Not part of the public API — callers use withLock/atomicUpdate.

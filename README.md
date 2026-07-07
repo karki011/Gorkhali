@@ -103,7 +103,7 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
 │   ├── wiring.md          # Dependency topology, wave assignments
 │   ├── planning.md        # Machine-checkable criteria, anti-placeholder rules
-│   ├── hound-protocol.md  # 7-step investigation with HTML reports
+│   ├── detective-protocol.md  # 7-step investigation with HTML reports
 │   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
 ├── agents/            # 12 agent personas
@@ -157,7 +157,7 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 | Plan-checker | inherits session model | high | Pre-execution plan validator — learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
 | Hound | inherits session model | high | Forensic investigator — 7-step protocol, HTML reports |
 | Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
-| Base Agent | — | — | Template for spawning new agent types |
+| Warden | sonnet | high | Mechanical session-lifecycle executor — ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
 No agent pins a model except three deliberate exceptions: **Gaze** and **Archer** pin `opus` (review tier — independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; no Fable 5 entitlement falls back to `opus`). Everyone else — including Apex — leaves model unset and inherits the session model (Fable 5 recommended). Apex tunes per spawn only to downshift (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. Use bare aliases only; never pin dated or prior-generation model IDs.
 

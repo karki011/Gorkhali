@@ -11,7 +11,14 @@ const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
-const { atomicWrite, atomicUpdate, withLock, readFileSafe, LockTimeoutError } = require('../scripts/lib/atomic');
+const {
+  atomicWrite,
+  atomicUpdate,
+  withLock,
+  readFileSafe,
+  LockTimeoutError,
+  sweepStaleArtifacts,
+} = require('../scripts/lib/atomic');
 const CLI = require.resolve('../scripts/lib/atomic');
 
 function tmpDir() {
@@ -395,4 +402,32 @@ test('CLI --help exits 0; a bad command exits 2', async () => {
   assert.equal(help.code, 0);
   const bad = await run([CLI, 'bogus', 'x']);
   assert.equal(bad.code, 2);
+});
+
+// ── sweepStaleArtifacts: orphaned takeover-artifact cleanup ─────────────────
+
+test('sweepStaleArtifacts removes only aged .lock.stale.* artifacts, leaves fresh and unrelated files', () => {
+  const dir = tmpDir();
+  const old = path.join(dir, 'f.txt.lock.stale.12345.abc123');
+  const fresh = path.join(dir, 'f.txt.lock.stale.12345.def456');
+  const sibling = path.join(dir, 'f.txt');
+
+  fs.writeFileSync(old, 'orphaned');
+  fs.writeFileSync(fresh, 'just created');
+  fs.writeFileSync(sibling, 'unrelated');
+
+  const staleTime = Date.now() / 1000 - 120;
+  fs.utimesSync(old, staleTime, staleTime); // backdate past the 30s default staleMs
+
+  const swept = sweepStaleArtifacts(dir, 30_000);
+
+  assert.equal(swept, 1, 'only the aged artifact was counted');
+  assert.equal(fs.existsSync(old), false, 'aged artifact removed');
+  assert.equal(fs.existsSync(fresh), true, 'fresh artifact left alone');
+  assert.equal(fs.existsSync(sibling), true, 'non-matching sibling untouched');
+});
+
+test('sweepStaleArtifacts returns 0 for a missing dir and never throws', () => {
+  const dir = tmpDir();
+  assert.equal(sweepStaleArtifacts(path.join(dir, 'nope')), 0);
 });

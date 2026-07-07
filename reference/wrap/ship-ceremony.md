@@ -56,7 +56,14 @@ PR body:
 
 ## Test plan
 {verification results from verification.json if available}
+
+## Validation
+{verify verdict + test counts from verification.json}
+{RPSL panel outcome, including any fixes applied during the panel, from review-panel.json}
+{grill verdict from wrap.json}
 ```
+
+Omit a subsection if its artifact is missing; never invent content to fill it.
 
 If `gh` not available: print branch name + "run `gh pr create --draft` when ready"
 

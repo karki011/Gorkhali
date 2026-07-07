@@ -18,7 +18,7 @@ No external plugins required.
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
 | **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
 | **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Blade climbs the ladder before writing code | Minimalism discipline (below) |
-| **D→Fix** | Systematic debugging | Hound agent + `reference/hound-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
+| **D→Fix** | Systematic debugging | Hound agent + `reference/detective-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
 | **Verify** | Evidence-before-assertions | Ward agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
 
 ## Key Principles (why, not just what)

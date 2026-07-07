@@ -31,6 +31,8 @@ On each route, after the screenshot, run the zero-dependency layout auditor to c
 2. `browser_evaluate` that snippet on the page (it defines `window.__lavishAudit`)
 3. `browser_evaluate` `window.__lavishAudit()` — returns `{ viewportWidth, findings, counts }`
 
+If the auditor injection or `window.__lavishAudit()` throws, or the `browser_evaluate` call itself errors, DEGRADE to screenshot-only review and treat the route as UNVERIFIED — never treat an auditor crash as a VISUAL PASS.
+
 Fold each finding into a fix packet: map `severity: "error"` to **major** (real clip/overflow) and `severity: "warning"` to **minor** (heuristic overlap, cosmetic spill), use the finding's `selector` as **Element** and `kind` as the issue label. A route with `counts.error > 0` cannot be a VISUAL PASS.
 
 ## Secondary Mode: Design Extraction (Figma)

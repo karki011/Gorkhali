@@ -26,9 +26,9 @@ pnpm test 2>&1 | node scripts/lib/log-capture.js --label test
 test_status=$?
 ```
 
-Judge pass/fail on the captured status (non-zero = fail), not on the pipe's default exit code. Grep the full log at the path in the hint line for anything the summary trimmed. Report: lint pass/fail, build pass/fail, tests pass/fail.
+Judge pass/fail on the captured status (non-zero = fail), not on the pipe's default exit code. Grep the full log at the path in the hint line for anything the summary trimmed. Report one line per command as `<command>: pass` or `<command>: fail`, then close with the pre-computed aggregate — `count: N of M commands passed` — never leave the reader to tally the lines above themselves.
 
-If ANY fail → run hound failure scan (Step 1.5), print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report + suggest `/phantom:fix` and stop.**
+If ANY fail → run hound failure scan (Step 1.5), name every failing command explicitly (never a bare "failed"). **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report the failures, close with `help[1]:\n  Run /phantom:fix to repair the failing command(s) named above`, and stop.**
 
 Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
@@ -47,7 +47,7 @@ Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
 - Prompt: load from `reference/power-level.md` — "Review Agent Prompt" section
 - Output: JSON array of P0/P1 findings (P2/P3 dropped)
 
-If `[]` → no P0/P1 code findings; skip Step 3 and proceed to Step 4 (visual).
+If `[]` → state the empty result definitively, with its scope: `review: 0 P0/P1 findings (gaze against git diff main...HEAD)` — skip Step 3 and proceed to Step 4 (visual). A non-empty array is reported the same way — `review: N P0/P1 findings` — with each finding named below it, not just the count.
 
 ## Step 3: Auto-Address (only if P0/P1 exist)
 
@@ -63,7 +63,7 @@ If `HAS_UI = true` (per `_shared-repo-detection.md`) AND `git diff --name-only m
 - **CHAINED (`--chained` present)** → auto-invoke `Skill(skill="phantom:visual", args="--autonomous")`. Lens drives a real browser: screenshots the affected routes across viewports/states, compares against intent/Figma, and runs its own ≤3-iteration fix loop. Do not wait for the human.
 - **STANDALONE (token absent)** → `Skill(skill="phantom:visual")` (interactive: shows results, asks before fixing).
 
-Fold Lens's outcome into the verdict and record it in `visualVerification` (verification.json): resolved → pass; `partial`/unresolved after the loop ceiling → escalate, do not silently pass. Skip (and note why) only when `HAS_UI = false`, no UI files changed, or `agent-browser` is unavailable (per `phantom:visual` step 3).
+Fold Lens's outcome into the verdict and record it in `visualVerification` (verification.json): resolved → pass; `partial`/unresolved after the loop ceiling → escalate, do not silently pass. State the outcome definitively either way — `visual: resolved (N route(s)/viewport(s) checked)` or `visual: partial — <what's still wrong>` — never a bare "done". Skip (and note why, e.g. `visual: skipped — no UI files changed`) only when `HAS_UI = false`, no UI files changed, or `agent-browser` is unavailable (per `phantom:visual` step 3).
 
 </instructions>
 
@@ -75,5 +75,5 @@ Key fields: `_meta`, `correctness` (lint/build/tests/commands), `review` (temper
 
 ## Result
 
-- **PASS** → print summary, proceed to `/phantom:wrap`
-- **FAIL** → print failures. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")` (do not wait for the human). STANDALONE (token absent) → report + suggest `/phantom:fix`.**
+- **PASS** → print the definitive verdict — `verdict: pass`, the Step 1 `count: N of M commands passed`, and `review: 0 P0/P1 findings` (or the resolved fix-loop count if Step 3 ran) — then proceed to `/phantom:wrap`. A self-contained pass needs no `help[N]:` block.
+- **FAIL** → name every failing command and finding explicitly (never a bare "failed"), then close with `help[1]:\n  Run /phantom:fix to repair the failures named above`. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")` (do not wait for the human). STANDALONE (token absent) → report + the help block above, and stop.**
