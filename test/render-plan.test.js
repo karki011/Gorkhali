@@ -199,10 +199,12 @@ test('malformed: string-typed constraints falls through to Other fields, not dro
   assert.ok(!html.includes('<h2>Constraints</h2>'), 'dedicated Constraints section did not render');
 });
 
-test('malformed: object-typed waves falls through to Other fields as escaped JSON', () => {
+test('malformed: object-typed waves falls through to Other fields as structured rows, not raw JSON', () => {
   const html = renderPlanHtml({ waves: { P: ['a', 'b'] } }, { sourcePath: 'p.json' });
   assert.ok(html.includes('Other fields'), 'Other fields section present');
-  assert.ok(html.includes('&quot;P&quot;'), 'object shown as escaped JSON, key visible');
+  assert.ok(html.includes('>P<'), 'nested key P shown as a definition-row label, key visible');
+  assert.ok(html.includes('<li>a</li>') && html.includes('<li>b</li>'), 'nested array values shown as list items');
+  assert.ok(!html.includes('class="of-pre"'), 'no raw JSON dump for the malformed waves value');
   assert.ok(!html.includes('<h2>Waves</h2>'), 'dedicated Waves section did not render');
 });
 
@@ -211,7 +213,8 @@ test('malformed: object-typed ticket falls through to Other fields instead of "[
   assert.ok(!html.includes('[object Object]'), 'never coerces object to string in the header');
   assert.ok(html.includes('<title>Plan</title>'), 'header falls back to generic title');
   assert.ok(html.includes('Other fields'), 'malformed ticket surfaced under Other fields');
-  assert.ok(html.includes('&quot;CP-1&quot;'), 'ticket object shown as escaped JSON');
+  assert.ok(html.includes('CP-1'), 'ticket id value shown as a definition row, not raw JSON');
+  assert.ok(!html.includes('class="of-pre"'), 'no raw JSON dump for the malformed ticket value');
 });
 
 test('golden: well-typed plan is unaffected by consumed-Set change (regression guard)', () => {
@@ -265,7 +268,7 @@ test('CP-44016 shape: wave.work[] items + wave.files are shown, not "No tasks in
   }
   assert.ok(html.includes('libs/features/pulse/api/src/ai-explorer/types.ts'), 'wave.files shown');
   assert.ok(html.includes('blade (sonnet)'), 'wave.agent shown');
-  assert.ok(html.includes('nested agent work'), 'nested agents[].work shown (as escaped JSON)');
+  assert.ok(html.includes('nested agent work'), 'nested agents[].work shown (as a structured card, not raw JSON)');
   assert.ok(!html.includes('No tasks in this wave.'), 'no misleading empty-wave placeholder');
 });
 
@@ -373,6 +376,77 @@ test('fall-through escaping: hostile value in an unclaimed task/wave key is iner
   assert.ok(!html.includes('<script>pwn()</script>'), 'wave-level fall-through escaped');
   assert.ok(!html.includes('<img src=x onerror'), 'task-level fall-through escaped');
   assert.ok(html.includes('&lt;script&gt;pwn()&lt;/script&gt;'), 'design value shown as escaped text');
+});
+
+// ── structured fallback (arrays of objects / plain objects render as cards and
+// definition rows, never a raw JSON dump) ───────────────────────────────────
+// Modeled on a real plan.json shape (slices[]: objects with id/title/size/
+// files/constraints/test) that used to render as a JSON.stringify wall inside
+// <pre class="of-pre"> - unreadable in the browser review surface.
+
+const SLICE_PLAN = {
+  ticket: 'DEMO-SLICES',
+  slices: [
+    {
+      id: 'S1',
+      title: 'Persist the task title',
+      size: 'M (one thin end-to-end cut)',
+      files: ['app/Foo.swift', 'daemon/src/ipc.rs'],
+      constraints: ['Optional everywhere', 'no status-machine interaction'],
+      test: 'Start a task titled X, see it in the titlebar and Sessions drawer, restart daemon, title survives.',
+    },
+    {
+      id: 'S2',
+      title: 'Copy session handle',
+      size: 'S (app-only)',
+      files: ['app/Bar.swift'],
+      constraints: ['inline pasteboard copy'],
+      test: 'Right click a session row, copy, paste, see the handle.',
+    },
+  ],
+};
+
+test('structured fallback: array-of-objects renders as cards, not a raw JSON <pre> dump', () => {
+  const html = renderPlanHtml(SLICE_PLAN, { sourcePath: 'p.json' });
+  assert.ok(!html.includes('class="of-pre"'), 'no <pre class="of-pre"> anywhere - no JSON wall');
+  assert.ok(html.includes('S1'), 'slice 1 id shown');
+  assert.ok(html.includes('Persist the task title'), 'slice 1 title shown as part of the card heading');
+  assert.ok(html.includes('S2'), 'slice 2 id shown');
+  assert.ok(html.includes('Copy session handle'), 'slice 2 title shown as part of the card heading');
+  assert.ok(html.includes('app/Foo.swift') && html.includes('app/Bar.swift'), 'files rendered as list items');
+  assert.ok(html.includes('M (one thin end-to-end cut)'), 'size scalar rendered as a chip, not buried in JSON');
+  assert.ok(html.includes('Start a task titled X'), 'long test string rendered as prose, not JSON-escaped');
+});
+
+test('structured fallback: plain object renders as definition rows with humanized keys', () => {
+  const html = renderPlanHtml({ _meta: { fileOwnership: 'disjoint', accepted_by: 'user' } }, { sourcePath: 'p.json' });
+  assert.ok(!html.includes('class="of-pre"'), 'no raw JSON dump');
+  assert.ok(html.includes('File Ownership'), 'camelCase key humanized to spaced, capitalized label');
+  assert.ok(html.includes('Accepted By'), 'snake_case key humanized to spaced, capitalized label');
+  assert.ok(html.includes('disjoint') && html.includes('user'), 'values still shown');
+});
+
+test('structured fallback: recursion depth cap falls back to compact inline JSON, never a <pre>', () => {
+  const deep = { a: { b: { c: { d: { e: 'too deep' } } } } };
+  const html = renderPlanHtml({ nested: deep }, { sourcePath: 'p.json' });
+  assert.ok(!html.includes('<pre'), 'depth-cap leaf never falls back to a <pre> block');
+  assert.ok(html.includes('too deep'), 'deep leaf value still visible (as compact inline JSON)');
+});
+
+test('structured fallback: hostile strings inside nested cards/rows render inert', () => {
+  const html = renderPlanHtml(
+    { slices: [{ id: 'S1', title: '<script>pwn()</script>', files: ['<img src=x onerror=go()>'] }] },
+    { sourcePath: 'p.json' },
+  );
+  assert.ok(!html.includes('<script>pwn()</script>'), 'card heading escaped');
+  assert.ok(!html.includes('<img src=x onerror'), 'file list item escaped');
+  assert.ok(html.includes('&lt;script&gt;pwn()&lt;/script&gt;'), 'heading shown as escaped text');
+});
+
+test('structured fallback: determinism — two renders of a structured section are byte-identical', () => {
+  const a = renderPlanHtml(SLICE_PLAN, { sourcePath: 'p.json' });
+  const b = renderPlanHtml(SLICE_PLAN, { sourcePath: 'p.json' });
+  assert.equal(a, b);
 });
 
 // ── plan-check section ───────────────────────────────────────────────────────

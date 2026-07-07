@@ -204,9 +204,96 @@ const renderListCallout = (items) =>
     .map((it) => `<li>${isScalar(it) ? escapeHtml(it) : `<code>${escapeHtml(JSON.stringify(it))}</code>`}</li>`)
     .join('')}</ul></div>`;
 
-// Generic renderer for whatever top-level keys we didn't claim. Scalars become a
-// key/value row; scalar arrays become a list; anything structured is shown as
-// escaped pretty-printed JSON so it's visible but unmistakably raw.
+// ── structured fallback (arrays of objects / plain objects) ────────────────
+// Any plan section shape we don't have a dedicated renderer for used to dump
+// as escaped pretty-printed JSON inside a <pre> - unreadable for anything
+// richer than a couple of keys (e.g. a slices[] array of {id, title, files,
+// constraints, ...}). This renders the same tolerant, recursive, always-shown
+// contract (nothing vanishes, everything escaped) as actual HTML structure:
+// object -> definition rows, array of objects -> a card per object, array of
+// scalars -> bullet list (unchanged), long scalar -> paragraph. Only a leaf
+// past MAX_STRUCT_DEPTH falls back to compact inline JSON, and only that leaf
+// - never a whole-section <pre> dump.
+const MAX_STRUCT_DEPTH = 4;
+
+// snake_case / camelCase / kebab-case -> "Spaced Words, Capitalized".
+const humanizeKey = (key) =>
+  String(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+
+const hasScalar = (obj, key) => obj[key] != null && isScalar(obj[key]) && String(obj[key]) !== '';
+
+// A card heading: first present of (id + title combined), title, name, id,
+// label. Returns the source keys too, so the caller can exclude them from the
+// card body instead of showing them twice.
+const cardHeading = (obj) => {
+  if (hasScalar(obj, 'id') && hasScalar(obj, 'title')) return { text: `${obj.id} - ${obj.title}`, keys: ['id', 'title'] };
+  if (hasScalar(obj, 'title')) return { text: String(obj.title), keys: ['title'] };
+  if (hasScalar(obj, 'name')) return { text: String(obj.name), keys: ['name'] };
+  if (hasScalar(obj, 'id')) return { text: String(obj.id), keys: ['id'] };
+  if (hasScalar(obj, 'label')) return { text: String(obj.label), keys: ['label'] };
+  return null;
+};
+
+// Short scalars worth a header chip rather than a full definition row.
+const CARD_CHIP_KEYS = ['size', 'complexity', 'risk', 'status', 'priority', 'severity'];
+
+// Long scalar strings read as prose, not a squeezed-in code row.
+const LONG_SCALAR = 60;
+const renderScalarValue = (v) => {
+  const raw = v == null ? String(v) : String(v);
+  const escaped = escapeHtml(v);
+  return raw.length > LONG_SCALAR ? `<p class="of-text">${escaped}</p>` : escaped;
+};
+
+const renderDefRows = (entries, depth) =>
+  `<div class="def-rows">${entries
+    .map(
+      ([k, v]) =>
+        `<div class="def-row"><div class="def-key">${escapeHtml(humanizeKey(k))}</div><div class="def-val">${renderStructuredValue(v, depth)}</div></div>`,
+    )
+    .join('')}</div>`;
+
+const renderStructuredCard = (item, depth) => {
+  if (!isPlainObject(item)) return `<div class="s-card">${renderStructuredValue(item, depth)}</div>`;
+
+  const heading = cardHeading(item);
+  const consumed = new Set(heading ? heading.keys : []);
+  const chips = [];
+  for (const k of CARD_CHIP_KEYS) {
+    if (consumed.has(k) || !hasScalar(item, k)) continue;
+    chips.push(chip(item[k]));
+    consumed.add(k);
+  }
+  const rest = Object.entries(item).filter(([k]) => !consumed.has(k));
+  const headHtml = heading || chips.length
+    ? `<div class="s-card-head">${heading ? `<span class="s-card-title">${escapeHtml(heading.text)}</span>` : ''}${chips.join('')}</div>`
+    : '';
+  const bodyHtml = rest.length ? renderDefRows(rest, depth + 1) : '';
+  return ['<div class="s-card">', headHtml, bodyHtml, '</div>'].filter(Boolean).join('\n');
+};
+
+const renderStructuredValue = (value, depth) => {
+  if (isScalar(value)) return renderScalarValue(value);
+  if (depth >= MAX_STRUCT_DEPTH) return `<code class="of-inline-json">${escapeHtml(JSON.stringify(value))}</code>`;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '<span class="muted">(empty)</span>';
+    if (value.every(isScalar)) {
+      return `<ul class="of-list">${value.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>`;
+    }
+    return `<div class="card-grid">${value.map((item) => renderStructuredCard(item, depth + 1)).join('')}</div>`;
+  }
+  const entries = Object.entries(value);
+  return entries.length ? renderDefRows(entries, depth + 1) : '<span class="muted">(empty)</span>';
+};
+
+// Generic renderer for whatever top-level keys we didn't claim. Scalars become
+// a key/value row; scalar arrays become a list (unchanged); anything
+// structured (objects, arrays of objects) renders through the recursive
+// structured renderer above so it never surfaces as a raw JSON dump.
 const renderOtherField = (key, value) => {
   const label = `<div class="of-key">${escapeHtml(key)}</div>`;
   if (isScalar(value)) return `<div class="of-row">${label}<div class="of-val">${escapeHtml(value)}</div></div>`;
@@ -215,7 +302,7 @@ const renderOtherField = (key, value) => {
       .map((v) => `<li>${escapeHtml(v)}</li>`)
       .join('')}</ul></div>`;
   }
-  return `<div class="of-row">${label}<pre class="of-pre">${escapeHtml(JSON.stringify(value, null, 2))}</pre></div>`;
+  return `<div class="of-row">${label}${renderStructuredValue(value, 0)}</div>`;
 };
 
 // ── plan-check section ─────────────────────────────────────────────────────────
@@ -408,6 +495,20 @@ const STYLE = `
   .of-list { margin:0; padding-left:1.2rem; font-size:.88rem; }
   .of-pre { background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
     padding:.6rem .8rem; overflow-x:auto; font-size:.8rem; white-space:pre; }
+  .of-text { font-size:.9rem; margin-top:.3rem; word-break:break-word; }
+  .of-inline-json { font-family:var(--mono); font-size:.78rem; background:var(--surface-2);
+    border:1px solid var(--border); border-radius:4px; padding:.05rem .35rem; }
+  .card-grid { display:flex; flex-direction:column; gap:.6rem; }
+  .s-card { background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    padding:.75rem 1rem; }
+  .s-card-head { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; margin-bottom:.5rem; }
+  .s-card-title { font-weight:600; font-size:.92rem; color:var(--text); }
+  .def-rows { display:flex; flex-direction:column; gap:.5rem; }
+  .def-row { padding-top:.45rem; border-top:1px solid var(--border); }
+  .def-row:first-child { padding-top:0; border-top:none; }
+  .def-key { font-family:var(--mono); font-size:.72rem; color:var(--text-muted);
+    text-transform:uppercase; letter-spacing:.03em; margin-bottom:.2rem; }
+  .def-val { font-size:.88rem; word-break:break-word; }
   .footer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border);
     color:var(--text-muted); font-size:.8rem; text-align:center; }
   .check-badges { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.8rem; }
