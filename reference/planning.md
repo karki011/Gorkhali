@@ -113,3 +113,30 @@ If `plan.json` changes after the initial render — during deliberation, a fix-l
 ### Gate-loop revisions
 
 During the plan-gate annotate-revise loop (`commands/annotate.md`, plan-gate case), each cycle edits `plan.json` and regenerates `plan.html` — `plan.html` is never hand-edited. Every cycle is recorded as an entry in the `revisions[]` array of `{SESSION_DIR}/decisions.json`, shaped `{cycle, annotations[], classification, planChanges, recheck}` (`recheck` holds the plan-checker/rival verdicts on material changes, `null` on cosmetic-only cycles). The loop ceiling is 3 cycles; after that, unresolved sticking points move to plain chat discussion rather than a re-render.
+
+## Research-Enriched Plan Artifact (mandatory at the gate)
+
+A plan gate that opens with tasks/files/waves and buries or omits the actual findings is a failed gate — for research/evaluation/investigation tickets ("how does X work", "what's causing Y", "should we adopt Z"), the human must be able to tell what was found without reading task descriptions.
+
+### `research` block in `plan.json`
+
+Phase B writes a `research` block whenever the ticket is research/evaluation/investigation-shaped. Optional for pure implementation tickets — even then, a findings-first narrative is preferred over a manifest-first one.
+
+```
+research: {
+  question:   "..."                                       -- what was being investigated
+  findings:   [{ claim, evidence: "path/to/file.ts:123" }] -- every finding cites file:line
+  comparison: "..."                                        -- gap analysis, current vs desired
+  options:    [{ name, tradeoffs, status: "chosen" | "deferred", why }]
+  verdict:    "..."                                        -- the recommendation
+}
+decisions: [{ decision, rationale }]
+```
+
+### Render order
+
+The gate artifact leads with the research narrative — question -> findings -> verdict -> options -> decisions. Tasks, files, and contracts render last, as the "what we'll do about it" tail, never the opening.
+
+### Renderer fallback
+
+If `render-plan.js` doesn't render the `research` block (older renderer, no section support yet), Apex authors the enriched HTML directly over `plan.html` before opening the gate. The mechanical render is a fallback skeleton, never the final research artifact — `plan.json` stays the machine SSoT throughout, `plan.html` is only ever the human-facing view of it.
