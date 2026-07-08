@@ -11,6 +11,8 @@ Written by Phase B after devil's advocate review. Drives Phase C execution.
 | tasks[].id | string | yes | Unique task ID |
 | tasks[].description | string | yes | What this task does |
 | tasks[].files | string[] | yes | Files expected to be touched |
+| tasks[].acceptance_criteria | string[] | _meta.version >= 2: yes; v1: no | Shell commands or observable facts Ward checks; each item a command/fact, never prose |
+| tasks[].verify | string | _meta.version >= 2: yes; v1: no | Single command that exits 0 on success; must be runnable by Ward |
 | tasks[].dependsOn | string[] | no | Task IDs this task must wait for |
 | tasks[].agent | string | no | Agent role for shadows route |
 | antiRepetition | string[] | no | Patterns to avoid (from learnings) |
@@ -83,5 +85,14 @@ Each entry in `plan.json -> tasks[]` must follow this shape:
 | `verify` | Single command that exits 0 on success. Must be runnable by Ward. |
 | `files` | Non-empty. Files agent is expected to create or modify. |
 
-> `read_first` and `acceptance_criteria` are extensions to the base schema.
-> Agents read them from the task object; Ward reads `acceptance_criteria` to validate task completion.
+> `read_first` is a doc-only extension to the base schema (not enforced by the validator).
+> `acceptance_criteria` and `verify` are enforced starting at `_meta.version: 2` — see Schema
+> Version Gate below. Agents read all three from the task object; Ward reads `acceptance_criteria`
+> to validate task completion.
+
+---
+
+## Schema Version Gate
+
+- **v1** (`_meta.version: 1`, or absent): `tasks[].acceptance_criteria` and `tasks[].verify` are optional. Older plans keep validating without them.
+- **v2** (`_meta.version: 2`): both become required and non-empty. Plans written by the current planner set `_meta.version: 2`; `validate-artifact.js` rejects a v2 plan whose tasks are missing either field, naming the offending task index.

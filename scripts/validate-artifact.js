@@ -12,7 +12,7 @@
 //                 CONTRACT NOTE below.
 //
 // Usage: validate-artifact.js <artifact-type> <file-path>
-// Artifact types: context, intent, plan, execution, verification, wrap, pause-state
+// Artifact types: context, intent, brainstorm, decisions, plan, execution, verification, wrap, pause-state
 // Exit 0 = valid, Exit 1 = invalid (errors printed to stderr).
 //
 // CONTRACT NOTE (exit codes): this CLI returns 1 for EVERY failure, including an
@@ -71,6 +71,7 @@ const SCHEMAS = {
 
   intent: {
     fields: [
+      { field: 'problem', type: 'string', required: 'no', description: 'The pain statement being solved — leads the goal in render-plan.js output' },
       { field: 'goal', type: 'string', required: 'yes', description: 'Single clear goal statement' },
       { field: 'doneWhen', type: 'string[]', required: 'yes', description: 'Acceptance criteria (observable, testable)' },
       { field: 'priority', type: 'string[]', required: 'yes', description: 'Ordered implementation priorities' },
@@ -85,6 +86,106 @@ const SCHEMAS = {
       if (!Array.isArray(d.priority) || d.priority.length === 0) errors.push('priority: required non-empty array');
       if (d.tradeoffs !== undefined && !Array.isArray(d.tradeoffs)) errors.push('tradeoffs: must be array if present');
       if (d.nonNegotiables !== undefined && !Array.isArray(d.nonNegotiables)) errors.push('nonNegotiables: must be array if present');
+      if (d.problem !== undefined && typeof d.problem !== 'string') errors.push('problem: must be string if present');
+    },
+  },
+
+  brainstorm: {
+    fields: [
+      { field: 'approaches', type: 'object[]', required: 'yes', description: 'Candidate approach cards from the diverge phase' },
+      { field: 'approaches[].id', type: 'string', required: 'yes', description: 'Stable slug identifying this approach' },
+      { field: 'approaches[].name', type: 'string', required: 'yes', description: 'Short approach label' },
+      { field: 'approaches[].thesis', type: 'string', required: 'yes', description: 'One-sentence core argument for this approach' },
+      { field: 'approaches[].description', type: 'string', required: 'yes', description: 'Fuller explanation of the approach' },
+      { field: 'approaches[].whyLens', type: 'string', required: 'yes', description: 'Generating lens (e.g. `simplest`, `robust`, `reuse`) or reasoning behind proposing this shape' },
+      { field: 'approaches[].effort', type: 'string', required: 'yes', description: 'Relative implementation effort (e.g. `low`/`medium`/`high`)' },
+      { field: 'approaches[].risk', type: 'string', required: 'yes', description: 'Relative risk level (e.g. `low`/`medium`/`high`)' },
+      { field: 'approaches[].reversibility', type: 'string', required: 'yes', description: 'How easily this choice can be undone later' },
+      { field: 'approaches[].whatBreaks', type: 'string[]', required: 'yes', description: 'Things that would need rework if this approach is chosen' },
+      { field: 'approaches[].whenToPick', type: 'string', required: 'yes', description: 'Guidance on when this approach is the right call' },
+      { field: 'approaches[].mutualExclusivity', type: 'string[]', required: 'no', description: 'IDs of other approaches this one cannot be combined with' },
+      { field: 'approaches[].visualType', type: '`"diagram"` | `"flow"` | `"sitemap"` | `"mockup"` | `null`', required: 'no', description: 'Kind of visual artifact best suited to convey this approach, if any' },
+      { field: 'recommendedDefault', type: 'object', required: 'yes', description: 'The coordinator\'s or Chairman\'s recommended pick' },
+      { field: 'recommendedDefault.id', type: 'string', required: 'yes', description: 'Must match one of `approaches[].id`' },
+      { field: 'recommendedDefault.reason', type: 'string', required: 'yes', description: 'Why this approach is recommended' },
+    ],
+    validate: (d, errors) => {
+      validateMeta(d, errors);
+      const validVisualTypes = ['diagram', 'flow', 'sitemap', 'mockup', null];
+      const ids = [];
+      if (!Array.isArray(d.approaches) || d.approaches.length === 0) {
+        errors.push('approaches: required non-empty array');
+      } else {
+        d.approaches.forEach((a, i) => {
+          if (!a.id || typeof a.id !== 'string') errors.push(`approaches[${i}].id: required string`);
+          else ids.push(a.id);
+          if (!a.name || typeof a.name !== 'string') errors.push(`approaches[${i}].name: required string`);
+          if (!a.thesis || typeof a.thesis !== 'string') errors.push(`approaches[${i}].thesis: required string`);
+          if (!a.description || typeof a.description !== 'string') errors.push(`approaches[${i}].description: required string`);
+          if (!a.whyLens || typeof a.whyLens !== 'string') errors.push(`approaches[${i}].whyLens: required string`);
+          if (!a.effort || typeof a.effort !== 'string') errors.push(`approaches[${i}].effort: required string`);
+          if (!a.risk || typeof a.risk !== 'string') errors.push(`approaches[${i}].risk: required string`);
+          if (!a.reversibility || typeof a.reversibility !== 'string') errors.push(`approaches[${i}].reversibility: required string`);
+          if (!Array.isArray(a.whatBreaks) || a.whatBreaks.length === 0) errors.push(`approaches[${i}].whatBreaks: required non-empty array`);
+          if (!a.whenToPick || typeof a.whenToPick !== 'string') errors.push(`approaches[${i}].whenToPick: required string`);
+          if (a.mutualExclusivity !== undefined && !Array.isArray(a.mutualExclusivity)) {
+            errors.push(`approaches[${i}].mutualExclusivity: must be array if present`);
+          }
+          if (a.visualType !== undefined && !validVisualTypes.includes(a.visualType)) {
+            errors.push(`approaches[${i}].visualType: must be one of ${validVisualTypes.filter(Boolean).join('|')} or null, got "${a.visualType}"`);
+          }
+        });
+      }
+      if (!d.recommendedDefault || typeof d.recommendedDefault !== 'object') {
+        errors.push('recommendedDefault: required object');
+      } else {
+        if (!d.recommendedDefault.id || typeof d.recommendedDefault.id !== 'string') {
+          errors.push('recommendedDefault.id: required string');
+        } else if (ids.length > 0 && !ids.includes(d.recommendedDefault.id)) {
+          errors.push(`recommendedDefault.id: "${d.recommendedDefault.id}" does not match any approaches[].id`);
+        }
+        if (!d.recommendedDefault.reason || typeof d.recommendedDefault.reason !== 'string') {
+          errors.push('recommendedDefault.reason: required string');
+        }
+      }
+    },
+  },
+
+  decisions: {
+    fields: [
+      { field: 'decisions', type: 'object[]', required: 'yes', description: 'Array of decision records (a `{ decisions: [] }` wrapper around the same array is also accepted)' },
+      { field: 'decisions[].id', type: 'string', required: 'yes', description: 'Stable slug, e.g. `decision-001-state-management`' },
+      { field: 'decisions[].decision', type: 'string', required: 'yes', description: 'What was decided' },
+      { field: 'decisions[].status', type: 'string', required: 'yes', description: 'Decision lifecycle state, e.g. `"locked"`' },
+      { field: 'decisions[].rationale', type: 'string', required: 'yes', description: 'Why this decision was made' },
+      { field: 'decisions[].alternatives', type: 'string[]', required: 'yes', description: 'Alternatives considered and ruled out' },
+      { field: 'councilUsed', type: 'boolean', required: 'no', description: 'Whether brainstorm Council Mode ran (see reference/brainstorm.md)' },
+      { field: 'peerRankings', type: 'object[]', required: 'no', description: 'Aggregate rank per anonymized approach, present when councilUsed' },
+      { field: 'chairmanRationale', type: 'string', required: 'no', description: 'Chairman synthesis rationale, present when councilUsed' },
+    ],
+    validate: (d, errors) => {
+      validateMeta(d, errors);
+      let entries = d.decisions;
+      if (!Array.isArray(entries) && entries && Array.isArray(entries.decisions)) {
+        entries = entries.decisions;
+      }
+      const idPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+      if (!Array.isArray(entries) || entries.length === 0) {
+        errors.push('decisions: required non-empty array (or a `{ decisions: [] }` wrapper)');
+      } else {
+        entries.forEach((e, i) => {
+          if (!e.id || typeof e.id !== 'string' || !idPattern.test(e.id)) {
+            errors.push(`decisions[${i}].id: required stable slug string (e.g. "decision-001-name"), got ${JSON.stringify(e.id)}`);
+          }
+          if (!e.decision || typeof e.decision !== 'string') errors.push(`decisions[${i}].decision: required string`);
+          if (!e.status || typeof e.status !== 'string') errors.push(`decisions[${i}].status: required string`);
+          if (!e.rationale || typeof e.rationale !== 'string') errors.push(`decisions[${i}].rationale: required string`);
+          if (!Array.isArray(e.alternatives)) errors.push(`decisions[${i}].alternatives: required array`);
+        });
+      }
+      if (d.councilUsed !== undefined && typeof d.councilUsed !== 'boolean') errors.push('councilUsed: must be boolean if present');
+      if (d.peerRankings !== undefined && !Array.isArray(d.peerRankings)) errors.push('peerRankings: must be array if present');
+      if (d.chairmanRationale !== undefined && typeof d.chairmanRationale !== 'string') errors.push('chairmanRationale: must be string if present');
     },
   },
 
@@ -96,6 +197,8 @@ const SCHEMAS = {
       { field: 'tasks[].id', type: 'string', required: 'yes', description: 'Unique task ID' },
       { field: 'tasks[].description', type: 'string', required: 'yes', description: 'What this task does' },
       { field: 'tasks[].files', type: 'string[]', required: 'yes', description: 'Files expected to be touched' },
+      { field: 'tasks[].acceptance_criteria', type: 'string[]', required: '_meta.version >= 2: yes; v1: no', description: 'Shell commands or observable facts Ward checks; each item a command/fact, never prose' },
+      { field: 'tasks[].verify', type: 'string', required: '_meta.version >= 2: yes; v1: no', description: 'Single command that exits 0 on success; must be runnable by Ward' },
       { field: 'tasks[].dependsOn', type: 'string[]', required: 'no', description: 'Task IDs this task must wait for' },
       { field: 'tasks[].agent', type: 'string', required: 'no', description: 'Agent role for shadows route' },
       { field: 'antiRepetition', type: 'string[]', required: 'no', description: 'Patterns to avoid (from learnings)' },
@@ -108,12 +211,23 @@ const SCHEMAS = {
       const validVerdicts = ['PROCEED', 'REVISE', 'RETHINK'];
       if (!validVerdicts.includes(d.devilsAdvocateVerdict)) errors.push(`devilsAdvocateVerdict: must be one of ${validVerdicts.join('|')}, got "${d.devilsAdvocateVerdict}"`);
       if (!Array.isArray(d.tasks) || d.tasks.length === 0) errors.push('tasks: required non-empty array');
+      // v1 plans predate task-quality fields and stay lenient; v2+ requires them so Ward has
+      // something concrete to check. Missing/non-numeric _meta.version is treated as v1.
+      const planVersion = d._meta && typeof d._meta.version === 'number' ? d._meta.version : 1;
       if (Array.isArray(d.tasks)) {
         d.tasks.forEach((t, i) => {
           if (!t.id || typeof t.id !== 'string') errors.push(`tasks[${i}].id: required string`);
           if (!t.description || typeof t.description !== 'string') errors.push(`tasks[${i}].description: required string`);
           if (!Array.isArray(t.files)) errors.push(`tasks[${i}].files: required array`);
           if (t.dependsOn !== undefined && !Array.isArray(t.dependsOn)) errors.push(`tasks[${i}].dependsOn: must be array if present`);
+          if (planVersion >= 2) {
+            if (!Array.isArray(t.acceptance_criteria) || t.acceptance_criteria.length === 0) {
+              errors.push(`tasks[${i}].acceptance_criteria: required non-empty array (schema v2+)`);
+            }
+            if (!t.verify || typeof t.verify !== 'string') {
+              errors.push(`tasks[${i}].verify: required string (schema v2+)`);
+            }
+          }
         });
       }
       if (d.antiRepetition !== undefined && !Array.isArray(d.antiRepetition)) errors.push('antiRepetition: must be array if present');
@@ -312,7 +426,7 @@ function main(argv) {
   if (!artifactType || !filePath) {
     throw new PhantomError(
       'Usage: validate-artifact.js <artifact-type> <file-path>\n' +
-        'Types: context intent plan execution verification wrap pause-state',
+        'Types: context intent brainstorm decisions plan execution verification wrap pause-state',
       'USAGE'
     );
   }

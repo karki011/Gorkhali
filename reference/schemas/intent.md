@@ -5,6 +5,7 @@ Written by Phase B (`phantom:start`). Defines the goal contract for verify and w
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| problem | string | no | The pain statement being solved — leads the goal in render-plan.js output |
 | goal | string | yes | Single clear goal statement |
 | doneWhen | string[] | yes | Acceptance criteria (observable, testable) |
 | priority | string[] | yes | Ordered implementation priorities |
@@ -17,6 +18,7 @@ Written by Phase B (`phantom:start`). Defines the goal contract for verify and w
 ```json
 {
   "_meta": { "...": "..." },
+  "problem": "Users can't see per-tag cost without exporting to a spreadsheet first",
   "goal": "Render a cost-per-tag breakdown table below the existing cost summary",
   "doneWhen": [
     "Table renders with correct tag keys and summed costs",

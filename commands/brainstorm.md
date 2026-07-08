@@ -55,25 +55,26 @@ Spawn 2-3 research agents **in parallel** to gather context before forming appro
 
 After all agents return, the coordinator synthesizes their summaries into context for approach generation.
 
-**Questions** — per `reference/brainstorm.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 2-5, max 2 rounds.
+**Questions** — per `reference/brainstorm.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 2-5, max 2 rounds, skip anything the scout agents already answered, stop once every open question has a confirmed answer/accepted default or answers degrade to "up to you".
 
-**Approaches** — produce 2-3 genuinely distinct strategies via ONE path:
+**Approaches** — produce 2-3 genuinely distinct strategies via ONE path. Both paths generate ALL
+approaches before any evaluation touches any of them (anti-anchoring), and each states a concrete
+lens (`whyLens`) — never a vague "be creative". Full rules: `reference/brainstorm.md` → **Exploration
+Protocol**.
 - **Council** (route is FULL, architecture choice, high uncertainty, or `--council`): independent
-  lens-agents generate candidates → Apex anonymizes + peer-ranks them → a Chairman synthesizes the
+  lens-agents generate candidates in parallel → Apex anonymizes + peer-ranks them → a Chairman synthesizes the
   recommended approach + ranked alternatives. Full steps: `reference/brainstorm.md` → **Council Mode**.
   The Chairman's output becomes the approaches presented at Convergence.
-- **Simple** (default for clearer brainstorms, or `--simple`): the coordinator drafts them directly —
-  no extra spawns.
+- **Simple** (default for clearer brainstorms, or `--simple`): the coordinator drafts all approaches in
+  one pass, then steps back and evaluates — no extra spawns.
 
-Either path: `[failed]` = exclude, `[validated:5+]` = recommend, and each approach uses:
+Either path: `[failed]` = exclude, `[validated:5+]` = recommend as `recommendedDefault`, and each
+approach fills the full spine in `reference/schemas/brainstorm.md` (`id`, `name`, `thesis`, `whyLens`,
+`effort`, `risk`, `reversibility`, `whatBreaks`, `whenToPick`, optional `mutualExclusivity`/`visualType`).
 
-```
-Approach {N}: {name}
-Summary:    {2-3 sentences}
-Pros/Cons:  {bullets}
-Complexity: {S | M | L}
-Risk:       {low | medium | high — with reason}
-```
+**Rival Pass** — before Convergence, one lightweight adversarial pass challenges the approaches
+themselves (borrows `agents/rival.md`'s stance, scoped to the spine not a full plan). It tightens the
+cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` → **Rival Pass**.
 
 </diverge_protocol>
 
@@ -81,7 +82,14 @@ Risk:       {low | medium | high — with reason}
 
 ## Phase 2: Converge
 
-1. Present approaches with clear recommendation (cite specifics, not "it's simpler"). The approaches artifact MUST be written as a self-contained HTML file before GATE 1 and surfaced via `Skill(skill="phantom:annotate", args="<artifact.html>")`, with a fallback chain - never block the gate - of `phantom:annotate` unavailable, then plain `open` of the HTML, then the artifact cannot be rendered or opened, then chat-only approval with the reason stated; every step still ends at GATE 1.
+1. **Write `brainstorm.json`** (schema: `reference/schemas/brainstorm.md`) — full `approaches[]` spine
+   plus mandatory `recommendedDefault{id,reason}`. **Render:** `node scripts/render-brainstorm.js
+   {TEAM_DIR}/sessions/{TICKET}/brainstorm.json` → `brainstorm.html`. Lead with the recommendation
+   (cite specifics, not "it's simpler"), then the full side-by-side. The rendered HTML MUST be surfaced
+   via `Skill(skill="phantom:annotate", args="<brainstorm.html>")` before GATE 1, with a fallback chain
+   — never block the gate — of `phantom:annotate` unavailable, then plain `open` of the HTML, then the
+   artifact cannot be rendered or opened, then chat-only approval with the reason stated; every step
+   still ends at GATE 1.
 2. **HUMAN GATE** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 
@@ -90,6 +98,11 @@ Risk:       {low | medium | high — with reason}
 <artifact_schema>
 
 ## Artifacts
+
+**Write `{TEAM_DIR}/sessions/{TICKET}/brainstorm.json`** during Diverge, before Convergence's human
+gate: full `approaches[]` spine + mandatory `recommendedDefault{id,reason}`. Schema:
+`reference/schemas/brainstorm.md`. Rendered to `brainstorm.html` by `scripts/render-brainstorm.js` for
+the annotate gate.
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives. When Council Mode ran, also record `councilUsed: true`, `peerRankings` (aggregate rank per anonymized approach), and `chairmanRationale` — so the deliberation is auditable and feeds learnings.
 

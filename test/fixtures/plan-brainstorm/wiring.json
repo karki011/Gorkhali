@@ -1,0 +1,17 @@
+{
+  "dependencies": [
+    {
+      "task": "T1-eval-fixtures",
+      "produces": ["test/plan-brainstorm-eval.test.js"],
+      "consumes": ["scripts/render-plan.js", "scripts/render-brainstorm.js"]
+    }
+  ],
+  "riskPoints": [
+    {
+      "type": "interface",
+      "producer": "render-plan.js",
+      "consumers": ["T1-eval-fixtures"],
+      "mitigation": "Fixtures mirror the real intent.json/wiring.json shapes documented in reference/, not invented ones."
+    }
+  ]
+}

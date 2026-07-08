@@ -1,0 +1,23 @@
+{
+  "ticket": "EVAL-DEMO",
+  "route": "PLAN",
+  "waves": [
+    {
+      "id": "W1",
+      "name": "Renderer eval",
+      "tasks": [
+        {
+          "id": "T1-eval-fixtures",
+          "agent": "blade",
+          "model": "sonnet",
+          "description": "OUTCOME: golden-file eval proves renderer output quality.",
+          "acceptance_criteria": [
+            "plan.html leads with goal before first task",
+            "brainstorm.html shows the tradeoff table"
+          ],
+          "files": ["test/plan-brainstorm-eval.test.js"]
+        }
+      ]
+    }
+  ]
+}

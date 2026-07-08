@@ -91,7 +91,7 @@ READ `reference/router.md` for full algorithm.
 
 ## Route: PLAN (1 gate)
 
-1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`)
+1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 2` and every task carries non-empty `acceptance_criteria` + `verify` — required at that version per the Schema Version Gate in `reference/schemas/plan.md`.
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
 3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). After `plan.json` is written, run `node scripts/render-plan.js {SESSION_DIR}/plan.json` (`plan.json` stays the machine SSoT; `plan.html` is a rendered view, never parsed back; if `{SESSION_DIR}/plan-check.json` exists — written by the plan-checker during deliberation — it's auto-discovered and rendered inline as a "Plan Check" section), then present via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/plan.html")` — annotations count as feedback, chat approval still gates. Annotations drive the annotate-revise cycle owned by `phantom:annotate` (classify → apply to `plan.json` → re-validate material changes → re-render → re-present, ceiling 3 cycles then escalate to chat); `plan.html` is never edited and chat approval remains the gate exit. Fallback chain (never block the gate on the renderer; each step is less tooling, same gate): `phantom:annotate` unavailable → plain `open` of `plan.html` → rendering itself failed → chat-only approval with a one-line note that rendering failed.
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest; empty `$PR` skips silently).
@@ -124,7 +124,7 @@ Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` a
 > The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, no git mutations, no `.blade-editing` marker. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
 
 **Route collapse:**
-- DIRECT → still produce a minimal `plan.json` (plan-only — even trivial work produces a plan).
+- DIRECT → still produce a minimal `plan.json` (plan-only — even trivial work produces a plan); same `_meta.version: 2` + per-task `acceptance_criteria`/`verify` requirement applies.
 - BRAINSTORM / FULL → collapse to PLAN-grade planning. No human is present to pick a direction: pick the conservative option and record the alternatives in the plan for the human who reviews it later.
 
 **Headless contract:**

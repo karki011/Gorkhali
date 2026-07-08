@@ -4,19 +4,30 @@
 // (inline CSS, zero external requests) beside it so phantom:annotate has a real
 // surface to open. plan.json is the source of truth; this file only presents it.
 //
+// Presentation runs entirely through scripts/lib/html-kit.js - the shared
+// CloudZero design kit both gate renderers import. This file owns section logic
+// (what plan vocabulary becomes which section, in what order); the kit owns the
+// tokens, the primitives, and the universal smart-value fall-through renderer.
+//
 // Design contract:
 //  - Input tolerance: plan.json shapes vary session-to-session. We render what
 //    exists, skip what doesn't, and NEVER throw on a missing field. Unknown keys
-//    fall through visibly - top-level ones into an "Other fields" section, and
-//    unclaimed task/wave keys (work, detail, design, acceptance_criteria, verify,
-//    ...) into per-task/per-wave fall-through blocks. Absorption direction is
-//    show, not hide, applied recursively so inner content can't vanish.
-//  - Escaping is load-bearing: every string from plan.json is UNTRUSTED and is
-//    HTML-escaped before interpolation. A field of `<script>alert(1)</script>`
-//    renders inert as text.
+//    fall through visibly - top-level ones into an "Other fields" section via
+//    kit.smartValue (readable definition lists, never a raw JSON wall), and
+//    unclaimed task/wave keys into per-task/per-wave fall-through cards.
+//    Absorption direction is show, not hide: a key is excluded from fall-through
+//    only when a dedicated section actually rendered it.
+//  - First-class real-world vocabulary: top-level title/goal/ticket (headline),
+//    summary, verified_facts, decisions_for_approval, plan-check verdict, waves,
+//    wiring, test_plan, conventions_contract, risks, estimate, assumptions, and
+//    constraints each get a dedicated readable section. A sibling intent.json
+//    (goal/problem/tradeoffs) and wiring.json (dependencies/riskPoints) are
+//    auto-discovered next to plan.json and rendered as the narrative lead and
+//    dependency topology. Every field is optional; absence renders no section.
+//  - Escaping is load-bearing: every string from plan.json is UNTRUSTED. The kit
+//    escapes on the way in; a field of `<script>alert(1)</script>` renders inert.
 //  - Determinism: no Date/random anywhere in the output. Two runs on the same
-//    input are byte-identical. Object keys iterate in insertion order; arrays in
-//    their given order.
+//    input are byte-identical. Object keys iterate in insertion order.
 //  - Failure taxonomy via scripts/lib/axi-error.js: missing arg / unreadable
 //    file / invalid JSON -> PhantomError(VALIDATION_ERROR) -> exit 2. We set
 //    process.exitCode and return; never process.exit (which truncates writes).
@@ -25,35 +36,50 @@
 const fs = require('fs');
 const path = require('path');
 const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const {
+  escapeHtml,
+  isPlainObject,
+  isScalar,
+  isNonEmptyScalar,
+  humanizeKey,
+  slugify,
+  chip,
+  badge,
+  callout,
+  section,
+  checklist,
+  kvCard,
+  smartValue,
+  prose,
+  pageShell,
+} = require('./lib/html-kit');
 
-// ── escaping ─────────────────────────────────────────────────────────────────
-// & first so we never double-escape the entities we introduce. Covers the five
-// characters that can break out of text or attribute context.
-const escapeHtml = (value) =>
-  String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+// A present, non-empty value worth giving its own section - scalar strings,
+// non-empty arrays, and non-empty objects all qualify; null/''/[]/{}  do not.
+const hasContent = (v) => {
+  if (v == null) return false;
+  if (isScalar(v)) return String(v) !== '';
+  if (Array.isArray(v)) return v.length > 0;
+  return isPlainObject(v) && Object.keys(v).length > 0;
+};
 
-const isPlainObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
-const isScalar = (v) => v == null || (typeof v !== 'object');
-
-// Known agent models get a stable colour class; unknown models fall back to the
-// neutral chip. Model text is never interpolated into a class name (untrusted).
-const MODEL_CLASS = { opus: 'chip-opus', sonnet: 'chip-sonnet', haiku: 'chip-haiku', fable: 'chip-fable' };
+// The show-don't-hide fall-through: an object's entries minus the keys a
+// dedicated element already claimed. Every renderer below ends by handing its
+// leftover keys to kvCard/smartValue rather than dropping them; this states that
+// intent once so the filter reads identically at all sites and can't drift.
+const omitConsumed = (obj, consumed) =>
+  Object.fromEntries(Object.entries(obj).filter(([k]) => !consumed.has(k)));
 
 // ── task + wave normalization ────────────────────────────────────────────────
 // Field names vary session-to-session. We model a small set of known aliases,
-// then let EVERYTHING else fall through visibly (renderOtherField) rather than
-// vanish - show-don't-hide applied recursively, at the task and wave level, not
-// just the top level.
+// then let EVERYTHING else fall through visibly rather than vanish -
+// show-don't-hide applied recursively, at the task and wave level.
 
-// A task's prose body: first present of these aliases. `title` is rendered
-// separately as a short lead line, so it is not in this list. Whatever wins is
-// consumed; other body-ish keys still fall through so nothing is dropped.
-const TASK_BODY_KEYS = ['detail', 'task', 'summary', 'description', 'action'];
+// A task's prose body: first present of these aliases. `text` is the current
+// planner's key (added after `detail`); `title` is rendered separately as a
+// short lead line, so it is not in this list. Whatever wins is consumed; other
+// body-ish keys still fall through so nothing is dropped.
+const TASK_BODY_KEYS = ['detail', 'text', 'task', 'summary', 'description', 'action'];
 const readTaskBody = (t) => {
   for (const k of TASK_BODY_KEYS) {
     const v = t[k];
@@ -78,9 +104,8 @@ const readWaveLabel = (wave, i) => {
 //  2. [ ["id-a", "id-b"], "id-c" ]                          (id-refs into top-level tasks[])
 // If there are no waves but a top-level tasks[] exists, synthesize one wave so
 // the tasks still render. Returns [{ name, tasks: [task-object], rest }] where
-// `rest` is every wave-level key we did NOT claim (work, files, design, tests,
-// verify, agent, dependsOn, ...), preserved so renderWave can show them instead
-// of dropping them.
+// `rest` is every wave-level key we did NOT claim, preserved so renderWave can
+// show them instead of dropping them.
 const collectWaves = (plan) => {
   const topTasks = Array.isArray(plan.tasks) ? plan.tasks : [];
   const taskById = new Map();
@@ -103,7 +128,7 @@ const collectWaves = (plan) => {
       const consumed = new Set();
       if (tasksIsArray) consumed.add('tasks');
       if (labelKey) consumed.add(labelKey);
-      const rest = Object.fromEntries(Object.entries(wave).filter(([k]) => !consumed.has(k)));
+      const rest = omitConsumed(wave, consumed);
       return { name, tasks, rest };
     }
     // id-ref shape: resolve each ref against top-level tasks[]; unknown refs
@@ -114,520 +139,541 @@ const collectWaves = (plan) => {
   });
 };
 
-// ── HTML fragments ───────────────────────────────────────────────────────────
-const chip = (text, cls = '') =>
-  `<span class="chip${cls ? ' ' + cls : ''}">${escapeHtml(text)}</span>`;
+// ── section collector ──────────────────────────────────────────────────────
+// Sections and their TOC chips are built together so a chip only ever anchors a
+// section id that is actually emitted (reference-without-referent guard). The
+// slug is derived once from the humanized title, so `verified_facts` and
+// "Verified facts" both yield the `verified-facts` anchor and no raw underscore
+// key ever leaks into an id.
+const createSections = () => {
+  const items = [];
+  return {
+    add(title, bodyHtml) {
+      if (!bodyHtml) return;
+      items.push({ slug: slugify(title), title, body: bodyHtml });
+    },
+    sectionsHtml() {
+      return items.map((s) => section(s.slug, s.title, s.body)).join('\n');
+    },
+    tocChips() {
+      return items
+        .map((s) => `<a class="kit-chip" href="#${s.slug}">${escapeHtml(s.title)}</a>`)
+        .join('');
+    },
+  };
+};
 
+// Verdict/result words map to a status badge class; the word itself is never
+// interpolated into a class name (the kit looks the class up from this map).
+const VERDICT_BADGE = {
+  proceed: 'kit-badge-success', pass: 'kit-badge-success', go: 'kit-badge-success', ok: 'kit-badge-success',
+  warn: 'kit-badge-warn', revise: 'kit-badge-warn', caution: 'kit-badge-warn',
+  fail: 'kit-badge-error', block: 'kit-badge-error', blocked: 'kit-badge-error', 'no-go': 'kit-badge-error', stop: 'kit-badge-error',
+};
+const verdictBadge = (value, label = '') => badge(value, label, VERDICT_BADGE);
+
+// Risk severity maps to a callout tone; an unknown/absent severity stays neutral.
+const RISK_TONE = {
+  critical: 'error', high: 'error', severe: 'error',
+  medium: 'warn', med: 'warn', moderate: 'warn',
+  low: 'info', minor: 'info', info: 'info',
+};
+
+// ── task + wave rendering ────────────────────────────────────────────────────
 const renderTask = (task) => {
-  if (!isPlainObject(task)) return `<div class="task">${chip(String(task), 'chip-id')}</div>`;
+  if (!isPlainObject(task)) return `<div class="kit-card">${chip(String(task), 'kit-chip-strong')}</div>`;
 
   // Track which keys a dedicated element rendered; every unclaimed key falls
-  // through below so acceptance_criteria / read_first / dependsOn / verify and
-  // any other task field are shown, never dropped.
+  // through into the details card below so nothing is dropped.
   const consumed = new Set();
+
   const chips = [];
-  if (task.id != null) {
-    chips.push(chip(task.id, 'chip-id'));
+  if (task.id != null && String(task.id) !== '') {
+    chips.push(chip(task.id, 'kit-chip-strong'));
     consumed.add('id');
   }
-  if (task.agent != null && String(task.agent) !== '') {
-    chips.push(chip(task.agent, 'chip-agent'));
+  if (isNonEmptyScalar(task.agent)) {
+    chips.push(chip(task.agent, 'kit-chip-brand'));
     consumed.add('agent');
-  } else if (task.owner != null && String(task.owner) !== '') {
-    chips.push(chip(task.owner, 'chip-agent'));
+  } else if (isNonEmptyScalar(task.owner)) {
+    chips.push(chip(task.owner, 'kit-chip-brand'));
     consumed.add('owner');
   }
-  if (task.model != null && String(task.model) !== '') {
-    const cls = MODEL_CLASS[String(task.model).toLowerCase()] ?? '';
-    chips.push(chip(task.model, cls));
+  if (isNonEmptyScalar(task.model)) {
+    chips.push(chip(task.model));
     consumed.add('model');
   }
+  const chipsHtml = chips.length ? `<div class="kit-metabar">${chips.join('')}</div>` : '';
 
-  // Short lead line, above the body prose (menu-bar shape: title + detail).
+  // Short lead line above the body prose.
   let titleHtml = '';
-  if (typeof task.title === 'string' && task.title !== '') {
-    titleHtml = `<p class="task-title">${escapeHtml(task.title)}</p>`;
+  if (isNonEmptyScalar(task.title)) {
+    titleHtml = `<p class="task-title"><strong>${escapeHtml(task.title)}</strong></p>`;
     consumed.add('title');
   }
 
+  // The body prose (text/detail/... aliases) - rendered through kit.prose so an
+  // enumerated mega-paragraph becomes an ordered list and blank lines become
+  // paragraphs, instead of a single text wall.
   const body = readTaskBody(task);
   if (body.key) consumed.add(body.key);
-  const textHtml = body.text ? `<p class="task-text">${escapeHtml(body.text)}</p>` : '';
+  const bodyHtml = body.text ? `<div class="task-body">${prose(body.text)}</div>` : '';
 
-  const filesIsArray = Array.isArray(task.files);
-  if (filesIsArray) consumed.add('files');
-  const filesHtml = filesIsArray && task.files.length
-    ? `<ul class="files">${task.files.map((f) => `<li><code>${escapeHtml(f)}</code></li>`).join('')}</ul>`
+  // The claimed outcome: what the task produces, as a labeled row under the body.
+  let outcomeHtml = '';
+  if (hasContent(task.output)) {
+    consumed.add('output');
+    outcomeHtml =
+      '<div class="kit-kv-row"><div class="kit-kv-key">Outcome</div>' +
+      `<div class="kit-kv-val">${smartValue(task.output)}</div></div>`;
+  }
+
+  // acceptance_criteria is the definition of done - a first-class checklist.
+  // Only claimed as the array shape we render; a malformed value falls through.
+  let acHtml = '';
+  if (Array.isArray(task.acceptance_criteria)) {
+    consumed.add('acceptance_criteria');
+    if (task.acceptance_criteria.length) {
+      acHtml = `<div class="kit-kv-key">Acceptance criteria</div>${checklist(task.acceptance_criteria)}`;
+    }
+  }
+
+  let filesHtml = '';
+  if (Array.isArray(task.files)) {
+    consumed.add('files');
+    if (task.files.length) {
+      filesHtml =
+        '<div class="kit-kv-key">Files</div>' +
+        `<ul class="kit-list">${task.files
+          .map((f) => `<li><code class="kit-code">${escapeHtml(f)}</code></li>`)
+          .join('')}</ul>`;
+    }
+  }
+
+  // Everything not claimed above (action, verify, read_first, dependsOn, and any
+  // session-specific key) falls through here - shown, never dropped, tucked
+  // behind <details> so the body + outcome + checklist read first.
+  const rest = omitConsumed(task, consumed);
+  const restHtml = Object.keys(rest).length ? kvCard(rest) : '';
+  const detailInner = [filesHtml, restHtml].filter(Boolean).join('');
+  const detailsHtml = detailInner
+    ? `<details class="task-details"><summary>Details</summary>${detailInner}</details>`
     : '';
 
-  const rest = Object.entries(task).filter(([k]) => !consumed.has(k));
-  const restHtml = rest.length
-    ? `<div class="task-extra">${rest.map(([k, v]) => renderOtherField(k, v)).join('\n')}</div>`
-    : '';
-
-  return [
-    '<div class="task">',
-    chips.length ? `<div class="chips">${chips.join('')}</div>` : '',
-    titleHtml,
-    textHtml,
-    filesHtml,
-    restHtml,
-    '</div>',
-  ]
+  return `<div class="kit-card">${[chipsHtml, titleHtml, bodyHtml, outcomeHtml, acHtml, detailsHtml]
     .filter(Boolean)
-    .join('\n');
+    .join('')}</div>`;
 };
 
 const renderWave = (wave) => {
-  const restEntries = isPlainObject(wave.rest) ? Object.entries(wave.rest) : [];
-  const restHtml = restEntries.length
-    ? `<div class="wave-extra">${restEntries.map(([k, v]) => renderOtherField(k, v)).join('\n')}</div>`
-    : '';
+  const rest = isPlainObject(wave.rest) ? wave.rest : {};
+  const restHtml = Object.keys(rest).length ? kvCard(rest) : '';
   const hasTasks = wave.tasks.length > 0;
   // Only show the placeholder when the wave is genuinely empty - a wave whose
   // substance lives in fall-through keys (work/design/verify...) is not empty.
-  const emptyNote = !hasTasks && !restEntries.length ? '<p class="muted">No tasks in this wave.</p>' : '';
+  const emptyNote =
+    !hasTasks && !Object.keys(rest).length ? '<p class="kit-p">No tasks in this wave.</p>' : '';
   return [
-    '<div class="wave-card">',
-    `<div class="wave-name">${escapeHtml(wave.name)}</div>`,
-    hasTasks ? wave.tasks.map(renderTask).join('\n') : '',
+    `<h3>${escapeHtml(wave.name)}</h3>`,
+    hasTasks ? wave.tasks.map(renderTask).join('') : '',
     restHtml,
     emptyNote,
-    '</div>',
   ]
     .filter(Boolean)
-    .join('\n');
+    .join('');
 };
 
-const renderListCallout = (items) =>
-  `<div class="callout"><ul>${items
-    .map((it) => `<li>${isScalar(it) ? escapeHtml(it) : `<code>${escapeHtml(JSON.stringify(it))}</code>`}</li>`)
-    .join('')}</ul></div>`;
-
-// ── structured fallback (arrays of objects / plain objects) ────────────────
-// Any plan section shape we don't have a dedicated renderer for used to dump
-// as escaped pretty-printed JSON inside a <pre> - unreadable for anything
-// richer than a couple of keys (e.g. a slices[] array of {id, title, files,
-// constraints, ...}). This renders the same tolerant, recursive, always-shown
-// contract (nothing vanishes, everything escaped) as actual HTML structure:
-// object -> definition rows, array of objects -> a card per object, array of
-// scalars -> bullet list (unchanged), long scalar -> paragraph. Only a leaf
-// past MAX_STRUCT_DEPTH falls back to compact inline JSON, and only that leaf
-// - never a whole-section <pre> dump.
-const MAX_STRUCT_DEPTH = 4;
-
-// snake_case / camelCase / kebab-case -> "Spaced Words, Capitalized".
-const humanizeKey = (key) =>
-  String(key)
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-
-const hasScalar = (obj, key) => obj[key] != null && isScalar(obj[key]) && String(obj[key]) !== '';
-
-// A card heading: first present of (id + title combined), title, name, id,
-// label. Returns the source keys too, so the caller can exclude them from the
-// card body instead of showing them twice.
-const cardHeading = (obj) => {
-  if (hasScalar(obj, 'id') && hasScalar(obj, 'title')) return { text: `${obj.id} - ${obj.title}`, keys: ['id', 'title'] };
-  if (hasScalar(obj, 'title')) return { text: String(obj.title), keys: ['title'] };
-  if (hasScalar(obj, 'name')) return { text: String(obj.name), keys: ['name'] };
-  if (hasScalar(obj, 'id')) return { text: String(obj.id), keys: ['id'] };
-  if (hasScalar(obj, 'label')) return { text: String(obj.label), keys: ['label'] };
-  return null;
-};
-
-// Short scalars worth a header chip rather than a full definition row.
-const CARD_CHIP_KEYS = ['size', 'complexity', 'risk', 'status', 'priority', 'severity'];
-
-// Long scalar strings read as prose, not a squeezed-in code row.
-const LONG_SCALAR = 60;
-const renderScalarValue = (v) => {
-  const raw = v == null ? String(v) : String(v);
-  const escaped = escapeHtml(v);
-  return raw.length > LONG_SCALAR ? `<p class="of-text">${escaped}</p>` : escaped;
-};
-
-const renderDefRows = (entries, depth) =>
-  `<div class="def-rows">${entries
-    .map(
-      ([k, v]) =>
-        `<div class="def-row"><div class="def-key">${escapeHtml(humanizeKey(k))}</div><div class="def-val">${renderStructuredValue(v, depth)}</div></div>`,
-    )
-    .join('')}</div>`;
-
-const renderStructuredCard = (item, depth) => {
-  if (!isPlainObject(item)) return `<div class="s-card">${renderStructuredValue(item, depth)}</div>`;
-
-  const heading = cardHeading(item);
-  const consumed = new Set(heading ? heading.keys : []);
-  const chips = [];
-  for (const k of CARD_CHIP_KEYS) {
-    if (consumed.has(k) || !hasScalar(item, k)) continue;
-    chips.push(chip(item[k]));
-    consumed.add(k);
-  }
-  const rest = Object.entries(item).filter(([k]) => !consumed.has(k));
-  const headHtml = heading || chips.length
-    ? `<div class="s-card-head">${heading ? `<span class="s-card-title">${escapeHtml(heading.text)}</span>` : ''}${chips.join('')}</div>`
+// A single risk[] item as a tone-coloured callout. Scalars become a paragraph;
+// objects render their fields readably (kvCard), with the tone picked from a
+// severity/level field when present.
+const renderRisk = (item) => {
+  if (isScalar(item)) return callout(`<p class="kit-p">${escapeHtml(item == null ? '' : item)}</p>`);
+  const sev = isPlainObject(item)
+    ? String(item.severity ?? item.level ?? item.impact ?? '').toLowerCase().trim()
     : '';
-  const bodyHtml = rest.length ? renderDefRows(rest, depth + 1) : '';
-  return ['<div class="s-card">', headHtml, bodyHtml, '</div>'].filter(Boolean).join('\n');
-};
-
-const renderStructuredValue = (value, depth) => {
-  if (isScalar(value)) return renderScalarValue(value);
-  if (depth >= MAX_STRUCT_DEPTH) return `<code class="of-inline-json">${escapeHtml(JSON.stringify(value))}</code>`;
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '<span class="muted">(empty)</span>';
-    if (value.every(isScalar)) {
-      return `<ul class="of-list">${value.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>`;
-    }
-    return `<div class="card-grid">${value.map((item) => renderStructuredCard(item, depth + 1)).join('')}</div>`;
-  }
-  const entries = Object.entries(value);
-  return entries.length ? renderDefRows(entries, depth + 1) : '<span class="muted">(empty)</span>';
-};
-
-// Generic renderer for whatever top-level keys we didn't claim. Scalars become
-// a key/value row; scalar arrays become a list (unchanged); anything
-// structured (objects, arrays of objects) renders through the recursive
-// structured renderer above so it never surfaces as a raw JSON dump.
-const renderOtherField = (key, value) => {
-  const label = `<div class="of-key">${escapeHtml(key)}</div>`;
-  if (isScalar(value)) return `<div class="of-row">${label}<div class="of-val">${escapeHtml(value)}</div></div>`;
-  if (Array.isArray(value) && value.every(isScalar)) {
-    return `<div class="of-row">${label}<ul class="of-list">${value
-      .map((v) => `<li>${escapeHtml(v)}</li>`)
-      .join('')}</ul></div>`;
-  }
-  return `<div class="of-row">${label}${renderStructuredValue(value, 0)}</div>`;
+  return callout(smartValue(item), RISK_TONE[sev] ?? '');
 };
 
 // ── plan-check section ─────────────────────────────────────────────────────────
-// A sibling plan-check.json (the plan-checker's verdict) is rendered as a "Plan
-// Check" section when present. Same tolerance contract as the rest of the file:
-// render what exists, escape everything, let unknown keys fall through visibly,
-// NEVER throw. Real shape (see menu-bar-claude-status/plan-check.json):
+// A sibling plan-check.json (the plan-checker's verdict) renders a "Plan check"
+// section when present. Same tolerance contract as the rest of the file: render
+// what exists, escape everything, let unknown keys fall through, NEVER throw.
+// Real shape:
 //   { _meta, checks: { <name>: { result, details:[...] } }, additionalFindings:[],
 //     verdict, summary }
-// loadPlanCheck distinguishes the three outcomes the renderer cares about:
-//   absent (ENOENT)     -> null            -> no section
-//   unreadable / invalid -> { error: msg } -> a single loud, escaped note
+// loadPlanCheck distinguishes three outcomes:
+//   absent (ENOENT)      -> null            -> no section
+//   unreadable / invalid -> { error: msg }  -> a single loud, escaped note
 //   valid JSON           -> { data }        -> the full section
-// Absence means something different depending on how the path was chosen: a
-// sibling plan-check.json is auto-discovered, so its absence is normal (null,
-// no section). An explicit --check-file is a stated expectation, so a missing
-// path there is loud (an error note), not silently absorbed like the sibling
-// case - same mechanism as the existing malformed/EACCES note.
-const loadPlanCheck = (checkPath, { explicit = false } = {}) => {
+// Absence means different things by how the path was chosen: an auto-discovered
+// sibling's absence is normal (null, no section); an explicit --check-file is a
+// stated expectation, so a missing path there is loud (an error note).
+//
+// loadSidecarJson is the shared tri-state read+parse used by plan-check.json,
+// intent.json, and wiring.json. `label` only changes the wording of the note.
+const loadSidecarJson = (filePath, label) => {
   let raw;
   try {
-    raw = fs.readFileSync(checkPath, 'utf8');
+    raw = fs.readFileSync(filePath, 'utf8');
   } catch (err) {
-    if (err.code === 'ENOENT') {
-      return explicit ? { error: `--check-file path not found: ${checkPath}` } : null;
-    }
-    return { error: `cannot read plan-check file ${checkPath} (${err.code || err.message})` };
+    if (err.code === 'ENOENT') return null;
+    return { error: `cannot read ${label} file ${filePath} (${err.code || err.message})` };
   }
   try {
     return { data: JSON.parse(raw) };
   } catch (err) {
-    return { error: `invalid JSON in plan-check file ${checkPath}: ${err.message}` };
+    return { error: `invalid JSON in ${label} file ${filePath}: ${err.message}` };
   }
 };
 
-// Known verdict/result words get a stable colour class; anything else is neutral.
-// The word itself is never interpolated into a class name (untrusted).
-const VERDICT_CLASS = {
-  proceed: 'badge-pass', pass: 'badge-pass', go: 'badge-pass', ok: 'badge-pass',
-  warn: 'badge-warn', revise: 'badge-warn', caution: 'badge-warn',
-  fail: 'badge-fail', block: 'badge-fail', blocked: 'badge-fail', 'no-go': 'badge-fail', stop: 'badge-fail',
-};
-const verdictBadge = (value, label = '') => {
-  const cls = VERDICT_CLASS[String(value).toLowerCase().trim()] ?? '';
-  return `<span class="badge${cls ? ' ' + cls : ''}">${label ? escapeHtml(label) + ' ' : ''}${escapeHtml(value)}</span>`;
+const loadPlanCheck = (checkPath, { explicit = false } = {}) => {
+  const result = loadSidecarJson(checkPath, 'plan-check');
+  if (result === null && explicit) return { error: `--check-file path not found: ${checkPath}` };
+  return result;
 };
 
-// One row per named check. Known keys (result, details) get dedicated elements;
-// everything else on the check object falls through so nothing is dropped, and a
-// non-object check value is shown raw rather than vanishing.
+// intent.json and wiring.json are always auto-discovered siblings (no CLI
+// override exists for either), so absence is always normal - null, no section.
+const loadIntent = (intentPath) => loadSidecarJson(intentPath, 'intent');
+const loadWiring = (wiringPath) => loadSidecarJson(wiringPath, 'wiring');
+
+// The plan-check verdict scalar, for the sticky top-bar badge. null when there
+// is no readable, verdict-bearing plan-check.
+const planCheckVerdict = (loaded) => {
+  if (!loaded || loaded.error || !isPlainObject(loaded.data)) return null;
+  return isNonEmptyScalar(loaded.data.verdict) ? String(loaded.data.verdict) : null;
+};
+
+// One card per named check. Known keys (result, details) get dedicated
+// elements; everything else falls through, and a non-object check value is
+// shown raw rather than vanishing.
 const renderCheckRow = (name, c) => {
-  if (!isPlainObject(c)) return renderOtherField(name, c);
+  if (!isPlainObject(c)) return kvCard({ [name]: c });
   const consumed = new Set();
-  const head = [`<span class="check-name">${escapeHtml(name)}</span>`];
-  if (isScalar(c.result) && c.result != null && String(c.result) !== '') {
+  const head = [`<strong>${escapeHtml(humanizeKey(name))}</strong>`];
+  if (isNonEmptyScalar(c.result)) {
     head.push(verdictBadge(c.result));
     consumed.add('result');
   }
-  const detailsIsArray = Array.isArray(c.details);
-  if (detailsIsArray) consumed.add('details');
-  const detailsHtml = detailsIsArray && c.details.length
-    ? `<ul class="check-details">${c.details
-        .map((d) => `<li>${isScalar(d) ? escapeHtml(d) : `<code>${escapeHtml(JSON.stringify(d))}</code>`}</li>`)
-        .join('')}</ul>`
-    : '';
-  const rest = Object.entries(c).filter(([k]) => !consumed.has(k));
-  const restHtml = rest.length ? rest.map(([k, v]) => renderOtherField(k, v)).join('\n') : '';
-  return [
-    '<div class="check-row">',
-    `<div class="check-head">${head.join(' ')}</div>`,
-    detailsHtml,
-    restHtml,
-    '</div>',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const parts = [`<div class="kit-metabar">${head.join('')}</div>`];
+  if (Array.isArray(c.details)) {
+    consumed.add('details');
+    if (c.details.length) parts.push(smartValue(c.details));
+  }
+  const rest = omitConsumed(c, consumed);
+  if (Object.keys(rest).length) parts.push(kvCard(rest));
+  return `<div class="kit-card">${parts.join('')}</div>`;
 };
 
-// Renders the section from the loadPlanCheck result. null -> '' (no section).
-// The section renders from file content only, so determinism is preserved.
-const renderPlanCheckSection = (loaded) => {
+// Builds the "Plan check" section body from the loadPlanCheck result. null -> ''
+// (no section). Renders from file content only, so determinism is preserved.
+const renderPlanCheckBody = (loaded) => {
   if (loaded == null) return '';
-  const parts = ['<h2>Plan Check</h2>'];
-  if (loaded.error) {
-    parts.push(`<div class="callout callout-warn"><p class="muted">${escapeHtml(loaded.error)}</p></div>`);
-    return parts.join('\n');
-  }
+  if (loaded.error) return callout(`<p class="kit-p">${escapeHtml(loaded.error)}</p>`, 'warn');
   const check = loaded.data;
-  // Tolerate a non-object plan-check.json: preserve the value rather than hide it.
-  if (!isPlainObject(check)) {
-    parts.push(renderOtherField('plan-check', check));
-    return parts.join('\n');
-  }
+  if (!isPlainObject(check)) return smartValue(check);
 
   const consumed = new Set();
+  const parts = [];
+
   const badges = [];
-  if (isScalar(check.verdict) && check.verdict != null && String(check.verdict) !== '') {
+  if (isNonEmptyScalar(check.verdict)) {
     badges.push(verdictBadge(check.verdict));
     consumed.add('verdict');
   }
-  if (isScalar(check.score) && check.score != null && String(check.score) !== '') {
+  if (isNonEmptyScalar(check.score)) {
     badges.push(verdictBadge(check.score, 'Score:'));
     consumed.add('score');
   }
-  if (badges.length) parts.push(`<div class="check-badges">${badges.join('')}</div>`);
+  if (badges.length) parts.push(`<div class="kit-metabar">${badges.join('')}</div>`);
 
-  if (isScalar(check.summary) && check.summary != null && String(check.summary) !== '') {
+  if (isNonEmptyScalar(check.summary)) {
     consumed.add('summary');
-    parts.push(`<p class="check-summary">${escapeHtml(check.summary)}</p>`);
+    parts.push(prose(check.summary));
   }
 
   if (isPlainObject(check.checks)) {
     consumed.add('checks');
     const rows = Object.entries(check.checks).map(([name, c]) => renderCheckRow(name, c));
-    if (rows.length) parts.push(`<div class="checks">${rows.join('\n')}</div>`);
+    if (rows.length) parts.push(rows.join(''));
   }
 
   if (Array.isArray(check.additionalFindings)) {
     consumed.add('additionalFindings');
     if (check.additionalFindings.length) {
-      parts.push('<div class="check-findings-label">Additional findings</div>');
-      parts.push(renderListCallout(check.additionalFindings));
+      parts.push('<h3>Additional findings</h3>');
+      parts.push(smartValue(check.additionalFindings));
     }
   }
 
-  const rest = Object.entries(check).filter(([k]) => !consumed.has(k));
-  if (rest.length) parts.push(rest.map(([k, v]) => renderOtherField(k, v)).join('\n'));
+  const rest = omitConsumed(check, consumed);
+  if (Object.keys(rest).length) parts.push(smartValue(rest));
 
-  return parts.join('\n');
+  return parts.join('');
 };
 
-const STYLE = `
-  :root {
-    --bg:#0d1117; --surface:#161b22; --surface-2:#21262d; --border:#30363d;
-    --text:#e6edf3; --text-muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
-    --yellow:#d29922; --red:#f85149; --orange:#db6d28; --purple:#bc8cff;
-    --mono:'SF Mono','Fira Code','JetBrains Mono',monospace;
-    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+// ── intent section (narrative lead) ──────────────────────────────────────────
+// A sibling intent.json (the phase-B goal contract - see reference/schemas/
+// intent.md: goal, problem, tradeoffs, nonNegotiables) is rendered ABOVE the
+// tasks - the narrative lead. Same tri-state contract as plan-check. Each field
+// is independently optional. Adds its sections onto the shared collector.
+const renderIntent = (loaded, sections) => {
+  if (loaded == null) return;
+  if (loaded.error) {
+    sections.add('Intent', callout(`<p class="kit-p">${escapeHtml(loaded.error)}</p>`, 'warn'));
+    return;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:var(--sans); background:var(--bg); color:var(--text);
-    line-height:1.6; padding:2rem; max-width:1000px; margin:0 auto; }
-  h1 { font-size:1.5rem; margin-bottom:.4rem; }
-  h2 { font-size:1.05rem; color:var(--accent); border-bottom:1px solid var(--border);
-    padding-bottom:.5rem; margin:2rem 0 1rem; text-transform:uppercase; letter-spacing:.05em; }
-  code, pre { font-family:var(--mono); }
-  .muted { color:var(--text-muted); }
-  .plan-header { background:var(--surface); border:1px solid var(--border);
-    border-radius:8px; padding:1.5rem; margin-bottom:1rem; }
-  .plan-header .meta { margin-top:.6rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
-  .ticket { color:var(--accent); font-weight:600; font-family:var(--mono); }
-  .badge { display:inline-block; padding:.15rem .55rem; border-radius:12px; font-size:.72rem;
-    font-weight:600; text-transform:uppercase; letter-spacing:.03em;
-    background:rgba(88,166,255,.15); color:var(--accent); border:1px solid var(--accent); }
-  .wave-card { background:var(--surface); border:1px solid var(--border);
-    border-radius:8px; padding:1.1rem 1.25rem; margin-bottom:1.1rem; }
-  .wave-name { font-size:1rem; font-weight:600; color:var(--accent); margin-bottom:.9rem; }
-  .task { background:var(--surface-2); border:1px solid var(--border);
-    border-radius:6px; padding:.85rem 1rem; margin-bottom:.75rem; }
-  .task:last-child { margin-bottom:0; }
-  .chips { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.55rem; }
-  .chip { display:inline-block; padding:.12rem .5rem; border-radius:5px; font-size:.72rem;
-    font-weight:600; font-family:var(--mono); background:var(--surface);
-    border:1px solid var(--border); color:var(--text-muted); }
-  .chip-id { color:var(--text); }
-  .chip-agent { color:var(--accent); border-color:var(--accent); }
-  .chip-opus { color:var(--purple); border-color:var(--purple); }
-  .chip-sonnet { color:var(--accent); border-color:var(--accent); }
-  .chip-haiku { color:var(--green); border-color:var(--green); }
-  .chip-fable { color:var(--orange); border-color:var(--orange); }
-  .task-title { font-weight:600; font-size:.95rem; margin-bottom:.4rem; color:var(--text); }
-  .task-text { font-size:.92rem; margin-bottom:.55rem; }
-  .task-text:last-child { margin-bottom:0; }
-  .task-extra, .wave-extra { margin-top:.7rem; }
-  .task-extra .of-row, .wave-extra .of-row { background:var(--bg); }
-  .files { list-style:none; padding:0; margin:0; }
-  .files li { font-size:.82rem; padding:.12rem 0; }
-  .files code { color:var(--text-muted); }
-  .callout { background:var(--surface); border-left:3px solid var(--yellow);
-    border-radius:0 8px 8px 0; padding:.75rem 1.25rem; }
-  .callout ul { list-style:none; padding:0; }
-  .callout li { padding:.4rem 0; border-bottom:1px solid var(--border); font-size:.9rem; }
-  .callout li:last-child { border-bottom:none; }
-  .callout li::before { content:'\\2022'; color:var(--yellow); font-weight:bold; margin-right:.6rem; }
-  .of-row { background:var(--surface); border:1px solid var(--border); border-radius:6px;
-    padding:.75rem 1rem; margin-bottom:.6rem; }
-  .of-key { font-family:var(--mono); font-size:.78rem; color:var(--accent);
-    text-transform:uppercase; letter-spacing:.03em; margin-bottom:.35rem; }
-  .of-val { font-size:.9rem; word-break:break-word; }
-  .of-list { margin:0; padding-left:1.2rem; font-size:.88rem; }
-  .of-pre { background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
-    padding:.6rem .8rem; overflow-x:auto; font-size:.8rem; white-space:pre; }
-  .of-text { font-size:.9rem; margin-top:.3rem; word-break:break-word; }
-  .of-inline-json { font-family:var(--mono); font-size:.78rem; background:var(--surface-2);
-    border:1px solid var(--border); border-radius:4px; padding:.05rem .35rem; }
-  .card-grid { display:flex; flex-direction:column; gap:.6rem; }
-  .s-card { background:var(--surface); border:1px solid var(--border); border-radius:6px;
-    padding:.75rem 1rem; }
-  .s-card-head { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; margin-bottom:.5rem; }
-  .s-card-title { font-weight:600; font-size:.92rem; color:var(--text); }
-  .def-rows { display:flex; flex-direction:column; gap:.5rem; }
-  .def-row { padding-top:.45rem; border-top:1px solid var(--border); }
-  .def-row:first-child { padding-top:0; border-top:none; }
-  .def-key { font-family:var(--mono); font-size:.72rem; color:var(--text-muted);
-    text-transform:uppercase; letter-spacing:.03em; margin-bottom:.2rem; }
-  .def-val { font-size:.88rem; word-break:break-word; }
-  .footer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--border);
-    color:var(--text-muted); font-size:.8rem; text-align:center; }
-  .check-badges { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.8rem; }
-  .badge-pass { background:rgba(63,185,80,.15); color:var(--green); border-color:var(--green); }
-  .badge-warn { background:rgba(210,153,34,.15); color:var(--yellow); border-color:var(--yellow); }
-  .badge-fail { background:rgba(248,81,73,.15); color:var(--red); border-color:var(--red); }
-  .check-summary { font-size:.92rem; margin-bottom:1rem; }
-  .checks { display:flex; flex-direction:column; gap:.6rem; }
-  .check-row { background:var(--surface); border:1px solid var(--border);
-    border-radius:6px; padding:.75rem 1rem; }
-  .check-head { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
-  .check-name { font-family:var(--mono); font-size:.85rem; font-weight:600; color:var(--text); }
-  .check-details { margin:.55rem 0 0; padding-left:1.2rem; font-size:.86rem; color:var(--text-muted); }
-  .check-details li { padding:.15rem 0; }
-  .callout-warn { border-left-color:var(--red); }
-  .check-findings-label { font-size:.85rem; font-weight:600; color:var(--text);
-    margin:1rem 0 .5rem; }
-`;
+  const intent = loaded.data;
+  if (!isPlainObject(intent)) {
+    sections.add('Intent', smartValue(intent));
+    return;
+  }
+
+  const consumed = new Set();
+
+  if (isNonEmptyScalar(intent.goal)) {
+    consumed.add('goal');
+    sections.add('Goal', callout(prose(intent.goal)));
+  }
+  if (isNonEmptyScalar(intent.problem)) {
+    consumed.add('problem');
+    sections.add('Why', callout(prose(intent.problem), 'warn'));
+  }
+
+  const hasTradeoffs = Array.isArray(intent.tradeoffs) && intent.tradeoffs.length > 0;
+  const hasNonNeg = Array.isArray(intent.nonNegotiables) && intent.nonNegotiables.length > 0;
+  if (Array.isArray(intent.tradeoffs)) consumed.add('tradeoffs');
+  if (Array.isArray(intent.nonNegotiables)) consumed.add('nonNegotiables');
+  if (hasTradeoffs || hasNonNeg) {
+    let body = '';
+    if (hasTradeoffs) body += smartValue(intent.tradeoffs);
+    if (hasNonNeg) body += `<h3>Non-negotiables</h3>${smartValue(intent.nonNegotiables)}`;
+    sections.add('Tradeoffs', body);
+  }
+
+  const rest = omitConsumed(intent, consumed);
+  if (Object.keys(rest).length) sections.add('Other intent fields', smartValue(rest));
+};
+
+// ── wiring section (dependencies + risk) ─────────────────────────────────────
+// A sibling wiring.json (dependency topology - see reference/wiring.md) renders
+// Dependencies + Risk points sections. Same tri-state contract.
+const renderDependency = (dep) => {
+  if (!isPlainObject(dep)) return kvCard({ dependency: dep });
+  const consumed = new Set();
+  const parts = [];
+  if (isNonEmptyScalar(dep.task)) {
+    parts.push(`<div class="kit-metabar">${chip(dep.task, 'kit-chip-strong')}</div>`);
+    consumed.add('task');
+  }
+  if (Array.isArray(dep.produces)) {
+    consumed.add('produces');
+    if (dep.produces.length) parts.push(`<div class="kit-kv-key">Produces</div>${smartValue(dep.produces)}`);
+  }
+  if (Array.isArray(dep.consumes)) {
+    consumed.add('consumes');
+    if (dep.consumes.length) parts.push(`<div class="kit-kv-key">Consumes</div>${smartValue(dep.consumes)}`);
+  }
+  const rest = omitConsumed(dep, consumed);
+  if (Object.keys(rest).length) parts.push(kvCard(rest));
+  return `<div class="kit-card">${parts.join('')}</div>`;
+};
+
+// A risk point's producer(s)/consumer(s) come in singular or plural form - accept
+// whichever is present without assuming a shape the plan didn't declare.
+const renderRiskPoint = (rp) => {
+  if (!isPlainObject(rp)) return kvCard({ riskPoint: rp });
+  const consumed = new Set();
+  const head = [];
+  if (isNonEmptyScalar(rp.type)) {
+    head.push(chip(rp.type, 'kit-chip-brand'));
+    consumed.add('type');
+  }
+  const producerKey = rp.producer != null ? 'producer' : rp.producers != null ? 'producers' : null;
+  if (producerKey) {
+    consumed.add(producerKey);
+    const value = rp[producerKey];
+    const text = Array.isArray(value) ? value.map(String).join(', ') : String(value);
+    head.push(`<span class="kit-code">${escapeHtml(text)}</span>`);
+  }
+  const consumerKey = rp.consumer != null ? 'consumer' : rp.consumers != null ? 'consumers' : null;
+  if (consumerKey) {
+    consumed.add(consumerKey);
+    const value = rp[consumerKey];
+    const text = Array.isArray(value) ? value.map(String).join(', ') : String(value);
+    head.push(`<span class="kit-code">&rarr; ${escapeHtml(text)}</span>`);
+  }
+  const parts = [head.length ? `<div class="kit-metabar">${head.join('')}</div>` : ''];
+  if (isNonEmptyScalar(rp.mitigation)) {
+    consumed.add('mitigation');
+    parts.push(`<p class="kit-p">Mitigation: ${escapeHtml(rp.mitigation)}</p>`);
+  }
+  const rest = omitConsumed(rp, consumed);
+  if (Object.keys(rest).length) parts.push(kvCard(rest));
+  return `<div class="kit-card">${parts.filter(Boolean).join('')}</div>`;
+};
+
+const renderWiring = (loaded, sections) => {
+  if (loaded == null) return;
+  if (loaded.error) {
+    sections.add('Dependencies', callout(`<p class="kit-p">${escapeHtml(loaded.error)}</p>`, 'warn'));
+    return;
+  }
+  const wiring = loaded.data;
+  if (!isPlainObject(wiring)) {
+    sections.add('Dependencies', smartValue(wiring));
+    return;
+  }
+
+  const consumed = new Set();
+  if (Array.isArray(wiring.dependencies)) {
+    consumed.add('dependencies');
+    if (wiring.dependencies.length) {
+      sections.add('Dependencies', wiring.dependencies.map(renderDependency).join(''));
+    }
+  }
+  if (Array.isArray(wiring.riskPoints)) {
+    consumed.add('riskPoints');
+    if (wiring.riskPoints.length) {
+      sections.add('Risk points', wiring.riskPoints.map(renderRiskPoint).join(''));
+    }
+  }
+  const rest = omitConsumed(wiring, consumed);
+  if (Object.keys(rest).length) sections.add('Other wiring fields', smartValue(rest));
+};
 
 // ── page assembly ────────────────────────────────────────────────────────────
-const renderPlanHtml = (plan, { sourcePath = '', planCheck = null } = {}) => {
+const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null, wiring = null } = {}) => {
   // Tolerate a non-object top-level: preserve the value under Other fields
   // rather than throwing, so `{}`, arrays, and scalars all still render a page.
   const isObj = isPlainObject(plan);
   const p = isObj ? plan : {};
 
-  // Keys a dedicated section actually renders land here as it renders them.
-  // A known key with the wrong shape (e.g. constraints as a string, waves as
-  // an object) is never added, so it falls through to Other fields instead
-  // of vanishing - malformed input is shown, not silently absorbed.
+  // Keys a dedicated element actually renders land here as it renders them. A
+  // known key with the wrong shape (constraints as a string, waves as an object)
+  // is never added, so it falls through to Other fields instead of vanishing.
   const consumed = new Set();
 
-  // A known header field only counts as consumed - and only prints - when
-  // it's scalar-shaped. Object/array-typed ticket|goal|route would otherwise
+  // A header field only counts as consumed - and only prints - when it is
+  // scalar-shaped. An object/array ticket|goal|route|title would otherwise
   // coerce to "[object Object]"; better to surface the raw value below.
-  const readHeaderField = (key) => {
+  const readHeader = (key) => {
     const v = p[key];
     if (!isScalar(v)) return '';
     consumed.add(key);
     return v != null ? String(v) : '';
   };
-  const ticket = readHeaderField('ticket');
-  const goal = readHeaderField('goal');
-  const route = readHeaderField('route');
-  const title = ticket ? `Plan: ${ticket}` : 'Plan';
-  const heading = goal || ticket || 'Plan';
+  const ticket = readHeader('ticket');
+  const route = readHeader('route');
+  const titleVal = readHeader('title');
+  const goalVal = readHeader('goal');
+  // Headline preference: title > goal > ticket. When both title and goal are
+  // present the goal becomes the sub-line so its content is shown, not dropped.
+  const heading = titleVal || goalVal || ticket || 'Plan';
+  const subline = titleVal && goalVal ? goalVal : '';
+  const pageTitle = ticket ? `Plan: ${ticket}` : 'Plan';
 
   const metaBits = [];
-  if (ticket) metaBits.push(`<span class="ticket">${escapeHtml(ticket)}</span>`);
-  if (route) metaBits.push(`<span class="badge">${escapeHtml(route)}</span>`);
+  if (ticket) metaBits.push(chip(ticket, 'kit-chip-strong'));
+  if (route) metaBits.push(badge(route));
+  const pcVerdict = planCheckVerdict(planCheck);
+  if (pcVerdict) metaBits.push(verdictBadge(pcVerdict, 'Plan check:'));
 
-  const sections = [];
+  const headerHtml = [
+    `<h1>${escapeHtml(heading)}</h1>`,
+    subline ? `<p class="kit-sub">${escapeHtml(subline)}</p>` : '',
+    metaBits.length ? `<div class="kit-metabar">${metaBits.join('')}</div>` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  // Plan-checker verdict, when a sibling plan-check.json was loaded. Rendered
-  // first - it's a gate verdict about the whole plan. Absent file => ''.
-  const checkSection = renderPlanCheckSection(planCheck);
-  if (checkSection) sections.push(checkSection);
+  const sections = createSections();
 
-  // collectWaves reads both waves and tasks; each is consumed only when it's
-  // the array shape the renderer actually understands, independent of
-  // whether the resulting wave list ends up empty.
+  // Narrative lead (goal/why/tradeoffs) from a sibling intent.json - why the
+  // plan exists at all, ahead of the plan-checker's verdict about it.
+  renderIntent(intent, sections);
+
+  if (isNonEmptyScalar(p.summary)) {
+    consumed.add('summary');
+    sections.add('Summary', prose(p.summary));
+  }
+
+  if (Array.isArray(p.verified_facts)) {
+    consumed.add('verified_facts');
+    if (p.verified_facts.length) sections.add('Verified facts', checklist(p.verified_facts));
+  }
+
+  if (Array.isArray(p.decisions_for_approval)) {
+    consumed.add('decisions_for_approval');
+    if (p.decisions_for_approval.length) {
+      const body = p.decisions_for_approval
+        .map((d) => (isPlainObject(d) ? kvCard(d) : callout(`<p class="kit-p">${escapeHtml(d)}</p>`)))
+        .join('');
+      sections.add('Decisions for approval', body);
+    }
+  }
+
+  // Plan-checker verdict, when a sibling plan-check.json was loaded.
+  sections.add('Plan check', renderPlanCheckBody(planCheck));
+
+  // collectWaves reads both waves and tasks; each is consumed only when it's the
+  // array shape the renderer understands, independent of whether the resulting
+  // wave list ends up empty.
   if (Array.isArray(p.waves)) consumed.add('waves');
   if (Array.isArray(p.tasks)) consumed.add('tasks');
   const waves = collectWaves(p);
-  if (waves.length) {
-    sections.push('<h2>Waves</h2>');
-    sections.push(waves.map(renderWave).join('\n'));
-  }
+  if (waves.length) sections.add('Waves', waves.map(renderWave).join('\n'));
 
+  // Dependency topology from a sibling wiring.json - reads best once the task
+  // ids it references are already on the page.
+  renderWiring(wiring, sections);
+
+  if (hasContent(p.test_plan)) {
+    consumed.add('test_plan');
+    sections.add('Test plan', smartValue(p.test_plan));
+  }
+  if (hasContent(p.conventions_contract)) {
+    consumed.add('conventions_contract');
+    sections.add('Conventions', smartValue(p.conventions_contract));
+  }
+  if (Array.isArray(p.risks)) {
+    consumed.add('risks');
+    if (p.risks.length) sections.add('Risks', p.risks.map(renderRisk).join(''));
+  }
+  if (isPlainObject(p.estimate) && Object.keys(p.estimate).length) {
+    consumed.add('estimate');
+    // kv rows, not a stat strip - real estimate values are paragraph-length.
+    sections.add('Estimate', kvCard(p.estimate));
+  }
   if (Array.isArray(p.assumptions)) {
     consumed.add('assumptions');
-    if (p.assumptions.length) {
-      sections.push('<h2>Assumptions</h2>');
-      sections.push(renderListCallout(p.assumptions));
-    }
+    if (p.assumptions.length) sections.add('Assumptions', smartValue(p.assumptions));
   }
   if (Array.isArray(p.constraints)) {
     consumed.add('constraints');
-    if (p.constraints.length) {
-      sections.push('<h2>Constraints</h2>');
-      sections.push(renderListCallout(p.constraints));
-    }
+    if (p.constraints.length) sections.add('Constraints', smartValue(p.constraints));
   }
 
-  // Insertion-order iteration keeps output stable across runs.
+  // Every remaining top-level key falls through readably - a humanized
+  // definition list via kit.smartValue, never a raw JSON wall. Insertion-order
+  // iteration keeps output stable across runs.
   const otherEntries = isObj
     ? Object.entries(p).filter(([k]) => !consumed.has(k))
     : [['value', plan]];
-  if (otherEntries.length) {
-    sections.push('<h2>Other fields</h2>');
-    sections.push(otherEntries.map(([k, v]) => renderOtherField(k, v)).join('\n'));
-  }
+  if (otherEntries.length) sections.add('Other fields', smartValue(Object.fromEntries(otherEntries)));
 
-  const footerSource = sourcePath ? `Generated from <code>${escapeHtml(sourcePath)}</code> &middot; ` : '';
+  const footerSource = sourcePath
+    ? `Generated from <code class="kit-code">${escapeHtml(sourcePath)}</code> &middot; `
+    : '';
+  const footerHtml = `${footerSource}plan.json is the source of truth - this page is generated from it.`;
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(title)}</title>
-<style>${STYLE}</style>
-</head>
-<body>
-
-<div class="plan-header">
-  <h1>${escapeHtml(heading)}</h1>
-  <div class="meta">${metaBits.join('\n    ')}</div>
-</div>
-
-${sections.join('\n\n')}
-
-<div class="footer">
-  ${footerSource}plan.json is the source of truth &mdash; this page is generated from it.
-</div>
-
-</body>
-</html>
-`;
+  return pageShell({
+    title: pageTitle,
+    headerHtml,
+    tocChips: sections.tocChips(),
+    sectionsHtml: sections.sectionsHtml(),
+    footerHtml,
+  });
 };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -638,11 +684,16 @@ const HELP =
   'Writes plan.html beside the input file (or to --out). Exit 0 on success;\n' +
   'missing arg / unreadable file / invalid JSON -> exit 2 (VALIDATION_ERROR).\n\n' +
   'If a plan-check.json sibling exists next to the input plan.json, its verdict\n' +
-  'is rendered as a "Plan Check" section. Use --check-file <path> to point at a\n' +
+  'is rendered as a "Plan check" section. Use --check-file <path> to point at a\n' +
   'plan-check.json elsewhere. An absent auto-discovered sibling renders no section\n' +
   '(its absence is normal). A missing, unreadable, or invalid --check-file renders\n' +
   'a one-line note instead (an explicit flag is an explicit expectation) - never an\n' +
-  'error exit.\n';
+  'error exit.\n\n' +
+  'A sibling intent.json (goal/problem/tradeoffs) is auto-discovered the same way\n' +
+  'and rendered above the tasks as the narrative lead. A sibling wiring.json\n' +
+  '(dependencies/riskPoints) is auto-discovered and rendered after the tasks as\n' +
+  'Dependencies + Risk points sections. Both are optional; absence renders no\n' +
+  'section, never a crash. Neither has a --check-file-style override flag.\n';
 
 const parseArgs = (args) => {
   let out = null;
@@ -706,14 +757,16 @@ const run = (argv) => {
 
   const checkPath = checkFile || path.join(path.dirname(input), 'plan-check.json');
   const planCheck = loadPlanCheck(checkPath, { explicit: checkFile != null });
+  const intent = loadIntent(path.join(path.dirname(input), 'intent.json'));
+  const wiring = loadWiring(path.join(path.dirname(input), 'wiring.json'));
 
-  const html = renderPlanHtml(plan, { sourcePath: input, planCheck });
+  const html = renderPlanHtml(plan, { sourcePath: input, planCheck, intent, wiring });
   const target = out || path.join(path.dirname(input), 'plan.html');
   fs.writeFileSync(target, html);
   process.stdout.write(`wrote ${target}\n`);
 };
 
-module.exports = { renderPlanHtml, escapeHtml, collectWaves, loadPlanCheck, run };
+module.exports = { renderPlanHtml, escapeHtml, collectWaves, loadPlanCheck, loadIntent, loadWiring, run };
 
 if (require.main === module) {
   try {
