@@ -147,23 +147,35 @@ ${PHANTOM_DATA:-~/.claude/phantom-data}/
 | Agent | Model | Effort | Role |
 |-------|-------|--------|------|
 | Apex | inherits session model | high | Orchestrator — plans, decomposes, coordinates, runs router, routes models |
-| Blade | inherits session model · sonnet (small tasks) | high | Implementation — parallel execution with ROLE FOCUS directives |
-| Ward | sonnet | high | QA — lint, build, test verification |
+| Blade | sonnet (pinned); opus ceiling - never fable/session-inherit | high | Implementation — parallel execution with ROLE FOCUS directives |
+| Ward | haiku (pinned) | high | QA — lint, build, test verification |
 | Gaze | opus (pinned — review tier) | high | Quality gate — power level (scored, P0-P3) |
 | Sage | fable (pinned — top tier; opus fallback) | high | Advisory — guidance for stuck agents (<100 words) |
 | Lens | sonnet | high | Visual verification — screenshot + diff |
 | Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
-| Rival | inherits session model | high | Plan challenger — adversarial review (no tools, forced precision) |
-| Plan-checker | inherits session model | high | Pre-execution plan validator — learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
-| Hound | inherits session model | high | Forensic investigator — 7-step protocol, HTML reports |
+| Rival | sonnet (pinned) | high | Plan challenger — adversarial review (no tools, forced precision) |
+| Plan-checker | sonnet (pinned) | high | Pre-execution plan validator — learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
+| Hound | opus (pinned) | high | Forensic investigator — 7-step protocol, HTML reports |
 | Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
 | Warden | sonnet | high | Mechanical session-lifecycle executor — ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
-No agent pins a model except three deliberate exceptions: **Gaze** and **Archer** pin `opus` (review tier — independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; no Fable 5 entitlement falls back to `opus`). Everyone else — including Apex — leaves model unset and inherits the session model (Fable 5 recommended). Apex tunes per spawn only to downshift (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session — there is no per-spawn effort param. `haiku` is reserved for truly mechanical single-file edits. Use bare aliases only; never pin dated or prior-generation model IDs.
+Model discipline is split by role.
+Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap models - sonnet by default, haiku only for truly mechanical single-file edits - with an opus hard ceiling enforced by `hooks/blade-model-gate.js`.
+**Gaze** and **Archer** pin `opus` (review tier - independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; no Fable 5 entitlement falls back to `opus`).
+Fable 5 is reserved for the session and **Apex** (orchestration) and for **Sage** (advisory) only.
+Fable 5 never implements.
+Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus; the escalation ladder is re-decompose -> sonnet -> opus.
+If a subtask looks like it needs Fable, the scoping failed - Apex re-decomposes.
+Apex tunes per spawn only to downshift further (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session - there is no per-spawn effort param.
+Use bare aliases only; never pin dated or prior-generation model IDs.
 
 ## Models & Effort
 
-Phantom runs every agent at **`high`** effort. Agents leave model + effort unset, so they inherit the session effort (`high`) and the session model — run your session on **Fable 5** (`/model fable`) for best results. **Model is the per-task lever, not effort** — there is no per-spawn effort param. Apex follows the session model and drops to **Sonnet** only for small, single-concern subtasks with a tight contract ("good tasking earns Sonnet"). `haiku` stays reserved for trivial mechanical single-file edits. Gaze/Archer (opus, review tier) and Sage (fable) carry frontmatter pins. See `reference/agents.md` → Model Routing.
+Phantom runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
+**Model is the per-task lever, not effort.**
+Only the session and **Apex** (orchestration) leave model unset and inherit the session model - run your session on **Fable 5** (`/model fable`) for the best orchestration experience.
+Implementer roles never inherit the session model; they pin cheap models with an opus hard ceiling instead (see above).
+See `reference/agents.md` → Model Routing.
 
 **Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 

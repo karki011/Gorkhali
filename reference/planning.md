@@ -96,6 +96,13 @@ The apex agent MUST reject `plan.json` with `verdict: REVISE` if:
 - Any task has `files: []` (every task must touch at least one file)
 - `dependsOn` references a non-existent task ID
 
+### Research-Free Tasking
+
+Every task handed to an implementer must arrive research-free.
+Apex resolves all open questions during planning: `read_first` paths, exact files, the pattern or example to follow, and the contract.
+If executing a task would require the implementer to explore the codebase, search docs, or make a design decision, the plan is incomplete - re-decompose the task instead of escalating its model.
+Raising the implementer model is never a remedy for weak scoping, and `fable` is never a legal implementer model (enforced by `hooks/blade-model-gate.js`).
+
 ## Task Structure
 
 See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`).

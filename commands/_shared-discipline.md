@@ -14,7 +14,7 @@ No external plugins required.
 |-------|-----------|-------------|-----------|
 | **B (Planning)** | Structured planning with decomposition | Apex agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
 | **B (Planning)** | Brainstorming for ambiguous scope | Apex detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
-| **B (Planning)** | Adversarial challenge | Rival agent (inherits session model, no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
+| **B (Planning)** | Adversarial challenge | Rival agent (sonnet (pinned), no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
 | **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
 | **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Blade climbs the ladder before writing code | Minimalism discipline (below) |

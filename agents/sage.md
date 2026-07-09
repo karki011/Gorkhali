@@ -4,7 +4,8 @@ description: On-demand top-tier (Fable 5) guidance for Blade agents. No tools, n
 maxTurns: 5
 author: Subash Karki
 model: fable
-# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Fable 5 by default; falls back to opus when Fable 5 is unavailable.
+tools: Read
+# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Fable 5 by default; falls back to opus when Fable 5 is unavailable. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
 ---
 
 # Sage

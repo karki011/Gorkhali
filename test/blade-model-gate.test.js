@@ -36,7 +36,7 @@ function runGate(input, envOverrides = {}) {
 }
 
 function bladeSpawn(toolInput = {}) {
-  return { tool_name: 'Agent', tool_input: { subagent_type: 'blade', ...toolInput } };
+  return agentSpawn('blade', toolInput);
 }
 
 function assertDeny(res) {
@@ -49,6 +49,17 @@ function assertDeny(res) {
 function assertAllow(res, msg) {
   assert.equal(res.code, 0);
   assert.equal(res.stdout.trim(), '', msg || 'an allow carries no decision JSON');
+}
+
+function agentSpawn(subagentType, toolInput = {}) {
+  return { tool_name: 'Agent', tool_input: { subagent_type: subagentType, ...toolInput } };
+}
+
+function assertImplementerDeny(res) {
+  assert.equal(res.code, 0, 'decision rides the JSON, not the exit code');
+  const out = JSON.parse(res.stdout);
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /IMPLEMENTER MODEL GATE/);
 }
 
 test('1. blade spawn, no model → DENY', () => {
@@ -89,4 +100,49 @@ test('7. escape hatch PHANTOM_BLADE_MODEL_GATE=0 → ALLOW even without model', 
 test('8. garbage/non-JSON stdin → ALLOW, exit 0', () => {
   const res = runGate('{{{not json');
   assertAllow(res, 'unparseable stdin must fail open');
+});
+
+test('9. blade + model:"fable" → DENY (implementer fable-deny)', () => {
+  const res = runGate(agentSpawn('blade', { model: 'fable' }));
+  assertImplementerDeny(res);
+});
+
+test('10. subagent_type:"phantom:sweep" + model:"fable" → DENY (prefix stripped, exact match)', () => {
+  const res = runGate(agentSpawn('phantom:sweep', { model: 'fable' }));
+  assertImplementerDeny(res);
+});
+
+test('11. warden + model:"claude-fable-5" → DENY (full model id, not just bare alias)', () => {
+  const res = runGate(agentSpawn('warden', { model: 'claude-fable-5' }));
+  assertImplementerDeny(res);
+});
+
+test('12. blade + model:"opus" → ALLOW', () => {
+  const res = runGate(agentSpawn('blade', { model: 'opus' }));
+  assertAllow(res);
+});
+
+test('13. sweep with omitted model → ALLOW (frontmatter pin applies, sweep has no missing-model rule)', () => {
+  const res = runGate(agentSpawn('sweep'));
+  assertAllow(res);
+});
+
+test('14. gaze + model:"fable" → ALLOW (not an implementer agent)', () => {
+  const res = runGate(agentSpawn('gaze', { model: 'fable' }));
+  assertAllow(res);
+});
+
+test('15. subagent_type:"phantom:reference:blade-conventions" + model:"fable" → ALLOW (exact-match guard, not substring)', () => {
+  const res = runGate(agentSpawn('phantom:reference:blade-conventions', { model: 'fable' }));
+  assertAllow(res);
+});
+
+test('16. subagent_type:"Blade" (capitalized) + model:"fable" → DENY (case-insensitive matching)', () => {
+  const res = runGate(agentSpawn('Blade', { model: 'fable' }));
+  assertImplementerDeny(res);
+});
+
+test('17. subagent_type:"PHANTOM:SWEEP" (uppercase) + model:"fable" → DENY (case-insensitive, prefix stripped)', () => {
+  const res = runGate(agentSpawn('PHANTOM:SWEEP', { model: 'fable' }));
+  assertImplementerDeny(res);
 });
