@@ -221,6 +221,34 @@ test('pageShell: omits the footer and toc nav when not provided', () => {
   assert.ok(html.startsWith('<!DOCTYPE html>'));
 });
 
+// ── table ────────────────────────────────────────────────────────────────────
+
+test('table: escapes headers, passes pre-rendered cells through, wraps for overflow', () => {
+  const html = kit.table(['F <x>', 'Change'], [['<code>a.ts</code>', 'plain']]);
+  assert.ok(html.includes('<div class="kit-table-wrap">'), 'overflow-x wrapper present');
+  assert.ok(html.includes('<th>F &lt;x&gt;</th>'), 'header label escaped');
+  assert.ok(html.includes('<td><code>a.ts</code></td>'), 'pre-rendered cell passes through unescaped (caller escapes)');
+  assert.ok(html.includes('<td>plain</td>'));
+});
+
+test('table: tolerates non-array args and a non-array row without throwing', () => {
+  assert.equal(
+    kit.table('nope', 'nope'),
+    '<div class="kit-table-wrap"><table class="kit-table"><tbody></tbody></table></div>',
+  );
+  const one = kit.table(['H'], ['bare']); // row is a scalar -> single cell
+  assert.ok(one.includes('<td>bare</td>'));
+});
+
+// ── pageShell wide variant ───────────────────────────────────────────────────
+
+test('pageShell: wide opts into the broad column via body.kit-wide; default stays narrow', () => {
+  assert.ok(kit.pageShell({ title: 't', wide: true }).includes('<body class="kit-wide">'), 'wide -> body class');
+  assert.ok(kit.pageShell({ title: 't' }).includes('<body>'), 'default has no width class');
+  // Both widths live in the one inlined sheet - single style source of truth.
+  assert.ok(kit.CZ_TOKENS.includes('.kit-wide'), 'wide measure defined in CZ_TOKENS');
+});
+
 // ── token-sheet self-containment ─────────────────────────────────────────────
 
 test('CZ_TOKENS: theme-aware, self-contained, and carries the primitive CSS', () => {

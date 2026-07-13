@@ -127,6 +127,28 @@ const kvCard = (entries) => {
   return `<div class="kit-card">${rows}</div>`;
 };
 
+// A table with PRE-RENDERED cells. Like `callout` and `section`, cell content is
+// already-rendered markup: the caller escapes every untrusted value on the way in
+// (a file path becomes `<code>escaped</code>`, a description becomes escaped
+// text). Header labels are caller-authored, so they are escaped here. The whole
+// table lives inside an overflow-x:auto wrapper so a wide row scrolls rather than
+// breaking the page's horizontal bound. Tolerant: a non-array `headers`/`rows`,
+// or a non-array row, renders an empty-ish table rather than throwing.
+const table = (headers, rows) => {
+  const hs = Array.isArray(headers) ? headers : [];
+  const rs = Array.isArray(rows) ? rows : [];
+  const thead = hs.length
+    ? `<thead><tr>${hs.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>`
+    : '';
+  const tbody = rs
+    .map((row) => {
+      const cells = Array.isArray(row) ? row : [row];
+      return `<tr>${cells.map((c) => `<td>${c == null ? '' : c}</td>`).join('')}</tr>`;
+    })
+    .join('');
+  return `<div class="kit-table-wrap"><table class="kit-table">${thead}<tbody>${tbody}</tbody></table></div>`;
+};
+
 // The universal fall-through renderer: turn any value into readable HTML.
 //  - scalar            -> escaped text
 //  - scalar array      -> bulleted list
@@ -266,6 +288,10 @@ const CZ_TOKENS = `
   .kit-toc { display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-top:var(--sp-3); }
 
   .kit-main { max-width:76ch; margin:0 auto; padding:var(--sp-8) var(--sp-6); }
+  /* Wide variant: a plan carries tables, task cards, and file lists that read
+     better in a broader column; body.kit-wide opts a document into it while the
+     prose-first default (brainstorm) keeps the narrow measure. */
+  .kit-wide .kit-main, .kit-wide .kit-footer { max-width:1160px; }
 
   .kit-section { margin:0 0 var(--sp-8); }
   .kit-section:last-child { margin-bottom:0; }
@@ -333,6 +359,21 @@ const CZ_TOKENS = `
   .kit-checklist li:last-child { border-bottom:none; }
   .kit-checklist li::before { content:'\\2713'; color:var(--brand-teal); font-weight:700; margin-right:var(--sp-2); }
 
+  .kit-table-wrap {
+    overflow-x:auto; border:1px solid var(--border); border-radius:var(--r-card);
+    background:var(--surface); box-shadow:var(--shadow-card); margin:0 0 var(--sp-3);
+  }
+  .kit-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  .kit-table th {
+    text-align:left; color:var(--text-dim); font-weight:600; font-size:.8rem;
+    padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  .kit-table td {
+    padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border);
+    vertical-align:top; color:var(--text); overflow-wrap:anywhere;
+  }
+  .kit-table tr:last-child td { border-bottom:none; }
+
   .kit-scroll { overflow-x:auto; }
   .kit-pre-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2); }
   .kit-pre { margin:0; padding:var(--sp-3) var(--sp-4); font-size:.82rem; line-height:1.5; white-space:pre; }
@@ -352,12 +393,16 @@ const CZ_TOKENS = `
 // centered 76ch content column, and an optional footer. `title` is escaped here;
 // every *Html argument is pre-rendered markup the caller already escaped. The
 // single inlined <style> is CZ_TOKENS - one source of truth for both consumers.
+// `wide` opts the document into the broader content column (body.kit-wide); the
+// default stays the narrow prose measure. Both widths live in CZ_TOKENS, so the
+// single inlined stylesheet remains the one style source of truth.
 const pageShell = ({
   title = '',
   headerHtml = '',
   tocChips = '',
   sectionsHtml = '',
   footerHtml = '',
+  wide = false,
 } = {}) =>
   `<!DOCTYPE html>
 <html lang="en">
@@ -367,7 +412,7 @@ const pageShell = ({
 <title>${escapeHtml(title)}</title>
 <style>${CZ_TOKENS}</style>
 </head>
-<body>
+<body${wide ? ' class="kit-wide"' : ''}>
 <header class="kit-topbar">
 ${headerHtml}${tocChips ? `\n<nav class="kit-toc">${tocChips}</nav>` : ''}
 </header>
@@ -393,6 +438,7 @@ module.exports = {
   kvRow,
   checklist,
   kvCard,
+  table,
   smartValue,
   prose,
   pageShell,

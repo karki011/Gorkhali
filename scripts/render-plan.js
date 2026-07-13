@@ -49,6 +49,7 @@ const {
   section,
   checklist,
   kvCard,
+  table,
   smartValue,
   prose,
   pageShell,
@@ -75,17 +76,26 @@ const omitConsumed = (obj, consumed) =>
 // then let EVERYTHING else fall through visibly rather than vanish -
 // show-don't-hide applied recursively, at the task and wave level.
 
-// A task's prose body: first present of these aliases. `text` is the current
-// planner's key (added after `detail`); `title` is rendered separately as a
-// short lead line, so it is not in this list. Whatever wins is consumed; other
-// body-ish keys still fall through so nothing is dropped.
-const TASK_BODY_KEYS = ['detail', 'text', 'task', 'summary', 'description', 'action'];
+// A task's body: first present of these aliases. `text` is the current planner's
+// key (added after `detail`); `details`/`steps` are the array-shaped bodies the
+// current planner emits (a per-task step list) - the substance of "what we're
+// doing", not a footnote. `title` is rendered separately as a short lead line, so
+// it is not in this list. Whatever wins is consumed; other body-ish keys still
+// fall through so nothing is dropped.
+//
+// A body may be a scalar (one prose block) OR an array of scalars (a step list).
+// It used to accept only scalars, so an array-valued `details` fell through into
+// the collapsed <details> block as a buried "Details" row - the plan's actual
+// steps hidden behind a disclosure triangle. Arrays now render as a visible
+// bullet list, first-class alongside scalar bodies.
+const TASK_BODY_KEYS = ['detail', 'details', 'text', 'task', 'summary', 'description', 'action', 'steps'];
 const readTaskBody = (t) => {
   for (const k of TASK_BODY_KEYS) {
     const v = t[k];
-    if (v != null && isScalar(v) && String(v) !== '') return { text: String(v), key: k };
+    if (isNonEmptyScalar(v)) return { kind: 'scalar', value: String(v), key: k };
+    if (Array.isArray(v) && v.length) return { kind: 'list', value: v, key: k };
   }
-  return { text: '', key: null };
+  return { kind: null, key: null };
 };
 
 // A wave's display label: first present scalar of these. The winning key is
@@ -212,12 +222,36 @@ const renderTask = (task) => {
     consumed.add('title');
   }
 
-  // The body prose (text/detail/... aliases) - rendered through kit.prose so an
-  // enumerated mega-paragraph becomes an ordered list and blank lines become
-  // paragraphs, instead of a single text wall.
+  // The files the task touches, as a muted meta line of code tokens directly
+  // under the title (kit-code wraps long paths, so a deep path never forces the
+  // page to scroll horizontally). This is meta, not buried detail - a reader
+  // scanning the plan sees what each task changes at a glance.
+  let filesHtml = '';
+  if (Array.isArray(task.files)) {
+    consumed.add('files');
+    if (task.files.length) {
+      filesHtml =
+        `<p class="kit-p task-files">${task.files
+          .map((f) => `<code class="kit-code">${escapeHtml(f)}</code>`)
+          .join(' ')}</p>`;
+    }
+  }
+
+  // The task body (details/steps/text/... aliases). An array body is the plan's
+  // step list - rendered as a visible bullet list. A scalar body goes through
+  // kit.prose so an enumerated mega-paragraph becomes an ordered list. Either way
+  // it reads inline, never collapsed - this is what we're planning.
   const body = readTaskBody(task);
   if (body.key) consumed.add(body.key);
-  const bodyHtml = body.text ? `<div class="task-body">${prose(body.text)}</div>` : '';
+  let bodyHtml = '';
+  if (body.kind === 'scalar') {
+    bodyHtml = `<div class="task-body">${prose(body.value)}</div>`;
+  } else if (body.kind === 'list') {
+    const lis = body.value
+      .map((it) => `<li>${isScalar(it) ? escapeHtml(it == null ? '' : it) : smartValue(it)}</li>`)
+      .join('');
+    bodyHtml = `<div class="task-body"><ul class="kit-list">${lis}</ul></div>`;
+  }
 
   // The claimed outcome: what the task produces, as a labeled row under the body.
   let outcomeHtml = '';
@@ -228,39 +262,28 @@ const renderTask = (task) => {
       `<div class="kit-kv-val">${smartValue(task.output)}</div></div>`;
   }
 
-  // acceptance_criteria is the definition of done - a first-class checklist.
-  // Only claimed as the array shape we render; a malformed value falls through.
+  // acceptance_criteria is the definition of done - a first-class, always-visible
+  // "Done when" checklist. Only claimed as the array shape we render; a malformed
+  // value falls through.
   let acHtml = '';
   if (Array.isArray(task.acceptance_criteria)) {
     consumed.add('acceptance_criteria');
     if (task.acceptance_criteria.length) {
-      acHtml = `<div class="kit-kv-key">Acceptance criteria</div>${checklist(task.acceptance_criteria)}`;
+      acHtml = `<div class="kit-kv-key">Done when</div>${checklist(task.acceptance_criteria)}`;
     }
   }
 
-  let filesHtml = '';
-  if (Array.isArray(task.files)) {
-    consumed.add('files');
-    if (task.files.length) {
-      filesHtml =
-        '<div class="kit-kv-key">Files</div>' +
-        `<ul class="kit-list">${task.files
-          .map((f) => `<li><code class="kit-code">${escapeHtml(f)}</code></li>`)
-          .join('')}</ul>`;
-    }
-  }
-
-  // Everything not claimed above (action, verify, read_first, dependsOn, and any
+  // Secondary bookkeeping only (verify, read_first, dependsOn, and any
   // session-specific key) falls through here - shown, never dropped, tucked
-  // behind <details> so the body + outcome + checklist read first.
+  // behind <details> so the title + files + body + Done-when read first. The
+  // body and files are no longer in here; they are first-class above.
   const rest = omitConsumed(task, consumed);
   const restHtml = Object.keys(rest).length ? kvCard(rest) : '';
-  const detailInner = [filesHtml, restHtml].filter(Boolean).join('');
-  const detailsHtml = detailInner
-    ? `<details class="task-details"><summary>Details</summary>${detailInner}</details>`
+  const detailsHtml = restHtml
+    ? `<details class="task-details"><summary>Details</summary>${restHtml}</details>`
     : '';
 
-  return `<div class="kit-card">${[chipsHtml, titleHtml, bodyHtml, outcomeHtml, acHtml, detailsHtml]
+  return `<div class="kit-card">${[chipsHtml, titleHtml, filesHtml, bodyHtml, outcomeHtml, acHtml, detailsHtml]
     .filter(Boolean)
     .join('')}</div>`;
 };
@@ -542,6 +565,39 @@ const renderWiring = (loaded, sections) => {
   if (Object.keys(rest).length) sections.add('Other wiring fields', smartValue(rest));
 };
 
+// ── "what changes" file table ────────────────────────────────────────────────
+// A per-file overview derived from the normalized waves' task objects: every
+// file a task touches, mapped to the task title(s) (or id) that touch it. This
+// answers "what changes?" at a glance, above the detailed task cards. Derivable
+// only from tasks[].files; a plan whose substance lives in wave-level keys (no
+// per-task files) yields no rows and the section is skipped - tolerant, never a
+// misleading empty table. File order is first-seen, so the table is
+// deterministic. Returns [[file, label], ...] with the file and label as raw
+// (unescaped) strings; the caller escapes on the way into the table.
+const collectTaskFiles = (waves) => {
+  const order = [];
+  const labelsByFile = new Map();
+  for (const wave of waves) {
+    for (const task of wave.tasks) {
+      if (!isPlainObject(task) || !Array.isArray(task.files)) continue;
+      const label = isNonEmptyScalar(task.title)
+        ? String(task.title)
+        : isNonEmptyScalar(task.id)
+          ? String(task.id)
+          : '';
+      for (const f of task.files) {
+        const file = String(f);
+        if (!labelsByFile.has(file)) {
+          labelsByFile.set(file, []);
+          order.push(file);
+        }
+        if (label) labelsByFile.get(file).push(label);
+      }
+    }
+  }
+  return order.map((file) => [file, labelsByFile.get(file).join('; ')]);
+};
+
 // ── page assembly ────────────────────────────────────────────────────────────
 const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null, wiring = null } = {}) => {
   // Tolerate a non-object top-level: preserve the value under Other fields
@@ -554,19 +610,28 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
   // is never added, so it falls through to Other fields instead of vanishing.
   const consumed = new Set();
 
-  // A header field only counts as consumed - and only prints - when it is
-  // scalar-shaped. An object/array ticket|goal|route|title would otherwise
-  // coerce to "[object Object]"; better to surface the raw value below.
+  // A header field only counts as consumed - and only prints - when the
+  // top-level value is scalar-shaped (an object/array ticket|goal|route|title
+  // would coerce to "[object Object]"; better to surface the raw value below).
+  // When a top-level field is absent, fall back to the same key inside `_meta`
+  // (the version-2 planner carries ticket/title/route/parent there). `_meta` is
+  // NOT consumed by this read, so it still surfaces fully under Other fields -
+  // show-don't-hide keeps the full provenance visible at the bottom.
+  const meta = isPlainObject(p._meta) ? p._meta : {};
   const readHeader = (key) => {
     const v = p[key];
-    if (!isScalar(v)) return '';
-    consumed.add(key);
-    return v != null ? String(v) : '';
+    if (isScalar(v)) {
+      consumed.add(key);
+      if (v != null && String(v) !== '') return String(v);
+    }
+    const mv = meta[key];
+    return isNonEmptyScalar(mv) ? String(mv) : '';
   };
   const ticket = readHeader('ticket');
   const route = readHeader('route');
   const titleVal = readHeader('title');
   const goalVal = readHeader('goal');
+  const parent = readHeader('parent');
   // Headline preference: title > goal > ticket. When both title and goal are
   // present the goal becomes the sub-line so its content is shown, not dropped.
   const heading = titleVal || goalVal || ticket || 'Plan';
@@ -575,6 +640,7 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
 
   const metaBits = [];
   if (ticket) metaBits.push(chip(ticket, 'kit-chip-strong'));
+  if (parent) metaBits.push(badge(parent, 'Parent:'));
   if (route) metaBits.push(badge(route));
   const pcVerdict = planCheckVerdict(planCheck);
   if (pcVerdict) metaBits.push(verdictBadge(pcVerdict, 'Plan check:'));
@@ -589,39 +655,53 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
 
   const sections = createSections();
 
-  // Narrative lead (goal/why/tradeoffs) from a sibling intent.json - why the
-  // plan exists at all, ahead of the plan-checker's verdict about it.
+  // ── narrative lead: what are we planning, and why ──────────────────────────
+  // The plan itself comes first. A sibling intent.json (goal/why/tradeoffs) is
+  // the highest-level framing; top-level problem/solution_shape/summary are the
+  // prose narrative. All of this used to be either absent or dumped into "Other
+  // fields" at the very bottom - the "i don't see what we're planning" bug.
+
+  // Goal/Why/Tradeoffs from a sibling intent.json.
   renderIntent(intent, sections);
 
+  // The problem this plan solves - a prominent lead callout, not a trailing dump.
+  if (isNonEmptyScalar(p.problem)) {
+    consumed.add('problem');
+    sections.add('Problem', callout(prose(p.problem)));
+  }
+  // The shape of the solution - readable prose, ahead of the task breakdown.
+  if (isNonEmptyScalar(p.solution_shape)) {
+    consumed.add('solution_shape');
+    sections.add('Solution', prose(p.solution_shape));
+  }
   if (isNonEmptyScalar(p.summary)) {
     consumed.add('summary');
     sections.add('Summary', prose(p.summary));
   }
-
   if (Array.isArray(p.verified_facts)) {
     consumed.add('verified_facts');
     if (p.verified_facts.length) sections.add('Verified facts', checklist(p.verified_facts));
   }
 
-  if (Array.isArray(p.decisions_for_approval)) {
-    consumed.add('decisions_for_approval');
-    if (p.decisions_for_approval.length) {
-      const body = p.decisions_for_approval
-        .map((d) => (isPlainObject(d) ? kvCard(d) : callout(`<p class="kit-p">${escapeHtml(d)}</p>`)))
-        .join('');
-      sections.add('Decisions for approval', body);
-    }
-  }
-
-  // Plan-checker verdict, when a sibling plan-check.json was loaded.
-  sections.add('Plan check', renderPlanCheckBody(planCheck));
-
+  // ── what changes + the task breakdown ──────────────────────────────────────
   // collectWaves reads both waves and tasks; each is consumed only when it's the
   // array shape the renderer understands, independent of whether the resulting
   // wave list ends up empty.
   if (Array.isArray(p.waves)) consumed.add('waves');
   if (Array.isArray(p.tasks)) consumed.add('tasks');
   const waves = collectWaves(p);
+
+  // A per-file "what changes" overview, when tasks declare files. Sits above the
+  // detailed cards so the reader sees the surface area before the steps.
+  const fileRows = collectTaskFiles(waves);
+  if (fileRows.length) {
+    const rows = fileRows.map(([file, label]) => [
+      `<code class="kit-code">${escapeHtml(file)}</code>`,
+      escapeHtml(label),
+    ]);
+    sections.add('What changes', table(['File', 'Change'], rows));
+  }
+
   if (waves.length) sections.add('Waves', waves.map(renderWave).join('\n'));
 
   // Dependency topology from a sibling wiring.json - reads best once the task
@@ -636,6 +716,47 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
     consumed.add('conventions_contract');
     sections.add('Conventions', smartValue(p.conventions_contract));
   }
+
+  // ── needs your call: human decisions, gathered and prominent ───────────────
+  // decisions_for_approval, review_notes.open_for_human, and open_questions are
+  // the points that need a human before the plan can proceed. They belong
+  // together in one visually distinct callout section, addressed to the reader -
+  // not scattered or buried. review_notes is read once here (consumed) and split:
+  // open_for_human rises to this section; the reviewer's own notes are demoted
+  // below.
+  const reviewNotes = isPlainObject(p.review_notes) ? p.review_notes : null;
+  if (reviewNotes) consumed.add('review_notes');
+  const openForHuman =
+    reviewNotes && Array.isArray(reviewNotes.open_for_human) ? reviewNotes.open_for_human : [];
+
+  const humanCallouts = [];
+  if (Array.isArray(p.decisions_for_approval)) {
+    consumed.add('decisions_for_approval');
+    for (const d of p.decisions_for_approval) {
+      humanCallouts.push(callout(isPlainObject(d) ? smartValue(d) : prose(d), 'info'));
+    }
+  }
+  for (const item of openForHuman) {
+    humanCallouts.push(callout(isScalar(item) ? prose(item) : smartValue(item), 'info'));
+  }
+  if (Array.isArray(p.open_questions)) {
+    consumed.add('open_questions');
+    for (const q of p.open_questions) {
+      humanCallouts.push(callout(isScalar(q) ? prose(q) : smartValue(q), 'info'));
+    }
+  }
+  if (humanCallouts.length) sections.add('Needs your call', humanCallouts.join(''));
+
+  // ── reviewer bookkeeping (demoted) ─────────────────────────────────────────
+  // The plan-checker's verdict/findings (sibling plan-check.json) and the inline
+  // review_notes are meta about the plan, not the plan - they read after it.
+  sections.add('Plan check', renderPlanCheckBody(planCheck));
+  if (reviewNotes) {
+    const notes = omitConsumed(reviewNotes, new Set(['open_for_human']));
+    if (Object.keys(notes).length) sections.add('Review notes', smartValue(notes));
+  }
+
+  // ── risks, caveats, and scope ──────────────────────────────────────────────
   if (Array.isArray(p.risks)) {
     consumed.add('risks');
     if (p.risks.length) sections.add('Risks', p.risks.map(renderRisk).join(''));
@@ -652,6 +773,16 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
   if (Array.isArray(p.constraints)) {
     consumed.add('constraints');
     if (p.constraints.length) sections.add('Constraints', smartValue(p.constraints));
+  }
+  if (Array.isArray(p.out_of_scope)) {
+    consumed.add('out_of_scope');
+    if (p.out_of_scope.length) sections.add('Out of scope', smartValue(p.out_of_scope));
+  }
+  // Execution strategy (strategy + out_of_scope + any run detail) as a readable
+  // object; a non-object execution value falls through to Other fields.
+  if (isPlainObject(p.execution) && Object.keys(p.execution).length) {
+    consumed.add('execution');
+    sections.add('Execution', smartValue(p.execution));
   }
 
   // Every remaining top-level key falls through readably - a humanized
@@ -673,6 +804,9 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
     tocChips: sections.tocChips(),
     sectionsHtml: sections.sectionsHtml(),
     footerHtml,
+    // A plan carries file tables and task cards - the broader column fits more
+    // context per screen. Brainstorm keeps the narrow prose default.
+    wide: true,
   });
 };
 

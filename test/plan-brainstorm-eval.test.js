@@ -67,20 +67,22 @@ test('plan: goal + Why/Pain render ABOVE the first task', () => {
   assert.ok(whyIdx < firstTaskIdx, 'plan.html regressed: Why no longer leads the first task');
 });
 
-test('plan: task body renders ahead of the collapsible detail block', () => {
-  // The old markup put the task headline in <p class="task-outcome">; the kit
-  // markup renders the task's prose body in <div class="task-body">. Either way
-  // the invariant is the same: the task's lead content precedes <details>.
+test('plan: task body renders as visible content, ahead of any collapsible detail block', () => {
+  // The task's prose body renders in <div class="task-body"> as first-class,
+  // always-visible content. Files, body, and the Done-when checklist are no
+  // longer collapsed - only secondary bookkeeping (verify/read_first/dependsOn)
+  // falls into <details>, which may be absent entirely when a task carries none.
   const bodyIdx = planHtml.indexOf('<div class="task-body">');
-  const detailsIdx = planHtml.indexOf('<details class="task-details">');
-
   assert.ok(bodyIdx > -1, 'plan.html regressed: task body block missing');
-  assert.ok(detailsIdx > -1, 'plan.html regressed: task details block missing');
-  assert.ok(bodyIdx < detailsIdx, 'plan.html regressed: task body no longer precedes the detail block');
   assert.ok(
     planHtml.includes('OUTCOME: golden-file eval proves renderer output quality.'),
     'plan.html regressed: task body text missing',
   );
+  // When a details block exists it follows the visible body, never precedes it.
+  const detailsIdx = planHtml.indexOf('<details class="task-details">');
+  if (detailsIdx > -1) {
+    assert.ok(bodyIdx < detailsIdx, 'plan.html regressed: task body no longer precedes the detail block');
+  }
 });
 
 test('plan: Tradeoffs section renders from intent.json', () => {
@@ -159,7 +161,7 @@ test('realworld: the known plan vocabulary renders as first-class sections', () 
   const missing = missingElements(realworldHtml, [
     '<h2 class="kit-h2">Summary</h2>',
     '<h2 class="kit-h2">Verified facts</h2>',
-    '<h2 class="kit-h2">Decisions for approval</h2>',
+    '<h2 class="kit-h2">Needs your call</h2>',
     '<h2 class="kit-h2">Test plan</h2>',
     '<h2 class="kit-h2">Conventions</h2>',
     '<h2 class="kit-h2">Risks</h2>',

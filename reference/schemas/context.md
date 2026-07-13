@@ -22,7 +22,7 @@ Written by Phase A (`phantom:start`). Provides ticket context for all downstream
   "ticket": "PROJ-123",
   "summary": "Add cost-per-tag breakdown to the dashboard",
   "source": "jira",
-  "jira": { "status": "In Progress", "priority": "High" },
+  "jira": { "status": "In Progress", "priority": "High", "assigned": "assigned | already-mine | reassigned | skipped | unavailable", "transition": "in-progress | already | skipped | no-match | terminal | unavailable" },
   "learningsRefs": ["~/.claude/phantom-data/repos/{REPO_NAME}/learnings/frontend.md"],
   "phantomStrategy": "decompose",
   "blastRadius": ["src/example.ts", "src/hooks/useExample.ts"],

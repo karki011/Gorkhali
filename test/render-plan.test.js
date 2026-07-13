@@ -206,7 +206,7 @@ test('real-world fields: title/summary/verified_facts/decisions/test_plan/conven
   assert.ok(html.includes('<h1>Big headline</h1>'), 'title is the headline');
   assert.ok(html.includes('<h2 class="kit-h2">Summary</h2>') && html.includes('A one-paragraph lead.'), 'summary section');
   assert.ok(html.includes('<h2 class="kit-h2">Verified facts</h2>') && html.includes('fact one'), 'verified facts checklist');
-  assert.ok(html.includes('<h2 class="kit-h2">Decisions for approval</h2>') && html.includes('use the kit'), 'decisions section');
+  assert.ok(html.includes('<h2 class="kit-h2">Needs your call</h2>') && html.includes('use the kit'), 'decisions surface under the human-decision section');
   assert.ok(html.includes('<h2 class="kit-h2">Test plan</h2>') && html.includes('run node --test'), 'test plan section');
   assert.ok(html.includes('<h2 class="kit-h2">Conventions</h2>') && html.includes('sentence case headings'), 'conventions section');
   assert.ok(html.includes('<h2 class="kit-h2">Risks</h2>') && html.includes('markup drift'), 'risks section');
@@ -858,27 +858,33 @@ test('outcome-first: body prose is the headline; acceptance_criteria renders as 
 
   assert.ok(html.includes('<div class="task-body">'), 'task body rendered as prose block');
   assert.ok(html.includes('Add useCostByTag hook that memoizes result'), 'description is the body headline');
-  assert.ok(html.includes('<div class="kit-kv-key">Acceptance criteria</div>'), 'acceptance criteria label rendered');
+  assert.ok(html.includes('<div class="kit-kv-key">Done when</div>'), 'acceptance criteria rendered under a visible "Done when" label');
   assert.ok(html.includes('<ul class="kit-checklist">'), 'acceptance criteria renders as a kit checklist');
   assert.ok(html.includes('Hook returns'), 'acceptance criteria item 1 shown');
   assert.ok(html.includes('Existing tests still pass'), 'acceptance criteria item 2 shown');
   assert.ok(!/"acceptance_criteria"/.test(html), 'acceptance_criteria never appears as a raw JSON key');
 });
 
-test('outcome-first: files/action/verify/read_first/dependsOn are tucked into a collapsible <details> block', () => {
+test('outcome-first: files are a visible meta line; action/verify/read_first/dependsOn stay tucked in <details>', () => {
   const html = renderPlanHtml(TASK_TEMPLATE_PLAN, { sourcePath: 'p.json' });
+
+  // Files are first-class meta directly under the title, NOT buried in details.
+  const filesStart = html.indexOf('<p class="kit-p task-files">');
+  assert.ok(filesStart > -1, 'task-files meta line rendered');
+  const filesSlice = html.slice(filesStart, html.indexOf('</p>', filesStart));
+  assert.ok(filesSlice.includes('<code class="kit-code">src/hooks/useCostByTag.ts</code>'), 'file shown as a code token in the meta line');
 
   assert.ok(html.includes('<details class="task-details"><summary>Details</summary>'), 'details block present');
   const detailsStart = html.indexOf('<details class="task-details">');
-  const detailsEnd = html.indexOf('</details>', detailsStart);
-  const detailSlice = html.slice(detailsStart, detailsEnd);
-  assert.ok(detailSlice.includes('src/hooks/useCostByTag.ts'), 'files inside details');
+  const detailSlice = html.slice(detailsStart, html.indexOf('</details>', detailsStart));
   assert.ok(detailSlice.includes('npm test'), 'verify inside details');
   assert.ok(detailSlice.includes('src/hooks/useCostData.ts'), 'read_first inside details');
   assert.ok(detailSlice.includes('T0'), 'dependsOn inside details');
+  assert.ok(detailSlice.includes('Create src/hooks/useCostByTag.ts'), 'action inside details');
 
   const bodyIdx = html.indexOf('<div class="task-body">');
   const acIdx = html.indexOf('kit-checklist');
+  assert.ok(filesStart < detailsStart, 'files meta line comes before the collapsible detail');
   assert.ok(bodyIdx > -1 && bodyIdx < detailsStart, 'body prose comes before the collapsible detail');
   assert.ok(acIdx > -1 && acIdx < detailsStart, 'checklist comes before the collapsible detail');
 });
@@ -934,6 +940,123 @@ test('CLI: no sibling intent.json/wiring.json -> no sections, exit 0', () => {
   assert.equal(res.status, 0, res.stderr);
   const html = fs.readFileSync(path.join(dir, 'plan.html'), 'utf8');
   assert.ok(!html.includes('<h2 class="kit-h2">Goal</h2>') && !html.includes('<h2 class="kit-h2">Dependencies</h2>'));
+});
+
+// ── narrative-first real-world (v2) plan shape ──────────────────────────────
+// Modeled on the real CP-44418 plan.json: ticket/title/route live in _meta, the
+// narrative in top-level problem/solution_shape, each task's substance in a
+// `details` STRING ARRAY, reviewer notes inline in review_notes. This shape used
+// to render as "Plan" -> Waves -> Risks -> Other fields with the entire plan
+// (title, problem, solution, steps) buried - the "i don't see what we're
+// planning at all" bug. These lock the narrative-first fix.
+const V2_PLAN = {
+  _meta: { version: 2, ticket: 'CP-9', parent: 'CP-1', title: 'Make the picker tz-aware', route: 'PLAN' },
+  problem: 'PROBLEM the picker anchors days to UTC.',
+  solution_shape: 'SOLUTION anchor days in the user timezone.',
+  tasks: [
+    {
+      id: 'T1', title: 'Helpers tz-aware', files: ['a/picker.tsx'], agent: 'blade', model: 'opus',
+      details: ['STEP-1 add timezone prop', 'STEP-2 anchor day in zone'],
+      acceptance_criteria: ['AC-1 NY serializes 04:00Z'], verify: 'vitest',
+    },
+    {
+      id: 'T2', title: 'Thread the prop', files: ['a/toolbar.tsx', 'a/page.tsx'], depends_on: ['T1'],
+      details: ['STEP-3 pass timezone through'], acceptance_criteria: ['AC-2 one source'], verify: 'build',
+    },
+  ],
+  execution: { strategy: 'SOLO one blade', out_of_scope: ['OOS livestream surface'] },
+  risks: ['RISK off-by-one at negative offsets'],
+  review_notes: {
+    plan_check: 'CHECK revise applied',
+    rival: 'RIVAL no blockers',
+    open_for_human: ['HUMAN confirm the tz decision is locked'],
+  },
+};
+
+test('v2 shape: headline + ticket/parent/route come from _meta when absent at top level', () => {
+  const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
+  assert.ok(html.includes('<h1>Make the picker tz-aware</h1>'), 'title from _meta is the headline, not generic "Plan"');
+  assert.ok(html.includes('<title>Plan: CP-9</title>'), 'ticket from _meta names the page');
+  const topbar = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+  assert.ok(topbar.includes('CP-9'), 'ticket chip in the top bar');
+  assert.ok(topbar.includes('Parent: CP-1'), 'parent badge in the top bar');
+  assert.ok(topbar.includes('PLAN'), 'route badge in the top bar');
+  // _meta still surfaces fully at the bottom (show-don't-hide provenance).
+  assert.ok(html.includes('<h2 class="kit-h2">Other fields</h2>'), '_meta falls through to Other fields');
+});
+
+test('v2 shape: array-valued task `details` is a VISIBLE step list, not a collapsed stub (root-cause guard)', () => {
+  const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
+  assert.ok(html.includes('STEP-1 add timezone prop') && html.includes('STEP-2 anchor day in zone'), 'steps rendered');
+  // The exact structure: the details array is the task body bullet list. Reverting
+  // readTaskBody to scalars-only pushes these into a collapsed <details> "Details"
+  // kv-row instead, and this assertion fails.
+  assert.ok(
+    html.includes('<div class="task-body"><ul class="kit-list"><li>STEP-1 add timezone prop</li>'),
+    'details array renders as the visible task body list',
+  );
+  const step = html.indexOf('STEP-1 add timezone prop');
+  const firstDetails = html.indexOf('<details');
+  assert.ok(firstDetails === -1 || step < firstDetails, 'the step is not buried inside a <details> block');
+});
+
+test('v2 shape: problem/solution lead ABOVE tasks; plan-check demoted BELOW them', () => {
+  const html = renderPlanHtml(V2_PLAN, {
+    sourcePath: 'p.json',
+    planCheck: { data: { verdict: 'PROCEED', summary: 'looks good' } },
+  });
+  const problem = html.indexOf('<h2 class="kit-h2">Problem</h2>');
+  const solution = html.indexOf('<h2 class="kit-h2">Solution</h2>');
+  const firstStep = html.indexOf('STEP-1');
+  const planCheck = html.indexOf('<h2 class="kit-h2">Plan check</h2>');
+  assert.ok(problem > -1 && problem < firstStep, 'problem leads, above the tasks');
+  assert.ok(solution > -1 && solution < firstStep, 'solution leads, above the tasks');
+  assert.ok(planCheck > -1 && planCheck > firstStep, 'plan-check verdict demoted below the tasks');
+  assert.ok(html.includes('PROBLEM the picker anchors days to UTC.'), 'problem prose shown');
+  assert.ok(html.includes('SOLUTION anchor days in the user timezone.'), 'solution prose shown');
+});
+
+test('v2 shape: "What changes" file table maps each task file to its task, above the cards', () => {
+  const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
+  const wc = html.indexOf('<h2 class="kit-h2">What changes</h2>');
+  assert.ok(wc > -1, 'What changes section present');
+  assert.ok(html.includes('<div class="kit-table-wrap">'), 'rendered as a table');
+  assert.ok(html.includes('<code class="kit-code">a/picker.tsx</code>'), 'file cell rendered as a code token');
+  assert.ok(html.includes('<td>Helpers tz-aware</td>'), 'change cell = the touching task title');
+  assert.ok(wc < html.indexOf('STEP-1'), 'the file overview precedes the detailed task steps');
+});
+
+test('v2 shape: human decisions consolidate under "Needs your call"; reviewer notes demoted to "Review notes"', () => {
+  const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
+  const needs = html.indexOf('<h2 class="kit-h2">Needs your call</h2>');
+  const review = html.indexOf('<h2 class="kit-h2">Review notes</h2>');
+  assert.ok(needs > -1, 'Needs your call section present');
+  assert.ok(html.includes('HUMAN confirm the tz decision is locked'), 'open_for_human item shown to the human');
+  assert.ok(review > -1, 'Review notes section present');
+  assert.ok(html.includes('CHECK revise applied') && html.includes('RIVAL no blockers'), 'reviewer notes shown');
+  assert.ok(needs < review, 'human decisions come before reviewer bookkeeping');
+  assert.ok(!/Open for human/.test(html), 'open_for_human is promoted, not left as a humanized review_notes key');
+});
+
+test('v2 shape: execution renders readably with its nested out_of_scope; plan opts into the wide column', () => {
+  const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
+  assert.ok(html.includes('<h2 class="kit-h2">Execution</h2>'), 'Execution section present');
+  assert.ok(html.includes('SOLO one blade'), 'strategy shown');
+  assert.ok(html.includes('Out of scope') && html.includes('OOS livestream surface'), 'nested out_of_scope shown readably');
+  assert.ok(html.includes('<body class="kit-wide">'), 'plan renders in the wide column');
+});
+
+test('v2 shape: deterministic - two renders byte-identical', () => {
+  assert.equal(renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' }), renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' }));
+});
+
+test('open_questions feed "Needs your call" alongside decisions', () => {
+  const html = renderPlanHtml(
+    { tasks: [{ id: 'T1', title: 'x' }], open_questions: ['Q ship on Friday?'] },
+    { sourcePath: 'p.json' },
+  );
+  assert.ok(html.includes('<h2 class="kit-h2">Needs your call</h2>'));
+  assert.ok(html.includes('Q ship on Friday?'), 'open question surfaced for the human');
 });
 
 // ── CLI contract ─────────────────────────────────────────────────────────────
