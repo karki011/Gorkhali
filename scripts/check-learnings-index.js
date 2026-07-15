@@ -37,9 +37,11 @@ function main(argv) {
   // Parse INDEX.md: look for lines that reference domain files
   // Format: `{one-liner} [{lifecycle-tag}] v:{validations} q:{quality} u:{date}`
   // Domain references appear as markdown links or inline mentions like `→ ui.md`
-  // We look for any word ending in .md that matches a known domain
+  // We look for any word ending in .md that matches a known domain.
+  // Include '-' so hyphenated domain files (e.g. managed-organization.md,
+  // dimension-studio.md) aren't truncated and then mis-flagged as broken refs.
   const referencedDomains = new Set();
-  const domainMentionRe = /\b(\w+\.md)\b/g;
+  const domainMentionRe = /\b([\w-]+\.md)\b/g;
   let m;
   while ((m = domainMentionRe.exec(indexContent)) !== null) {
     if (m[1] !== 'INDEX.md' && m[1] !== 'EDGES.md') {
