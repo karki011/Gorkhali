@@ -1,0 +1,297 @@
+{
+  "_meta": {
+    "writtenAt": "2026-07-19T12:00:00Z",
+    "gitHead": "50ca22f",
+    "gitBranch": "feat/ai-agnostic-phantom-skill",
+    "phase": "A",
+    "skill": "phantom:brainstorm",
+    "version": 3
+  },
+  "contract_version": 3,
+  "depth": "deep",
+  "title": "How should planning results become a reviewable decision?",
+  "problem": "Current output exposes tasks and waves but does not give the reviewer enough context to compare directions or understand why one should be approved.",
+  "stance": {
+    "mode": "creative-partner",
+    "reason": "The user supplied the desired outcome while the implementation space benefits from independent alternatives and evidence-led synthesis."
+  },
+  "phase": "decision",
+  "decision": {
+    "question": "Which review format should become the portable default?",
+    "outcome": "A reviewer can choose a direction quickly without losing evidence, nuance, or implementation consequences.",
+    "audience": [
+      "Maintainers approving the direction",
+      "Implementers consuming the eventual plan"
+    ],
+    "nonGoals": [
+      "Implement the selected direction during brainstorming",
+      "Preserve every conversational turn in the final artifact"
+    ],
+    "constraints": [
+      "Works offline as a local file",
+      "Uses the same artifact across AI hosts",
+      "Adds no client runtime dependency",
+      "Remains readable on mobile and desktop"
+    ],
+    "evaluationCriteria": [
+      "Decision clarity",
+      "Evidence traceability",
+      "Portability",
+      "Implementation cost",
+      "Long-term extensibility"
+    ]
+  },
+  "evidence": [
+    {
+      "claim": "Generic key/value cards make recommendations, evidence, and metadata look equally important.",
+      "source": "skills/phantom/scripts/render-review.mjs",
+      "status": "verified",
+      "implication": "The review needs an explicit visual hierarchy tied to decision semantics."
+    },
+    {
+      "claim": "The minimal quick fixture contains no alternatives or risks, so its HTML cannot demonstrate a deep planning experience.",
+      "source": "test/portable-lifecycle.test.js",
+      "status": "verified",
+      "implication": "Use a separate representative artifact for human-facing examples."
+    },
+    {
+      "claim": "A comparison table is effective for repeated attributes, but not for explaining complete option narratives.",
+      "source": "skills/phantom/references/brainstorming.md",
+      "status": "supported",
+      "implication": "Pair a scan-friendly matrix with detailed approach dossiers."
+    },
+    {
+      "claim": "A deterministic static document will be sufficient for the first review workflow.",
+      "source": "skills/phantom/references/capabilities.md",
+      "status": "inferred",
+      "implication": "Defer annotation and editing controls."
+    },
+    {
+      "claim": "Reviewers will prefer every execution task expanded by default.",
+      "source": "skills/phantom/references/planning.md (no default specified)",
+      "status": "unknown",
+      "implication": "Keep task disclosure reversible and validate the default with real usage."
+    }
+  ],
+  "openQuestions": [
+    {
+      "question": "Should deep-plan execution details open by default?",
+      "blocking": false,
+      "owner": "Reviewer research"
+    },
+    {
+      "question": "When should annotations justify an interactive runtime?",
+      "blocking": false,
+      "owner": "Product"
+    }
+  ],
+  "ideas": [
+    {
+      "id": "I1",
+      "title": "Executive decision dossier",
+      "summary": "Lead with recommendation, evidence, tradeoffs, and the approval question.",
+      "lens": "reviewer",
+      "technique": "outcome-backward",
+      "evidence": ["Generic cards flatten decision importance."],
+      "assumptions": ["Reviewers need a fast decision spine before implementation details."]
+    },
+    {
+      "id": "I2",
+      "title": "Exploration workbench",
+      "summary": "Expose how raw ideas became clusters, candidates, and a recommendation.",
+      "lens": "facilitation",
+      "technique": "diverge-connect-converge",
+      "evidence": ["A final option list hides idea provenance and discarded connections."],
+      "assumptions": ["Visible convergence increases trust without requiring the full chat transcript."]
+    },
+    {
+      "id": "I3",
+      "title": "Interactive review application",
+      "summary": "Add annotations, filters, and persisted reviewer state.",
+      "lens": "collaboration",
+      "technique": "future-backward",
+      "evidence": ["Large plans can benefit from navigation and collaboration."],
+      "assumptions": ["The value of interaction would outweigh portability costs."]
+    },
+    {
+      "id": "I4",
+      "title": "Structured Markdown record",
+      "summary": "Prioritize diffability and host-native preview over controlled presentation.",
+      "lens": "portability",
+      "technique": "constraint-first",
+      "evidence": ["Markdown is broadly readable across AI hosts."],
+      "assumptions": ["Host rendering differences are acceptable."]
+    },
+    {
+      "id": "I5",
+      "title": "Decision JSON with specialized projections",
+      "summary": "Keep one canonical artifact and render different human views without duplicating truth.",
+      "lens": "architecture",
+      "technique": "separate-model-from-view",
+      "evidence": ["The portable state layer already persists arbitrary JSON evidence."],
+      "assumptions": ["A deterministic renderer can preserve semantic fidelity."]
+    },
+    {
+      "id": "I6",
+      "title": "No generated HTML",
+      "summary": "Return the decision only in conversation and avoid renderer maintenance.",
+      "lens": "minimalism",
+      "technique": "eliminate-the-component",
+      "evidence": ["Chat is universally available."],
+      "assumptions": ["Conversation history remains durable and reviewable."]
+    }
+  ],
+  "clusters": [
+    {
+      "id": "C1",
+      "name": "Durable decision truth",
+      "ideaIds": ["I1", "I4", "I5"],
+      "insight": "The durable artifact should be machine-readable while its review projection is optimized for the human decision."
+    },
+    {
+      "id": "C2",
+      "name": "Visible reasoning",
+      "ideaIds": ["I1", "I2"],
+      "insight": "Planning needs traceability while brainstorming needs provenance and an explicit convergence path."
+    },
+    {
+      "id": "C3",
+      "name": "Capability boundary",
+      "ideaIds": ["I3", "I6"],
+      "insight": "Interactive review is valuable only after static review proves insufficient; chat alone is not a durable review surface."
+    }
+  ],
+  "approaches": [
+    {
+      "id": "semantic-dossier",
+      "name": "Semantic decision dossier",
+      "thesis": "Give each decision concept a purposeful visual treatment while keeping the artifact deterministic and static.",
+      "description": "Lead with the recommendation and approval gate, then compose evidence, architecture, options, risks, validation, and execution from specialized server-side rendering functions.",
+      "whyLens": "Optimize for informed human approval without sacrificing portability.",
+      "effort": "medium",
+      "risk": "low",
+      "reversibility": "high",
+      "benefits": [
+        "Strong hierarchy and fast scanning",
+        "No external runtime or asset dependency",
+        "Semantic markup can be tested directly"
+      ],
+      "tradeoffs": [
+        "More renderer code to maintain",
+        "New fields need an intentional presentation"
+      ],
+      "whatBreaks": [
+        "Unknown fields fall back to a less polished generic appendix",
+        "Large artifacts still require editorial discipline"
+      ],
+      "whenToPick": "Pick when the primary job is reviewing and approving a generated engineering decision.",
+      "failureMode": "The renderer grows into a collection of ornamental cards without preserving a clear decision narrative.",
+      "mutualExclusivity": [
+        "interactive-review-app",
+        "markdown-record"
+      ]
+    },
+    {
+      "id": "interactive-review-app",
+      "name": "Interactive review application",
+      "thesis": "Turn every plan into a filterable, annotatable client-side application.",
+      "description": "Bundle a component runtime that supports collapsed sections, reviewer annotations, filtering, and persisted decisions.",
+      "whyLens": "Optimize for collaborative review and future workflow automation.",
+      "effort": "high",
+      "risk": "high",
+      "reversibility": "medium",
+      "benefits": [
+        "Powerful navigation for very large artifacts",
+        "Natural path to annotations and approval state"
+      ],
+      "tradeoffs": [
+        "Larger distribution and supply-chain surface",
+        "Host security policies may differ",
+        "More accessibility and state-management complexity"
+      ],
+      "whatBreaks": [
+        "Strict no-script environments",
+        "Simple inspectable single-file output"
+      ],
+      "whenToPick": "Pick when annotation, collaboration, and persisted interaction are validated requirements.",
+      "failureMode": "The review tool becomes a product of its own before the underlying decision contract is mature.",
+      "mutualExclusivity": [
+        "semantic-dossier",
+        "markdown-record"
+      ]
+    },
+    {
+      "id": "markdown-record",
+      "name": "Structured Markdown record",
+      "thesis": "Prioritize diffability and host-native rendering over a controlled visual review experience.",
+      "description": "Generate a rigorous Markdown decision record with tables and headings, then delegate presentation to the active AI host or repository viewer.",
+      "whyLens": "Optimize for the smallest durable artifact and easiest source review.",
+      "effort": "low",
+      "risk": "medium",
+      "reversibility": "high",
+      "benefits": [
+        "Excellent version-control diffs",
+        "Very low renderer complexity",
+        "Broad fallback compatibility"
+      ],
+      "tradeoffs": [
+        "Presentation varies by host",
+        "Complex comparisons become harder to scan",
+        "Limited control over information density"
+      ],
+      "whatBreaks": [
+        "Consistent full-width visual hierarchy",
+        "Predictable mobile comparison behavior"
+      ],
+      "whenToPick": "Pick as the universal fallback when a host cannot open local HTML.",
+      "failureMode": "The output regresses into a long wall of prose that hides the decision spine.",
+      "mutualExclusivity": [
+        "semantic-dossier",
+        "interactive-review-app"
+      ]
+    }
+  ],
+  "recommendedDefault": {
+    "id": "semantic-dossier",
+    "reason": "It delivers the requested richer review experience while preserving the portable, zero-dependency contract.",
+    "acceptedTradeoff": "We accept more presentation code now and defer interactive annotations until they are proven necessary.",
+    "confidence": "high",
+    "nextAction": "Validate the dossier with rich fixtures at mobile and desktop widths."
+  },
+  "shortlist": [
+    {
+      "approachId": "semantic-dossier",
+      "drivers": ["Decision clarity", "Portability", "Evidence traceability"],
+      "reservation": "Requires more intentional renderer code and schema discipline."
+    },
+    {
+      "approachId": "interactive-review-app",
+      "drivers": ["Collaboration", "Long-term extensibility"],
+      "reservation": "Adds a runtime and product surface before interaction is validated."
+    },
+    {
+      "approachId": "markdown-record",
+      "drivers": ["Portability", "Implementation cost"],
+      "reservation": "Cannot guarantee a consistent, enriched review hierarchy."
+    }
+  ],
+  "dissent": {
+    "approachId": "markdown-record",
+    "case": "Markdown is simpler to diff, audit, and open in every host, and it avoids maintaining presentation code.",
+    "trigger": "Choose it as the primary path if local HTML opening proves unreliable across supported hosts."
+  },
+  "cheapestExperiment": {
+    "question": "Can a reviewer identify the recommendation, its strongest evidence, and the rejected alternatives within two minutes?",
+    "method": "Render one representative deep plan and brainstorm, then inspect them at 320, 768, 1440, and 1920 pixels.",
+    "successSignal": "The reviewer can answer the decision question without opening the execution appendix and no viewport has body overflow.",
+    "cost": "Two deterministic fixtures, semantic assertions, and one browser inspection pass."
+  },
+  "directionGate": {
+    "question": "Approve the semantic decision dossier as the default and keep Markdown as fallback?",
+    "options": [
+      "semantic-dossier",
+      "interactive-review-app",
+      "markdown-record"
+    ]
+  }
+}

@@ -94,6 +94,16 @@ free-text status-verb matching to the typed execution record
 - Adaptation: prose / discipline adaptation of the visual-verification protocol
   (`agents/lens.md`). Prose only — no code vendored.
 
+## Ponytail
+
+- Source: https://github.com/dietrichgebert/ponytail
+- License: MIT
+- Copyright: © 2026 DietrichGebert
+- Adaptation: prose adaptation of the ordered minimum-sufficient-solution
+  discipline in `commands/_shared-discipline.md`, its legacy agent contracts,
+  and the independently worded provider-neutral `skills/phantom/` workflow. No
+  Ponytail code, hooks, modes, adapters, or runtime dependency are bundled.
+
 ---
 
 ## MIT License
@@ -102,6 +112,7 @@ free-text status-verb matching to the typed execution record
 MIT License
 
 Copyright (c) 2026 Kun Chen
+Copyright (c) 2026 DietrichGebert
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

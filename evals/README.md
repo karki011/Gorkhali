@@ -6,7 +6,7 @@ Test cases verifying that each Phantom triggers correctly and produces expected 
 
 ```
 evals/
-  evals.json   — all test cases (45 total: 30 trigger cases, 3 per skill × 10 skills, plus 15 extended-shape cases — 6 route + 9 convention)
+  evals.json   — all test cases (55 total: 30 trigger cases, 3 per skill × 10 skills, plus 25 extended-shape cases — 6 route + 19 convention)
   README.md    — this file
 ```
 

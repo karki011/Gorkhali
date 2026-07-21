@@ -45,7 +45,7 @@ Agent spawn rules (all routes):
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
    `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
-2.5. Activate subagent enforcement: `touch ${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.apex-active`, then point the wake queue at this session (hooks can't inherit Apex env). The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}/state"; mkdir -p "$D"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
+2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Apex env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.apex-active"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
 2.6. Link session to cost ledger (silent, never blocks; self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`): `[ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (empty `$PR` → skip silently)
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 3.2. **Jira lifecycle sync** (only when TICKET matches `[A-Z][A-Z0-9]+-\d+`; slug sessions skip silently). In order:
@@ -71,7 +71,7 @@ READ `reference/router.md` for full algorithm.
 ## Route: DIRECT (0 gates)
 
 1. Write `intent.json` with task scope
-2. Activate blade marker: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
+2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 3. **Spawn Blade agent** via Agent tool:
    ```
    Agent call:
@@ -87,7 +87,7 @@ READ `reference/router.md` for full algorithm.
        {file paths to modify}
        Self-review your changes before returning.
    ```
-4. Deactivate blade marker: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
+4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
 5. After Blade returns → `Skill(skill="phantom:verify", args="--chained")` (chained flow).
    - **PASS → AUTO-CONTINUE** to `Skill(skill="phantom:wrap")`. Do NOT return to the human here.
    - **FAIL → verify threads** `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS, AUTO-CONTINUE to `Skill(skill="phantom:wrap")`.
@@ -95,9 +95,9 @@ READ `reference/router.md` for full algorithm.
 
 ## Route: PLAN (1 gate)
 
-1. Intent → research → plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 2` and every task carries non-empty `acceptance_criteria` + `verify` — required at that version per the Schema Version Gate in `reference/schemas/plan.md`.
+1. Intent → research → decision-first plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 3`. The decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts required by `reference/schemas/plan.md` must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate.
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
-3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). After `plan.json` is written, run `node scripts/render-plan.js {SESSION_DIR}/plan.json` (`plan.json` stays the machine SSoT; `plan.html` is a rendered view, never parsed back; if `{SESSION_DIR}/plan-check.json` exists — written by the plan-checker during deliberation — it's auto-discovered and rendered inline as a "Plan Check" section), then present via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/plan.html")` — annotations count as feedback, chat approval still gates. Annotations drive the annotate-revise cycle owned by `phantom:annotate` (classify → apply to `plan.json` → re-validate material changes → re-render → re-present, ceiling 3 cycles then escalate to chat); `plan.html` is never edited and chat approval remains the gate exit. Fallback chain (never block the gate on the renderer; each step is less tooling, same gate): `phantom:annotate` unavailable → plain `open` of `plan.html` → rendering itself failed → chat-only approval with a one-line note that rendering failed.
+3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then run `node scripts/render-plan.js {SESSION_DIR}/plan.json`. The generated, full-width `plan.html` is the primary review surface and leads with the recommendation, pending decisions, evidence, architecture, risks, and validation; files/tasks/waves are the execution appendix. `plan.json` stays the machine SSoT and HTML is never parsed back or hand-edited. If `{SESSION_DIR}/plan-check.json` exists, it is rendered in the provenance tail. Present the HTML via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/plan.html")`; annotations count as feedback, while chat approval still gates. Annotations drive the annotate-revise cycle owned by `phantom:annotate` (classify → apply to `plan.json` → re-validate material changes → re-render → re-present, ceiling 3 cycles then escalate to chat). Fallback chain: `phantom:annotate` unavailable → plain `open` of `plan.html` → rendering/opening unavailable → present the same decision-first structure in chat and state the capability failure. Never degrade to a task-only gate.
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest; empty `$PR` skips silently).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
@@ -128,7 +128,7 @@ Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` a
 > The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, no git mutations, no `.blade-editing` marker. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
 
 **Route collapse:**
-- DIRECT → still produce a minimal `plan.json` (plan-only — even trivial work produces a plan); same `_meta.version: 2` + per-task `acceptance_criteria`/`verify` requirement applies.
+- DIRECT → still produce a compact decision-first `plan.json` (plan-only — even trivial work produces a plan); the same `_meta.version: 3` contract applies, with concise sections and no unnecessary fan-out.
 - BRAINSTORM / FULL → collapse to PLAN-grade planning. No human is present to pick a direction: pick the conservative option and record the alternatives in the plan for the human who reviews it later.
 
 **Headless contract:**

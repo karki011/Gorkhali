@@ -39,8 +39,10 @@ const {
   chip,
   callout,
   section,
+  checklist,
   kvRow,
   kvCard,
+  smartValue,
   prose,
   slugify,
   pageShell,
@@ -73,17 +75,18 @@ const TRADEOFF_ROWS = [
 // Side-by-side criteria table, kept inside an overflow-x:auto wrapper so wide
 // comparisons scroll rather than break the page column.
 const renderTradeoffTable = (approaches) => {
-  const head = approaches.map((a, i) => `<th>${escapeHtml(approachLabel(a, i))}</th>`).join('');
+  const head = approaches.map((a, i) => `<th scope="col">${escapeHtml(approachLabel(a, i))}</th>`).join('');
   const rows = TRADEOFF_ROWS.map(
     ([label, key]) =>
-      `<tr><td class="bs-crit">${escapeHtml(label)}</td>${approaches
+      `<tr><th scope="row" class="bs-crit">${escapeHtml(label)}</th>${approaches
         .map((a) => `<td>${tradeoffCell(a, key)}</td>`)
         .join('')}</tr>`,
   ).join('\n');
   return [
-    '<div class="kit-scroll bs-cmp">',
+    '<div class="kit-scroll bs-cmp" role="region" aria-label="Approach comparison; scroll horizontally for more columns" tabindex="0">',
     '<table>',
-    `<thead><tr><th>Criterion</th>${head}</tr></thead>`,
+    '<caption class="kit-sr-only">Side-by-side comparison of brainstorm approaches</caption>',
+    `<thead><tr><th scope="col">Criterion</th>${head}</tr></thead>`,
     `<tbody>${rows}</tbody>`,
     '</table>',
     '</div>',
@@ -133,7 +136,7 @@ const visualBody = (type) => {
 // through to the generic "diagram" body, never crash, never raw-interpolate).
 const renderVisual = (visualType) => {
   const label = VISUAL_LABEL[visualType] ?? `${visualType} sketch`;
-  return `<div class="bs-viz">
+  return `<div class="bs-viz" aria-hidden="true">
     <div class="bs-viz-title">${escapeHtml(label)}</div>
     ${visualBody(visualType)}
   </div>`;
@@ -263,13 +266,15 @@ const BRAINSTORM_STYLE = `
   .bs-thesis { color:var(--heading); font-weight:600; margin:0 0 var(--sp-3); overflow-wrap:anywhere; }
   .bs-rows { margin-top:var(--sp-2); }
 
-  .bs-cmp table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  .bs-cmp { width:100%; }
+  .bs-cmp table { width:100%; min-width:760px; table-layout:fixed; border-collapse:collapse; font-size:.9rem; }
   .bs-cmp th, .bs-cmp td {
     text-align:left; padding:var(--sp-2) var(--sp-3);
     border-bottom:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere;
   }
   .bs-cmp thead th { color:var(--text-dim); font-weight:600; border-bottom:1px solid var(--border-strong); white-space:nowrap; }
   .bs-cmp td.bs-crit { color:var(--text-dim); font-weight:600; white-space:nowrap; }
+  .bs-cmp th:first-child, .bs-cmp td:first-child { width:170px; }
   .bs-cmp code {
     background:var(--surface-2); border:1px solid var(--border);
     border-radius:var(--r-md); padding:1px 6px; font-size:.85em;
@@ -291,6 +296,13 @@ const BRAINSTORM_STYLE = `
   .bs-viz-screen-header { height:.7rem; background:var(--border-strong); border-radius:3px; margin-bottom:var(--sp-2); width:40%; }
   .bs-viz-screen-block { height:1.2rem; background:var(--border); border-radius:3px; margin-bottom:var(--sp-1); }
   .bs-viz-screen-block-short { width:60%; margin-bottom:0; }
+
+  .bs-approach-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));
+    gap:var(--sp-4);
+  }
+  .bs-approach-grid > .kit-card { height:100%; margin:0; }
+  @media (max-width:760px) { .bs-approach-grid { grid-template-columns:1fr; } }
 `;
 
 // ── page assembly ────────────────────────────────────────────────────────────
@@ -317,20 +329,51 @@ const renderBrainstormHtml = (data, { sourcePath = '' } = {}) => {
   const recommendedIsObj = isPlainObject(d.recommendedDefault);
   if (recommendedIsObj) consumed.add('recommendedDefault');
 
+  const decisionIsObj = isPlainObject(d.decision);
+  if (decisionIsObj) consumed.add('decision');
+
+  const openQuestionsIsArray = Array.isArray(d.openQuestions);
+  if (openQuestionsIsArray) consumed.add('openQuestions');
+
+  const directionGateIsObj = isPlainObject(d.directionGate);
+  if (directionGateIsObj) consumed.add('directionGate');
+
+  const evidenceIsArray = Array.isArray(d.evidence);
+  if (evidenceIsArray) consumed.add('evidence');
+
+  const experimentIsObj = isPlainObject(d.cheapestExperiment);
+  if (experimentIsObj) consumed.add('cheapestExperiment');
+
   // Each entry drives both a rendered <section> (with a stable slug id) and the
   // matching TOC chip that anchors it - reference-with-referent by construction.
   const sections = [];
   const pushSection = (heading, body) => sections.push({ heading, body });
 
-  if (approaches.length) {
-    pushSection('Side-by-side', renderTradeoffTable(approaches));
-    pushSection('Approaches', approaches.map((a, i) => renderApproachCard(a, i)).join('\n'));
-  } else if (approachesIsArray) {
-    pushSection('Approaches', '<p class="kit-p bs-muted">No approaches provided.</p>');
-  }
-
+  // Lead with Phantom's conclusion and the decision frame. The user should know
+  // what is recommended and what choice is being made before reading candidate
+  // mechanics.
   if (recommendedIsObj) {
     pushSection('Recommendation', renderRecommended(d.recommendedDefault, approaches));
+  }
+
+  if (decisionIsObj) pushSection('Decision frame', kvCard(d.decision));
+  const callItems = [];
+  if (openQuestionsIsArray && d.openQuestions.length) callItems.push(checklist(d.openQuestions));
+  if (directionGateIsObj) callItems.push(smartValue(d.directionGate));
+  if (callItems.length) {
+    pushSection('Needs your call', callout(callItems.join(''), 'info'));
+  }
+  if (evidenceIsArray && d.evidence.length) pushSection('Evidence', smartValue(d.evidence));
+  if (experimentIsObj) pushSection('Cheapest experiment', kvCard(d.cheapestExperiment));
+
+  if (approaches.length) {
+    pushSection('Side-by-side', renderTradeoffTable(approaches));
+    pushSection(
+      'Approaches',
+      `<div class="bs-approach-grid">${approaches.map((a, i) => renderApproachCard(a, i)).join('\n')}</div>`,
+    );
+  } else if (approachesIsArray) {
+    pushSection('Approaches', '<p class="kit-p bs-muted">No approaches provided.</p>');
   }
 
   // Fall-through: every unclaimed top-level key (e.g. _meta, rivalPass) renders
@@ -359,7 +402,7 @@ const renderBrainstormHtml = (data, { sourcePath = '' } = {}) => {
   const footerSource = sourcePath ? `Generated from <code class="kit-code">${escapeHtml(sourcePath)}</code> &middot; ` : '';
   const footerHtml = `${footerSource}brainstorm.json is the source of truth &mdash; this page is generated from it.`;
 
-  return pageShell({ title, headerHtml, tocChips, sectionsHtml, footerHtml });
+  return pageShell({ title, headerHtml, tocChips, sectionsHtml, footerHtml, wide: true });
 };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────

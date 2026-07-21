@@ -195,7 +195,7 @@ test('prose: escapes before wrapping and is empty-safe', () => {
 
 // ── pageShell ────────────────────────────────────────────────────────────────
 
-test('pageShell: self-contained document with sticky bar and escaped title', () => {
+test('pageShell: self-contained document with header and escaped title', () => {
   const html = kit.pageShell({
     title: 'Plan <X>',
     headerHtml: '<h1>Heading</h1>',
@@ -226,7 +226,7 @@ test('pageShell: omits the footer and toc nav when not provided', () => {
 test('table: escapes headers, passes pre-rendered cells through, wraps for overflow', () => {
   const html = kit.table(['F <x>', 'Change'], [['<code>a.ts</code>', 'plain']]);
   assert.ok(html.includes('<div class="kit-table-wrap">'), 'overflow-x wrapper present');
-  assert.ok(html.includes('<th>F &lt;x&gt;</th>'), 'header label escaped');
+  assert.ok(html.includes('<th scope="col">F &lt;x&gt;</th>'), 'header label escaped and scoped');
   assert.ok(html.includes('<td><code>a.ts</code></td>'), 'pre-rendered cell passes through unescaped (caller escapes)');
   assert.ok(html.includes('<td>plain</td>'));
 });

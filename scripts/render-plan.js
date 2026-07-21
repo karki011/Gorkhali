@@ -598,6 +598,46 @@ const collectTaskFiles = (waves) => {
   return order.map((file) => [file, labelsByFile.get(file).join('; ')]);
 };
 
+// A plan gate is a decision surface before it is an execution manifest. Keep
+// the recommendation and any blocking human calls together at the top so the
+// reader can approve, reject, or refine the direction without first decoding
+// task mechanics.
+const renderDecisionBrief = (decision, humanCallouts) => {
+  const hasDecision = isPlainObject(decision) && Object.keys(decision).length > 0;
+  if (!hasDecision && humanCallouts.length === 0) return '';
+
+  let primary = '';
+  if (hasDecision) {
+    const consumed = new Set(['question', 'recommendation', 'rationale', 'status']);
+    const rest = omitConsumed(decision, consumed);
+    const body = [
+      isNonEmptyScalar(decision.recommendation)
+        ? `<p class="kit-p"><strong>${escapeHtml(decision.recommendation)}</strong></p>`
+        : '',
+      isNonEmptyScalar(decision.question)
+        ? `<p class="kit-p"><span class="kit-kv-key">Approval question</span><br>${escapeHtml(
+            decision.question,
+          )}</p>`
+        : '',
+      Array.isArray(decision.rationale) && decision.rationale.length
+        ? `<div class="kit-kv-key">Why</div>${checklist(decision.rationale)}`
+        : '',
+      isNonEmptyScalar(decision.status) ? badge(decision.status, 'Status:') : '',
+      Object.keys(rest).length ? smartValue(rest) : '',
+    ]
+      .filter(Boolean)
+      .join('');
+    primary = `<div class="kit-decision-primary"><h3 class="kit-decision-title">Recommendation</h3>${body}</div>`;
+  }
+  const needsCall = humanCallouts.length
+    ? `<aside class="kit-decision-aside"><h3 class="kit-decision-title">Needs your call</h3>${humanCallouts.join(
+        '',
+      )}</aside>`
+    : '';
+  const single = !primary || !needsCall ? ' kit-decision-grid-single' : '';
+  return `<div class="kit-decision-grid${single}">${primary}${needsCall}</div>`;
+};
+
 // ── page assembly ────────────────────────────────────────────────────────────
 const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null, wiring = null } = {}) => {
   // Tolerate a non-object top-level: preserve the value under Other fields
@@ -655,80 +695,11 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
 
   const sections = createSections();
 
-  // ── narrative lead: what are we planning, and why ──────────────────────────
-  // The plan itself comes first. A sibling intent.json (goal/why/tradeoffs) is
-  // the highest-level framing; top-level problem/solution_shape/summary are the
-  // prose narrative. All of this used to be either absent or dumped into "Other
-  // fields" at the very bottom - the "i don't see what we're planning" bug.
-
-  // Goal/Why/Tradeoffs from a sibling intent.json.
-  renderIntent(intent, sections);
-
-  // The problem this plan solves - a prominent lead callout, not a trailing dump.
-  if (isNonEmptyScalar(p.problem)) {
-    consumed.add('problem');
-    sections.add('Problem', callout(prose(p.problem)));
-  }
-  // The shape of the solution - readable prose, ahead of the task breakdown.
-  if (isNonEmptyScalar(p.solution_shape)) {
-    consumed.add('solution_shape');
-    sections.add('Solution', prose(p.solution_shape));
-  }
-  if (isNonEmptyScalar(p.summary)) {
-    consumed.add('summary');
-    sections.add('Summary', prose(p.summary));
-  }
-  if (Array.isArray(p.verified_facts)) {
-    consumed.add('verified_facts');
-    if (p.verified_facts.length) sections.add('Verified facts', checklist(p.verified_facts));
-  }
-
-  // ── what changes + the task breakdown ──────────────────────────────────────
-  // collectWaves reads both waves and tasks; each is consumed only when it's the
-  // array shape the renderer understands, independent of whether the resulting
-  // wave list ends up empty.
-  if (Array.isArray(p.waves)) consumed.add('waves');
-  if (Array.isArray(p.tasks)) consumed.add('tasks');
-  const waves = collectWaves(p);
-
-  // A per-file "what changes" overview, when tasks declare files. Sits above the
-  // detailed cards so the reader sees the surface area before the steps.
-  const fileRows = collectTaskFiles(waves);
-  if (fileRows.length) {
-    const rows = fileRows.map(([file, label]) => [
-      `<code class="kit-code">${escapeHtml(file)}</code>`,
-      escapeHtml(label),
-    ]);
-    sections.add('What changes', table(['File', 'Change'], rows));
-  }
-
-  if (waves.length) sections.add('Waves', waves.map(renderWave).join('\n'));
-
-  // Dependency topology from a sibling wiring.json - reads best once the task
-  // ids it references are already on the page.
-  renderWiring(wiring, sections);
-
-  if (hasContent(p.test_plan)) {
-    consumed.add('test_plan');
-    sections.add('Test plan', smartValue(p.test_plan));
-  }
-  if (hasContent(p.conventions_contract)) {
-    consumed.add('conventions_contract');
-    sections.add('Conventions', smartValue(p.conventions_contract));
-  }
-
-  // ── needs your call: human decisions, gathered and prominent ───────────────
-  // decisions_for_approval, review_notes.open_for_human, and open_questions are
-  // the points that need a human before the plan can proceed. They belong
-  // together in one visually distinct callout section, addressed to the reader -
-  // not scattered or buried. review_notes is read once here (consumed) and split:
-  // open_for_human rises to this section; the reviewer's own notes are demoted
-  // below.
+  // ── decision brief: what are we asking the human to approve? ───────────────
   const reviewNotes = isPlainObject(p.review_notes) ? p.review_notes : null;
   if (reviewNotes) consumed.add('review_notes');
   const openForHuman =
     reviewNotes && Array.isArray(reviewNotes.open_for_human) ? reviewNotes.open_for_human : [];
-
   const humanCallouts = [];
   if (Array.isArray(p.decisions_for_approval)) {
     consumed.add('decisions_for_approval');
@@ -745,7 +716,108 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
       humanCallouts.push(callout(isScalar(q) ? prose(q) : smartValue(q), 'info'));
     }
   }
-  if (humanCallouts.length) sections.add('Needs your call', humanCallouts.join(''));
+  const decision = isPlainObject(p.decision) ? p.decision : null;
+  if (decision) consumed.add('decision');
+  const decisionBrief = renderDecisionBrief(decision, humanCallouts);
+  if (decisionBrief) sections.add('Decision brief', decisionBrief);
+
+  // ── researched narrative: outcome, evidence, and tradeoffs ─────────────────
+
+  // Legacy plans use sibling intent.json for their narrative. V3 plans carry
+  // outcome and scope in plan.json, so rendering both would repeat the same goal
+  // and constraints.
+  if (!isPlainObject(p.outcome)) renderIntent(intent, sections);
+
+  // The problem this plan solves - a prominent lead callout, not a trailing dump.
+  if (isNonEmptyScalar(p.problem)) {
+    consumed.add('problem');
+    sections.add('Problem', callout(prose(p.problem)));
+  }
+  // The shape of the solution - readable prose, ahead of the task breakdown.
+  if (isNonEmptyScalar(p.solution_shape)) {
+    consumed.add('solution_shape');
+    sections.add('Solution', prose(p.solution_shape));
+  } else if (isPlainObject(p.solution_shape)) {
+    consumed.add('solution_shape');
+    sections.add('Solution architecture', smartValue(p.solution_shape));
+  }
+  if (isNonEmptyScalar(p.summary)) {
+    consumed.add('summary');
+    sections.add('Summary', prose(p.summary));
+  }
+  if (Array.isArray(p.verified_facts)) {
+    consumed.add('verified_facts');
+    if (p.verified_facts.length) sections.add('Verified facts', checklist(p.verified_facts));
+  }
+
+  const hasStructuredScope = isPlainObject(p.scope);
+  for (const [key, title] of [
+    ['outcome', 'Outcome and success'],
+    ['scope', 'Scope and constraints'],
+    ['research', 'Research findings'],
+    ['evidence', 'Evidence'],
+    ['alternatives', 'Alternatives and tradeoffs'],
+  ]) {
+    if (hasContent(p[key])) {
+      consumed.add(key);
+      sections.add(title, smartValue(p[key]));
+    }
+  }
+
+  if (Array.isArray(p.risks)) {
+    consumed.add('risks');
+    if (p.risks.length) sections.add('Risks and reversibility', p.risks.map(renderRisk).join(''));
+  }
+  if (Array.isArray(p.assumptions)) {
+    consumed.add('assumptions');
+    if (p.assumptions.length) sections.add('Assumptions', smartValue(p.assumptions));
+  }
+  if (Array.isArray(p.constraints)) {
+    consumed.add('constraints');
+    if (!hasStructuredScope && p.constraints.length) sections.add('Constraints', smartValue(p.constraints));
+  }
+  if (Array.isArray(p.out_of_scope)) {
+    consumed.add('out_of_scope');
+    if (!hasStructuredScope && p.out_of_scope.length) sections.add('Out of scope', smartValue(p.out_of_scope));
+  }
+  if (hasContent(p.validation)) {
+    consumed.add('validation');
+    sections.add('Validation strategy', smartValue(p.validation));
+  }
+  if (hasContent(p.test_plan)) {
+    consumed.add('test_plan');
+    sections.add('Test plan', smartValue(p.test_plan));
+  }
+
+  // ── execution appendix: files, waves, dependencies, and mechanics ──────────
+  // collectWaves reads both waves and tasks; each is consumed only when it's the
+  // array shape the renderer understands, independent of whether the resulting
+  // wave list ends up empty.
+  if (Array.isArray(p.waves)) consumed.add('waves');
+  if (Array.isArray(p.tasks)) consumed.add('tasks');
+  const waves = collectWaves(p);
+
+  // A per-file "what changes" overview, when tasks declare files. Sits above the
+  // detailed cards so the reader sees the surface area before the steps.
+  const fileRows = collectTaskFiles(waves);
+  if (fileRows.length) {
+    const rows = fileRows.map(([file, label]) => [
+      `<code class="kit-code">${escapeHtml(file)}</code>`,
+      escapeHtml(label),
+    ]);
+    sections.add('What changes', table(['File', 'Change'], rows, 'Files affected by the execution plan'));
+  }
+
+  if (waves.length) sections.add('Waves', waves.map(renderWave).join('\n'));
+
+  // Dependency topology from a sibling wiring.json - reads best once the task
+  // ids it references are already on the page.
+  renderWiring(wiring, sections);
+
+  if (hasContent(p.conventions_contract)) {
+    consumed.add('conventions_contract');
+    sections.add('Conventions', smartValue(p.conventions_contract));
+  }
 
   // ── reviewer bookkeeping (demoted) ─────────────────────────────────────────
   // The plan-checker's verdict/findings (sibling plan-check.json) and the inline
@@ -756,27 +828,10 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
     if (Object.keys(notes).length) sections.add('Review notes', smartValue(notes));
   }
 
-  // ── risks, caveats, and scope ──────────────────────────────────────────────
-  if (Array.isArray(p.risks)) {
-    consumed.add('risks');
-    if (p.risks.length) sections.add('Risks', p.risks.map(renderRisk).join(''));
-  }
   if (isPlainObject(p.estimate) && Object.keys(p.estimate).length) {
     consumed.add('estimate');
     // kv rows, not a stat strip - real estimate values are paragraph-length.
     sections.add('Estimate', kvCard(p.estimate));
-  }
-  if (Array.isArray(p.assumptions)) {
-    consumed.add('assumptions');
-    if (p.assumptions.length) sections.add('Assumptions', smartValue(p.assumptions));
-  }
-  if (Array.isArray(p.constraints)) {
-    consumed.add('constraints');
-    if (p.constraints.length) sections.add('Constraints', smartValue(p.constraints));
-  }
-  if (Array.isArray(p.out_of_scope)) {
-    consumed.add('out_of_scope');
-    if (p.out_of_scope.length) sections.add('Out of scope', smartValue(p.out_of_scope));
   }
   // Execution strategy (strategy + out_of_scope + any run detail) as a readable
   // object; a non-object execution value falls through to Other fields.
@@ -804,8 +859,8 @@ const renderPlanHtml = (plan, { sourcePath = '', planCheck = null, intent = null
     tocChips: sections.tocChips(),
     sectionsHtml: sections.sectionsHtml(),
     footerHtml,
-    // A plan carries file tables and task cards - the broader column fits more
-    // context per screen. Brainstorm keeps the narrow prose default.
+    // A plan carries decision grids, tables, and task cards; use the full review
+    // surface while individual components preserve readable internal measures.
     wide: true,
   });
 };

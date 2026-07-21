@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "selection_order": [
+    "explicit-user-choice",
+    "external-profile-map",
+    "bundled-host-preset",
+    "inherit-active-model"
+  ],
+  "hosts": {
+    "claude-code": {
+      "profiles": {
+        "inherit": { "model": null, "effort": null },
+        "economy": { "model": "haiku", "effort": null },
+        "balanced": { "model": "sonnet", "effort": "high" },
+        "deep": { "model": "opus", "effort": "high" },
+        "frontier": { "model": "fable", "effort": "high" }
+      }
+    },
+    "codex": {
+      "profiles": {
+        "inherit": { "model": null, "effort": null },
+        "economy": { "model": "gpt-5.6-luna", "effort": "low" },
+        "balanced": { "model": "gpt-5.6-terra", "effort": "high" },
+        "deep": { "model": "gpt-5.6-sol", "effort": "high" },
+        "frontier": { "model": "gpt-5.6-sol", "effort": "max" }
+      }
+    }
+  },
+  "unknown_host": { "fallback": "inherit-active-model" },
+  "unavailable_model": { "fallback": "inherit-active-model" }
+}

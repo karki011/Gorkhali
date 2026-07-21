@@ -1,8 +1,10 @@
 {
   "name": "phantom-skill",
   "private": true,
-  "description": "Phantom multi-agent skill — test harness for the layout-reconciliation seam.",
+  "description": "Phantom provider-neutral Agent Skill and native compatibility distribution.",
+  "author": "Subash Karki",
   "scripts": {
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom"
   }
 }

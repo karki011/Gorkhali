@@ -1,10 +1,19 @@
 # `brainstorm.json` Schema
 
-Written by `phantom:brainstorm`'s Diverge phase. Holds the candidate approach cards presented at the Convergence human gate, before a decision is locked into `decisions.json`.
+Written by `phantom:brainstorm`'s Diverge phase. Schema v3 is a
+decision-first review contract presented at the Convergence human gate before a
+choice is locked into `decisions.json`.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| decision | object | _meta.version >= 3: yes; older: no | Decision frame shown before approaches |
+| decision.question | string | _meta.version >= 3: yes; older: no | The choice the user is being asked to make |
+| decision.outcome | string | _meta.version >= 3: yes; older: no | Desired observable outcome |
+| decision.constraints | string[] | _meta.version >= 3: yes; older: no | Hard boundaries every approach must satisfy |
+| decision.evaluationCriteria | string[] | _meta.version >= 3: yes; older: no | Criteria fixed before candidate evaluation |
+| evidence | object[] | _meta.version >= 3: yes; older: no | Claims and sources gathered before divergence |
+| openQuestions | object[] | _meta.version >= 3: yes; older: no | Unresolved questions, including whether each blocks the decision |
 | approaches | object[] | yes | Candidate approach cards from the diverge phase |
 | approaches[].id | string | yes | Stable slug identifying this approach |
 | approaches[].name | string | yes | Short approach label |
@@ -21,12 +30,24 @@ Written by `phantom:brainstorm`'s Diverge phase. Holds the candidate approach ca
 | recommendedDefault | object | yes | The coordinator's or Chairman's recommended pick |
 | recommendedDefault.id | string | yes | Must match one of `approaches[].id` |
 | recommendedDefault.reason | string | yes | Why this approach is recommended |
+| cheapestExperiment | object | _meta.version >= 3: yes; older: no | Lowest-cost experiment that can resolve material uncertainty |
+| directionGate | object | _meta.version >= 3: yes; older: no | Explicit user choice prompt and valid approach IDs |
 <!-- END GENERATED FIELDS -->
 
 **Example:**
 ```json
 {
-  "_meta": { "...": "..." },
+  "_meta": { "version": 3, "...": "..." },
+  "decision": {
+    "question": "How should planning results be presented?",
+    "outcome": "Users understand and can approve the direction before execution",
+    "constraints": ["Offline deterministic HTML"],
+    "evaluationCriteria": ["Decision clarity", "Evidence", "Review speed"]
+  },
+  "evidence": [
+    { "claim": "The current schema requires task mechanics but not rationale", "source": "scripts/validate-artifact.js", "status": "verified" }
+  ],
+  "openQuestions": [],
   "approaches": [
     {
       "id": "approach-a-hooks-first",
@@ -41,11 +62,35 @@ Written by `phantom:brainstorm`'s Diverge phase. Holds the candidate approach ca
       "whenToPick": "Pick this when the two call sites are expected to stay close in shape",
       "mutualExclusivity": ["approach-b-new-endpoint"],
       "visualType": null
+    },
+    {
+      "id": "approach-b-endpoint-first",
+      "name": "Endpoint-first refactor",
+      "thesis": "Create a dedicated API contract before changing callers",
+      "description": "Introduce a focused endpoint and migrate consumers after its contract is verified",
+      "whyLens": "risk-first",
+      "effort": "medium",
+      "risk": "medium",
+      "reversibility": "medium",
+      "whatBreaks": ["The endpoint contract adds a migration boundary"],
+      "whenToPick": "Pick when callers are expected to diverge",
+      "mutualExclusivity": ["approach-a-hooks-first"],
+      "visualType": "flow"
     }
   ],
   "recommendedDefault": {
     "id": "approach-a-hooks-first",
     "reason": "Lowest risk, reuses the existing query pattern, and validated:5+ in learnings/frontend.md"
+  },
+  "cheapestExperiment": {
+    "question": "Does decision-first ordering improve review comprehension?",
+    "method": "Render the same plan in both orders and compare",
+    "successSignal": "Reviewer identifies the recommendation without reading tasks",
+    "cost": "One fixture and renderer test"
+  },
+  "directionGate": {
+    "question": "Which approach should planning use?",
+    "options": ["approach-a-hooks-first", "approach-b-endpoint-first"]
   }
 }
 ```
@@ -56,3 +101,6 @@ Written by `phantom:brainstorm`'s Diverge phase. Holds the candidate approach ca
 - `whyLens` names the generating lens (`simplest` / `robust` / `reuse` in Council Mode) or otherwise records why the approach takes its shape.
 - `visualType` is a hint for whether the approach is best conveyed as a diagram/flow/sitemap/mockup before the human gate; `null` or omitted means a text card is enough.
 - The schema is intentionally open beyond the spine above — additional free-text fields (e.g. `pros`, `cons`) are not rejected. Don't rely on this to skip the required spine fields.
+- v1/v2 artifacts remain readable. New brainstorms use v3, which additionally
+  requires the decision frame, evidence, open-question ledger, 2-3 approaches,
+  cheapest discriminating experiment, and explicit direction gate.

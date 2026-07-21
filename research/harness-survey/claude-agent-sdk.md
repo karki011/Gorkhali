@@ -3,6 +3,10 @@
 **Date: 2026-06-03**
 **Status: Decision Research**
 
+> Historical note (2026-07-21): this survey predates the removal of Phantom's
+> manual `install.sh` path. References below to that installer describe the
+> architecture evaluated at the time, not the current plugin distribution.
+
 ---
 
 ## 1. What the Claude Agent SDK Is

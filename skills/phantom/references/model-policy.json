@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "profiles": ["inherit", "economy", "balanced", "deep", "frontier"],
+  "default_profile": "balanced",
+  "roles": {
+    "apex": "frontier",
+    "blade": "balanced",
+    "ward": "economy",
+    "gaze": "deep",
+    "sage": "deep",
+    "lens": "balanced",
+    "archer": "deep",
+    "rival": "balanced",
+    "plan-checker": "balanced",
+    "hound": "deep",
+    "sweep": "economy",
+    "warden": "economy"
+  }
+}

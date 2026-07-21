@@ -134,11 +134,11 @@ const kvCard = (entries) => {
 // table lives inside an overflow-x:auto wrapper so a wide row scrolls rather than
 // breaking the page's horizontal bound. Tolerant: a non-array `headers`/`rows`,
 // or a non-array row, renders an empty-ish table rather than throwing.
-const table = (headers, rows) => {
+const table = (headers, rows, caption = '') => {
   const hs = Array.isArray(headers) ? headers : [];
   const rs = Array.isArray(rows) ? rows : [];
   const thead = hs.length
-    ? `<thead><tr>${hs.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>`
+    ? `<thead><tr>${hs.map((h) => `<th scope="col">${escapeHtml(h)}</th>`).join('')}</tr></thead>`
     : '';
   const tbody = rs
     .map((row) => {
@@ -146,7 +146,8 @@ const table = (headers, rows) => {
       return `<tr>${cells.map((c) => `<td>${c == null ? '' : c}</td>`).join('')}</tr>`;
     })
     .join('');
-  return `<div class="kit-table-wrap"><table class="kit-table">${thead}<tbody>${tbody}</tbody></table></div>`;
+  const captionHtml = caption ? `<caption class="kit-sr-only">${escapeHtml(caption)}</caption>` : '';
+  return `<div class="kit-table-wrap"><table class="kit-table">${captionHtml}${thead}<tbody>${tbody}</tbody></table></div>`;
 };
 
 // The universal fall-through renderer: turn any value into readable HTML.
@@ -257,6 +258,8 @@ const CZ_TOKENS = `
     --r-md:6px; --r-lg:8px; --r-card:16px; --r-pill:9999px;
     --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
     --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    --content-max:1440px; --prose-max:78ch; --content-gutter:clamp(16px,3vw,48px);
+    --sidebar-min:280px;
   }
   @media (prefers-color-scheme:dark) {
     :root:not([data-theme="light"]) {${DARK_VARS}}
@@ -272,13 +275,33 @@ const CZ_TOKENS = `
   }
   a { color:var(--link); text-decoration:none; }
   a:hover { text-decoration:underline; }
+  a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex="0"]:focus-visible {
+    outline:3px solid var(--heading); outline-offset:2px;
+  }
   code, pre { font-family:var(--font-mono); }
 
-  .kit-topbar {
-    position:sticky; top:0; z-index:10;
-    background:var(--surface); border-bottom:1px solid var(--border);
-    box-shadow:var(--shadow-sm); padding:var(--sp-4) var(--sp-6);
+  .kit-sr-only {
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
   }
+  .kit-skip-link {
+    position:fixed; top:var(--sp-2); left:var(--sp-2); z-index:100;
+    transform:translateY(-160%); background:var(--surface); color:var(--text);
+    border:1px solid var(--border-strong); border-radius:var(--r-md);
+    padding:var(--sp-2) var(--sp-3); box-shadow:var(--shadow-lg);
+  }
+  .kit-skip-link:focus { transform:translateY(0); }
+
+  .kit-topbar {
+    position:static; z-index:10;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    box-shadow:var(--shadow-sm);
+  }
+  .kit-topbar-inner, .kit-main, .kit-footer {
+    width:min(100%,var(--content-max)); margin-inline:auto;
+    padding-inline:var(--content-gutter);
+  }
+  .kit-topbar-inner { padding-block:var(--sp-4); }
   .kit-topbar h1 {
     font-size:1.375rem; line-height:1.3; margin:0; color:var(--heading);
     letter-spacing:-.01em; overflow-wrap:anywhere;
@@ -287,14 +310,24 @@ const CZ_TOKENS = `
   .kit-metabar { display:flex; gap:var(--sp-2); flex-wrap:wrap; align-items:center; margin-top:var(--sp-3); }
   .kit-toc { display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-top:var(--sp-3); }
 
-  .kit-main { max-width:76ch; margin:0 auto; padding:var(--sp-8) var(--sp-6); }
-  /* Wide variant: a plan carries tables, task cards, and file lists that read
-     better in a broader column; body.kit-wide opts a document into it while the
-     prose-first default (brainstorm) keeps the narrow measure. */
-  .kit-wide .kit-main, .kit-wide .kit-footer { max-width:1160px; }
+  .kit-main { max-width:var(--prose-max); padding-block:var(--sp-8) 48px; }
+  .kit-wide .kit-main, .kit-wide .kit-footer { max-width:var(--content-max); }
 
   .kit-section { margin:0 0 var(--sp-8); }
   .kit-section:last-child { margin-bottom:0; }
+  .kit-decision-grid {
+    display:grid; grid-template-columns:minmax(0,2fr) minmax(var(--sidebar-min),1fr);
+    gap:var(--sp-6); align-items:start;
+  }
+  .kit-decision-grid > * { min-width:0; }
+  .kit-decision-grid-single { grid-template-columns:minmax(0,1fr); }
+  .kit-decision-title { color:var(--heading); font-size:1.05rem; margin:0 0 var(--sp-2); }
+  .kit-decision-primary, .kit-decision-aside {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--r-card);
+    padding:var(--sp-5); box-shadow:var(--shadow-sm);
+  }
+  .kit-decision-primary { border-top:4px solid var(--brand-teal); }
+  .kit-decision-aside { border-top:4px solid var(--brand-orange); }
   .kit-h2 {
     font-size:1.15rem; font-weight:650; color:var(--heading);
     margin:0 0 var(--sp-4); padding-bottom:var(--sp-2);
@@ -302,6 +335,7 @@ const CZ_TOKENS = `
   }
   .kit-section h3 { font-size:1rem; font-weight:600; margin:0 0 var(--sp-2); color:var(--text); }
   .kit-p { margin:0 0 var(--sp-3); overflow-wrap:anywhere; }
+  .kit-wide .kit-section > .kit-p, .kit-wide .kit-callout .kit-p { max-width:var(--prose-max); }
   .kit-p:last-child { margin-bottom:0; }
   .kit-ol { margin:0 0 var(--sp-3) 1.35rem; padding:0; }
   .kit-list { margin:0 0 var(--sp-3) 1.35rem; padding:0; }
@@ -383,18 +417,29 @@ const CZ_TOKENS = `
   }
 
   .kit-footer {
-    max-width:76ch; margin:0 auto; padding:var(--sp-6);
-    border-top:1px solid var(--border); color:var(--text-dim); font-size:.85rem; text-align:center;
+    max-width:var(--prose-max); padding-block:var(--sp-6);
+    border-top:1px solid var(--border); color:var(--text-dim); font-size:.85rem;
+    text-align:center; overflow-wrap:anywhere;
+  }
+
+  @media (max-width:760px) {
+    .kit-decision-grid { grid-template-columns:1fr; }
+    .kit-topbar { position:static; }
+  }
+  @media print {
+    .kit-topbar { position:static; box-shadow:none; }
+    .kit-toc, .kit-skip-link { display:none; }
+    .kit-card, .kit-callout, .kit-table-wrap { break-inside:avoid; box-shadow:none; }
   }
 `;
 
 // ── document skeleton ────────────────────────────────────────────────────────
-// Full self-contained page: sticky top bar (header + optional TOC chips), a
-// centered 76ch content column, and an optional footer. `title` is escaped here;
+// Full self-contained page: top bar (header + optional TOC chips), a
+// centered responsive content column, and an optional footer. `title` is escaped here;
 // every *Html argument is pre-rendered markup the caller already escaped. The
 // single inlined <style> is CZ_TOKENS - one source of truth for both consumers.
-// `wide` opts the document into the broader content column (body.kit-wide); the
-// default stays the narrow prose measure. Both widths live in CZ_TOKENS, so the
+// `wide` opts the document into the 1440px review surface (body.kit-wide); the
+// default stays at the prose measure. Both widths live in CZ_TOKENS, so the
 // single inlined stylesheet remains the one style source of truth.
 const pageShell = ({
   title = '',
@@ -413,10 +458,13 @@ const pageShell = ({
 <style>${CZ_TOKENS}</style>
 </head>
 <body${wide ? ' class="kit-wide"' : ''}>
+<a class="kit-skip-link" href="#main-content">Skip to content</a>
 <header class="kit-topbar">
-${headerHtml}${tocChips ? `\n<nav class="kit-toc">${tocChips}</nav>` : ''}
+<div class="kit-topbar-inner">
+${headerHtml}${tocChips ? `\n<nav class="kit-toc" aria-label="Document sections">${tocChips}</nav>` : ''}
+</div>
 </header>
-<main class="kit-main">
+<main id="main-content" class="kit-main">
 ${sectionsHtml}
 </main>${footerHtml ? `\n<footer class="kit-footer">${footerHtml}</footer>` : ''}
 </body>

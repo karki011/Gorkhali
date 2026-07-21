@@ -129,13 +129,22 @@ at brainstorm time, not one step later at the plan gate.
 
 ## Convergence
 
-1. **Write `brainstorm.json`** (schema: `reference/schemas/brainstorm.md`) — the full `approaches[]`
-   spine plus the mandatory `recommendedDefault{id,reason}`. This is the source of truth; nothing
-   downstream reads prose.
+1. **Write `brainstorm.json`** with `_meta.version: 3` (schema:
+   `reference/schemas/brainstorm.md`). Capture the decision frame and evaluation
+   criteria before the researched evidence, open questions, 2-3 independently
+   generated approaches, recommendation, cheapest experiment, and direction
+   gate. This is the source of truth; nothing downstream reads chat prose.
+   Each evidence item states its decision implication. Each approach carries
+   distinct benefits, tradeoffs, what breaks, its strongest failure mode, and
+   the condition under which it wins. The recommendation records the accepted
+   tradeoff, confidence, and next action. Reject filler and renamed duplicates.
 2. **Render:** `node scripts/render-brainstorm.js {SESSION_DIR}/brainstorm.json` → `brainstorm.html`.
    Surface via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/brainstorm.html")` (fallback: plain
-   open — see `commands/annotate.md`). Lead with the recommendation, then the full side-by-side —
-   the Chairman synthesis + peer-ranking summary (council), or the approach cards (simple path).
+   open — see `commands/annotate.md`). The full-width artifact leads with the
+   recommendation and decision frame, then pending calls, an evidence ledger,
+   cheapest experiment, side-by-side comparison, and detailed option dossiers.
+   A user should not
+   have to read every approach before discovering Phantom's recommendation.
 3. Human picks one OR asks for more exploration (max 2 rounds total).
 4. On decision → write to `intent.json`:
    - `approach`: chosen approach name

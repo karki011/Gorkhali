@@ -1,0 +1,14 @@
+{
+  "name": "phantom",
+  "bundle_version": "1.0.0",
+  "contract_versions": {
+    "capability_ledger": 1,
+    "state_envelope": 1,
+    "decision_artifact": 3,
+    "delegation": 1,
+    "model_policy": 1,
+    "model_presets": 1,
+    "model_routing": 1,
+    "impact_report": 1
+  }
+}

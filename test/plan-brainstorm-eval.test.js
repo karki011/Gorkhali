@@ -161,10 +161,10 @@ test('realworld: the known plan vocabulary renders as first-class sections', () 
   const missing = missingElements(realworldHtml, [
     '<h2 class="kit-h2">Summary</h2>',
     '<h2 class="kit-h2">Verified facts</h2>',
-    '<h2 class="kit-h2">Needs your call</h2>',
+    '<h2 class="kit-h2">Decision brief</h2>',
     '<h2 class="kit-h2">Test plan</h2>',
     '<h2 class="kit-h2">Conventions</h2>',
-    '<h2 class="kit-h2">Risks</h2>',
+    '<h2 class="kit-h2">Risks and reversibility</h2>',
     '<h2 class="kit-h2">Estimate</h2>',
     '<h2 class="kit-h2">Assumptions</h2>',
   ]);

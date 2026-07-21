@@ -121,29 +121,54 @@ If `plan.json` changes after the initial render — during deliberation, a fix-l
 
 During the plan-gate annotate-revise loop (`commands/annotate.md`, plan-gate case), each cycle edits `plan.json` and regenerates `plan.html` — `plan.html` is never hand-edited. Every cycle is recorded as an entry in the `revisions[]` array of `{SESSION_DIR}/decisions.json`, shaped `{cycle, annotations[], classification, planChanges, recheck}` (`recheck` holds the plan-checker/rival verdicts on material changes, `null` on cosmetic-only cycles). The loop ceiling is 3 cycles; after that, unresolved sticking points move to plain chat discussion rather than a re-render.
 
-## Research-Enriched Plan Artifact (mandatory at the gate)
+## Decision-First Plan Artifact (mandatory at every plan gate)
 
-A plan gate that opens with tasks/files/waves and buries or omits the actual findings is a failed gate — for research/evaluation/investigation tickets ("how does X work", "what's causing Y", "should we adopt Z"), the human must be able to tell what was found without reading task descriptions.
+A plan is a researched recommendation before it is an execution manifest. Every
+new plan sets `_meta.version: 3` and records the decision, outcome, architecture,
+evidence, alternatives, assumptions, risks, validation strategy, and execution
+appendix defined in `schemas/plan.md`. This applies to implementation tickets as
+well as research tickets; otherwise a schema-valid plan can collapse into tasks
+and waves while hiding why those tasks are correct.
 
-### `research` block in `plan.json`
+Set `depth` to `quick`, `standard`, or `deep`. Quick plans still require a
+decision, outcome, evidence, scope, validation, and concrete task contract, but
+may use `alternatives: []` and omit `solution_shape` and task-local
+risk/recovery when they are genuinely not applicable. Do not invent architecture
+or fake alternatives to satisfy a template. Standard and deep plans require the
+full architecture, alternatives, and recovery contract.
 
-Phase B writes a `research` block whenever the ticket is research/evaluation/investigation-shaped. Optional for pure implementation tickets — even then, a findings-first narrative is preferred over a manifest-first one.
+For standard/deep depth, completeness means useful content, not populated keys.
+Give evidence a decision implication; alternatives distinct benefits, costs,
+rejection reasons, and reconsideration conditions; assumptions confidence,
+impact, and validation; and risks likelihood, impact, trigger, mitigation, and
+recovery. Use 2-4 substantive rationale points. Every task must be an executable
+dossier with enough context that its implementer does not need to rediscover a
+design choice. Quick plans stay concise and never invent filler.
 
-```
-research: {
-  question:   "..."                                       -- what was being investigated
-  findings:   [{ claim, evidence: "path/to/file.ts:123" }] -- every finding cites file:line
-  comparison: "..."                                        -- gap analysis, current vs desired
-  options:    [{ name, tradeoffs, status: "chosen" | "deferred", why }]
-  verdict:    "..."                                        -- the recommendation
-}
-decisions: [{ decision, rationale }]
-```
+Use evidence states instead of unsupported numeric confidence:
+`verified`, `supported`, `inferred`, or `unknown`. Every evidence item cites a
+repository location, command result, or authoritative URL. Keep unresolved
+questions explicit and mark whether they block approval.
 
-### Render order
+### Human review order
 
-The gate artifact leads with the research narrative — question -> findings -> verdict -> options -> decisions. Tasks, files, and contracts render last, as the "what we'll do about it" tail, never the opening.
+`render-plan.js` produces a self-contained, full-width HTML review surface in
+this order:
 
-### Renderer fallback
+1. Executive decision brief: approval question, recommendation, rationale, and pending calls.
+2. Outcome, scope, and architecture.
+3. Research findings, evidence, alternatives, assumptions, and risks.
+4. Validation strategy and observable definition of done.
+5. Execution appendix: affected files, waves, task dossiers, and dependencies.
+6. Plan-check, review provenance, and unrecognized compatibility fields.
 
-If `render-plan.js` doesn't render the `research` block (older renderer, no section support yet), Apex authors the enriched HTML directly over `plan.html` before opening the gate. The mechanical render is a fallback skeleton, never the final research artifact — `plan.json` stays the machine SSoT throughout, `plan.html` is only ever the human-facing view of it.
+The first screen must answer what is being approved, what Phantom recommends,
+why, what remains uncertain, and what happens if the choice is wrong. Tasks and
+waves never lead the gate.
+
+### Generated HTML only
+
+`plan.json` remains the machine source of truth. Always regenerate `plan.html`
+after changing the plan; never hand-author or patch the HTML. If rendering or
+opening is unavailable, present the same decision-first structure in chat and
+record the capability fallback rather than degrading to a task-only plan.

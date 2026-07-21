@@ -74,8 +74,8 @@ Claude's auto-memory loads at session start regardless of whether the Phantom is
 
 3. **Deactivate apex hook ward:**
    ```
-   rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.apex-active
-   rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing
+   rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.apex-active"
+   rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"
    ```
 
 4. **Clear native `/goal` if still active:**

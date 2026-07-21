@@ -71,12 +71,12 @@ test('golden: renders a valid, self-contained page with the plan content', () =>
   assert.ok(html.includes('plan.json is the source of truth'), 'footer states source of truth');
 });
 
-test('golden: leads with the shared kit + a sticky top bar and TOC chips', () => {
+test('golden: leads with the shared kit + a top bar and TOC chips', () => {
   const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'plan.json' });
   // A stable CZ token proves the shared kit stylesheet is inlined.
   assert.ok(html.includes('--brand-teal:#7FC2C8'), 'CZ design-kit token sheet present');
-  assert.ok(html.includes('<header class="kit-topbar">'), 'sticky top bar rendered');
-  assert.ok(html.includes('<nav class="kit-toc">'), 'TOC nav rendered');
+  assert.ok(html.includes('<header class="kit-topbar">'), 'top bar rendered');
+  assert.ok(html.includes('<nav class="kit-toc" aria-label="Document sections">'), 'labeled TOC nav rendered');
   // Every TOC chip anchors a section id that is actually emitted on the page.
   const hrefs = [...html.matchAll(/<a class="kit-chip" href="#([^"]+)">/g)].map((m) => m[1]);
   assert.ok(hrefs.length > 0, 'at least one TOC chip');
@@ -206,10 +206,10 @@ test('real-world fields: title/summary/verified_facts/decisions/test_plan/conven
   assert.ok(html.includes('<h1>Big headline</h1>'), 'title is the headline');
   assert.ok(html.includes('<h2 class="kit-h2">Summary</h2>') && html.includes('A one-paragraph lead.'), 'summary section');
   assert.ok(html.includes('<h2 class="kit-h2">Verified facts</h2>') && html.includes('fact one'), 'verified facts checklist');
-  assert.ok(html.includes('<h2 class="kit-h2">Needs your call</h2>') && html.includes('use the kit'), 'decisions surface under the human-decision section');
+  assert.ok(html.includes('<h2 class="kit-h2">Decision brief</h2>') && html.includes('use the kit'), 'decisions surface in the decision brief');
   assert.ok(html.includes('<h2 class="kit-h2">Test plan</h2>') && html.includes('run node --test'), 'test plan section');
   assert.ok(html.includes('<h2 class="kit-h2">Conventions</h2>') && html.includes('sentence case headings'), 'conventions section');
-  assert.ok(html.includes('<h2 class="kit-h2">Risks</h2>') && html.includes('markup drift'), 'risks section');
+  assert.ok(html.includes('<h2 class="kit-h2">Risks and reversibility</h2>') && html.includes('markup drift'), 'risks section');
   assert.ok(html.includes('<h2 class="kit-h2">Estimate</h2>') && html.includes('paragraph-length rationale'), 'estimate section');
   assert.ok(html.includes('<h2 class="kit-h2">Assumptions</h2>') && html.includes('tokens are stable'), 'assumptions section');
 
@@ -497,7 +497,7 @@ test('plan-check: real-shape sibling renders a Plan check section with verdict +
   assert.ok(html.includes('kit-badge-success') && html.includes('kit-badge-warn'), 'result badges get colour classes');
 });
 
-test('plan-check: verdict badge also appears in the sticky top bar', () => {
+test('plan-check: verdict badge also appears in the top bar', () => {
   const html = renderPlanHtml(GOLDEN_PLAN, { sourcePath: 'plan.json', planCheck: { data: PLAN_CHECK } });
   const topbar = html.slice(html.indexOf('<header class="kit-topbar">'), html.indexOf('</header>'));
   assert.ok(topbar.includes('Plan check: PROCEED'), 'plan-check verdict badge in the top bar');
@@ -1026,11 +1026,11 @@ test('v2 shape: "What changes" file table maps each task file to its task, above
   assert.ok(wc < html.indexOf('STEP-1'), 'the file overview precedes the detailed task steps');
 });
 
-test('v2 shape: human decisions consolidate under "Needs your call"; reviewer notes demoted to "Review notes"', () => {
+test('v2 shape: human decisions consolidate in the decision brief; reviewer notes stay in the appendix', () => {
   const html = renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' });
-  const needs = html.indexOf('<h2 class="kit-h2">Needs your call</h2>');
+  const needs = html.indexOf('<h2 class="kit-h2">Decision brief</h2>');
   const review = html.indexOf('<h2 class="kit-h2">Review notes</h2>');
-  assert.ok(needs > -1, 'Needs your call section present');
+  assert.ok(needs > -1, 'Decision brief section present');
   assert.ok(html.includes('HUMAN confirm the tz decision is locked'), 'open_for_human item shown to the human');
   assert.ok(review > -1, 'Review notes section present');
   assert.ok(html.includes('CHECK revise applied') && html.includes('RIVAL no blockers'), 'reviewer notes shown');
@@ -1050,12 +1050,12 @@ test('v2 shape: deterministic - two renders byte-identical', () => {
   assert.equal(renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' }), renderPlanHtml(V2_PLAN, { sourcePath: 'p.json' }));
 });
 
-test('open_questions feed "Needs your call" alongside decisions', () => {
+test('open_questions feed the decision brief alongside decisions', () => {
   const html = renderPlanHtml(
     { tasks: [{ id: 'T1', title: 'x' }], open_questions: ['Q ship on Friday?'] },
     { sourcePath: 'p.json' },
   );
-  assert.ok(html.includes('<h2 class="kit-h2">Needs your call</h2>'));
+  assert.ok(html.includes('<h2 class="kit-h2">Decision brief</h2>'));
   assert.ok(html.includes('Q ship on Friday?'), 'open question surfaced for the human');
 });
 

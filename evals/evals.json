@@ -379,6 +379,126 @@
         "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)(?![\\s\\S]*CLAUDE_PLUGIN_ROOT)[\\s\\S]*plugins/cache/phantom/phantom/\\*?/"
       },
       "expected_behavior": "The response resolves the plugin dir env-free by globbing ~/.claude/plugins/cache/phantom/phantom/*/ (e.g. `ls -dt ...plugins/cache/phantom/phantom/*/ | head -1`) and prints {PLUGIN_ROOT}/reference/coding-principles.md and {PLUGIN_ROOT}/reference/_base-agent.md from it. It must NOT depend on the CLAUDE_PLUGIN_ROOT env var (that string never appears) and must NOT use the legacy ~/.claude/phantom literal"
+    },
+    {
+      "id": 46,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "plan a cross-cutting authentication migration and show me the plan before editing",
+      "setup": "The task affects multiple services, has two viable migration strategies, and includes a reliable integration-test command.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The review result leads with an approval question, recommendation, evidence-backed rationale, scope, architecture, alternatives, risks, and validation. Tasks/files/waves appear only after those decision sections, as an execution appendix."
+      },
+      "expected_behavior": "Apex produces a standard/deep v3 decision-first plan and renders the self-contained HTML review surface before implementation."
+    },
+    {
+      "id": 47,
+      "kind": "convention",
+      "skill": "phantom:brainstorm",
+      "prompt": "brainstorm how we should redesign our plugin configuration without implementing anything",
+      "setup": "There are several plausible approaches and enough repository evidence to compare them.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The result leads with one concrete recommendation and a clear decision frame, preserves 2-3 genuinely different approaches, cites evidence, records unresolved questions, and includes the cheapest useful experiment or an explicit not-applicable reason."
+      },
+      "expected_behavior": "The generated brainstorm HTML presents the recommendation and direction gate before the side-by-side approaches; it does not collapse into tasks or waves."
+    },
+    {
+      "id": 48,
+      "kind": "convention",
+      "skill": "phantom:start",
+      "prompt": "plan the one-line rename of a clearly identified constant; do not implement",
+      "setup": "The target file, replacement, pattern, and deterministic test are already known; the change is reversible and low risk.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The plan selects quick depth, remains concise, and does not invent architecture, fake alternatives, a council, or unnecessary research. It still states the recommendation, evidence, scope, validation, and concrete task."
+      },
+      "expected_behavior": "Apex uses the frontier profile for the compact plan and routes any mechanical execution/checking to economy or balanced, with no needless fan-out."
+    },
+    {
+      "id": 49,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "render this saved v3 Phantom plan for review in an agent runtime with no browser plugin or MCP server",
+      "setup": "Command execution and local file viewing are available. The installed portable skill contains scripts/render-review.mjs and the input is a valid portable state envelope.",
+      "expected_check": {
+        "type": "regex",
+        "pattern": "render-review\\.mjs plan --input"
+      },
+      "expected_behavior": "The skill uses its bundled dependency-free renderer, produces self-contained full-width HTML, keeps JSON as the source of truth, and requires no Phantom AI MCP, host-specific directory, or npm install."
+    },
+    {
+      "id": 50,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for currency formatting in the new invoice summary. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already exports a tested formatCurrency helper used by three invoice callers. The new summary needs identical behavior and no new API.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response selects repository reuse, names the existing formatCurrency helper as the implementation basis, and avoids proposing a duplicate helper, new utility file, abstraction, or dependency. Existing relevant tests are reused or extended only if coverage is missing."
+      },
+      "expected_behavior": "Phantom traces callers, reuses the shared helper, and makes only the bounded call-site change needed for the invoice summary."
+    },
+    {
+      "id": 51,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for parsing filters in this request URL. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The runtime provides the standard URL and URLSearchParams APIs. The repository has no special query grammar and no existing helper or dependency that should override those APIs.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response selects the standard library URL/URLSearchParams capability and rejects a custom parser, regex parser, new helper file, or new package. It retains required input/error handling and proposes focused verification."
+      },
+      "expected_behavior": "Phantom uses the standard URL APIs directly and adds no parser framework or dependency."
+    },
+    {
+      "id": 52,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for a date selector in the account settings form. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The product only needs a single calendar date with browser-native constraints. The existing form has a visible label, keyboard flow, error association, and no design requirement for a custom calendar.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response selects the native date input, adds no date-picker package or custom calendar component, and explicitly preserves the visible label, keyboard use, error association, and required validation."
+      },
+      "expected_behavior": "Phantom uses the native platform control with the existing accessible form pattern and the minimum validation change."
+    },
+    {
+      "id": 53,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for validating whether this release string satisfies the configured version range. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already depends on semver and uses it elsewhere. There is no local wrapper, and the language standard library has no equivalent version-range parser.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response selects the already-installed semver dependency, follows the repository's existing usage, and avoids a custom range parser, new wrapper, or additional package. It includes boundary-case verification."
+      },
+      "expected_behavior": "Phantom reuses the approved installed dependency with the smallest clear call and focused range tests."
+    },
+    {
+      "id": 54,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide whether any implementation is needed to keep archived reports hidden. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. Archived reports are already excluded by the shared repository query, covered by an integration test, and no caller can opt into them. A new flag would duplicate the existing guarantee.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response returns an evidence-backed no-change/YAGNI decision because the requested outcome already holds. It does not propose a flag, config field, migration, file, dependency, or speculative abstraction, and it identifies the existing query and test as evidence."
+      },
+      "expected_behavior": "Phantom explains that no mechanism needs to be added and stops without editing."
+    },
+    {
+      "id": 55,
+      "kind": "convention",
+      "skill": "phantom",
+      "prompt": "Use the Phantom skill to decide and describe the minimum safe simplification for upload destination path handling. Do not implement it.",
+      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The current shared function normalizes the path and rejects absolute paths, parent traversal, and destinations outside the upload root before any write. Those checks protect a trust boundary and are covered by security tests.",
+      "expected_check": {
+        "type": "llm-judge",
+        "criteria": "The response may simplify duplication but preserves normalization, absolute-path rejection, parent-traversal rejection, root containment, pre-write ordering, and the security tests. It explicitly refuses a shorter implementation that weakens those guards; raw line-count reduction is not treated as success."
+      },
+      "expected_behavior": "Phantom keeps all trust-boundary protections and verification even if the smallest safe result is no change."
     }
   ]
 }

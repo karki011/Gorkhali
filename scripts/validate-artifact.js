@@ -42,6 +42,63 @@ function validateMeta(obj, errors) {
   if (typeof m.version !== 'number') errors.push('_meta.version: required number');
 }
 
+const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim() !== '';
+const hasUnresolvedPlaceholder = (value) =>
+  typeof value === 'string' && /(\{[A-Z][A-Z0-9_]*\}|\bTODO\b|\bTBD\b)/i.test(value);
+
+function requireArray(obj, field, errors, { nonEmpty = false, label = field } = {}) {
+  const value = obj[field];
+  if (!Array.isArray(value)) {
+    errors.push(`${label}: required array (schema v3+)`);
+    return [];
+  }
+  if (nonEmpty && value.length === 0) errors.push(`${label}: required non-empty array (schema v3+)`);
+  return value;
+}
+
+function validatePlanTaskGraph(tasks, errors) {
+  const ids = new Set();
+  for (const [i, task] of tasks.entries()) {
+    if (!isObject(task)) continue;
+    if (!isNonEmptyString(task.id)) continue;
+    if (ids.has(task.id)) errors.push(`tasks[${i}].id: duplicate task id "${task.id}"`);
+    ids.add(task.id);
+  }
+  for (const [i, task] of tasks.entries()) {
+    if (!isObject(task)) continue;
+    if (!Array.isArray(task.dependsOn)) continue;
+    for (const dependency of task.dependsOn) {
+      if (dependency === task.id) errors.push(`tasks[${i}].dependsOn: task cannot depend on itself`);
+      else if (!ids.has(dependency)) errors.push(`tasks[${i}].dependsOn: unknown task id "${dependency}"`);
+    }
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  const byId = new Map(
+    tasks.filter((task) => isObject(task) && isNonEmptyString(task.id)).map((task) => [task.id, task]),
+  );
+  const visit = (id) => {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    const task = byId.get(id);
+    for (const dependency of task && Array.isArray(task.dependsOn) ? task.dependsOn : []) {
+      if (byId.has(dependency) && visit(dependency)) return true;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  };
+  for (const id of byId.keys()) {
+    if (visit(id)) {
+      errors.push('tasks[].dependsOn: dependency cycle detected');
+      break;
+    }
+  }
+}
+
 // --- Schema definitions (data) + per-type validators (enforcement) ---
 // `fields` order is the rendered table order. Cells are stored with raw `|`;
 // the doc generator escapes them to `\|`.
@@ -92,6 +149,13 @@ const SCHEMAS = {
 
   brainstorm: {
     fields: [
+      { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Decision frame shown before approaches' },
+      { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The choice the user is being asked to make' },
+      { field: 'decision.outcome', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Desired observable outcome' },
+      { field: 'decision.constraints', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Hard boundaries every approach must satisfy' },
+      { field: 'decision.evaluationCriteria', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Criteria fixed before candidate evaluation' },
+      { field: 'evidence', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Claims and sources gathered before divergence' },
+      { field: 'openQuestions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Unresolved questions, including whether each blocks the decision' },
       { field: 'approaches', type: 'object[]', required: 'yes', description: 'Candidate approach cards from the diverge phase' },
       { field: 'approaches[].id', type: 'string', required: 'yes', description: 'Stable slug identifying this approach' },
       { field: 'approaches[].name', type: 'string', required: 'yes', description: 'Short approach label' },
@@ -108,15 +172,22 @@ const SCHEMAS = {
       { field: 'recommendedDefault', type: 'object', required: 'yes', description: 'The coordinator\'s or Chairman\'s recommended pick' },
       { field: 'recommendedDefault.id', type: 'string', required: 'yes', description: 'Must match one of `approaches[].id`' },
       { field: 'recommendedDefault.reason', type: 'string', required: 'yes', description: 'Why this approach is recommended' },
+      { field: 'cheapestExperiment', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Lowest-cost experiment that can resolve material uncertainty' },
+      { field: 'directionGate', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Explicit user choice prompt and valid approach IDs' },
     ],
     validate: (d, errors) => {
       validateMeta(d, errors);
+      const brainstormVersion = d._meta && typeof d._meta.version === 'number' ? d._meta.version : 1;
       const validVisualTypes = ['diagram', 'flow', 'sitemap', 'mockup', null];
       const ids = [];
       if (!Array.isArray(d.approaches) || d.approaches.length === 0) {
         errors.push('approaches: required non-empty array');
       } else {
         d.approaches.forEach((a, i) => {
+          if (!isObject(a)) {
+            errors.push(`approaches[${i}]: required object`);
+            return;
+          }
           if (!a.id || typeof a.id !== 'string') errors.push(`approaches[${i}].id: required string`);
           else ids.push(a.id);
           if (!a.name || typeof a.name !== 'string') errors.push(`approaches[${i}].name: required string`);
@@ -146,6 +217,70 @@ const SCHEMAS = {
         }
         if (!d.recommendedDefault.reason || typeof d.recommendedDefault.reason !== 'string') {
           errors.push('recommendedDefault.reason: required string');
+        }
+      }
+      if (brainstormVersion >= 3) {
+        if (!isObject(d.decision)) errors.push('decision: required object (schema v3+)');
+        else {
+          if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');
+          if (!isNonEmptyString(d.decision.outcome)) errors.push('decision.outcome: required string (schema v3+)');
+          if (!Array.isArray(d.decision.constraints)) errors.push('decision.constraints: required array (schema v3+)');
+          if (!Array.isArray(d.decision.evaluationCriteria) || d.decision.evaluationCriteria.length === 0) {
+            errors.push('decision.evaluationCriteria: required non-empty array (schema v3+)');
+          }
+        }
+        const evidence = requireArray(d, 'evidence', errors, { nonEmpty: true });
+        const evidenceStates = ['verified', 'supported', 'inferred', 'unknown'];
+        evidence.forEach((item, i) => {
+          if (!isObject(item) || !isNonEmptyString(item.claim) || !isNonEmptyString(item.source)) {
+            errors.push(`evidence[${i}]: claim and source are required strings (schema v3+)`);
+          }
+          if (!isObject(item) || !evidenceStates.includes(item.status)) {
+            errors.push(`evidence[${i}].status: must be ${evidenceStates.join('|')} (schema v3+)`);
+          }
+        });
+        requireArray(d, 'openQuestions', errors);
+        if (!Array.isArray(d.approaches) || d.approaches.length < 2 || d.approaches.length > 3) {
+          errors.push('approaches: schema v3 requires 2-3 approaches');
+        }
+        const uniqueIds = new Set(ids);
+        if (uniqueIds.size !== ids.length) errors.push('approaches[].id: duplicate approach id');
+        if (Array.isArray(d.approaches)) {
+          d.approaches.forEach((approach, i) => {
+            if (!isObject(approach) || !Array.isArray(approach.mutualExclusivity)) return;
+            for (const excluded of approach.mutualExclusivity) {
+              if (excluded === approach.id) {
+                errors.push(`approaches[${i}].mutualExclusivity: approach cannot exclude itself`);
+              } else if (!ids.includes(excluded)) {
+                errors.push(`approaches[${i}].mutualExclusivity: unknown approach id "${excluded}"`);
+              }
+            }
+          });
+        }
+        if (!isObject(d.cheapestExperiment)) errors.push('cheapestExperiment: required object (schema v3+)');
+        else if (d.cheapestExperiment.status === 'not-applicable') {
+          if (!isNonEmptyString(d.cheapestExperiment.reason)) {
+            errors.push('cheapestExperiment.reason: required when status is not-applicable (schema v3+)');
+          }
+        } else {
+          for (const field of ['question', 'method', 'successSignal', 'cost']) {
+            if (!isNonEmptyString(d.cheapestExperiment[field])) {
+              errors.push(`cheapestExperiment.${field}: required string (schema v3+)`);
+            }
+          }
+        }
+        if (!isObject(d.directionGate)) errors.push('directionGate: required object (schema v3+)');
+        else {
+          if (!isNonEmptyString(d.directionGate.question)) {
+            errors.push('directionGate.question: required string (schema v3+)');
+          }
+          if (!Array.isArray(d.directionGate.options) || d.directionGate.options.length === 0) {
+            errors.push('directionGate.options: required non-empty array (schema v3+)');
+          } else {
+            for (const option of d.directionGate.options) {
+              if (!ids.includes(option)) errors.push(`directionGate.options: unknown approach id "${option}"`);
+            }
+          }
         }
       }
     },
@@ -191,6 +326,22 @@ const SCHEMAS = {
 
   plan: {
     fields: [
+      { field: 'depth', type: '`"quick"` | `"standard"` | `"deep"`', required: '_meta.version >= 3: yes; older: no', description: 'Adaptive planning depth; controls optional architecture and research breadth' },
+      { field: 'problem', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Problem the plan resolves' },
+      { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Recommendation and approval question shown first' },
+      { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What the user is approving' },
+      { field: 'decision.recommendation', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Recommended direction in one sentence' },
+      { field: 'decision.rationale', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Evidence-backed reasons for the recommendation' },
+      { field: 'decision.status', type: '`"pending"` | `"delegated"`', required: '_meta.version >= 3: yes; older: no', description: 'Approval state; the model never marks its own plan approved' },
+      { field: 'outcome', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Goal and observable definition of done' },
+      { field: 'scope', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'In-scope, out-of-scope, and constraints' },
+      { field: 'solution_shape', type: 'object', required: 'v3 standard/deep: yes; v3 quick and older: no', description: 'Architecture summary, components, and data flow' },
+      { field: 'evidence', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Claims, sources, and evidence states' },
+      { field: 'alternatives', type: 'object[]', required: '_meta.version >= 3: array; standard/deep non-empty', description: 'Considered alternatives and why they were not selected' },
+      { field: 'assumptions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Explicit assumptions rather than hidden guesses' },
+      { field: 'open_questions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Unresolved questions and whether they block execution' },
+      { field: 'risks', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Risks, mitigations, reversibility, and recovery' },
+      { field: 'validation', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Validation strategy, checks, and definition of done' },
       { field: 'route', type: '`"solo"` | `"shadows"`', required: 'yes', description: 'Whether to spawn agents or work inline' },
       { field: 'devilsAdvocateVerdict', type: '`"PROCEED"` | `"REVISE"` | `"RETHINK"`', required: 'yes', description: 'Grill gate outcome' },
       { field: 'tasks', type: 'object[]', required: 'yes', description: 'Ordered list of task objects' },
@@ -201,6 +352,11 @@ const SCHEMAS = {
       { field: 'tasks[].verify', type: 'string', required: '_meta.version >= 2: yes; v1: no', description: 'Single command that exits 0 on success; must be runnable by Ward' },
       { field: 'tasks[].dependsOn', type: 'string[]', required: 'no', description: 'Task IDs this task must wait for' },
       { field: 'tasks[].agent', type: 'string', required: 'no', description: 'Agent role for shadows route' },
+      { field: 'tasks[].read_first', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Files and references to inspect before editing' },
+      { field: 'tasks[].action', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Concrete implementation action' },
+      { field: 'tasks[].risk', type: 'string', required: 'v3 standard/deep: yes; quick/older: no', description: 'Task-local failure risk' },
+      { field: 'tasks[].recovery', type: 'string', required: 'v3 standard/deep: yes; quick/older: no', description: 'Task-local rollback or recovery path' },
+      { field: 'tasks[].profile', type: '`"economy"` | `"balanced"` | `"deep"`', required: '_meta.version >= 3: yes; older: no', description: 'Lowest sufficient delegated compute profile' },
       { field: 'antiRepetition', type: 'string[]', required: 'no', description: 'Patterns to avoid (from learnings)' },
       { field: 'estimatedSpawns', type: 'number', required: 'no', description: 'Expected agent count for shadows route' },
     ],
@@ -216,6 +372,10 @@ const SCHEMAS = {
       const planVersion = d._meta && typeof d._meta.version === 'number' ? d._meta.version : 1;
       if (Array.isArray(d.tasks)) {
         d.tasks.forEach((t, i) => {
+          if (!isObject(t)) {
+            errors.push(`tasks[${i}]: required object`);
+            return;
+          }
           if (!t.id || typeof t.id !== 'string') errors.push(`tasks[${i}].id: required string`);
           if (!t.description || typeof t.description !== 'string') errors.push(`tasks[${i}].description: required string`);
           if (!Array.isArray(t.files)) errors.push(`tasks[${i}].files: required array`);
@@ -228,7 +388,117 @@ const SCHEMAS = {
               errors.push(`tasks[${i}].verify: required string (schema v2+)`);
             }
           }
+          if (planVersion >= 3) {
+            if (!Array.isArray(t.files) || t.files.length === 0) {
+              errors.push(`tasks[${i}].files: required non-empty array (schema v3+)`);
+            }
+            if (!Array.isArray(t.read_first) || t.read_first.length === 0) {
+              errors.push(`tasks[${i}].read_first: required non-empty array (schema v3+)`);
+            }
+            if (!isNonEmptyString(t.action)) {
+              errors.push(`tasks[${i}].action: required string (schema v3+)`);
+            }
+            if (!['economy', 'balanced', 'deep'].includes(t.profile)) {
+              errors.push(`tasks[${i}].profile: must be economy|balanced|deep (schema v3+)`);
+            }
+            for (const [field, value] of [
+              ['action', t.action],
+              ['verify', t.verify],
+              ['acceptance_criteria', Array.isArray(t.acceptance_criteria) ? t.acceptance_criteria.join(' ') : ''],
+            ]) {
+              if (hasUnresolvedPlaceholder(value)) {
+                errors.push(`tasks[${i}].${field}: unresolved placeholder is not allowed (schema v3+)`);
+              }
+            }
+          }
         });
+      }
+      if (planVersion >= 3) {
+        const planDepth = d.depth;
+        if (!['quick', 'standard', 'deep'].includes(planDepth)) {
+          errors.push('depth: must be quick|standard|deep (schema v3+)');
+        }
+        if (!isNonEmptyString(d.problem)) errors.push('problem: required string (schema v3+)');
+        if (!isObject(d.decision)) errors.push('decision: required object (schema v3+)');
+        else {
+          if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');
+          if (!isNonEmptyString(d.decision.recommendation)) {
+            errors.push('decision.recommendation: required string (schema v3+)');
+          }
+          if (!Array.isArray(d.decision.rationale) || d.decision.rationale.length === 0) {
+            errors.push('decision.rationale: required non-empty array (schema v3+)');
+          }
+          if (!['pending', 'delegated'].includes(d.decision.status)) {
+            errors.push('decision.status: must be pending|delegated (schema v3+)');
+          }
+        }
+        if (!isObject(d.outcome)) errors.push('outcome: required object (schema v3+)');
+        else {
+          if (!isNonEmptyString(d.outcome.goal)) errors.push('outcome.goal: required string (schema v3+)');
+          if (!Array.isArray(d.outcome.doneWhen) || d.outcome.doneWhen.length === 0) {
+            errors.push('outcome.doneWhen: required non-empty array (schema v3+)');
+          }
+        }
+        if (!isObject(d.scope)) errors.push('scope: required object (schema v3+)');
+        else {
+          for (const field of ['in', 'out', 'constraints']) {
+            requireArray(d.scope, field, errors, { label: `scope.${field}` });
+          }
+        }
+        if (planDepth !== 'quick' && !isObject(d.solution_shape)) {
+          errors.push('solution_shape: required object for standard/deep plans (schema v3+)');
+        } else if (isObject(d.solution_shape)) {
+          if (!isNonEmptyString(d.solution_shape.summary)) {
+            errors.push('solution_shape.summary: required string (schema v3+)');
+          }
+          requireArray(d.solution_shape, 'components', errors, {
+            nonEmpty: true,
+            label: 'solution_shape.components',
+          });
+          requireArray(d.solution_shape, 'dataFlow', errors, {
+            nonEmpty: true,
+            label: 'solution_shape.dataFlow',
+          });
+        }
+        const evidence = requireArray(d, 'evidence', errors, { nonEmpty: true });
+        const evidenceStates = ['verified', 'supported', 'inferred', 'unknown'];
+        evidence.forEach((item, i) => {
+          if (!isObject(item) || !isNonEmptyString(item.claim) || !isNonEmptyString(item.source)) {
+            errors.push(`evidence[${i}]: claim and source are required strings (schema v3+)`);
+          }
+          if (!isObject(item) || !evidenceStates.includes(item.status)) {
+            errors.push(`evidence[${i}].status: must be ${evidenceStates.join('|')} (schema v3+)`);
+          }
+        });
+        const alternatives = requireArray(d, 'alternatives', errors);
+        if (planDepth !== 'quick' && alternatives.length === 0) {
+          errors.push('alternatives: required non-empty array for standard/deep plans (schema v3+)');
+        }
+        requireArray(d, 'assumptions', errors);
+        requireArray(d, 'open_questions', errors);
+        requireArray(d, 'risks', errors);
+        if (!isObject(d.validation)) errors.push('validation: required object (schema v3+)');
+        else {
+          if (!isNonEmptyString(d.validation.strategy)) {
+            errors.push('validation.strategy: required string (schema v3+)');
+          }
+          requireArray(d.validation, 'definitionOfDone', errors, {
+            nonEmpty: true,
+            label: 'validation.definitionOfDone',
+          });
+          requireArray(d.validation, 'checks', errors, { nonEmpty: true, label: 'validation.checks' });
+        }
+        if (Array.isArray(d.tasks)) validatePlanTaskGraph(d.tasks, errors);
+        if (planDepth !== 'quick' && Array.isArray(d.tasks)) {
+          d.tasks.forEach((task, i) => {
+            if (!isObject(task)) return;
+            for (const field of ['risk', 'recovery']) {
+              if (!isNonEmptyString(task[field])) {
+                errors.push(`tasks[${i}].${field}: required string for standard/deep plans (schema v3+)`);
+              }
+            }
+          });
+        }
       }
       if (d.antiRepetition !== undefined && !Array.isArray(d.antiRepetition)) errors.push('antiRepetition: must be array if present');
     },

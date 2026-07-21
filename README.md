@@ -13,7 +13,58 @@ Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex 
 
 Zero external plugin dependencies. Fully self-contained.
 
+## Portable Agent Skill
+
+The canonical product is one provider-neutral Agent Skill at
+`skills/phantom/`. Copy that directory unchanged into any Agent
+Skills-compatible discovery path. It contains no provider paths, proprietary
+tool calls, or plugin manifests. Host-specific model identifiers are isolated
+in one data-only preset registry; the workflow remains provider-neutral.
+
+The skill negotiates capabilities at runtime. Delegation, parallel execution,
+native dependency graphs, visual tools, hooks, issue trackers, and review
+publishing are optional accelerators with explicit fallbacks. When no native
+graph is exposed, the skill runs its bundled, read-only impact analyzer through
+ordinary command execution. It builds a bounded import graph for that invocation,
+returns JSON, and exits; it installs no server, daemon, hook, or host registration.
+The workflow and artifact contracts remain the same when optional capabilities
+are missing.
+
+Apex makes the delegation decision automatically after routing and dependency
+inspection. Users provide the goal; they do not need to request subagents,
+choose a worker count, or maintain per-worker model settings. Phantom uses the
+smallest useful topology, delegates only through native host capabilities, and
+falls back to labeled sequential role passes when spawning is unavailable or
+not worthwhile. It never recursively launches the current runtime through
+command execution to imitate a native worker.
+
+Phantom also applies a minimum-sufficient-solution ladder after it understands
+the real code path: omit what is unnecessary, then prefer repository reuse,
+the standard library, native platform capabilities, installed dependencies,
+and direct expressions before writing the smallest custom implementation. The
+same constraint is included in every delegated assignment and checked again by
+Sweep. This policy is adapted from the ideas in
+[Ponytail](https://github.com/dietrichgebert/ponytail); Phantom does not bundle
+Ponytail's hooks, modes, adapters, or runtime dependency.
+
+Phantom asks for semantic profiles - `inherit`, `economy`, `balanced`, `deep`,
+or `frontier` - and ships maintained defaults for Claude Code and Codex. Users
+do not need a `models.json`. An explicit user choice or optional external map
+can override the defaults; unknown hosts inherit the active model. See
+`skills/phantom/references/models.md`.
+
 ## Quick Start
+
+In an Agent Skills-compatible host, ask naturally:
+
+```text
+Use Phantom to implement CP-41606 through a tested review request.
+Use Phantom to investigate why the dashboard feels slow.
+Use Phantom to pause this task and preserve a resumable checkpoint.
+```
+
+The existing native plugin remains as a compatibility distribution with its
+command surface:
 
 ```bash
 /phantom:start CP-41606                    # router classifies → plan → execute → verify → ship
@@ -90,14 +141,22 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 ## Folder Structure
 
-Repo root (the plugin install root). Skills/agents self-resolve it env-free (deterministic) — `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }` (the empty-guard makes a fresh machine / dev clone fail readable instead of crashing on `node "/scripts/..."`) — never via `CLAUDE_PLUGIN_ROOT` (that env var is used ONLY inside `hooks/hooks.json`, where Claude Code substitutes it at hook-exec):
+The canonical portable skill and the existing native compatibility plugin live
+side-by-side. The portable directory is self-contained and never imports the
+native plugin tree:
 
 ```
-{PLUGIN_ROOT}/           # plugin root (self-resolved as above)
+skills/phantom/          # canonical provider-neutral Agent Skill
+├── SKILL.md             # intent router and invariant workflow
+├── manifest.json        # bundle and portable contract versions
+├── references/          # capabilities, profiles, roles, state, workflows, QA
+└── scripts/             # portable state, profile, and impact-analysis helpers
+
+{PLUGIN_ROOT}/           # native compatibility plugin
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
-├── commands/          # 30 command directives (+ 10 _shared partials)
+├── commands/          # 29 command directives (+ 10 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
@@ -114,35 +173,36 @@ Repo root (the plugin install root). Skills/agents self-resolve it env-free (det
 │   ├── session-health.sh
 │   ├── preamble-tier.js
 │   └── timing-report.js       # per-model agent timing (wall-clock by model)
-├── evals/             # 45 test cases for skill triggering verification
+├── evals/             # 55 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
 │   ├── hooks.json         # Plugin-owned hook registrations
 │   └── timing-capture.js  # records agent spawn/stop + model (PreToolUse Agent + SubagentStop)
-├── templates/         # Reusable contract templates
-├── install.sh         # Legacy / manual install helper
-└── setup.sh           # State + config initializer (run via /phantom:setup)
+└── templates/         # Reusable contract templates
 ```
 
-Mutable state lives outside the plugin root, under `${PHANTOM_DATA:-~/.claude/phantom-data}`:
+Portable mutable state lives outside the skill under
+`${PHANTOM_DATA:-~/.phantom}`. The legacy native plugin keeps its existing
+`${PHANTOM_DATA:-~/.claude/phantom-data}` default for backward compatibility:
 
 ```
-${PHANTOM_DATA:-~/.claude/phantom-data}/
-├── state/             # Global (non-ticket) state: evolution-log, hook-session snapshots
-├── learnings/         # Scored knowledge with decay
-├── global/            # Cross-repo patterns
-└── repos/             # Per-repo state
-    └── {REPO_NAME}/
-        ├── sessions/      # Per-ticket JSON artifacts (source of truth) — sessions/{TICKET}/
-        └── learnings/     # Per-repo scored knowledge
+${PHANTOM_DATA:-~/.phantom}/
+├── state/current-session/{repo-id}.json
+├── repos/{repo-id}/
+│   ├── sessions/{task-id}/       # active portable artifacts and run evidence
+│   ├── completed/{task-id}/      # completed sessions are retained, not deleted
+│   └── learnings/                # provider-neutral corrections and patterns
+├── global/patterns/
+├── audit/
+└── locks/
 ```
 
-## Repo Brain
+## Legacy Plugin Repo Brain
 
 **Per-session distilled knowledge cards.** After every session, Phantom writes a lightweight card to the Repo Brain — one card per ticket. Cards live in `${PHANTOM_DATA}/repos/{REPO_NAME}/brain/cards/` as markdown files and grow monotonically (never deleted, only superseded). On-demand grep retrieval retrieves relevant cards at task start (see `commands/_shared-brain.md` for the retrieval query, and `reference/brain.md` for the card schema).
 
 **Auto-migration on first run:** Branch-named repo dirs (leftover from old detection logic) are consolidated on first run via `scripts/migrate-repo-dirs.js` — idempotent and non-destructive.
 
-## Shadows
+## Legacy Plugin Shadows
 
 | Agent | Model | Effort | Role |
 |-------|-------|--------|------|
@@ -170,6 +230,32 @@ Apex tunes per spawn only to downshift further (Sonnet for small, well-scoped su
 Use bare aliases only; never pin dated or prior-generation model IDs.
 
 ## Models & Effort
+
+The portable skill keeps role policy semantic in
+`skills/phantom/references/model-policy.json` and confines concrete defaults to
+`skills/phantom/references/model-presets.json`. Resolution is explicit user
+choice, optional external override, bundled host preset, then active-model
+inheritance.
+
+Every resolution diagnostic includes the canonical bundle version from
+`skills/phantom/manifest.json`. This attributes routing results to the exact
+portable bundle without changing existing resolver fields or precedence.
+
+| Profile | Claude Code | Codex |
+|---|---|---|
+| `economy` | `haiku` | `gpt-5.6-luna` |
+| `balanced` | `sonnet` at high effort | `gpt-5.6-terra` at high effort |
+| `deep` | `opus` at high effort | `gpt-5.6-sol` at high effort |
+| `frontier` | `fable` at high effort | `gpt-5.6-sol` at max effort |
+
+Apex always requests `frontier` for planning, decomposition, and synthesis.
+Delegated work selects the lowest sufficient profile: `economy` for mechanical
+tasks, `balanced` for well-scoped implementation, and `deep` for ambiguity or
+cross-cutting risk. If a bundled model is unavailable, the host retries without
+a selector and inherits the active model. Explicit user choices are never
+silently replaced.
+
+The following policy describes the existing native compatibility plugin only.
 
 Phantom runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
 **Model is the per-task lever, not effort.**
@@ -226,7 +312,7 @@ There is no config file. All optional behavior is controlled by environment vari
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PHANTOM_DATA` | `~/.claude/phantom-data` | Root for all mutable state (sessions, learnings) |
+| `PHANTOM_DATA` | `~/.phantom` portable; `~/.claude/phantom-data` legacy | Root for all mutable state (sessions, learnings) |
 | `PHANTOM_REPO` | git-root basename | Override the repo name used for state partitioning |
 | `PHANTOM_ROUTING_NUDGE` | `1` (on) | Prompt-time routing reminder; set `0` to silence |
 | `PHANTOM_ROUTING_ENFORCE` | `0` (off) | When `1`, hard-block implementation edits outside a phantom session |
@@ -239,32 +325,67 @@ Many more internal vars exist (eval, migration, learning-decay tuning) — grep 
 
 ## Install
 
-Phantom is a **native Claude Code plugin**. Install it from the self-hosted marketplace in this repo — no symlinks, no `settings.json` juggling.
+Install the same canonical directory without modifying it. Project-scoped
+examples:
+
+```bash
+# Shared Agent Skills discovery convention
+mkdir -p .agents/skills
+cp -R /path/to/research-phantom-skills/skills/phantom .agents/skills/phantom
+```
+
+Common project discovery locations are:
+
+| Host | Project path |
+|---|---|
+| Claude Code | `.claude/skills/phantom/` |
+| Codex | `.agents/skills/phantom/` |
+| Gemini CLI | `.agents/skills/phantom/` |
+
+The copied `phantom` directory and every file inside it, including the canonical
+`manifest.json`, remain byte-identical. The manifest versions the bundle and
+its portable contracts without depending on a host-specific plugin manifest.
+Use each host's user-level skills directory instead when you want Phantom in
+every project.
+
+Validate the source artifact with `npm run validate:skill`. The repository test
+suite also copies it into three disposable discovery layouts, compares recursive
+SHA-256 digests, exercises semantic model resolution, and runs the full portable
+state lifecycle.
+
+The continuous-integration gate also runs the pinned Agent Skills reference
+validator. Authenticated live-model conformance is intentionally kept off
+untrusted pull-request runners: run it from an isolated trusted environment with
+the same skill bytes, a disposable workspace and home directory, and ephemeral
+credentials. The copied skill includes the same validated preset registry used
+locally; the runner may supply an optional external override when needed.
+
+### Native compatibility plugin
+
+The existing native plugin is retained for users who need its command, agent,
+and hook integrations. Install it from the self-hosted marketplace in this repo:
 
 ```
 /plugin marketplace add Cloudzero/research-phantom-skills
 /plugin install phantom@phantom
-/phantom:setup        # one-time: inits PHANTOM_DATA dirs, learnings INDEX
 ```
 
-The plugin install drops commands, agents, and hooks into place automatically (the manifest is `.claude-plugin/plugin.json`; hooks are registered by `hooks/hooks.json`). `/phantom:setup` then (re)initializes the `PHANTOM_DATA` dirs and the learnings `INDEX.md` — it is safe to re-run. There is no config file: all optional behavior is controlled by environment variables (see **Configuration — Environment Variables** above). Update later with `/plugin update phantom`.
+That is the complete installation. Claude Code discovers the plugin's commands,
+agents, and hooks directly; Phantom creates mutable state and per-repository
+learnings lazily on first use. No setup command, symlink, or config file is
+required. Optional behavior is controlled by environment variables (see
+**Configuration — Environment Variables** above). Update later with
+`/plugin update phantom`.
 
 Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
 
-### Legacy / manual install (for development)
+### Upgrading from a pre-plugin install
 
-The original git-clone + symlink flow still works and is handy when developing Phantom itself, but the plugin install above is preferred for normal use.
-
-```bash
-git clone git@github.com:Cloudzero/research-phantom-skills.git ~/.claude/phantom
-~/.claude/phantom/setup.sh
-```
-
-There is also a one-shot script form — `bash <(curl -sSL https://raw.githubusercontent.com/Cloudzero/research-phantom-skills/main/install.sh) --legacy`. Set `PHANTOM_INSTALL_DIR` to override the install location for `install.sh --legacy` (default `~/.claude/phantom`).
-
-> **Note:** `/phantom:setup` finds `setup.sh` by self-locating from the running script (`BASH_SOURCE`) or self-resolving the install in `~/.claude/plugins/cache/phantom/phantom/*/`. A bare-terminal copy-paste with neither present will not find `setup.sh` and exits with a helpful error.
-
-**Previously used the legacy symlink install?** That flow registered 5 Phantom hooks in `~/.claude/settings.json` with absolute paths. The plugin's `hooks/hooks.json` now owns those same hooks, so to avoid double-firing, those legacy entries must be removed:
+If you previously used the retired manual install, remove its exact
+`~/.claude/commands/phantom` and `~/.claude/agents/phantom` entries so Claude
+Code cannot discover a stale copy alongside the plugin. The old flow may also
+have registered these five Phantom hooks in `~/.claude/settings.json`; remove
+only those entries because `hooks/hooks.json` now owns them:
 
 - `memory-writer.js`
 - `apex-subagent-driven-law.sh`
@@ -272,7 +393,10 @@ There is also a one-shot script form — `bash <(curl -sSL https://raw.githubuse
 - `memory-consolidator.js`
 - `context-compact-guide.sh`
 
-When you run `/phantom:setup` from a **plugin** install (`setup.sh` running outside `~/.claude/phantom`), it backs up `~/.claude/settings.json` and removes those legacy entries automatically — and preserves all non-phantom hook entries. Run from the legacy symlink install, it leaves them in place (they are that install's own registration). Requires `jq`; if `jq` is missing it skips and warns, and you can remove them manually.
+Back up `settings.json` before editing and preserve every non-Phantom hook. If
+you need data from an old `~/.claude/team` or `~/.claude/phantom` directory,
+the optional `scripts/migrate-data.js` utility copies its data whitelist into
+`PHANTOM_DATA` without modifying the source.
 
 ## Author
 

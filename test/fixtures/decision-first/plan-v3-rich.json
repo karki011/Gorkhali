@@ -1,0 +1,422 @@
+{
+  "_meta": {
+    "writtenAt": "2026-07-19T12:00:00Z",
+    "gitHead": "50ca22f",
+    "gitBranch": "feat/ai-agnostic-phantom-skill",
+    "phase": "B",
+    "skill": "phantom:start",
+    "version": 3
+  },
+  "contract_version": 3,
+  "depth": "deep",
+  "title": "AI-agnostic decision review pipeline",
+  "summary": "Planning reviews currently force people to reconstruct the proposed direction from task-heavy output. We chose to keep JSON as the source of truth while giving plans and brainstorms separate, self-contained review experiences. This plan puts a plain-language overview first, connects requirements to observable behavior and proof, and keeps implementation dossiers collapsed until someone is ready to execute. The result is a reviewer who can understand the problem, the chosen direction, what will change, and the expected outcome before opening a single task.",
+  "problem": "Planning output is technically valid but too sparse and task-centric for a reviewer to understand the recommendation, evidence, tradeoffs, and approval gates without reconstructing the reasoning from execution waves.",
+  "decision": {
+    "question": "Approve a semantic decision-dossier renderer as the default review experience?",
+    "recommendation": "Keep JSON as the machine-readable source of truth and generate a self-contained, full-width decision dossier with specialized plan and brainstorm views.",
+    "rationale": [
+      "A recommendation is reviewable only when its evidence, rejected alternatives, and accepted tradeoffs are visible together.",
+      "Semantic components preserve meaning that generic key/value cards erase.",
+      "A deterministic offline renderer remains portable across AI hosts and requires no external template or runtime dependency."
+    ],
+    "status": "pending",
+    "acceptedTradeoff": "The renderer contains more presentation code in exchange for a substantially faster and safer human approval loop.",
+    "confidence": "high"
+  },
+  "outcome": {
+    "goal": "A reviewer can understand and approve the proposed direction in under five minutes before opening the execution appendix.",
+    "doneWhen": [
+      "The plain-language problem, chosen direction, expected changes, outcome, and human gate are visible before implementation detail.",
+      "Evidence, architecture, alternatives, risks, and validation have distinct semantic treatments.",
+      "The same artifact renders without network access in supported AI hosts.",
+      "Quick plans remain concise while standard and deep plans carry decision-grade detail."
+    ]
+  },
+  "scope": {
+    "in": [
+      "Portable plan and brainstorm HTML renderer",
+      "Representative standard/deep fixtures",
+      "Semantic and responsive regression coverage"
+    ],
+    "out": [
+      "Interactive editing inside generated HTML",
+      "A hosted review service",
+      "Provider-specific rendering branches"
+    ],
+    "constraints": [
+      "Self-contained HTML with no external assets",
+      "Dependency-free Node.js execution",
+      "Backward compatibility with valid v3 quick artifacts"
+    ]
+  },
+  "solution_shape": {
+    "summary": "Transform one validated decision artifact into semantic review sections while preserving JSON as the authoritative, portable record.",
+    "components": [
+      "v3 decision contract",
+      "semantic plan renderer",
+      "semantic brainstorm renderer",
+      "shared responsive design system",
+      "review regression suite"
+    ],
+    "dataFlow": [
+      "Agent writes a contract-v3 JSON artifact",
+      "Validator rejects incomplete decision data",
+      "Renderer selects the plan or brainstorm composition",
+      "Semantic components encode evidence, tradeoffs, and gates",
+      "Reviewer opens a self-contained HTML dossier and makes the decision"
+    ]
+  },
+  "change_set": {
+    "added": [
+      "Plain-language plan summary before implementation detail",
+      "Distinct plan and brainstorm information architectures",
+      "Requirement-to-task coverage and readiness review",
+      "Visible brainstorming divergence, clustering, and convergence"
+    ],
+    "modified": [
+      "Portable v3 decision contract validation",
+      "Self-contained review renderer and responsive design system",
+      "Execution appendix defaults collapsed and appears last"
+    ],
+    "removed": [
+      "Shared generic-card hierarchy for both artifact types",
+      "Expanded task dossiers competing with the decision narrative"
+    ],
+    "unchanged": [
+      "JSON remains the source of truth",
+      "Offline dependency-free execution"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "S1",
+      "given": "A standard or deep plan has been generated",
+      "when": "the portable contract is validated",
+      "then": "change deltas, scenarios, coverage, readiness, and task interfaces are required"
+    },
+    {
+      "id": "S2",
+      "given": "A reviewer opens the generated plan HTML",
+      "when": "they scan from the decision through execution",
+      "then": "they can trace each requirement to scenarios, tasks, and concrete verification"
+    },
+    {
+      "id": "S3",
+      "given": "A valid quick plan omits architecture-grade ceremony",
+      "when": "it is validated and rendered",
+      "then": "it stays concise and remains decision-useful"
+    }
+  ],
+  "research": {
+    "finding": "The previous sample was generated from a minimal quick-plan lifecycle fixture.",
+    "consequence": "It demonstrated compatibility but could not demonstrate the intended standard/deep review experience."
+  },
+  "evidence": [
+    {
+      "claim": "The portable renderer flattened most nested values into generic definition lists and cards.",
+      "source": "skills/phantom/scripts/render-review.mjs",
+      "status": "verified",
+      "implication": "High-value fields need specialized components rather than a universal object renderer."
+    },
+    {
+      "claim": "The end-to-end lifecycle sample used depth quick with empty alternatives, risks, assumptions, and open questions.",
+      "source": "test/portable-lifecycle.test.js",
+      "status": "verified",
+      "implication": "Compatibility fixtures and showcase fixtures must be separate."
+    },
+    {
+      "claim": "Decision-first review works best when the recommendation, evidence, options, and human gate are visually connected.",
+      "source": "reference/planning.md",
+      "status": "supported",
+      "implication": "The top of the page should act as a compact executive decision brief."
+    },
+    {
+      "claim": "A hand-written deterministic renderer will remain easier to distribute than adding a template dependency.",
+      "source": "scripts/validate-portable-skill.mjs",
+      "status": "inferred",
+      "implication": "Keep rendering dependency-free and cover it with semantic tests."
+    },
+    {
+      "claim": "Every future host will support the same local-file preview behavior.",
+      "source": "skills/phantom/references/capabilities.md",
+      "status": "unknown",
+      "implication": "HTML is an enhancement; JSON and Markdown guidance remain the durable fallback."
+    }
+  ],
+  "alternatives": [
+    {
+      "name": "Keep the generic object renderer",
+      "summary": "Improve spacing and color while continuing to render arbitrary objects as key/value rows.",
+      "benefits": [
+        "Smallest code change",
+        "Naturally tolerates unknown fields"
+      ],
+      "tradeoffs": [
+        "Important evidence and tradeoffs remain visually indistinguishable",
+        "Reviewers still reconstruct the decision narrative themselves"
+      ],
+      "reasonNotSelected": "It treats an information-architecture failure as a styling problem.",
+      "conditionsWouldChange": "Use it only as the fallback for optional or unknown extension fields."
+    },
+    {
+      "name": "Adopt a client-side template framework",
+      "summary": "Bundle a component runtime and hydrate the artifact into an interactive application.",
+      "benefits": [
+        "Rich interactions and filtering",
+        "Familiar component composition"
+      ],
+      "tradeoffs": [
+        "Larger portable bundle",
+        "More supply-chain and runtime surface",
+        "Harder offline auditing"
+      ],
+      "reasonNotSelected": "The current requirement is a review document, not an editing application.",
+      "conditionsWouldChange": "Reconsider when reviewers need annotations, state changes, or collaborative editing."
+    },
+    {
+      "name": "Render Markdown only",
+      "summary": "Emit a long-form Markdown decision record and rely on each host preview.",
+      "benefits": [
+        "Minimal renderer maintenance",
+        "Excellent diffability"
+      ],
+      "tradeoffs": [
+        "Inconsistent host presentation",
+        "Weak comparison and scanning affordances"
+      ],
+      "reasonNotSelected": "It cannot reliably provide the full-width, structured approval experience requested.",
+      "conditionsWouldChange": "Retain Markdown as an accessibility and host-capability fallback."
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption": "Reviewers open generated HTML in a modern browser.",
+      "confidence": "high",
+      "impactIfWrong": "The visual review is unavailable.",
+      "validation": "Keep the JSON artifact readable and document the fallback."
+    },
+    {
+      "assumption": "Three to five evidence items are enough for a standard decision review.",
+      "confidence": "medium",
+      "impactIfWrong": "The dossier may be either shallow or noisy.",
+      "validation": "Evaluate representative real plans and tune guidance rather than hard-coding a maximum."
+    }
+  ],
+  "open_questions": [
+    {
+      "question": "Should a future version support reviewer annotations?",
+      "blocking": false,
+      "owner": "Product",
+      "resolution": "Defer until static review behavior is validated."
+    }
+  ],
+  "decisions_for_approval": [
+    {
+      "decision": "Use the semantic decision dossier as the default plan and brainstorm HTML review.",
+      "options": [
+        "Approve",
+        "Request changes"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Dense documents become visually exhausting on smaller screens.",
+      "impact": "high",
+      "likelihood": "medium",
+      "trigger": "The page produces horizontal body overflow or cards collapse below readable widths.",
+      "mitigation": "Use responsive grids, readable line lengths, and isolate wide tables in labeled scroll regions.",
+      "recovery": "Fall back to a single-column document flow while preserving section order."
+    },
+    {
+      "risk": "Semantic rendering silently omits new contract fields.",
+      "impact": "medium",
+      "likelihood": "medium",
+      "trigger": "A valid fixture contains decision data that is absent from the HTML.",
+      "mitigation": "Assert representative content and structural markers in both canonical and portable renderers.",
+      "recovery": "Render unknown extension fields in a generic appendix until a semantic treatment is added."
+    },
+    {
+      "risk": "The richer design introduces an external runtime dependency.",
+      "impact": "high",
+      "likelihood": "low",
+      "trigger": "Generated HTML references a script, font, stylesheet, or network URL.",
+      "mitigation": "Keep CSS inline, JavaScript absent, and enforce no-external-asset tests.",
+      "recovery": "Remove the dependency and regenerate the self-contained artifact."
+    }
+  ],
+  "validation": {
+    "strategy": "Validate the contract, assert semantic rendering, exercise compatibility, and inspect representative pages at desktop and mobile widths.",
+    "definitionOfDone": [
+      "Rich plan and brainstorm fixtures pass canonical and portable validators.",
+      "Every decision-critical field appears in the generated review.",
+      "The page has no body overflow at 320, 768, 1440, and 1920 pixels.",
+      "Generated HTML contains no script or external asset reference."
+    ],
+    "checks": [
+      "node --test test/decision-first-output.test.js",
+      "node scripts/validate-portable-skill.mjs",
+      "npm test",
+      "browser layout and dark-mode inspection"
+    ]
+  },
+  "coverage": [
+    {
+      "requirement": "Render a distinct implementation dossier for plans",
+      "scenarioIds": ["S2"],
+      "taskIds": ["T1"],
+      "checks": ["Plan HTML contains the change ledger, behavior scenarios, and coverage spine before execution"]
+    },
+    {
+      "requirement": "Render a distinct exploration workbench for brainstorming",
+      "scenarioIds": ["S2"],
+      "taskIds": ["T2"],
+      "checks": ["Brainstorm HTML exposes framing, divergence, clustering, convergence, dissent, and direction gate"]
+    },
+    {
+      "requirement": "Remain responsive, accessible, and dependency-free",
+      "scenarioIds": ["S2"],
+      "taskIds": ["T3"],
+      "checks": ["Generated documents have no external assets and no body overflow at tested widths"]
+    },
+    {
+      "requirement": "Preserve quick-path and installed-copy portability",
+      "scenarioIds": ["S1", "S3"],
+      "taskIds": ["T4"],
+      "checks": ["Focused, lifecycle, portability, and full test suites pass"]
+    }
+  ],
+  "readiness": {
+    "verdict": "READY",
+    "reasons": [
+      "The contract is explicit, traceable, and covered by deterministic fixtures.",
+      "The renderer remains an offline projection of canonical JSON."
+    ],
+    "unresolved": [
+      "Live reviewer annotation remains deliberately out of scope."
+    ]
+  },
+  "route": "shadows",
+  "devilsAdvocateVerdict": "PROCEED",
+  "tasks": [
+    {
+      "id": "T1",
+      "description": "Build semantic plan review components",
+      "read_first": [
+        "skills/phantom/scripts/render-review.mjs",
+        "skills/phantom/scripts/lib/decision-contracts.mjs"
+      ],
+      "action": "Render the decision brief, outcome, scope, architecture, evidence, alternatives, risks, validation, and execution appendix from existing v3 fields.",
+      "files": [
+        "skills/phantom/scripts/render-review.mjs"
+      ],
+      "dependsOn": [],
+      "acceptance_criteria": [
+        "Decision and human gate lead the document",
+        "Decision-critical collections use semantic components"
+      ],
+      "consumes": [
+        "Validated v3 plan payload"
+      ],
+      "produces": [
+        "Implementation dossier sections"
+      ],
+      "verify": "node --test test/decision-first-output.test.js",
+      "risk": "A specialized renderer may omit optional fields.",
+      "recovery": "Retain the generic value renderer for extension fields.",
+      "profile": "deep"
+    },
+    {
+      "id": "T2",
+      "description": "Build semantic brainstorm comparison components",
+      "read_first": [
+        "skills/phantom/scripts/render-review.mjs",
+        "reference/brainstorm.md"
+      ],
+      "action": "Render a recommendation spine, decision frame, evidence ledger, experiment, comparison table, and approach dossiers.",
+      "files": [
+        "skills/phantom/scripts/render-review.mjs"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance_criteria": [
+        "Recommended approach is visually identified",
+        "Each approach exposes benefits, tradeoffs, failure mode, and selection conditions"
+      ],
+      "consumes": [
+        "Validated v3 brainstorm payload"
+      ],
+      "produces": [
+        "Exploration workbench sections"
+      ],
+      "verify": "node --test test/decision-first-output.test.js",
+      "risk": "Options may appear repetitive without strong generation guidance.",
+      "recovery": "Reject duplicate candidate spines during artifact review.",
+      "profile": "deep"
+    },
+    {
+      "id": "T3",
+      "description": "Add the responsive review design system",
+      "read_first": [
+        "skills/phantom/scripts/render-review.mjs"
+      ],
+      "action": "Create self-contained responsive styles for the semantic review components, dark mode, reduced motion, and print.",
+      "files": [
+        "skills/phantom/scripts/lib/review-style.mjs"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2"
+      ],
+      "acceptance_criteria": [
+        "The content canvas uses available desktop space up to 1600 pixels",
+        "The mobile breakpoint collapses semantic grids to one column",
+        "No external assets are required"
+      ],
+      "consumes": [
+        "Semantic review markup"
+      ],
+      "produces": [
+        "Responsive offline review presentation"
+      ],
+      "verify": "node --test test/decision-first-output.test.js",
+      "risk": "The richer grid can regress narrow layouts.",
+      "recovery": "Collapse all semantic grids to a single column below 620 pixels.",
+      "profile": "balanced"
+    },
+    {
+      "id": "T4",
+      "description": "Prove rich and quick output paths",
+      "read_first": [
+        "test/decision-first-output.test.js",
+        "test/portable-lifecycle.test.js"
+      ],
+      "action": "Add representative deep fixtures and semantic assertions while retaining the sparse quick lifecycle test for compatibility.",
+      "files": [
+        "test/fixtures/decision-first/plan-v3-rich.json",
+        "test/fixtures/decision-first/brainstorm-v3-rich.json",
+        "test/decision-first-output.test.js"
+      ],
+      "dependsOn": [
+        "T3"
+      ],
+      "acceptance_criteria": [
+        "Rich fixtures exercise every evidence state and major review section",
+        "Quick plan behavior remains valid",
+        "Canonical and portable output preserve the same decision content"
+      ],
+      "consumes": [
+        "Rich and quick decision fixtures"
+      ],
+      "produces": [
+        "Contract, rendering, and portability evidence"
+      ],
+      "verify": "npm test",
+      "risk": "Snapshot-like tests can overfit presentation markup.",
+      "recovery": "Assert semantic roles, content, and ordering instead of exact HTML.",
+      "profile": "balanced"
+    }
+  ]
+}

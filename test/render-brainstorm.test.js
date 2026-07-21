@@ -92,7 +92,7 @@ test('golden: one card per approach with the spine fields labeled', () => {
 
 test('golden: visualType diagram block appears only for the approach that has it', () => {
   const html = renderBrainstormHtml(GOLDEN_BRAINSTORM, { sourcePath: 'p.json' });
-  const vizBlocks = html.match(/<div class="bs-viz">/g) || [];
+  const vizBlocks = html.match(/<div class="bs-viz" aria-hidden="true">/g) || [];
   assert.equal(vizBlocks.length, 1, 'exactly one diagram block rendered (approach A only)');
   assert.ok(html.includes('Flow sketch'), 'flow visual label present');
 });
@@ -231,7 +231,7 @@ test('tolerance: recommendedDefault.reason as an array falls through and still s
 
 test('malformed: unknown visualType value falls back to a generic sketch, never crashes', () => {
   const html = renderBrainstormHtml({ approaches: [{ id: 'A', visualType: 'holograph' }] }, { sourcePath: 'p.json' });
-  assert.ok(html.includes('<div class="bs-viz">'), 'a viz block is still rendered');
+  assert.ok(html.includes('<div class="bs-viz" aria-hidden="true">'), 'a decorative viz block is still rendered');
   assert.ok(html.includes('holograph sketch'), 'unknown type escaped into a generic label');
 });
 

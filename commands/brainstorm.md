@@ -82,10 +82,8 @@ cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` �
 
 ## Phase 2: Converge
 
-1. **Write `brainstorm.json`** (schema: `reference/schemas/brainstorm.md`) — full `approaches[]` spine
-   plus mandatory `recommendedDefault{id,reason}`. **Render:** `node scripts/render-brainstorm.js
-   {TEAM_DIR}/sessions/{TICKET}/brainstorm.json` → `brainstorm.html`. Lead with the recommendation
-   (cite specifics, not "it's simpler"), then the full side-by-side. The rendered HTML MUST be surfaced
+1. **Write `brainstorm.json`** with `_meta.version: 3` (schema: `reference/schemas/brainstorm.md`) — decision frame, evidence with decision implications, open questions, 2-3 genuinely distinct full approach dossiers (benefits, tradeoffs, what breaks, failure mode, deciding condition), mandatory recommendation with its accepted tradeoff/confidence/next action, cheapest discriminating experiment, and direction gate. Generic or renamed duplicate candidates do not pass convergence. **Render:** `node scripts/render-brainstorm.js
+   {TEAM_DIR}/sessions/{TICKET}/brainstorm.json` → `brainstorm.html`. The generated full-width page leads with the recommendation and decision frame, then pending calls, evidence, experiment, side-by-side comparison, and detailed cards. The rendered HTML MUST be surfaced
    via `Skill(skill="phantom:annotate", args="<brainstorm.html>")` before GATE 1, with a fallback chain
    — never block the gate — of `phantom:annotate` unavailable, then plain `open` of the HTML, then the
    artifact cannot be rendered or opened, then chat-only approval with the reason stated; every step
@@ -100,7 +98,7 @@ cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` �
 ## Artifacts
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/brainstorm.json`** during Diverge, before Convergence's human
-gate: full `approaches[]` spine + mandatory `recommendedDefault{id,reason}`. Schema:
+gate: the complete decision-first v3 contract, including `decision`, `evidence`, `openQuestions`, 2-3 approach cards, `recommendedDefault`, `cheapestExperiment`, and `directionGate`. Schema:
 `reference/schemas/brainstorm.md`. Rendered to `brainstorm.html` by `scripts/render-brainstorm.js` for
 the annotate gate.
 

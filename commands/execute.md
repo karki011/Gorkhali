@@ -25,7 +25,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 4. **Load intent**: Read `{TEAM_DIR}/sessions/{TICKET}/intent.json`
 
-5. **Activate blade marker**: `touch ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
+5. **Activate blade marker**: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 
 6. **Dispatch per plan**:
    - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
@@ -51,7 +51,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
    Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete` (advisory; resume reads latest; empty `$PR` skips silently).
 
-7. **Deactivate blade marker**: `rm -f ${PHANTOM_DATA:-~/.claude/phantom-data}/.blade-editing`
+7. **Deactivate blade marker**: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
 
 <output_format>
 
