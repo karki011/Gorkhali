@@ -43,8 +43,8 @@
   },
   "evidence": [
     {
-      "claim": "Generic key/value cards make recommendations, evidence, and metadata look equally important.",
-      "source": "skills/phantom/scripts/render-review.mjs",
+      "claim": "The deleted fixed renderer made recommendations, evidence, and metadata look equally important.",
+      "source": "git history for the removed portable renderer",
       "status": "verified",
       "implication": "The review needs an explicit visual hierarchy tied to decision semantics."
     },
@@ -61,8 +61,8 @@
       "implication": "Pair a scan-friendly matrix with detailed approach dossiers."
     },
     {
-      "claim": "A deterministic static document will be sufficient for the first review workflow.",
-      "source": "skills/phantom/references/capabilities.md",
+      "claim": "A static AI-authored document plus conservative validation is sufficient for the first review workflow.",
+      "source": "skills/phantom/references/review-html.md",
       "status": "inferred",
       "implication": "Defer annotation and editing controls."
     },
@@ -125,16 +125,16 @@
     {
       "id": "I5",
       "title": "Decision JSON with specialized projections",
-      "summary": "Keep one canonical artifact and render different human views without duplicating truth.",
+      "summary": "Keep one canonical artifact and let the active AI author different human views without duplicating truth.",
       "lens": "architecture",
       "technique": "separate-model-from-view",
       "evidence": ["The portable state layer already persists arbitrary JSON evidence."],
-      "assumptions": ["A deterministic renderer can preserve semantic fidelity."]
+      "assumptions": ["Static validation can preserve decision fidelity without prescribing layout."]
     },
     {
       "id": "I6",
       "title": "No generated HTML",
-      "summary": "Return the decision only in conversation and avoid renderer maintenance.",
+      "summary": "Return the decision only in conversation and avoid HTML artifact maintenance.",
       "lens": "minimalism",
       "technique": "eliminate-the-component",
       "evidence": ["Chat is universally available."],
@@ -165,8 +165,8 @@
     {
       "id": "semantic-dossier",
       "name": "Semantic decision dossier",
-      "thesis": "Give each decision concept a purposeful visual treatment while keeping the artifact deterministic and static.",
-      "description": "Lead with the recommendation and approval gate, then compose evidence, architecture, options, risks, validation, and execution from specialized server-side rendering functions.",
+      "thesis": "Let the active AI give each decision concept a purposeful visual treatment while keeping the artifact static and disposable.",
+      "description": "Lead with the recommendation and approval gate, then have the AI compose evidence, architecture, options, risks, validation, and execution without a fixed renderer.",
       "whyLens": "Optimize for informed human approval without sacrificing portability.",
       "effort": "medium",
       "risk": "low",
@@ -177,15 +177,15 @@
         "Semantic markup can be tested directly"
       ],
       "tradeoffs": [
-        "More renderer code to maintain",
-        "New fields need an intentional presentation"
+        "Generated layouts are not byte-deterministic",
+        "New fields still need intentional presentation guidance"
       ],
       "whatBreaks": [
         "Unknown fields fall back to a less polished generic appendix",
         "Large artifacts still require editorial discipline"
       ],
       "whenToPick": "Pick when the primary job is reviewing and approving a generated engineering decision.",
-      "failureMode": "The renderer grows into a collection of ornamental cards without preserving a clear decision narrative.",
+      "failureMode": "The generated page becomes ornamental without preserving a clear decision narrative.",
       "mutualExclusivity": [
         "interactive-review-app",
         "markdown-record"
@@ -231,7 +231,7 @@
       "reversibility": "high",
       "benefits": [
         "Excellent version-control diffs",
-        "Very low renderer complexity",
+        "Very low presentation complexity",
         "Broad fallback compatibility"
       ],
       "tradeoffs": [
@@ -254,7 +254,7 @@
   "recommendedDefault": {
     "id": "semantic-dossier",
     "reason": "It delivers the requested richer review experience while preserving the portable, zero-dependency contract.",
-    "acceptedTradeoff": "We accept more presentation code now and defer interactive annotations until they are proven necessary.",
+    "acceptedTradeoff": "We accept nondeterministic presentation while keeping canonical JSON and validation deterministic.",
     "confidence": "high",
     "nextAction": "Validate the dossier with rich fixtures at mobile and desktop widths."
   },
@@ -262,7 +262,7 @@
     {
       "approachId": "semantic-dossier",
       "drivers": ["Decision clarity", "Portability", "Evidence traceability"],
-      "reservation": "Requires more intentional renderer code and schema discipline."
+      "reservation": "Requires strong generation guidance and schema discipline."
     },
     {
       "approachId": "interactive-review-app",
@@ -277,14 +277,14 @@
   ],
   "dissent": {
     "approachId": "markdown-record",
-    "case": "Markdown is simpler to diff, audit, and open in every host, and it avoids maintaining presentation code.",
+    "case": "Markdown is simpler to diff, audit, and open in every host, and it avoids generating a separate review page.",
     "trigger": "Choose it as the primary path if local HTML opening proves unreliable across supported hosts."
   },
   "cheapestExperiment": {
     "question": "Can a reviewer identify the recommendation, its strongest evidence, and the rejected alternatives within two minutes?",
-    "method": "Render one representative deep plan and brainstorm, then inspect them at 320, 768, 1440, and 1920 pixels.",
+    "method": "Generate one representative deep plan and brainstorm review, then inspect them at 320, 768, 1440, and 1920 pixels.",
     "successSignal": "The reviewer can answer the decision question without opening the execution appendix and no viewport has body overflow.",
-    "cost": "Two deterministic fixtures, semantic assertions, and one browser inspection pass."
+    "cost": "Two representative JSON fixtures, safety assertions, and one browser inspection pass."
   },
   "directionGate": {
     "question": "Approve the semantic decision dossier as the default and keep Markdown as fallback?",

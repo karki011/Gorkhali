@@ -1,7 +1,0 @@
-{
-  "goal": "Prove render-plan.js and render-brainstorm.js output quality with a golden-file eval.",
-  "problem": "Nothing today asserts the renderers produce the right shape - a regression could silently drop a section and no test would catch it.",
-  "tradeoffs": [
-    "A dedicated eval file over folding into the existing renderer tests keeps file ownership disjoint from T1/T3."
-  ]
-}

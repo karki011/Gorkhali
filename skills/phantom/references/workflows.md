@@ -72,18 +72,21 @@ rationale, requested profiles, and any fallback in session state.
    `full`, use the converged approaches. Record only material choices using
    existing rationale, evidence, alternatives, or session decisions.
 11. For a `brainstorm` or `full` route, recommend the selected direction,
-    render the exploration workbench, and obtain direction.
+    create the exploration review HTML from its canonical JSON, validate and
+    promote it, then obtain direction.
 12. For a planned route, follow [planning](planning.md): create and persist the
    canonical decision-first JSON payload whose plain-language summary states the
    problem, chosen direction, expected changes, and outcome before execution
    details.
 13. Have Plan-checker inspect coverage and ordering. Have Rival challenge
    assumptions. Resolve disagreement or ask the user.
-14. Validate the JSON, then invoke the bundled renderer when command execution
-    exists. Never author or repair HTML by hand; update the JSON and regenerate.
-    Use one fenced `json` block only when file writing is unavailable. If JSON
-    can be written but rendering or opening is unavailable, preserve it and
-    present the same information hierarchy in chat.
+14. Validate the JSON, then author review HTML for the specific decision using
+    [review HTML guidance](review-html.md). Validate it with
+    `<skill-directory>/scripts/validate-review-html.mjs`, promote the validated artifact, and
+    open it directly. Regenerate the disposable HTML from JSON after a change;
+    never parse HTML back into state. Use one fenced `json` block only when file
+    writing is unavailable. If JSON can be written but HTML generation or opening is
+    unavailable, preserve it and present the same information hierarchy in chat.
 15. Obtain required approval before implementation when repository policy or the
     task's risk requires it.
 

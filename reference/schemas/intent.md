@@ -5,7 +5,7 @@ Written by Phase B (`phantom:start`). Defines the goal contract for verify and w
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| problem | string | no | The pain statement being solved — leads the goal in render-plan.js output |
+| problem | string | no | The pain statement being solved — leads the goal in the plan review |
 | goal | string | yes | Single clear goal statement |
 | doneWhen | string[] | yes | Acceptance criteria (observable, testable) |
 | priority | string[] | yes | Ordered implementation priorities |

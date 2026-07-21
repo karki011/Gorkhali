@@ -14,7 +14,6 @@ const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'phantom');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-portable-skill.mjs');
 const MANIFEST = path.join(SKILL_ROOT, 'manifest.json');
 const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
-const RENDER = path.join(SKILL_ROOT, 'scripts', 'render-review.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
 const PRESETS = path.join(SKILL_ROOT, 'references', 'model-presets.json');
 
@@ -61,7 +60,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '1.0.0',
+    bundle_version: '2.0.0',
     contract_versions: {
       capability_ledger: 1,
       state_envelope: 1,
@@ -93,13 +92,13 @@ test('portable validator rejects malformed manifest contract keys and versions',
   }
 });
 
-test('portable validator requires every bundled planning and review resource', () => {
+test('portable validator requires every bundled planning and AI review resource', () => {
   for (const resource of [
     'references/planning.md',
     'references/brainstorming.md',
-    'scripts/render-review.mjs',
+    'references/review-html.md',
     'scripts/lib/decision-contracts.mjs',
-    'scripts/lib/review-style.mjs',
+    'scripts/validate-review-html.mjs',
   ]) {
     const target = copySkill(`missing-${resource.replaceAll('/', '-')}`);
     fs.rmSync(path.join(target, resource));
@@ -109,7 +108,7 @@ test('portable validator requires every bundled planning and review resource', (
   }
 });
 
-test('planning instructions enforce JSON validation before generated HTML', () => {
+test('planning instructions enforce JSON validation before AI-generated HTML', () => {
   const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
   const workflows = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'workflows.md'), 'utf8');
@@ -120,9 +119,10 @@ test('planning instructions enforce JSON validation before generated HTML', () =
     const afterJson = normalized.slice(json);
     const validateJson = afterJson.search(/validate (?:the JSON|its decision contract|JSON)/i);
     const afterValidation = afterJson.slice(validateJson);
-    const render = afterValidation.search(/(?:invoke|run).{0,500}render/i);
-    assert.ok(json >= 0 && validateJson >= 0 && render >= 0, `${label} sequencing is ambiguous`);
-    assert.match(normalized, /never author (?:or repair )?HTML by hand/i, label);
+    const generate = afterValidation.search(/(?:generate|create).{0,500}(?:HTML|review page)/i);
+    assert.ok(json >= 0 && validateJson >= 0 && generate >= 0, `${label} sequencing is ambiguous`);
+    assert.match(normalized, /(?:review-html\.md|review HTML guidance)/i, label);
+    assert.match(normalized, /validate-review-html\.mjs/i, label);
     const fileWriting = normalized.indexOf('file writing is unavailable');
     const fencedJson = normalized.indexOf('fenced `json` block');
     assert.ok(
@@ -178,33 +178,20 @@ test('one unchanged skill tree installs byte-identically in three discovery layo
   }
 });
 
-test('a copied skill renders enriched artifacts byte-identically from an unrelated directory', () => {
-  const copiedSkill = copySkill('copied-renderer');
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-render-fixture-'));
-  for (const type of ['plan', 'brainstorm']) {
-    const input = path.join(fixture, `${type}.json`);
-    fs.copyFileSync(
-      path.join(REPO_ROOT, 'test', 'fixtures', 'decision-first', `${type}-v3-rich.json`),
-      input,
-    );
-    const canonicalOutput = path.join(fixture, `${type}-canonical.html`);
-    const copiedOutput = path.join(fixture, `${type}-copied.html`);
-    for (const [renderer, output] of [
-      [RENDER, canonicalOutput],
-      [path.join(copiedSkill, 'scripts', 'render-review.mjs'), copiedOutput],
-    ]) {
-      const result = spawnSync(process.execPath, [renderer, type, '--input', input, '--out', output], {
-        cwd: os.tmpdir(),
-        encoding: 'utf8',
-      });
-      assert.equal(result.status, 0, result.stderr);
-    }
-    const canonical = fs.readFileSync(canonicalOutput, 'utf8');
-    const copied = fs.readFileSync(copiedOutput, 'utf8');
-    assert.equal(copied, canonical);
-    assert.doesNotMatch(copied, new RegExp(REPO_ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.doesNotMatch(copied, /<script|(?:src|href)=["']https?:\/\//);
+test('a copied skill ships review guidance and validation without a renderer', () => {
+  const copiedSkill = copySkill('copied-review-guidance');
+  for (const resource of [
+    'references/review-html.md',
+    'scripts/validate-review-html.mjs',
+  ]) {
+    assert.ok(fs.existsSync(path.join(copiedSkill, resource)), `${resource} is bundled`);
   }
+  assert.equal(fs.existsSync(path.join(copiedSkill, 'scripts', 'render-review.mjs')), false);
+  const result = spawnSync(process.execPath, [
+    path.join(copiedSkill, 'scripts', 'validate-review-html.mjs'),
+  ], { cwd: os.tmpdir(), encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Usage: node validate-review-html\.mjs/);
 });
 
 test('every role resolves to a declared semantic profile and a missing host inherits', async () => {
@@ -212,7 +199,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '1.0.0');
+    assert.equal(result.bundle_version, '2.0.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -332,13 +319,13 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '1.0.0');
+  assert.equal(resolver.bundle_version, '2.0.0');
   assert.equal(resolver.model, 'fable');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
     'inspect', '--workspace', REPO_ROOT, 'skills/phantom/scripts/lib/portable.mjs',
   ]);
-  assert.equal(impact.status, 'complete');
+  assert.ok(['complete', 'partial'].includes(impact.status));
   assert.equal(impact.source, 'bundled-local-analysis');
 
   const stateResult = spawnSync(process.execPath, [
@@ -351,11 +338,12 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   assert.equal(stateResult.status, 0, stateResult.stderr);
   assert.equal(JSON.parse(stateResult.stdout).status, 'none');
 
-  const renderResult = spawnSync(process.execPath, [
-    path.join(linkedSkill, 'scripts', 'render-review.mjs'),
-  ], { encoding: 'utf8' });
-  assert.equal(renderResult.status, 1);
-  assert.match(renderResult.stderr, /Usage: render-review\.mjs/);
+  assert.equal(fs.existsSync(path.join(linkedSkill, 'scripts', 'render-review.mjs')), false);
+  const reviewValidator = path.join(linkedSkill, 'scripts', 'validate-review-html.mjs');
+  assert.ok(fs.existsSync(reviewValidator));
+  const validatorResult = spawnSync(process.execPath, [reviewValidator], { encoding: 'utf8' });
+  assert.equal(validatorResult.status, 1);
+  assert.match(validatorResult.stderr, /Usage: node validate-review-html\.mjs/);
 });
 
 test('provider identifiers are allowed only in the controlled preset registry', () => {

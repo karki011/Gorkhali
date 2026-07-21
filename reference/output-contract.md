@@ -110,8 +110,8 @@ packets (`handoff.md`), and session logs (e.g. pause's `{date}_{slug}.md` resume
 are consumed by other agents or scripts, not read visually by a human — HTML would be friction,
 not value.
 
-**Rationale:** an HTML deliverable is annotatable via `/phantom:annotate` — the human can mark up
-a plan or report in place. A markdown wall of text is not.
+**Rationale:** an HTML deliverable can be opened directly while the existing conversation remains
+the feedback and approval channel. A markdown wall of text is not.
 
 ## Design-inference priority for artifact authoring
 
@@ -126,17 +126,12 @@ moving to the next step only when the current one truly yields nothing:
 
 State which of the three you used and why when you deliver the artifact.
 
-## Long-poll review loop discipline
+## Direct review discipline
 
-For artifacts opened in a review loop (`lavish-axi` or equivalent): once a poll is running,
-**never kill it** — it stays silent until the user acts, and queued feedback is never lost by
-leaving it running. On `layout_warnings`, fix and re-check fresh error-severity findings; when
-every current warning is persistent or low-severity, proceed with a note instead of looping —
-this is what keeps a review pass from becoming an infinite fix loop. If the user ends the review
-session from the browser, that is a deliberate act — don't reopen it uninvited; only pass a
-reopen flag when the user asks for further review or something genuinely important needs their
-visual attention. Deliver routine follow-up updates directly in-conversation rather than
-re-summoning the browser for something the user didn't ask to see again.
+Open a validated review artifact directly, and keep feedback, decisions, and approval in the
+existing conversation. Apply feedback to the artifact's canonical source rather than patching a
+review HTML projection. Regenerate and revalidate only when another visual review is useful or
+the user asks for it; routine status belongs in chat.
 
 ## Secrets
 
@@ -145,5 +140,4 @@ shared machine. If a script surface ever needs one, read it from stdin.
 
 ---
 
-Adapted from [AXI](https://github.com/kunchenguid/axi) and
-[lavish-axi](https://github.com/kunchenguid/lavish-axi) (MIT, Kun Chen / kunchenguid).
+Adapted from [AXI](https://github.com/kunchenguid/axi) (MIT, Kun Chen / kunchenguid).

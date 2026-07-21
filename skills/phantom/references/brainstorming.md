@@ -93,14 +93,13 @@ Use these exact JSON field shapes so every host produces the same contract:
   actual choice or delegated authority separately; never infer it from the
   recommendation.
 
-When rendering exists, generate full-width, self-contained HTML ordered as:
+After validating the portable JSON, generate full-width, self-contained HTML
+using `<skill-directory>/references/review-html.md` and run
+`<skill-directory>/scripts/validate-review-html.mjs` against
+it. Order the page as:
 current direction; frame and stance; evidence; divergence lanes; connections
 and clusters; convergence funnel and shortlist; dissent; cheapest experiment;
 open questions; direction gate. Treat this as an exploration workbench, not a
 plan dossier. JSON remains the source of truth and generated HTML is never
-hand-edited. If rendering or opening
-is unavailable, present the same hierarchy in chat.
-
-Use `node <skill-directory>/scripts/render-review.mjs brainstorm --input
-<json-file>`. The input may be a direct v3 payload or the portable state
-envelope.
+parsed back. If HTML generation or opening is unavailable, present the same hierarchy
+in chat. The input may be a direct v3 payload or the portable state envelope.

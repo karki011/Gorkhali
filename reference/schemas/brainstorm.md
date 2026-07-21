@@ -84,9 +84,9 @@ choice is locked into `decisions.json`.
   },
   "cheapestExperiment": {
     "question": "Does decision-first ordering improve review comprehension?",
-    "method": "Render the same plan in both orders and compare",
+    "method": "Generate the same plan in both orders and compare",
     "successSignal": "Reviewer identifies the recommendation without reading tasks",
-    "cost": "One fixture and renderer test"
+    "cost": "One representative review and comprehension check"
   },
   "directionGate": {
     "question": "Which approach should planning use?",

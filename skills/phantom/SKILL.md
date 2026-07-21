@@ -85,22 +85,20 @@ version-control history. The analyzer is one-shot: it does not start a service,
 register a capability, persist an index, or modify the workspace.
 
 For plan and brainstorm review gates, create and persist the declared v3 JSON,
-validate its decision contract, then invoke the bundled offline renderer on the
-payload or its portable state envelope:
-
-```text
-node <skill-directory>/scripts/render-review.mjs plan --input <plan-json>
-node <skill-directory>/scripts/render-review.mjs brainstorm --input <brainstorm-json>
-```
+then validate its decision contract before generating the review HTML. Use
+`references/review-html.md` and
+`scripts/validate-review-html.mjs`; the active agent creates the page for the
+specific decision rather than invoking a bundled renderer.
 
 Follow [planning](references/planning.md) and
 [brainstorming](references/brainstorming.md) for their distinct information
 contracts. New evidence records include when they were observed, confidence,
 and known conflicts so stale or disputed inputs remain visible. JSON is the
-source of truth; never author or repair HTML by hand. If file writing is
-unavailable, present one fenced `json` block and state that it was not
-persisted or rendered. If rendering or viewing is unavailable, preserve the
-JSON, present the decision hierarchy in chat, and record the fallback.
+source of truth; treat generated HTML as disposable and never parse it back.
+If file writing is unavailable, present one fenced `json` block and state that
+it was not persisted or presented. If generation or viewing is unavailable,
+preserve the JSON, present the decision hierarchy in chat, and record the
+fallback.
 
 ## Capability fallbacks
 

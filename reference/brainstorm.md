@@ -138,11 +138,16 @@ at brainstorm time, not one step later at the plan gate.
    distinct benefits, tradeoffs, what breaks, its strongest failure mode, and
    the condition under which it wins. The recommendation records the accepted
    tradeoff, confidence, and next action. Reject filler and renamed duplicates.
-2. **Render:** `node scripts/render-brainstorm.js {SESSION_DIR}/brainstorm.json` → `brainstorm.html`.
-   Surface via `Skill(skill="phantom:annotate", args="{SESSION_DIR}/brainstorm.html")` (fallback: plain
-   open — see `commands/annotate.md`). The full-width artifact leads with the
-   recommendation and decision frame, then pending calls, an evidence ledger,
-   cheapest experiment, side-by-side comparison, and detailed option dossiers.
+2. **Review HTML:** Have the active AI author `{SESSION_DIR}/brainstorm.candidate.html` from the
+   canonical JSON. It chooses the information design, but the self-contained page must lead with the
+   recommendation and decision frame, then pending calls, an evidence ledger, cheapest experiment,
+   comparison, and detailed option dossiers. Promote only a valid candidate with `node
+   {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs brainstorm --source
+   {SESSION_DIR}/brainstorm.json --candidate {SESSION_DIR}/brainstorm.candidate.html --out
+   {SESSION_DIR}/brainstorm.html`. Open the accepted HTML directly and collect feedback and direction
+   selection in chat. Apply feedback to `brainstorm.json`; regenerate and validate/promote a fresh
+   candidate before any requested re-review. If generation, validation, or opening is unavailable,
+   present the same hierarchy in chat and record the capability fallback.
    A user should not
    have to read every approach before discovering Phantom's recommendation.
 3. Human picks one OR asks for more exploration (max 2 rounds total).

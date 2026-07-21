@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Phantom — multi-agent orchestrated development for Claude Code.",
-    "version": "0.1.50"
+    "version": "0.2.0"
   },
   "plugins": [
     {

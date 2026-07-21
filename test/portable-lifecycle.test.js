@@ -9,7 +9,6 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
-const RENDER = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'render-review.mjs');
 
 function runScript(script, args, env) {
   return new Promise((resolve, reject) => {
@@ -172,10 +171,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '1.0.0');
+  assert.equal(started.bundle_version, '2.0.0');
   assert.deepEqual(started.producer, { role: 'apex', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '1.0.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.0.0');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -188,7 +187,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '1.0.0');
+  assert.equal(resumed.bundle_version, '2.0.0');
   assert.ok(resumed.resumed_at);
 
   const evidenceFile = path.join(context.root, 'evidence.json');
@@ -206,7 +205,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '1.0.0');
+  assert.equal(recorded.artifact.bundle_version, '2.0.0');
   assert.deepEqual(recorded.artifact.producer, { role: 'ward', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -376,35 +375,30 @@ test('state recording enforces canonical quick plans and workspace path provenan
   assert.match(existingNew.stderr, /new_files\[0\]: declared new path already exists/);
 });
 
-test('saved v3 plan and brainstorm envelopes render end to end', async () => {
+test('saved v3 plan and brainstorm envelopes persist without a bundled renderer', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   parse(await run([
-    'start', ...common, '--task', 'RENDER-1', '--intent', 'Render saved decision artifacts', '--route', 'brainstorm',
+    'start', ...common, '--task', 'REVIEW-1', '--intent', 'Persist saved decision artifacts', '--route', 'brainstorm',
   ], context.env));
 
-  for (const [type, payload, first, last] of [
-    ['plan', portablePlan(), 'Plan summary', 'Execution appendix'],
-    ['brainstorm', portableBrainstorm(), 'Current direction', 'Direction gate'],
+  for (const [type, payload] of [
+    ['plan', portablePlan()],
+    ['brainstorm', portableBrainstorm()],
   ]) {
     const input = path.join(context.root, `${type}-v3.json`);
-    const output = path.join(context.root, `${type}-v3.html`);
     fs.writeFileSync(input, JSON.stringify(payload));
     const recorded = parse(await run([
       'record', ...common, '--type', type, '--status', 'pending', '--input', input,
     ], context.env));
-    const rendered = await runScript(RENDER, [type, '--input', recorded.file, '--out', output], context.env);
-    assert.equal(rendered.code, 0, rendered.stderr);
-    const html = fs.readFileSync(output, 'utf8');
-    assert.ok(html.indexOf(first) < html.indexOf(last), `${type} review hierarchy regressed`);
-    if (type === 'plan') {
-      assert.match(html, /Reviewers need the decision before its execution details/);
-      assert.doesNotMatch(html, /<details class="execution-details" open>/);
-    }
+    const envelope = JSON.parse(fs.readFileSync(recorded.file, 'utf8'));
+    assert.deepEqual(envelope.evidence, payload);
+    assert.equal(fs.existsSync(path.join(context.root, `${type}-v3.html`)), false);
   }
+  assert.equal(fs.existsSync(path.join(path.dirname(STATE), 'render-review.mjs')), false);
 });
 
-test('enriched v3 artifacts survive state persistence and render from their envelopes', async () => {
+test('enriched v3 artifacts survive state persistence without renderer-specific output', async () => {
   const context = fixture();
   context.workspace = path.join(__dirname, '..');
   const common = ['--workspace', context.workspace];
@@ -412,10 +406,7 @@ test('enriched v3 artifacts survive state persistence and render from their enve
     'start', ...common, '--task', 'RICH-1', '--intent', 'Preserve enriched review artifacts', '--route', 'brainstorm',
   ], context.env));
 
-  for (const [type, sentinel] of [
-    ['plan', 'Requirement to scenario, task, and verification coverage'],
-    ['brainstorm', 'Decision JSON with specialized projections'],
-  ]) {
+  for (const type of ['plan', 'brainstorm']) {
     const source = path.join(__dirname, 'fixtures', 'decision-first', `${type}-v3-rich.json`);
     const expected = JSON.parse(fs.readFileSync(source, 'utf8'));
     expected.evidence = expected.evidence.map((item) => ({
@@ -433,10 +424,8 @@ test('enriched v3 artifacts survive state persistence and render from their enve
     assert.equal(envelope.schema_version, 1);
     assert.deepEqual(envelope.evidence, expected);
 
-    const output = path.join(context.root, `${type}-rich.html`);
-    const rendered = await runScript(RENDER, [type, '--input', recorded.file, '--out', output], context.env);
-    assert.equal(rendered.code, 0, rendered.stderr);
-    assert.match(fs.readFileSync(output, 'utf8'), new RegExp(sentinel));
+    assert.match(JSON.stringify(envelope.evidence), new RegExp(expected.title));
+    assert.equal(fs.existsSync(path.join(context.root, `${type}-rich.html`)), false);
   }
 });
 
@@ -564,7 +553,7 @@ test('state records validated delegation task and result contracts', async () =>
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '1.0.0');
+  assert.equal(task.artifact.bundle_version, '2.0.0');
   assert.deepEqual(task.artifact.producer, { role: 'blade', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);

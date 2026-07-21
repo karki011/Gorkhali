@@ -82,12 +82,7 @@ cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` �
 
 ## Phase 2: Converge
 
-1. **Write `brainstorm.json`** with `_meta.version: 3` (schema: `reference/schemas/brainstorm.md`) — decision frame, evidence with decision implications, open questions, 2-3 genuinely distinct full approach dossiers (benefits, tradeoffs, what breaks, failure mode, deciding condition), mandatory recommendation with its accepted tradeoff/confidence/next action, cheapest discriminating experiment, and direction gate. Generic or renamed duplicate candidates do not pass convergence. **Render:** `node scripts/render-brainstorm.js
-   {TEAM_DIR}/sessions/{TICKET}/brainstorm.json` → `brainstorm.html`. The generated full-width page leads with the recommendation and decision frame, then pending calls, evidence, experiment, side-by-side comparison, and detailed cards. The rendered HTML MUST be surfaced
-   via `Skill(skill="phantom:annotate", args="<brainstorm.html>")` before GATE 1, with a fallback chain
-   — never block the gate — of `phantom:annotate` unavailable, then plain `open` of the HTML, then the
-   artifact cannot be rendered or opened, then chat-only approval with the reason stated; every step
-   still ends at GATE 1.
+1. **Write `brainstorm.json`** with `_meta.version: 3` (schema: `reference/schemas/brainstorm.md`) — decision frame, evidence with decision implications, open questions, 2-3 genuinely distinct full approach dossiers (benefits, tradeoffs, what breaks, failure mode, deciding condition), mandatory recommendation with its accepted tradeoff/confidence/next action, cheapest discriminating experiment, and direction gate. Generic or renamed duplicate candidates do not pass convergence. Have the active AI author `{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from that canonical JSON. The AI chooses the information design; it must be self-contained and lead with the recommendation and decision frame, then pending calls, evidence, experiment, comparison, and detailed cards. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs brainstorm --source {TEAM_DIR}/sessions/{TICKET}/brainstorm.json --candidate {TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html --out {TEAM_DIR}/sessions/{TICKET}/brainstorm.html`. Open the accepted HTML directly before GATE 1. Feedback and direction selection happen in chat: material feedback updates `brainstorm.json`; presentation-only feedback leaves JSON unchanged. Regenerate a fresh candidate from the applicable source plus feedback, validate/promote it, and reopen only when the user asks for another review. If generation, validation, or opening is unavailable, use chat-only approval with the reason stated; every path still ends at GATE 1.
 2. **HUMAN GATE** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 
@@ -99,8 +94,9 @@ cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` �
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/brainstorm.json`** during Diverge, before Convergence's human
 gate: the complete decision-first v3 contract, including `decision`, `evidence`, `openQuestions`, 2-3 approach cards, `recommendedDefault`, `cheapestExperiment`, and `directionGate`. Schema:
-`reference/schemas/brainstorm.md`. Rendered to `brainstorm.html` by `scripts/render-brainstorm.js` for
-the annotate gate.
+`reference/schemas/brainstorm.md`. The active AI authors
+`{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from it; the review HTML validator promotes
+a safe accepted `{TEAM_DIR}/sessions/{TICKET}/brainstorm.html` for the direct-open gate.
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives. When Council Mode ran, also record `councilUsed: true`, `peerRankings` (aggregate rank per anonymized approach), and `chairmanRationale` — so the deliberation is auditable and feeds learnings.
 

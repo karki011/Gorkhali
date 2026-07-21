@@ -8,20 +8,13 @@ const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 
 const { validate } = require('../scripts/validate-artifact');
-const { renderPlanHtml } = require('../scripts/render-plan');
-const { renderBrainstormHtml } = require('../scripts/render-brainstorm');
 
 const richFixture = (type) => JSON.parse(
   fs.readFileSync(path.join(__dirname, `fixtures/decision-first/${type}-v3-rich.json`), 'utf8'),
 );
-const textPattern = (text) => new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-const portableRenderer = import(pathToFileURL(
-  path.resolve(__dirname, '../skills/phantom/scripts/render-review.mjs'),
-).href);
 const portableContracts = import(pathToFileURL(
   path.resolve(__dirname, '../skills/phantom/scripts/lib/decision-contracts.mjs'),
 ).href);
-const externalAssetPattern = /<script|(?:src|href)=["']https?:\/\/|@import\s+url\(["']?https?:\/\//;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const removeFields = (value, fields) => {
   for (const field of fields) delete value[field];
@@ -36,20 +29,6 @@ const addEvidenceFreshness = (payload) => {
   return payload;
 };
 
-const relativeLuminance = (hex) => {
-  const channels = hex.match(/[a-f\d]{2}/gi).map((channel) => Number.parseInt(channel, 16) / 255);
-  const [red, green, blue] = channels.map((channel) => (
-    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
-  ));
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-};
-
-const contrastRatio = (foreground, background) => {
-  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
-  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
-  return (lighter + 0.05) / (darker + 0.05);
-};
-
 const meta = (version = 3) => ({
   writtenAt: '2026-07-19T00:00:00Z',
   gitHead: 'abc1234',
@@ -62,9 +41,9 @@ const meta = (version = 3) => ({
 const planTask = {
   id: 'T1',
   description: 'Render a decision brief before execution mechanics',
-  read_first: ['scripts/render-plan.js'],
+  read_first: ['skills/phantom/scripts/validate-review-html.mjs'],
   action: 'Reorder plan sections around the decision contract',
-  files: ['scripts/render-plan.js'],
+  files: ['skills/phantom/scripts/validate-review-html.mjs'],
   new_files: [],
   dependsOn: [],
   acceptance_criteria: ['Decision brief appears before Waves'],
@@ -98,8 +77,8 @@ const validPlan = () => ({
   },
   solution_shape: {
     summary: 'Generate a human review view from a machine source of truth',
-    components: ['artifact validator', 'deterministic renderer'],
-    dataFlow: ['plan.json', 'validate', 'render', 'human review'],
+    components: ['artifact validator', 'AI-authored review'],
+    dataFlow: ['plan.json', 'validate JSON', 'author HTML', 'validate HTML', 'human review'],
   },
   change_set: {
     added: ['Decision-first review'],
@@ -197,7 +176,7 @@ const validBrainstorm = () => ({
   evidence: [
     {
       claim: 'Recommendation currently renders after approaches',
-      source: 'scripts/render-brainstorm.js',
+      source: 'skills/phantom/references/review-html.md',
       status: 'verified',
     },
   ],
@@ -248,7 +227,7 @@ const validBrainstorm = () => ({
     question: 'Can a reviewer identify the recommendation immediately?',
     method: 'Render a representative artifact',
     successSignal: 'Recommendation is visible before comparison details',
-    cost: 'One deterministic renderer test',
+    cost: 'One validated AI-authored review artifact',
   },
   directionGate: {
     question: 'Which approach should Phantom use?',
@@ -358,38 +337,9 @@ test('plan validator reports a non-object task instead of throwing', () => {
   assert.match(validate('plan', plan).join('\n'), /tasks\[0\]: required object/);
 });
 
-test('plan HTML leads with the decision and renders execution as an appendix', () => {
-  const plan = validPlan();
-  const html = renderPlanHtml(plan, {
-    intent: { data: { goal: 'legacy duplicate goal', tradeoffs: ['legacy duplicate tradeoff'] } },
-  });
-  assert.match(html, /<body class="kit-wide">/);
-  assert.match(html, /class="kit-topbar-inner"/);
-  assert.match(html, /href="#main-content">Skip to content/);
-  assert.match(html, /aria-label="Document sections"/);
-  assert.match(html, /--content-max:1440px/);
-  assert.ok(html.indexOf('Decision brief') < html.indexOf('Outcome and success'));
-  assert.ok(html.indexOf('Outcome and success') < html.indexOf('Evidence'));
-  assert.ok(html.indexOf('Evidence') < html.indexOf('Risks and reversibility'));
-  assert.ok(html.indexOf('Risks and reversibility') < html.indexOf('Waves'));
-  assert.match(html, /<caption class="kit-sr-only">Files affected by the execution plan<\/caption>/);
-  assert.doesNotMatch(html, /legacy duplicate goal|legacy duplicate tradeoff/);
-  assert.equal(html.split(plan.decision.recommendation).length - 1, 1, 'recommendation renders exactly once');
-});
-
-test('canonical brainstorm v3 leads with a recommendation and decision frame', () => {
+test('canonical brainstorm v3 requires a recommendation and decision frame', () => {
   const brainstorm = validBrainstorm();
   assert.deepEqual(validate('brainstorm', brainstorm), []);
-  const html = renderBrainstormHtml(brainstorm);
-  assert.match(html, /<body class="kit-wide">/);
-  assert.ok(html.indexOf('Recommendation') < html.indexOf('Decision frame'));
-  assert.ok(html.indexOf('Decision frame') < html.indexOf('Side-by-side'));
-  assert.ok(html.indexOf('Cheapest experiment') < html.indexOf('Approaches'));
-  assert.match(html, /class="bs-approach-grid"/);
-  assert.match(html, /Side-by-side comparison of brainstorm approaches/);
-  assert.match(html, /<th scope="row" class="bs-crit">Effort<\/th>/);
-  assert.match(html, /role="region" aria-label="Approach comparison; scroll horizontally for more columns" tabindex="0"/);
-
   const invalid = validBrainstorm();
   invalid.approaches[0].mutualExclusivity = [invalid.approaches[0].id, 'missing'];
   const errors = validate('brainstorm', invalid).join('\n');
@@ -656,203 +606,5 @@ test('portable brainstorm contract enforces provenance and minority dissent', as
     const brainstorm = clone(richFixture('brainstorm'));
     mutate(brainstorm);
     assert.match(validateDecisionContract('brainstorm', brainstorm).join('\n'), expected, label);
-  }
-});
-
-test('bundled portable renderer produces the same decision-first full-width review hierarchy', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const payload = { ...validPlan(), contract_version: 3 };
-  delete payload._meta;
-  const envelope = { schema_version: 1, artifact_type: 'plan', evidence: payload };
-  const html = renderReviewHtml('plan', envelope);
-  assert.match(html, /width:min\(100%,1600px\)/);
-  assert.match(html, /href="#main">Skip to content/);
-  assert.ok(html.indexOf('<h2>Plan summary</h2>') < html.indexOf('<h2>What we picked</h2>'));
-  assert.ok(html.indexOf('<h2>What we picked</h2>') < html.indexOf('<h2>Evidence</h2>'));
-  for (const text of [payload.problem, payload.decision.recommendation, payload.solution_shape.summary, payload.outcome.goal]) {
-    assert.match(html, textPattern(text));
-  }
-  assert.match(html, /Problem: Task-first plans hide the reasoning/);
-  assert.ok(html.indexOf('<h2>Evidence</h2>') < html.indexOf('<h2>Execution appendix</h2>'));
-  assert.match(html, /<details class="execution-details"><summary>/);
-  assert.doesNotMatch(html, /<details class="execution-details" open>/);
-  assert.match(html, /\.execution-details:not\(\[open\]\)>\.execution-body\{display:block!important\}/);
-  assert.doesNotMatch(html, externalAssetPattern);
-  assert.throws(() => renderReviewHtml('plan', { tasks: [] }), /contract_version: required/);
-  assert.throws(
-    () => renderReviewHtml('plan', { contract_version: 4 }),
-    /contract_version: unsupported version/,
-  );
-});
-
-test('bundled brainstorm renderer provides a distinct exploration workbench', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const payload = { ...validBrainstorm(), contract_version: 3 };
-  delete payload._meta;
-  const html = renderReviewHtml('brainstorm', payload);
-  assert.ok(html.indexOf('Current direction') < html.indexOf('Frame and stance'));
-  assert.ok(html.indexOf('Frame and stance') < html.indexOf('Divergence field'));
-  assert.ok(html.indexOf('Divergence field') < html.indexOf('Connections and clusters'));
-  assert.ok(html.indexOf('Connections and clusters') < html.indexOf('Convergence and shortlist'));
-  assert.ok(html.indexOf('Convergence and shortlist') < html.indexOf('Cheapest experiment'));
-  assert.ok(html.indexOf('Cheapest experiment') < html.indexOf('Direction gate'));
-  assert.match(html, /<caption>Side-by-side comparison of brainstorm approaches<\/caption>/);
-  assert.match(html, /<th scope="col">Approach<\/th>/);
-  assert.match(html, /role="region" aria-label="Approach comparison; scroll horizontally for more columns" tabindex="0"/);
-});
-
-test('review workbench small-text accents meet WCAG AA contrast in the light palette', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const payload = { ...validBrainstorm(), contract_version: 3 };
-  delete payload._meta;
-  const html = renderReviewHtml('brainstorm', payload);
-  assert.match(html, /--teal-text:#17656a/);
-  assert.match(html, /--orange-text:#a52a12/);
-  assert.match(html, /\.scenario-card dt\{color:var\(--teal-text\)\}/);
-  assert.match(html, /\.idea-id\{color:var\(--teal-text\)/);
-  assert.match(html, /\.cluster-head>span[\s\S]*color:var\(--orange-text\)/);
-  assert.ok(contrastRatio('#17656a', '#ffffff') >= 4.5);
-  assert.ok(contrastRatio('#a52a12', '#fff0eb') >= 4.5);
-});
-
-test('rich plan renders as a semantic engineering decision dossier', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const plan = richFixture('plan');
-  const html = renderReviewHtml('plan', plan);
-
-  for (const marker of [
-    'plan-summary',
-    'decision-spine',
-    'architecture-grid',
-    'change-ledger',
-    'scenario-grid',
-    'coverage-table',
-    'flow-track',
-    'evidence-ledger',
-    'alternative-grid',
-    'risk-grid',
-    'validation-grid',
-    'execution-details',
-    'execution-section',
-    'task-card',
-    'interface-contract',
-    'readiness-card',
-  ]) {
-    assert.match(html, new RegExp(`class="[^"]*${marker}`));
-  }
-  for (const evidence of plan.evidence) {
-    assert.match(html, textPattern(evidence.claim));
-    assert.match(html, textPattern(evidence.source));
-  }
-  for (const task of plan.tasks) assert.match(html, new RegExp(`>${task.id}<`));
-  for (const field of [plan.route, plan.devilsAdvocateVerdict, ...plan.tasks.flatMap(({ read_first }) => read_first)]) {
-    assert.match(html, textPattern(field));
-  }
-  assert.equal(html.split(plan.summary).length - 1, 1, 'authored summary renders exactly once');
-  assert.ok(html.indexOf('<h2>Plan summary</h2>') < html.indexOf('<h2>What we picked</h2>'));
-  assert.ok(html.indexOf('<h2>What we picked</h2>') < html.indexOf('<h2>What changes</h2>'));
-  assert.ok(html.indexOf('<h2>What changes</h2>') < html.indexOf('<h2>Behavior scenarios</h2>'));
-  assert.ok(html.indexOf('<h2>Solution architecture</h2>') < html.indexOf('<h2>Evidence</h2>'));
-  assert.ok(html.indexOf('<h2>Requirement coverage</h2>') < html.indexOf('<h2>Execution appendix</h2>'));
-  assert.ok(html.indexOf('<h2>Validation strategy</h2>') < html.indexOf('<h2>Execution appendix</h2>'));
-  assert.ok(html.indexOf('<h2>Readiness verdict</h2>') < html.indexOf('<h2>Execution appendix</h2>'));
-  assert.match(html, /<details class="execution-details"><summary>/);
-  assert.doesNotMatch(html, /<details class="execution-details" open>/);
-  assert.match(html, /Open after the direction is approved and implementation begins\./);
-  assert.equal(html.split(plan.open_questions[0].question).length - 1, 1, 'nonblocking question renders outside the gate');
-  assert.match(html, /@media\(max-width:620px\)/);
-  assert.match(html, /\.flow-track\{grid-template-columns:1fr\}/);
-  assert.doesNotMatch(html, externalAssetPattern);
-
-  const canonicalHtml = renderPlanHtml(plan);
-  for (const text of [plan.decision.recommendation, plan.outcome.goal, plan.evidence[0].claim]) {
-    assert.match(canonicalHtml, textPattern(text));
-  }
-});
-
-test('rich brainstorm renders provenance, convergence, dissent, and a direction gate', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const brainstorm = richFixture('brainstorm');
-  const html = renderReviewHtml('brainstorm', brainstorm);
-
-  for (const marker of [
-    'decision-spine',
-    'exploration-stagebar',
-    'idea-field',
-    'idea-lane',
-    'cluster-board',
-    'convergence-funnel',
-    'shortlist-grid',
-    'dissent-card',
-    'direction-gate',
-    'recommended-row',
-    'approach-grid',
-    'approach-card selected',
-    'evidence-ledger',
-    'experiment-track',
-  ]) {
-    assert.match(html, new RegExp(`class="[^"]*${marker}`));
-  }
-  for (const approach of brainstorm.approaches) {
-    assert.match(html, textPattern(approach.name));
-    assert.match(html, textPattern(approach.failureMode));
-    assert.match(html, textPattern(approach.whyLens));
-    for (const ruledOut of approach.mutualExclusivity) assert.match(html, textPattern(ruledOut));
-  }
-  for (const idea of brainstorm.ideas) {
-    assert.match(html, textPattern(idea.title));
-    assert.match(html, new RegExp(textPattern(idea.technique.replaceAll('-', ' ')).source, 'i'));
-  }
-  for (const cluster of brainstorm.clusters) assert.match(html, textPattern(cluster.insight));
-  for (const item of [...brainstorm.decision.audience, ...brainstorm.decision.nonGoals]) {
-    assert.match(html, textPattern(item));
-  }
-  assert.match(html, textPattern(brainstorm.dissent.case));
-  assert.equal(html.split(brainstorm.openQuestions[0].question).length - 1, 1);
-  assert.match(html, textPattern(brainstorm.problem));
-  assert.ok(html.indexOf('<h2>Current direction</h2>') < html.indexOf('<h2>Frame and stance</h2>'));
-  assert.ok(html.indexOf('<h2>Frame and stance</h2>') < html.indexOf('<h2>Divergence field</h2>'));
-  assert.ok(html.indexOf('<h2>Divergence field</h2>') < html.indexOf('<h2>Connections and clusters</h2>'));
-  assert.ok(html.indexOf('<h2>Connections and clusters</h2>') < html.indexOf('<h2>Convergence and shortlist</h2>'));
-  assert.ok(html.indexOf('<h2>Convergence and shortlist</h2>') < html.indexOf('<h2>Dissenting case</h2>'));
-  assert.ok(html.indexOf('<h2>Dissenting case</h2>') < html.indexOf('<h2>Cheapest experiment</h2>'));
-  assert.ok(html.indexOf('<h2>Cheapest experiment</h2>') < html.indexOf('<h2>Direction gate</h2>'));
-  assert.doesNotMatch(html, externalAssetPattern);
-
-  const canonicalHtml = renderBrainstormHtml(brainstorm);
-  for (const text of [brainstorm.recommendedDefault.reason, brainstorm.evidence[0].claim]) {
-    assert.match(canonicalHtml, textPattern(text));
-  }
-});
-
-test('enriched portable views are deterministic, distinct, and escape every new primitive', async () => {
-  const { renderReviewHtml } = await portableRenderer;
-  const plan = richFixture('plan');
-  const brainstorm = richFixture('brainstorm');
-  const planHtml = renderReviewHtml('plan', plan);
-  const brainstormHtml = renderReviewHtml('brainstorm', brainstorm);
-
-  assert.equal(renderReviewHtml('plan', clone(plan)), planHtml);
-  assert.equal(renderReviewHtml('brainstorm', clone(brainstorm)), brainstormHtml);
-  assert.match(planHtml, /<body class="review-plan">/);
-  assert.doesNotMatch(planHtml, /class="idea-field"|class="cluster-board"/);
-  assert.match(brainstormHtml, /<body class="review-brainstorm">/);
-  assert.doesNotMatch(brainstormHtml, /class="change-ledger"|class="coverage-table"|class="readiness-card"/);
-
-  const hostile = '<script>alert("review")</script>';
-  const hostilePlan = clone(plan);
-  hostilePlan.summary = hostile;
-  hostilePlan.change_set.added[0] = hostile;
-  hostilePlan.scenarios[0].given = hostile;
-  hostilePlan.tasks[0].consumes[0] = hostile;
-  const hostileBrainstorm = clone(brainstorm);
-  hostileBrainstorm.ideas[0].title = hostile;
-  hostileBrainstorm.clusters[0].insight = hostile;
-  hostileBrainstorm.shortlist[0].reservation = hostile;
-  hostileBrainstorm.dissent.case = hostile;
-  for (const html of [renderReviewHtml('plan', hostilePlan), renderReviewHtml('brainstorm', hostileBrainstorm)]) {
-    assert.match(html, /&lt;script&gt;alert\(&quot;review&quot;\)&lt;\/script&gt;/);
-    assert.doesNotMatch(html, /<script>/);
-    assert.doesNotMatch(html, externalAssetPattern);
   }
 });

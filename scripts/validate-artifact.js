@@ -128,7 +128,7 @@ const SCHEMAS = {
 
   intent: {
     fields: [
-      { field: 'problem', type: 'string', required: 'no', description: 'The pain statement being solved — leads the goal in render-plan.js output' },
+      { field: 'problem', type: 'string', required: 'no', description: 'The pain statement being solved — leads the goal in the plan review' },
       { field: 'goal', type: 'string', required: 'yes', description: 'Single clear goal statement' },
       { field: 'doneWhen', type: 'string[]', required: 'yes', description: 'Acceptance criteria (observable, testable)' },
       { field: 'priority', type: 'string[]', required: 'yes', description: 'Ordered implementation priorities' },

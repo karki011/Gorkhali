@@ -109,17 +109,18 @@ See `schemas/plan.md` for the full task template, field rules, and extended fiel
 
 ## Plan Artifacts
 
-Every plan produces two required files, each with one job, plus one optional third:
+Every plan produces three required files, each with one job, plus one optional fourth:
 
 - **`plan.json`** — the machine source of truth. `phantom:execute`, `phantom:wire`, and `phantom:resume` all read this file, never `plan.html`.
-- **`plan.html`** — the human gate surface. Always rendered from `plan.json` via `node scripts/render-plan.js <path-to-plan.json>` (see `commands/start.md` PLAN route, HUMAN GATE step). Never hand-authored, never parsed back into anything.
-- **`plan-check.json`** (optional) — the plan-checker's verdict, written to the session directory by the plan-checker agent (`agents/plan-checker.md`). When present as a sibling of `plan.json`, `render-plan.js` auto-discovers it and renders a "Plan Check" section inside `plan.html`, so the human sees the checker's verdict alongside the plan. Absent means no section — the plan-checker didn't run, or wasn't required for this route.
+- **`plan.candidate.html`** — a disposable, self-contained review candidate authored by the active AI from `plan.json` and, when present, `plan-check.json`. It is never canonical and is never parsed back into anything.
+- **`plan.html`** — the accepted human gate surface. The review HTML validator promotes a valid `plan.candidate.html` to this file; see `commands/start.md` PLAN route, HUMAN GATE step.
+- **`plan-check.json`** (optional) — the plan-checker's verdict, written to the session directory by the plan-checker agent (`agents/plan-checker.md`). When present, the active AI receives it with `plan.json` and includes its verdict in the review provenance. Absent means the plan-checker did not run, or was not required for this route.
 
-If `plan.json` changes after the initial render — during deliberation, a fix-loop revision, or a resumed session — re-run the renderer so `plan.html` stays in sync before the next human review.
+If `plan.json` changes after the initial review — during deliberation, a fix-loop revision, or a resumed session — have the active AI generate a fresh candidate, validate/promote it, and use that accepted `plan.html` before the next requested human review.
 
 ### Gate-loop revisions
 
-During the plan-gate annotate-revise loop (`commands/annotate.md`, plan-gate case), each cycle edits `plan.json` and regenerates `plan.html` — `plan.html` is never hand-edited. Every cycle is recorded as an entry in the `revisions[]` array of `{SESSION_DIR}/decisions.json`, shaped `{cycle, annotations[], classification, planChanges, recheck}` (`recheck` holds the plan-checker/rival verdicts on material changes, `null` on cosmetic-only cycles). The loop ceiling is 3 cycles; after that, unresolved sticking points move to plain chat discussion rather than a re-render.
+During plan-gate chat feedback, apply material feedback to `plan.json`; presentation-only feedback leaves JSON unchanged. Neither HTML file is a source of truth. Re-run plan-checker for a material change and Rival when scope changes, then generate a fresh candidate from the applicable source plus feedback and validate/promote it before a requested re-review. Record each material revision in `{SESSION_DIR}/decisions.json`, including the feedback, plan changes, and recheck result. Chat approval remains the only gate exit.
 
 ## Decision-First Plan Artifact (mandatory at every plan gate)
 
@@ -152,8 +153,8 @@ questions explicit and mark whether they block approval.
 
 ### Human review order
 
-`render-plan.js` produces a self-contained, full-width HTML review surface in
-this order:
+The active AI authors a self-contained, full-width HTML review candidate. It chooses the visual
+design appropriate to the plan, but must organize the human review around this order:
 
 1. Executive decision brief: approval question, recommendation, rationale, and pending calls.
 2. Outcome, scope, and architecture.
@@ -166,9 +167,12 @@ The first screen must answer what is being approved, what Phantom recommends,
 why, what remains uncertain, and what happens if the choice is wrong. Tasks and
 waves never lead the gate.
 
-### Generated HTML only
+### AI-authored review HTML
 
-`plan.json` remains the machine source of truth. Always regenerate `plan.html`
-after changing the plan; never hand-author or patch the HTML. If rendering or
-opening is unavailable, present the same decision-first structure in chat and
-record the capability fallback rather than degrading to a task-only plan.
+`plan.json` remains the machine source of truth. The active AI authors
+`plan.candidate.html`; `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan
+--source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out
+{SESSION_DIR}/plan.html` validates and promotes it. Never patch either HTML file by hand and never
+parse HTML back into the plan. If candidate generation, validation, or opening is unavailable,
+present the same decision-first structure in chat and record the capability fallback rather than
+degrading to a task-only plan.

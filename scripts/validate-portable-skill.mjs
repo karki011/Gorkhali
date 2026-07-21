@@ -184,16 +184,16 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     'references/model-presets.json',
     'references/brainstorming.md',
     'references/planning.md',
+    'references/review-html.md',
     'references/roles.md',
     'references/state.md',
     'references/workflows.md',
     'references/verification.md',
     'scripts/inspect-impact.mjs',
     'scripts/lib/decision-contracts.mjs',
-    'scripts/lib/review-style.mjs',
     'scripts/phantom-state.mjs',
-    'scripts/render-review.mjs',
     'scripts/resolve-profile.mjs',
+    'scripts/validate-review-html.mjs',
   ];
   for (const item of required) {
     if (!existsSync(join(skillDirectory, item))) errors.push(`Required portable resource is missing: ${item}`);

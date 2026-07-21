@@ -99,19 +99,20 @@ The plan records task dependencies and semantic profiles, not provider-specific
 spawn instructions. At execution time Apex derives waves from those dependencies
 and delegates only tasks whose independence and write boundaries are established.
 
-## Review and render
+## Review HTML
 
 Run Plan-checker for structural defects, then one Rival pass for a false
 assumption, missing failure mode, or simpler direction. Revise once. A second
 review is justified only when the first produced new evidence.
 
 Create the portable v3 JSON payload first and persist it when file writing is
-available. Validate the JSON before rendering; an active session's
+available. Validate the JSON before generating HTML; an active session's
 `phantom-state.mjs record --type plan --status pending --input <json-file>`
 validates it while persisting the canonical envelope. Only after validation
-succeeds, run
-`node <skill-directory>/scripts/render-review.mjs plan --input <json-file-or-envelope>`.
-Never author or repair HTML by hand; update the JSON and regenerate it.
+succeeds, create `plan.candidate.html` from the current JSON using
+`<skill-directory>/references/review-html.md`, then run
+`<skill-directory>/scripts/validate-review-html.mjs` against it. Do not repair stale HTML:
+update the JSON and regenerate the disposable review page.
 
 Render the self-contained, offline implementation dossier in this order:
 plain-language plan summary; chosen direction and human gate;
@@ -120,7 +121,7 @@ Given/When/Then scenarios; architecture and requirement coverage; evidence,
 alternatives, and risks; validation; readiness verdict; then task interfaces and
 execution dossiers in a final appendix collapsed by default. If file writing is
 unavailable, present the payload in one fenced `json` block and state that it was
-not persisted or rendered. If JSON can be written but rendering or viewing is
+not persisted or presented. If JSON can be written but HTML generation or viewing is
 unavailable, keep the JSON artifact and present the same hierarchy in chat.
 
 Replan only when a precondition is disproven, a new hard constraint appears,

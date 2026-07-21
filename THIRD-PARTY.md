@@ -26,11 +26,9 @@ free-text status-verb matching to the typed execution record
 - Source: https://github.com/kunchenguid/lavish-axi
 - License: MIT
 - Copyright: © 2026 Kun Chen
-- Adaptation: prose / discipline adaptation of the HTML annotate review-loop
-  conventions (`commands/annotate.md`, `reference/output-contract.md`), plus a
-  Node port of the browser-side layout auditor from `artifact-sdk.js`. The
-  annotate conventions vendor no code — that CLI is invoked on demand via
-  `npx -y lavish-axi` — but the layout auditor below is ported directly.
+- Adaptation: Node port of the browser-side layout auditor from
+  `artifact-sdk.js`. Phantom no longer invokes the Lavish Editor or carries its
+  annotation-loop conventions; the independent layout auditor remains.
 
 | Ported file | Adapted from |
 | --- | --- |

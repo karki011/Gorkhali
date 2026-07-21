@@ -56,13 +56,13 @@ after the human or delegated approval is recorded separately.
   },
   "outcome": {
     "goal": "Every plan gate communicates a researched recommendation",
-    "doneWhen": ["Decision brief renders before the first task"]
+    "doneWhen": ["Decision brief appears before the first task"]
   },
-  "scope": { "in": ["plan artifacts and renderers"], "out": [], "constraints": ["offline HTML"] },
+  "scope": { "in": ["plan artifacts and AI-authored review HTML"], "out": [], "constraints": ["offline HTML"] },
   "solution_shape": {
     "summary": "One machine artifact with a generated human review surface",
-    "components": ["plan validator", "plan renderer"],
-    "dataFlow": ["plan.json", "validate", "render", "human approval"]
+    "components": ["plan validator", "AI-authored review", "review safety validator"],
+    "dataFlow": ["plan.json", "validate JSON", "author HTML", "validate HTML", "human approval"]
   },
   "evidence": [{ "claim": "The v2 schema only requires task mechanics", "source": "scripts/validate-artifact.js", "status": "verified" }],
   "alternatives": [{ "name": "Task-first plan", "tradeoffs": ["Fast to emit but weak to review"], "reason": "Rejected" }],
@@ -70,8 +70,8 @@ after the human or delegated approval is recorded separately.
   "open_questions": [],
   "risks": [],
   "validation": {
-    "strategy": "Schema, renderer-order, and end-to-end tests",
-    "definitionOfDone": ["A canonical v3 plan validates and renders"],
+    "strategy": "Schema, review-safety, and end-to-end tests",
+    "definitionOfDone": ["A canonical v3 plan validates and produces a safe AI-authored review"],
     "checks": ["npm test"]
   },
   "route": "solo",
@@ -79,15 +79,15 @@ after the human or delegated approval is recorded separately.
   "tasks": [
     {
       "id": "T1",
-      "description": "Render the decision brief before execution details",
-      "read_first": ["scripts/render-plan.js"],
-      "action": "Reorder the renderer around the v3 decision contract",
-      "files": ["scripts/render-plan.js"],
+      "description": "Validate the AI-authored decision review before presentation",
+      "read_first": ["skills/phantom/scripts/validate-review-html.mjs"],
+      "action": "Enforce the review HTML safety and decision-fidelity contract",
+      "files": ["skills/phantom/scripts/validate-review-html.mjs"],
       "dependsOn": [],
-      "acceptance_criteria": ["Decision brief precedes Waves in generated HTML"],
-      "verify": "node --test test/render-plan.test.js",
-      "risk": "Compatibility ordering regressions",
-      "recovery": "Retain v1/v2 tolerant rendering",
+      "acceptance_criteria": ["Unsafe or decision-incomplete review HTML cannot replace the accepted page"],
+      "verify": "node --test test/validate-review-html.test.js",
+      "risk": "A generated page may omit decision-critical text",
+      "recovery": "Regenerate from canonical plan.json or fall back to the chat review",
       "profile": "balanced"
     }
   ]

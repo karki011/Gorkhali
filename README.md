@@ -72,7 +72,6 @@ command surface:
 /phantom:verify                            # power level (P0/P1 fix, P2/P3 drop)
 /phantom:wrap                              # commit, push, PR, Jira transition
 /phantom:pause → /clear → /phantom:resume     # context mgmt + portable handoff packet
-/phantom:annotate artifact.html            # annotate any HTML artifact in-browser (auto-invoked by brainstorm/plan/visualflow)
 ```
 
 ## Architecture — Adaptive Cognitive Router
@@ -131,7 +130,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 **Power Level** — P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
 
-**Annotate Review Loop** — HTML artifacts from brainstorm/plan/visualflow open automatically in the browser for inline annotation (wraps lavish-axi via npx; element/text comments flow back to the agent as structured feedback). Degrades to plain `open` when unavailable; headless runs never start it. See `commands/annotate.md`.
+**Direct HTML Review** — For plan and brainstorm gates, the active AI authors a self-contained candidate HTML page from canonical JSON. A local validator promotes it to the accepted artifact, which opens directly; approval and feedback stay in the existing chat. Visualflow artifacts also open directly, with feedback captured in chat.
 
 **Anti-Repetition** — Scans learnings before every approach. `[failed]` entries are blocked. `[validated:5+]` entries auto-apply.
 
@@ -156,7 +155,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
-├── commands/          # 29 command directives (+ 10 _shared partials)
+├── commands/          # 28 command directives (+ 10 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
