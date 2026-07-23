@@ -67,7 +67,7 @@ test('no match → null so each caller keeps its own fallback (other/unknown/ext
   assert.equal(fileDomain('notes.txt'), null);
 });
 
-test('DOMAIN_KEYWORDS is exactly the old memory-reader set (keys AND keywords)', () => {
+test('DOMAIN_KEYWORDS is exactly the canonical set (keys AND keywords)', () => {
   assert.deepEqual(DOMAIN_KEYWORDS, {
     ui: ['react', 'jsx', 'tsx', 'component', 'css', 'style', 'chakra', 'layout', 'render', 'frontend', 'tailwind', 'svg', 'figma'],
     data: ['api', 'fetch', 'axios', 'graphql', 'endpoint', 'route', 'rest', 'http', 'query', 'mutation', 'request', 'response'],
@@ -76,10 +76,11 @@ test('DOMAIN_KEYWORDS is exactly the old memory-reader set (keys AND keywords)',
     shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'apex', 'blade', 'sage', 'ward', 'gaze', 'archer', 'hound'],
     migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
     tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
+    'model-routing': ['model-routing', 'compute-profile', 'fallback', 'requested_profile', 'actual_profile', 'frontier'],
   });
 });
 
-test('KNOWN_DOMAIN_FILES matches the old check-learnings-index list (order preserved)', () => {
-  assert.deepEqual(KNOWN_DOMAIN_FILES, ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'shadows.md']);
+test('KNOWN_DOMAIN_FILES matches the canonical domain list (order preserved)', () => {
+  assert.deepEqual(KNOWN_DOMAIN_FILES, ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'shadows.md', 'model-routing.md']);
   assert.deepEqual(KNOWN_DOMAIN_FILES, DOMAIN_NAMES.map(d => `${d}.md`));
 });

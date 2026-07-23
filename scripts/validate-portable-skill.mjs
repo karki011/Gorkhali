@@ -35,9 +35,9 @@ const selectionOrder = [
 const requiredContractVersions = {
   capability_ledger: 1,
   decision_artifact: 3,
-  delegation: 1,
+  delegation: 2,
   impact_report: 1,
-  model_policy: 1,
+  model_policy: 2,
   model_presets: 1,
   model_routing: 1,
   state_envelope: 1,
@@ -47,6 +47,18 @@ const lifecycleContractResources = [
   'references/workflows.md',
   'scripts/phantom-state.mjs',
 ];
+const riskLevels = ['low', 'moderate', 'high', 'critical'];
+const criticalEligibleRoles = [
+  'blade',
+  'gaze',
+  'sage',
+  'lens',
+  'archer',
+  'rival',
+  'plan-checker',
+  'hound',
+];
+const criticalExemptRoles = ['apex', 'ward', 'sweep', 'warden'];
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -172,6 +184,45 @@ function validateManifest(manifest, errors, skillDirectory) {
   for (const [contract, version] of Object.entries(requiredContractVersions)) {
     if (manifest.contract_versions[contract] !== version) {
       errors.push(`Manifest contract version ${contract} must be ${version}.`);
+    }
+  }
+}
+
+function validateModelPolicy(policy, errors) {
+  if (!checkKeys(
+    policy,
+    ['schema_version', 'profiles', 'default_profile', 'risk_levels', 'critical_elevation', 'roles'],
+    'Model policy',
+    errors,
+  )) return;
+  if (policy.schema_version !== 2) errors.push('Model policy schema_version must be 2.');
+  if (JSON.stringify(policy.risk_levels) !== JSON.stringify(riskLevels)) {
+    errors.push(`Model policy risk_levels must be: ${riskLevels.join(', ')}.`);
+  }
+  const elevation = policy.critical_elevation;
+  if (checkKeys(
+    elevation,
+    ['risk', 'profile', 'eligible_roles', 'exempt_roles'],
+    'Model policy critical_elevation',
+    errors,
+  )) {
+    if (elevation.risk !== 'critical') {
+      errors.push('Model policy critical_elevation.risk must be critical.');
+    }
+    if (elevation.profile !== 'deep') {
+      errors.push('Model policy critical_elevation.profile must be deep.');
+    }
+    if (JSON.stringify(elevation.eligible_roles) !== JSON.stringify(criticalEligibleRoles)) {
+      errors.push('Model policy critical_elevation.eligible_roles is invalid.');
+    }
+    if (JSON.stringify(elevation.exempt_roles) !== JSON.stringify(criticalExemptRoles)) {
+      errors.push('Model policy critical_elevation.exempt_roles is invalid.');
+    }
+  }
+  if (policy.roles?.apex !== 'frontier') errors.push('Model policy Apex must use frontier.');
+  for (const role of ['rival', 'plan-checker']) {
+    if (policy.roles?.[role] !== 'balanced') {
+      errors.push(`Model policy ordinary ${role} must use balanced.`);
     }
   }
 }
@@ -496,6 +547,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
   }
 
   if (modelPolicy) {
+    validateModelPolicy(modelPolicy, errors);
     const profiles = new Set(modelPolicy.profiles || []);
     if (!profiles.has(modelPolicy.default_profile)) errors.push('Default model profile is not declared.');
     for (const [role, profile] of Object.entries(modelPolicy.roles || {})) {

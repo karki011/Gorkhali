@@ -7,8 +7,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
+const { pathToFileURL } = require('node:url');
 
 const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const DECISION_CONTRACTS = path.join(
+  __dirname,
+  '..',
+  'skills',
+  'phantom',
+  'scripts',
+  'lib',
+  'decision-contracts.mjs',
+);
 let gateSequence = 0;
 
 function runScript(script, args, env) {
@@ -586,28 +596,45 @@ test('record validates provider-neutral routing diagnostics', async () => {
   }
 });
 
-test('state records validated delegation task and result contracts', async () => {
+test('state records bounded delegation v2 tasks and matching typed results', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
-  parse(await run([
+  const started = parse(await run([
     'start', ...common, '--task', 'DELEGATE-1', '--intent', 'Persist delegation contracts', '--route', 'direct',
   ], context.env));
+  const { delegationTaskDigest } = await import(pathToFileURL(DECISION_CONTRACTS).href);
 
   const taskFile = path.join(context.root, 'delegation-task.json');
-  fs.writeFileSync(taskFile, JSON.stringify({
-    contract_version: 1,
+  const referenceFile = path.join(context.workspace, 'planning.md');
+  const referenceDigest = require('node:crypto')
+    .createHash('sha256')
+    .update(fs.readFileSync(referenceFile))
+    .digest('hex');
+  const taskPayload = {
+    contract_version: 2,
     task_id: 'D1',
+    delegation_id: 'delegation-D1-attempt-1',
     role: 'blade',
     objective: 'Implement the bounded task',
     profile: 'balanced',
+    risk: 'moderate',
     requires_judgment: false,
-    inputs: {},
-    context_refs: [{ id: 'plan', kind: 'artifact', ref: 'plan.json' }],
+    locked_decisions: ['Keep the state contract provider-neutral'],
+    corrections: [],
     constraints: ['Preserve unrelated work'],
     deliverables: ['Focused patch'],
     acceptance_criteria: ['Focused checks pass'],
     write_scope: ['target.js'],
-  }));
+    context_refs: [{
+      id: 'plan',
+      kind: 'artifact',
+      source: 'workspace',
+      locator: 'planning.md',
+      content_sha256: referenceDigest,
+      observed_at: '2026-07-23T20:00:00Z',
+    }],
+  };
+  fs.writeFileSync(taskFile, JSON.stringify(taskPayload));
   const task = parse(await run([
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
@@ -618,13 +645,23 @@ test('state records validated delegation task and result contracts', async () =>
   assert.equal(task.artifact.model_routing.actual_profile, null);
 
   const resultFile = path.join(context.root, 'delegation-result.json');
-  fs.writeFileSync(resultFile, JSON.stringify({
-    contract_version: 1,
+  const resultPayload = {
+    contract_version: 2,
     task_id: 'D1',
+    delegation_id: taskPayload.delegation_id,
+    task_digest: delegationTaskDigest(taskPayload),
     status: 'ok',
-    output: { summary: 'Focused patch complete' },
+    output: {
+      summary: 'Focused patch complete',
+      files_changed: ['target.js'],
+      checks: [{ name: 'focused', status: 'passed', summary: 'Contract accepted' }],
+      findings: [],
+      risks: [],
+      blocker: null,
+    },
     error: null,
-  }));
+  };
+  fs.writeFileSync(resultFile, JSON.stringify(resultPayload));
   const result = parse(await run([
     'record', ...common, '--type', 'delegation-result', '--status', 'passed', '--run', 'D1', '--input', resultFile,
   ], context.env));
@@ -634,8 +671,7 @@ test('state records validated delegation task and result contracts', async () =>
   assert.equal(result.artifact.model_routing.outcome, 'passed');
 
   fs.writeFileSync(resultFile, JSON.stringify({
-    contract_version: 1,
-    task_id: 'D1',
+    ...resultPayload,
     status: 'error',
     output: null,
     error: { code: 'CHECK_FAILED', message: 'Verification failed', retryable: false },
@@ -650,13 +686,7 @@ test('state records validated delegation task and result contracts', async () =>
   ], context.env));
   assert.equal(failed.artifact.model_routing.outcome, 'failed');
 
-  fs.writeFileSync(resultFile, JSON.stringify({
-    contract_version: 1,
-    task_id: 'D1',
-    status: 'ok',
-    output: { summary: 'Focused patch complete' },
-    error: null,
-  }));
+  fs.writeFileSync(resultFile, JSON.stringify(resultPayload));
   const overridden = parse(await run([
     'record', ...common, '--type', 'delegation-result', '--status', 'passed', '--run', 'D1', '--input', resultFile,
     '--role', 'apex', '--profile', 'economy',
@@ -664,25 +694,195 @@ test('state records validated delegation task and result contracts', async () =>
   assert.deepEqual(overridden.artifact.producer, { role: 'apex', compute_profile: 'frontier' });
   assert.equal(overridden.artifact.model_routing.requested_profile, 'frontier');
 
-  fs.writeFileSync(resultFile, JSON.stringify({
-    contract_version: 1,
-    task_id: 'DIFFERENT',
-    status: 'ok',
-    output: { summary: 'Wrong task' },
-    error: null,
-  }));
+  fs.writeFileSync(resultFile, JSON.stringify({ ...resultPayload, task_id: 'DIFFERENT' }));
   const mismatched = await run([
     'record', ...common, '--type', 'delegation-result', '--status', 'passed', '--run', 'D1', '--input', resultFile,
   ], context.env);
   assert.equal(mismatched.code, 1);
   assert.match(mismatched.stderr, /task_id must match/);
 
-  fs.writeFileSync(taskFile, JSON.stringify({ contract_version: 1, task_id: 'D2' }));
+  fs.writeFileSync(taskFile, JSON.stringify({ ...taskPayload, contract_version: 1, task_id: 'D2' }));
   const invalid = await run([
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D2', '--input', taskFile,
   ], context.env);
   assert.equal(invalid.code, 1);
   assert.match(invalid.stderr, /Invalid delegation-task contract/);
+
+  fs.writeFileSync(resultFile, JSON.stringify({
+    ...resultPayload,
+    task_digest: '0'.repeat(64),
+  }));
+  const wrongDigest = await run([
+    'record', ...common, '--type', 'delegation-result', '--status', 'passed', '--run', 'D1', '--input', resultFile,
+  ], context.env);
+  assert.equal(wrongDigest.code, 1);
+  assert.match(wrongDigest.stderr, /task_digest must match/);
+
+  fs.writeFileSync(resultFile, JSON.stringify({
+    ...resultPayload,
+    output: { ...resultPayload.output, files_changed: ['outside.js'] },
+  }));
+  const outsideScope = await run([
+    'record', ...common, '--type', 'delegation-result', '--status', 'passed', '--run', 'D1', '--input', resultFile,
+  ], context.env);
+  assert.equal(outsideScope.code, 1);
+  assert.match(outsideScope.stderr, /outside task\.write_scope/);
+
+  const sessionDirectory = path.join(
+    context.data,
+    'repos',
+    started.repo_id,
+    'sessions',
+    started.task_id,
+  );
+  const legacyTask = {
+    contract_version: 1,
+    task_id: 'LEGACY',
+    role: 'blade',
+    profile: 'balanced',
+    objective: 'Finish work already in flight',
+    requires_judgment: false,
+    inputs: {},
+    context_refs: [{ id: 'plan', kind: 'artifact', ref: 'plan.json' }],
+    constraints: [],
+    deliverables: ['Result'],
+    acceptance_criteria: ['Result is returned'],
+    write_scope: [],
+  };
+  const legacyRun = path.join(sessionDirectory, 'runs', 'LEGACY');
+  fs.mkdirSync(legacyRun, { recursive: true });
+  fs.writeFileSync(path.join(legacyRun, 'delegation-task.json'), JSON.stringify({
+    schema_version: 1,
+    artifact_type: 'delegation-task',
+    repo_id: started.repo_id,
+    task_id: started.task_id,
+    status: 'pending',
+    producer: { role: 'blade', compute_profile: 'balanced' },
+    model_routing: { requested_profile: 'balanced' },
+    evidence: legacyTask,
+  }));
+  fs.writeFileSync(resultFile, JSON.stringify({
+    contract_version: 1,
+    task_id: 'LEGACY',
+    status: 'ok',
+    output: { summary: 'Existing work completed' },
+    error: null,
+  }));
+  const legacyResult = parse(await run([
+    'record',
+    ...common,
+    '--type', 'delegation-result',
+    '--status', 'passed',
+    '--run', 'LEGACY',
+    '--input', resultFile,
+  ], context.env));
+  assert.equal(legacyResult.artifact.evidence.contract_version, 1);
+});
+
+test('delegation v2 rejects unsafe references, stale hashes, and oversized envelopes', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'DELEGATE-SAFETY', '--intent', 'Reject unsafe handoffs', '--route', 'direct',
+  ], context.env));
+  const input = path.join(context.root, 'task.json');
+  const reference = path.join(context.workspace, 'planning.md');
+  const referenceDigest = require('node:crypto')
+    .createHash('sha256')
+    .update(fs.readFileSync(reference))
+    .digest('hex');
+  const base = {
+    contract_version: 2,
+    task_id: 'SAFE',
+    delegation_id: 'safe-attempt-1',
+    role: 'blade',
+    profile: 'balanced',
+    risk: 'high',
+    objective: 'Validate reference boundaries',
+    requires_judgment: false,
+    locked_decisions: [],
+    corrections: [],
+    constraints: [],
+    deliverables: [],
+    acceptance_criteria: [],
+    write_scope: [],
+    context_refs: [{
+      id: 'context',
+      kind: 'resource',
+      source: 'workspace',
+      locator: 'planning.md',
+      content_sha256: referenceDigest,
+      observed_at: '2026-07-23T20:00:00Z',
+    }],
+  };
+  const recordTask = async (runId, mutate) => {
+    const payload = structuredClone(base);
+    mutate(payload);
+    fs.writeFileSync(input, JSON.stringify(payload));
+    return run([
+      'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', runId, '--input', input,
+    ], context.env);
+  };
+
+  for (const [label, mutate, expected] of [
+    ['absolute', (value) => { value.context_refs[0].locator = reference; }, /normalized repository-relative path/],
+    ['traversal', (value) => { value.context_refs[0].locator = '../planning.md'; }, /normalized repository-relative path/],
+    ['missing', (value) => { value.context_refs[0].locator = 'missing.md'; }, /does not exist/],
+    ['directory', (value) => { value.context_refs[0].locator = 'directory'; fs.mkdirSync(path.join(context.workspace, 'directory')); }, /must be a file/],
+    ['hash', (value) => { value.context_refs[0].content_sha256 = '0'.repeat(64); }, /does not match/],
+    ['oversize', (value) => { value.objective = 'é'.repeat(2_400); }, /maximum is 4800/],
+  ]) {
+    const result = await recordTask(label, mutate);
+    assert.equal(result.code, 1, `${label} unexpectedly passed`);
+    assert.match(result.stderr, expected);
+  }
+
+  const outside = path.join(context.root, 'outside.txt');
+  fs.writeFileSync(outside, 'outside');
+  fs.symlinkSync(outside, path.join(context.workspace, 'escape.txt'));
+  const escaped = await recordTask('escape', (value) => {
+    value.context_refs[0].locator = 'escape.txt';
+    value.context_refs[0].content_sha256 = require('node:crypto')
+      .createHash('sha256')
+      .update(fs.readFileSync(outside))
+      .digest('hex');
+  });
+  assert.equal(escaped.code, 1);
+  assert.match(escaped.stderr, /symlink resolves outside/);
+
+  const accepted = structuredClone(base);
+  accepted.task_id = 'RESULT-BOUNDS';
+  accepted.delegation_id = 'result-bounds-attempt-1';
+  fs.writeFileSync(input, JSON.stringify(accepted));
+  parse(await run([
+    'record',
+    ...common,
+    '--type', 'delegation-task',
+    '--status', 'pending',
+    '--run', 'result-bounds',
+    '--input', input,
+  ], context.env));
+  const { delegationTaskDigest } = await import(pathToFileURL(DECISION_CONTRACTS).href);
+  const resultFile = path.join(context.root, 'oversized-result.json');
+  fs.writeFileSync(resultFile, JSON.stringify({
+    contract_version: 2,
+    task_id: accepted.task_id,
+    delegation_id: accepted.delegation_id,
+    task_digest: delegationTaskDigest(accepted),
+    status: 'error',
+    output: null,
+    error: { code: 'TOO_LARGE', message: 'é'.repeat(1_000), retryable: false },
+  }));
+  const oversizedResult = await run([
+    'record',
+    ...common,
+    '--type', 'delegation-result',
+    '--status', 'failed',
+    '--run', 'result-bounds',
+    '--input', resultFile,
+  ], context.env);
+  assert.equal(oversizedResult.code, 1);
+  assert.match(oversizedResult.stderr, /maximum is 2000/);
 });
 
 test('completion revalidates persisted gate evidence and envelope identity', async () => {

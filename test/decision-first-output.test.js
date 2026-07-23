@@ -402,55 +402,103 @@ test('portable decision contract validates enriched v3 and preserves earlier v3 
 });
 
 test('portable delegation contracts validate typed tasks and consistent results', async () => {
-  const { validateDelegationResultContract, validateDelegationTaskContract } = await portableContracts;
+  const {
+    delegationTaskDigest,
+    validateDelegationResultContract,
+    validateDelegationTaskContract,
+  } = await portableContracts;
   const task = {
-    contract_version: 1,
+    contract_version: 2,
     task_id: 'T1',
+    delegation_id: 'delegation-T1-attempt-1',
     role: 'Blade',
     profile: 'balanced',
+    risk: 'moderate',
     objective: 'Implement one bounded validator change',
-    context_refs: [{ id: 'plan', kind: 'artifact', ref: 'current-plan' }],
+    context_refs: [{
+      id: 'plan',
+      kind: 'artifact',
+      source: 'session',
+      locator: 'plan.json',
+      content_sha256: '0'.repeat(64),
+      observed_at: '2026-07-23T12:00:00.000Z',
+    }],
     requires_judgment: false,
-    inputs: { files: ['skills/phantom/scripts/lib/decision-contracts.mjs'] },
+    locked_decisions: [],
+    corrections: [],
     constraints: ['Do not change unrelated files'],
     deliverables: ['Delegation validators'],
     acceptance_criteria: ['Focused tests pass'],
     write_scope: ['skills/phantom/scripts/lib/decision-contracts.mjs'],
   };
+  const taskDigest = delegationTaskDigest(task);
   assert.deepEqual(validateDelegationTaskContract(task), []);
   assert.deepEqual(validateDelegationResultContract({
-    contract_version: 1,
+    contract_version: 2,
     task_id: 'T1',
+    delegation_id: 'delegation-T1-attempt-1',
+    task_digest: taskDigest,
     status: 'ok',
-    output: { summary: 'Implemented and verified' },
+    output: {
+      summary: 'Implemented and verified',
+      files_changed: ['skills/phantom/scripts/lib/decision-contracts.mjs'],
+      checks: [{ name: 'focused tests', status: 'passed' }],
+      findings: [],
+      risks: [],
+      blocker: null,
+    },
     error: null,
   }), []);
   assert.deepEqual(validateDelegationResultContract({
-    contract_version: 1,
+    contract_version: 2,
     task_id: 'T1',
+    delegation_id: 'delegation-T1-attempt-1',
+    task_digest: taskDigest,
     status: 'error',
     output: null,
     error: { code: 'CAPABILITY_UNAVAILABLE', message: 'No structured worker API', retryable: false },
   }), []);
 
   const invalidTask = clone(task);
-  invalidTask.contract_version = 2;
-  assert.match(validateDelegationTaskContract(invalidTask).join('\n'), /unsupported version/);
   invalidTask.contract_version = 1;
-  invalidTask.context_refs = [{ id: 'plan', kind: 'filesystem-blackboard', ref: '' }];
+  assert.match(validateDelegationTaskContract(invalidTask).join('\n'), /unsupported version/);
+  invalidTask.contract_version = 2;
+  invalidTask.context_refs = [{
+    id: 'plan',
+    kind: 'filesystem-blackboard',
+    source: 'conversation',
+    locator: '../plan.json',
+    content_sha256: 'ABC',
+    observed_at: '2026-07-23',
+  }];
   invalidTask.requires_judgment = 'no';
   const taskErrors = validateDelegationTaskContract(invalidTask).join('\n');
-  assert.match(taskErrors, /context_refs\[0\]\.ref: required string/);
-  assert.match(taskErrors, /context_refs\[0\]\.kind: must be artifact\|resource\|conversation/);
+  assert.match(taskErrors, /context_refs\[0\]\.kind: must be artifact\|resource/);
+  assert.match(taskErrors, /context_refs\[0\]\.source: must be workspace\|session/);
+  assert.match(taskErrors, /context_refs\[0\]\.locator: must be a normalized repository-relative path/);
+  assert.match(taskErrors, /context_refs\[0\]\.content_sha256: required lowercase 64-hex/);
+  assert.match(taskErrors, /context_refs\[0\]\.observed_at: required RFC 3339 timestamp with timezone/);
   assert.match(taskErrors, /requires_judgment: required boolean/);
 
   assert.match(validateDelegationResultContract({
-    contract_version: 1,
+    contract_version: 2,
     task_id: 'T1',
+    delegation_id: 'delegation-T1-attempt-1',
+    task_digest: taskDigest,
     status: 'ok',
     output: null,
     error: { code: 'WRONG', message: 'Inconsistent result', retryable: false },
   }).join('\n'), /output: required object[\s\S]*error: must be null/);
+
+  const legacyResult = {
+    contract_version: 1,
+    task_id: 'T1',
+    status: 'ok',
+    output: { summary: 'Stored v1 task result' },
+    error: null,
+  };
+  assert.match(validateDelegationResultContract(legacyResult).join('\n'), /unsupported version/);
+  assert.deepEqual(validateDelegationResultContract(legacyResult, { allowVersion1: true }), []);
 });
 
 test('canonical plan and brainstorm writes require bounded evidence freshness without breaking v3 reads', async () => {

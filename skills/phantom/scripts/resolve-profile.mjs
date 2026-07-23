@@ -39,18 +39,35 @@ function selection(value) {
   return null;
 }
 
-export function resolveProfile({ role, profile: profileOverride, host, mapFile, explicitModel } = {}) {
+export function resolveProfile({
+  role,
+  profile: profileOverride,
+  risk,
+  host,
+  mapFile,
+  explicitModel,
+} = {}) {
   const policy = loadPolicy();
+  const normalizedRole = typeof role === 'string' && role.trim() ? role.trim().toLowerCase() : role;
   if (profileOverride && !policy.profiles.includes(profileOverride)) {
     throw new Error(`Unknown model profile: ${profileOverride}`);
   }
-  const profile = role === 'apex'
+  if (risk && !policy.risk_levels.includes(risk)) {
+    throw new Error(`Unknown risk level: ${risk}`);
+  }
+  const baseProfile = normalizedRole === 'apex'
     ? policy.roles.apex
-    : profileOverride || policy.roles[role] || policy.default_profile;
+    : profileOverride || policy.roles[normalizedRole] || policy.default_profile;
+  const critical = policy.critical_elevation;
+  const shouldElevate = risk === critical.risk
+    && critical.eligible_roles.includes(normalizedRole)
+    && !['deep', 'frontier'].includes(baseProfile);
+  const profile = shouldElevate ? critical.profile : baseProfile;
   const normalizedHost = typeof host === 'string' && host.trim() ? host.trim().toLowerCase() : null;
   const base = {
     bundle_version: BUNDLE_VERSION,
-    role: role || null,
+    role: normalizedRole || null,
+    risk: risk || null,
     host: normalizedHost,
     requested_profile: profile,
   };
@@ -81,6 +98,7 @@ function main() {
   process.stdout.write(`${JSON.stringify(resolveProfile({
     role: args.role,
     profile: args.profile,
+    risk: args.risk,
     host: args.host,
     mapFile: args.map,
     explicitModel: args.model,

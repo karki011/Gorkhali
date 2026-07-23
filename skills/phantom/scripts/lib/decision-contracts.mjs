@@ -1,5 +1,6 @@
 // Author: Subash Karki
 
+import { createHash } from 'node:crypto';
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, posix, relative, resolve, sep } from 'node:path';
 
@@ -174,56 +175,182 @@ const validateEvidence = (items, errors, { requireFreshness = false } = {}) => {
   });
 };
 
-const validateDelegationVersion = (payload, errors) => {
+const DELEGATION_PROFILES = ['inherit', 'economy', 'balanced', 'deep', 'frontier'];
+const DELEGATION_RISKS = ['low', 'moderate', 'high', 'critical'];
+const DELEGATION_TASK_MAX_BYTES = 4_800;
+const DELEGATION_RESULT_MAX_BYTES = 2_000;
+
+const sortJson = (value) => {
+  if (Array.isArray(value)) return value.map(sortJson);
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, sortJson(value[key])]),
+  );
+};
+
+export const canonicalDelegationJson = (value) => JSON.stringify(sortJson(value));
+export const canonicalDelegationBytes = (value) =>
+  Buffer.byteLength(canonicalDelegationJson(value), 'utf8');
+export const delegationTaskDigest = (value) =>
+  createHash('sha256').update(canonicalDelegationJson(value), 'utf8').digest('hex');
+
+const requireMaxBytes = (value, path, maximum, errors) => {
+  const size = canonicalDelegationBytes(value);
+  if (size > maximum) errors.push(`${path}: canonical JSON is ${size} UTF-8 bytes; maximum is ${maximum}`);
+};
+
+const requireMaxItems = (value, path, maximum, errors) => {
+  const items = requireArray(value, path, errors);
+  if (items.length > maximum) errors.push(`${path}: maximum ${maximum} items`);
+  return items;
+};
+
+const requireBoundedText = (value, path, maximum, errors, { nullable = false } = {}) => {
+  if (nullable && value === null) return;
+  if (!isText(value)) {
+    errors.push(`${path}: required ${nullable ? 'null or ' : ''}string`);
+    return;
+  }
+  const size = Buffer.byteLength(value, 'utf8');
+  if (size > maximum) errors.push(`${path}: maximum ${maximum} UTF-8 bytes`);
+};
+
+const requireBoundedTextArray = (value, path, maximumItems, maximumBytes, errors) => {
+  const items = requireMaxItems(value, path, maximumItems, errors);
+  items.forEach((item, index) => requireBoundedText(item, `${path}[${index}]`, maximumBytes, errors));
+  return items;
+};
+
+const validateDelegationVersion = (payload, errors, allowed) => {
   if (!isObject(payload)) {
     errors.push('payload: required object');
     return false;
   }
-  if (payload.contract_version !== 1) {
-    errors.push(`contract_version: unsupported version "${payload.contract_version}"; expected 1`);
+  if (!allowed.includes(payload.contract_version)) {
+    errors.push(
+      `contract_version: unsupported version "${payload.contract_version}"; expected ${allowed.join('|')}`,
+    );
     return false;
   }
   return true;
 };
 
-export function validateDelegationTaskContract(payload) {
-  const errors = [];
-  if (!validateDelegationVersion(payload, errors)) return errors;
-  requireTextFields(payload, 'task', ['task_id', 'role', 'objective'], errors);
-  requireEnum(payload.profile, 'task.profile', ['inherit', 'economy', 'balanced', 'deep', 'frontier'], errors);
-  if (typeof payload.requires_judgment !== 'boolean') {
-    errors.push('task.requires_judgment: required boolean');
-  }
-  if (!isObject(payload.inputs)) errors.push('task.inputs: required object');
-  const contextRefs = requireArray(payload.context_refs, 'task.context_refs', errors, true);
-  contextRefs.forEach((item, index) => {
-    if (!isObject(item)) {
-      errors.push(`task.context_refs[${index}]: required object`);
-      return;
-    }
-    requireTextFields(item, `task.context_refs[${index}]`, ['id', 'ref'], errors);
-    requireEnum(
-      item.kind,
-      `task.context_refs[${index}].kind`,
-      ['artifact', 'resource', 'conversation'],
-      errors,
-    );
-  });
-  duplicateIds(contextRefs, 'task.context_refs', errors);
-  requireTextArray(payload.constraints, 'task.constraints', errors);
-  requireTextArray(payload.deliverables, 'task.deliverables', errors, true);
-  requireTextArray(payload.acceptance_criteria, 'task.acceptance_criteria', errors, true);
-  requireTextArray(payload.write_scope, 'task.write_scope', errors);
-  return errors;
-}
-
-export function validateDelegationResultContract(payload) {
-  const errors = [];
-  if (!validateDelegationVersion(payload, errors)) return errors;
+const validateDelegationResultV1 = (payload, errors) => {
   requireTextFields(payload, 'result', ['task_id'], errors);
   requireEnum(payload.status, 'result.status', ['ok', 'error'], errors);
   if (payload.status === 'ok') {
     if (!isObject(payload.output)) errors.push('result.output: required object when status is ok');
+    if (payload.error !== null) errors.push('result.error: must be null when status is ok');
+  }
+  if (payload.status === 'error') {
+    if (payload.output !== null) errors.push('result.output: must be null when status is error');
+    if (!isObject(payload.error)) errors.push('result.error: required object when status is error');
+    else {
+      requireTextFields(payload.error, 'result.error', ['code', 'message'], errors);
+      if (typeof payload.error.retryable !== 'boolean') {
+        errors.push('result.error.retryable: required boolean');
+      }
+    }
+  }
+};
+
+export function validateDelegationTaskContract(payload) {
+  const errors = [];
+  if (!validateDelegationVersion(payload, errors, [2])) return errors;
+  requireMaxBytes(payload, 'task', DELEGATION_TASK_MAX_BYTES, errors);
+  requireTextFields(payload, 'task', ['task_id', 'delegation_id', 'role', 'objective'], errors);
+  requireEnum(payload.profile, 'task.profile', DELEGATION_PROFILES, errors);
+  requireEnum(payload.risk, 'task.risk', DELEGATION_RISKS, errors);
+  if (typeof payload.requires_judgment !== 'boolean') {
+    errors.push('task.requires_judgment: required boolean');
+  }
+  for (const [field, maximum] of [
+    ['locked_decisions', 5],
+    ['corrections', 5],
+    ['constraints', 8],
+    ['deliverables', 8],
+    ['acceptance_criteria', 8],
+  ]) {
+    requireTextArray(
+      requireMaxItems(payload[field], `task.${field}`, maximum, errors),
+      `task.${field}`,
+      errors,
+    );
+  }
+  const writeScope = requireMaxItems(payload.write_scope, 'task.write_scope', 12, errors);
+  writeScope.forEach((value, index) => {
+    validatePortablePath(value, `task.write_scope[${index}]`, errors);
+  });
+  const contextRefs = requireMaxItems(payload.context_refs, 'task.context_refs', 8, errors);
+  contextRefs.forEach((item, index) => {
+    const label = `task.context_refs[${index}]`;
+    if (!isObject(item)) {
+      errors.push(`${label}: required object`);
+      return;
+    }
+    requireTextFields(item, label, ['id', 'locator', 'content_sha256'], errors);
+    requireEnum(item.kind, `${label}.kind`, ['artifact', 'resource'], errors);
+    requireEnum(item.source, `${label}.source`, ['workspace', 'session'], errors);
+    validatePortablePath(item.locator, `${label}.locator`, errors);
+    if (!/^[a-f0-9]{64}$/.test(item.content_sha256 || '')) {
+      errors.push(`${label}.content_sha256: required lowercase 64-hex digest`);
+    }
+    if (!isObservedAt(item.observed_at)) {
+      errors.push(`${label}.observed_at: required RFC 3339 timestamp with timezone`);
+    }
+  });
+  duplicateIds(contextRefs, 'task.context_refs', errors);
+  return errors;
+}
+
+export function validateDelegationResultContract(payload, { allowVersion1 = false } = {}) {
+  const errors = [];
+  if (!validateDelegationVersion(payload, errors, allowVersion1 ? [1, 2] : [2])) return errors;
+  if (payload.contract_version === 1) {
+    validateDelegationResultV1(payload, errors);
+    return errors;
+  }
+
+  requireMaxBytes(payload, 'result', DELEGATION_RESULT_MAX_BYTES, errors);
+  requireTextFields(payload, 'result', ['task_id', 'delegation_id'], errors);
+  if (!/^[a-f0-9]{64}$/.test(payload.task_digest || '')) {
+    errors.push('result.task_digest: required lowercase 64-hex digest');
+  }
+  requireEnum(payload.status, 'result.status', ['ok', 'error'], errors);
+  if (payload.status === 'ok') {
+    if (!isObject(payload.output)) errors.push('result.output: required object when status is ok');
+    else {
+      requireBoundedText(payload.output.summary, 'result.output.summary', 500, errors);
+      requireBoundedTextArray(
+        payload.output.files_changed,
+        'result.output.files_changed',
+        12,
+        240,
+        errors,
+      );
+      const checks = requireMaxItems(payload.output.checks, 'result.output.checks', 12, errors);
+      checks.forEach((check, index) => {
+        const label = `result.output.checks[${index}]`;
+        if (!isObject(check)) {
+          errors.push(`${label}: required object`);
+          return;
+        }
+        requireTextFields(check, label, ['name'], errors);
+        requireEnum(check.status, `${label}.status`, ['passed', 'failed', 'skipped'], errors);
+        if (check.summary !== undefined) {
+          requireBoundedText(check.summary, `${label}.summary`, 240, errors);
+        }
+      });
+      requireBoundedTextArray(payload.output.findings, 'result.output.findings', 8, 240, errors);
+      requireBoundedTextArray(payload.output.risks, 'result.output.risks', 8, 240, errors);
+      requireBoundedText(
+        payload.output.blocker,
+        'result.output.blocker',
+        300,
+        errors,
+        { nullable: true },
+      );
+    }
     if (payload.error !== null) errors.push('result.error: must be null when status is ok');
   }
   if (payload.status === 'error') {

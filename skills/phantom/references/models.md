@@ -21,6 +21,13 @@ Delegated work uses the lowest sufficient profile: `economy` for deterministic
 mechanical tasks, `balanced` for well-scoped implementation, and `deep` only
 for ambiguity, cross-cutting risk, or demanding review.
 
+Risk is provider-neutral assignment metadata: `low`, `moderate`, `high`, or
+`critical`. A critical assignment elevates Blade, Gaze, Sage, Lens, Archer,
+Rival, Plan-checker, and Hound to at least `deep` before host presets are
+resolved. Apex remains `frontier`; Ward, Sweep, and Warden remain on their
+ordinary profiles. An explicit `deep` or `frontier` request is never
+downgraded. Ordinary Rival and Plan-checker work remains `balanced`.
+
 ## Resolve after topology
 
 Apex chooses the execution topology before resolving worker compute. For every
@@ -45,7 +52,7 @@ Identify the host from explicit runtime context, not credentials or guessed
 environment variables. Resolve a role with:
 
 ```text
-node <skill-directory>/scripts/resolve-profile.mjs --role <role> --profile <profile> --host <host-key>
+node <skill-directory>/scripts/resolve-profile.mjs --role <role> --profile <profile> --risk <risk> --host <host-key>
 ```
 
 Omit `--profile` to use the role default. Apex always resolves to `frontier`;
@@ -56,6 +63,10 @@ selection. Missing and unknown hosts are normal fallbacks. If the runtime
 rejects a bundled preset as unavailable, retry once without model and effort
 selectors. If it rejects an explicit user choice, report the error rather than
 silently replacing that choice.
+
+Risk changes only the semantic profile. It never supplies a concrete model
+identifier. Only the explicit user `--model` option bypasses semantic profile
+resolution with a concrete choice; task or result payloads cannot do so.
 
 An optional external override remains supported for compatibility:
 

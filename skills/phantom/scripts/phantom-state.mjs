@@ -11,13 +11,14 @@ import {
   openSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   readdirSync,
   renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import {
   atomicWriteJson,
   currentSessionFile,
@@ -31,6 +32,7 @@ import {
 } from './lib/portable.mjs';
 import { BUNDLE_VERSION, resolveProfile } from './resolve-profile.mjs';
 import {
+  delegationTaskDigest,
   validateDecisionContract,
   validateDelegationResultContract,
   validateDelegationTaskContract,
@@ -189,6 +191,107 @@ function worktreeFingerprint(workspace) {
     hashFileState(hash, workspace, relativePath, gitlinks.has(relativePath));
   }
   return `sha256:${hash.digest('hex')}`;
+}
+
+function isWithin(root, candidate) {
+  const offset = relative(root, candidate);
+  return offset === '' || (!offset.startsWith(`..${sep}`) && offset !== '..' && !isAbsolute(offset));
+}
+
+function isPortablePath(value) {
+  return typeof value === 'string'
+    && value.trim() !== ''
+    && !value.includes('\\')
+    && !isAbsolute(value)
+    && !/^[A-Za-z]:/.test(value)
+    && value !== '.'
+    && posix.normalize(value) === value
+    && !value.split('/').includes('..');
+}
+
+function nearestExistingParent(candidate) {
+  let current = candidate;
+  while (!existsSync(current) && current !== dirname(current)) current = dirname(current);
+  return current;
+}
+
+function validateContextReferences(payload, current) {
+  const errors = [];
+  if (!Array.isArray(payload.context_refs)) return errors;
+  payload.context_refs.forEach((reference, index) => {
+    const label = `task.context_refs[${index}]`;
+    if (!isObject(reference) || !isPortablePath(reference.locator)) return;
+    const base = reference.source === 'session'
+      ? current.paths.sessionDir
+      : current.paths.repo.root;
+    let root;
+    try {
+      root = resolve(base);
+      const candidate = resolve(root, reference.locator);
+      if (!isWithin(root, candidate)) {
+        errors.push(`${label}.locator: path resolves outside its ${reference.source} root`);
+        return;
+      }
+      if (!existsSync(candidate)) {
+        errors.push(`${label}.locator: referenced file does not exist`);
+        return;
+      }
+      if (!statSync(candidate).isFile()) {
+        errors.push(`${label}.locator: referenced path must be a file`);
+        return;
+      }
+      const resolvedCandidate = resolve(realpathSync(candidate));
+      const resolvedRoot = resolve(realpathSync(root));
+      if (!isWithin(resolvedRoot, resolvedCandidate)) {
+        errors.push(`${label}.locator: symlink resolves outside its ${reference.source} root`);
+        return;
+      }
+      const digest = createHash('sha256').update(readFileSync(candidate)).digest('hex');
+      if (digest !== reference.content_sha256) {
+        errors.push(`${label}.content_sha256: does not match the referenced file bytes`);
+      }
+    } catch {
+      errors.push(`${label}.locator: referenced file cannot be resolved`);
+    }
+  });
+  return errors;
+}
+
+function validateChangedPaths(payload, task, workspace) {
+  if (
+    payload.contract_version !== 2
+    || payload.status !== 'ok'
+    || !Array.isArray(payload.output?.files_changed)
+    || !Array.isArray(task.write_scope)
+  ) return [];
+  const errors = [];
+  const root = resolve(realpathSync(workspace));
+  const scopes = task.write_scope.filter(isPortablePath);
+  payload.output.files_changed.forEach((value, index) => {
+    const label = `result.output.files_changed[${index}]`;
+    if (!isPortablePath(value)) {
+      errors.push(`${label}: must be a normalized workspace-relative path`);
+      return;
+    }
+    if (!scopes.some((scope) => value === scope || value.startsWith(`${scope}/`))) {
+      errors.push(`${label}: path is outside task.write_scope`);
+      return;
+    }
+    const candidate = resolve(root, value);
+    if (!isWithin(root, candidate)) {
+      errors.push(`${label}: path resolves outside the workspace`);
+      return;
+    }
+    const existing = nearestExistingParent(candidate);
+    try {
+      if (!isWithin(root, resolve(realpathSync(existing)))) {
+        errors.push(`${label}: nearest existing parent resolves outside the workspace`);
+      }
+    } catch {
+      errors.push(`${label}: nearest existing parent cannot be resolved`);
+    }
+  });
+  return errors;
 }
 
 function lockFile(workspace) {
@@ -751,9 +854,30 @@ function record(workspace, args) {
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
   const current = requireCurrent(workspace);
   const payload = args.input ? JSON.parse(readFileSync(args.input, 'utf8')) : {};
+  const runId = args.run || `run-${Date.now()}`;
+  const delegatedTask = args.type === 'delegation-result'
+    ? readJson(join(current.paths.sessionDir, 'runs', runId, 'delegation-task.json'))
+    : null;
+  if (args.type === 'delegation-result' && !delegatedTask) {
+    throw new Error('Delegation result requires a task recorded under the same run.');
+  }
+  const delegatedTaskPayload = delegatedTask?.evidence;
   let contractErrors;
-  if (args.type === 'delegation-task') contractErrors = validateDelegationTaskContract(payload);
-  else if (args.type === 'delegation-result') contractErrors = validateDelegationResultContract(payload);
+  if (args.type === 'delegation-task') {
+    contractErrors = [
+      ...validateDelegationTaskContract(payload),
+      ...(payload.contract_version === 2 ? validateContextReferences(payload, current) : []),
+    ];
+  } else if (args.type === 'delegation-result') {
+    contractErrors = [
+      ...validateDelegationResultContract(payload, {
+        allowVersion1: delegatedTaskPayload?.contract_version === 1,
+      }),
+      ...(isObject(delegatedTaskPayload)
+        ? validateChangedPaths(payload, delegatedTaskPayload, current.paths.repo.root)
+        : []),
+    ];
+  }
   else {
     contractErrors = validateDecisionContract(args.type, payload, {
       requireV3: ['plan', 'brainstorm'].includes(args.type),
@@ -774,20 +898,24 @@ function record(workspace, args) {
     if (!validOuterStatus) {
       throw new Error(`Delegation result status ${payload.status} is inconsistent with artifact status ${args.status}.`);
     }
+    if (delegatedTaskPayload?.task_id !== payload.task_id) {
+      throw new Error('Delegation result task_id must match the task recorded under the same run.');
+    }
+    if (delegatedTaskPayload?.contract_version !== payload.contract_version) {
+      throw new Error('Delegation result contract_version must match the task recorded under the same run.');
+    }
+    if (payload.contract_version === 2) {
+      if (delegatedTaskPayload.delegation_id !== payload.delegation_id) {
+        throw new Error('Delegation result delegation_id must match the task recorded under the same run.');
+      }
+      if (delegationTaskDigest(delegatedTaskPayload) !== payload.task_digest) {
+        throw new Error('Delegation result task_digest must match the accepted canonical task.');
+      }
+    }
   }
   if (args.status === 'passed' && REQUIRED_GATES.includes(args.type)) {
     const evidenceErrors = gateEvidenceErrors(args.type, payload);
     if (evidenceErrors.length) throw new Error(`Invalid passed ${args.type} evidence: ${evidenceErrors.join('; ')}`);
-  }
-  const runId = args.run || `run-${Date.now()}`;
-  const delegatedTask = args.type === 'delegation-result'
-    ? readJson(join(current.paths.sessionDir, 'runs', runId, 'delegation-task.json'))
-    : null;
-  if (args.type === 'delegation-result') {
-    if (!delegatedTask) throw new Error('Delegation result requires a task recorded under the same run.');
-    if (delegatedTask.evidence?.task_id !== payload.task_id) {
-      throw new Error('Delegation result task_id must match the task recorded under the same run.');
-    }
   }
   const role = args.role
     || (args.type === 'delegation-task' ? payload.role : delegatedTask?.producer?.role)
@@ -797,7 +925,8 @@ function record(workspace, args) {
     || (args.type === 'delegation-task'
       ? payload.profile
       : delegatedTask?.model_routing?.requested_profile);
-  const profile = resolveProfile({ role, profile: profileOverride }).requested_profile;
+  const risk = args.type === 'delegation-task' ? payload.risk : delegatedTaskPayload?.risk;
+  const profile = resolveProfile({ role, profile: profileOverride, risk }).requested_profile;
   const routing = modelRouting(args, profile);
   const fingerprint = ['verification', 'review'].includes(args.type)
     ? worktreeFingerprint(current.paths.repo.root)

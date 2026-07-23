@@ -118,6 +118,30 @@ node preamble-tier.js
 
 ---
 
+### `routing-report.js`
+
+Summarizes model-routing evidence recorded across a session's JSON artifacts (`model_routing` blocks) into per-role distributions, profile deltas, and fallback-reason tallies.
+
+```bash
+node routing-report.js <session-dir> [--json]
+```
+
+**Flags:** `--json` emits the stable machine shape (`{perRole, deltas, fallbacks, records, reconciliationActive}`) instead of the human table.
+
+**Checks:**
+- Every `*.json` in the session root plus every `*.json` under `runs/` for a top-level `model_routing` object
+- Per-role: requested-profile distribution, outcome tallies, fallback-reason frequencies
+- Deltas where a host-reported `actual_profile` differs from the requested one (read-only, never inferred)
+
+**Exit:** 0 = report produced (including empty sessions); nonzero on invalid args
+
+**Example:**
+```bash
+node routing-report.js ~/.phantom/repos/myrepo/sessions/ENG-1234 --json
+```
+
+---
+
 ## Usage from skill commands
 
 Reference these scripts from skill `.md` files by self-resolving the plugin dir env-free (deterministic — never via `CLAUDE_PLUGIN_ROOT`, which is reserved for `hooks/hooks.json`):

@@ -19,11 +19,12 @@ Run shadows evaluation (see `/phantom:eval`) — record scores in session file.
 
 ## 4. Update Learnings
 
-Append to the relevant **domain file** in `learnings/` (ui.md, data.md, auth.md, testing.md, shadows.md, migration.md, tooling.md):
+Append to the relevant **domain file** in `learnings/` (ui.md, data.md, auth.md, testing.md, shadows.md, migration.md, tooling.md, model-routing.md):
 - New patterns -> under `## Patterns` with `[proposed]` or `[validated:1]` lifecycle tag
 - New corrections -> under `## Corrections` with `[failed]` tag + approach signature format: `CORRECTION [{keyword}]: [{failure}] — [{alternative}] [failed] ({date})`
 - New habits -> under `## Habits` with `[validated:1]` tag
 - If a new entry doesn't fit an existing domain, create a new `learnings/{domain}.md` with all 3 sections
+- **model-routing.md**: written only when wrap.json.modelRouting is present and its deltas or fallbacks array is non-empty. Append under `## Habits` using the format: `ROUTING [{role}]: requested {profile} - actual {profile} - {outcome} [{lifecycle}] ({date})`. Recurrence of the same signature increments `[validated:N]` per the existing counter rules in section 6.
 
 ## 5. INDEX Update
 

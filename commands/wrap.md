@@ -99,7 +99,7 @@ Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermission
 <output_format>
 ## Step 9: Write Wrap Artifact
 
-Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `eval` (from Step 5 — `{score, rubric}` on success, or `{score: "eval-failed"}` with rubric omitted if the eval could not run), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 10 after the card is emitted; `null` if the emit was skipped).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `eval` (from Step 5 — `{score, rubric}` on success, or `{score: "eval-failed"}` with rubric omitted if the eval could not run), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 10 after the card is emitted; `null` if the emit was skipped), `modelRouting` (`{perRole, deltas, fallbacks, records, reconciliationActive}` - populated in Step 12 after the routing report runs; absent if the report could not run).
 
 ### Session Brief
 
@@ -150,6 +150,29 @@ PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head
 ```
 
 Include the full report in the SESSION WRAPPED box (`AI Cost` line = the report's `Total:`). The report prices live Claude Code transcripts, so the figure tracks current work — only the very last assistant turn may not be flushed to disk yet.
+
+## Step 12: Model Routing Report
+
+Summarize the session's model-routing evidence (requested vs. actual profile, fallbacks, per-role outcomes) and fold it into the wrap artifact. Never blocks the wrap: on script failure, log one line and continue.
+
+```bash
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+SESSION_DIR="{TEAM_DIR}/sessions/{TICKET}"
+WRAP_JSON="$SESSION_DIR/wrap.json"
+[ -n "$PR" ] && ROUTING_JSON="$(node "$PR/scripts/routing-report.js" "$SESSION_DIR" --json 2>/dev/null)" \
+  && ROUTING_TABLE="$(node "$PR/scripts/routing-report.js" "$SESSION_DIR" 2>/dev/null)" \
+  && node -e '
+      const fs = require("fs");
+      const [wrapPath, routingJson] = process.argv.slice(1);
+      const wrap = JSON.parse(fs.readFileSync(wrapPath, "utf8"));
+      wrap.modelRouting = JSON.parse(routingJson);
+      fs.writeFileSync(wrapPath, JSON.stringify(wrap, null, 2) + "\n");
+    ' "$WRAP_JSON" "$ROUTING_JSON" \
+  && printf '%s\n' "$ROUTING_TABLE" \
+  || echo "phantom: routing-report unavailable or failed - modelRouting omitted, wrap continues"
+```
+
+Warden includes the printed table verbatim in the SESSION WRAPPED output - a mechanical include, no judgment applied, matching the plumbing-only mandate for warden (no scope judgment, no synthesis; see the Model split note above).
 
 ---
 

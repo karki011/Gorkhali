@@ -32,6 +32,10 @@ Maintained by Subash Karki.
 10. Ask before destructive, irreversible, externally visible, or materially
    scope-expanding actions unless the user already authorized them.
 11. End with a clear `done`, `done-with-caveat`, or `blocked` status.
+12. Keep user-facing progress commentary sparse. By default, send no more than
+    two non-blocking updates per task, each no longer than two short lines.
+    Exceed either limit only for a blocker, safety issue, explicit request for
+    detail, or host-required update cadence. The final answer is not an update.
 
 ## Start every task
 

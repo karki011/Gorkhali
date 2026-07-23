@@ -279,8 +279,8 @@ test('portable bundle manifest versions every public contract', async () => {
       capability_ledger: 1,
       state_envelope: 1,
       decision_artifact: 3,
-      delegation: 1,
-      model_policy: 1,
+      delegation: 2,
+      model_policy: 2,
       model_presets: 1,
       model_routing: 1,
       impact_report: 1,
@@ -294,7 +294,7 @@ test('portable bundle manifest versions every public contract', async () => {
 test('portable validator rejects malformed manifest contract keys and versions', () => {
   for (const [label, mutate, expected] of [
     ['unknown-key', (manifest) => { manifest.contract_versions.unknown = 1; }, /must contain exactly/],
-    ['invalid-version', (manifest) => { manifest.contract_versions.delegation = 99; }, /must be 1/],
+    ['invalid-version', (manifest) => { manifest.contract_versions.delegation = 99; }, /must be 2/],
   ]) {
     const target = copySkill(`manifest-${label}`);
     const file = path.join(target, 'manifest.json');
@@ -441,6 +441,68 @@ test('every role resolves to a declared semantic profile and a missing host inhe
     assert.equal(result.resolution, 'inherit-active-model');
   }
   assert.equal(policy.roles.apex, 'frontier');
+  assert.equal(policy.roles.rival, 'balanced');
+  assert.equal(policy.roles['plan-checker'], 'balanced');
+});
+
+test('critical risk elevates eligible roles before preset lookup and preserves exemptions', () => {
+  for (const role of ['blade', 'gaze', 'sage', 'lens', 'archer', 'rival', 'plan-checker', 'hound']) {
+    const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical', '--host', 'claude-code']);
+    assert.equal(result.risk, 'critical');
+    assert.equal(result.requested_profile, 'deep');
+    assert.equal(result.model, 'opus');
+  }
+
+  for (const [role, profile] of [
+    ['apex', 'frontier'],
+    ['ward', 'economy'],
+    ['sweep', 'economy'],
+    ['warden', 'economy'],
+  ]) {
+    const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical']);
+    assert.equal(result.requested_profile, profile);
+  }
+
+  for (const profile of ['deep', 'frontier']) {
+    const result = runJson(RESOLVER, [
+      '--role', 'blade', '--profile', profile, '--risk', 'critical',
+    ]);
+    assert.equal(result.requested_profile, profile);
+  }
+
+  const semanticOnly = runJson(RESOLVER, ['--role', 'rival', '--risk', 'critical']);
+  assert.equal(semanticOnly.requested_profile, 'deep');
+  assert.equal(semanticOnly.model, null);
+  const explicit = runJson(RESOLVER, [
+    '--role', 'rival', '--risk', 'critical', '--model', 'user-selected',
+  ]);
+  assert.equal(explicit.model, 'user-selected');
+  assert.equal(explicit.resolution, 'explicit-user-choice');
+
+  const invalid = spawnSync(process.execPath, [RESOLVER, '--role', 'blade', '--risk', 'urgent'], {
+    encoding: 'utf8',
+  });
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /Unknown risk level/);
+});
+
+test('portable validator pins the delegation-v2 critical-risk model policy', () => {
+  for (const [label, mutate, expected] of [
+    ['schema', (policy) => { policy.schema_version = 1; }, /schema_version must be 2/],
+    ['risk-levels', (policy) => { policy.risk_levels = ['critical']; }, /risk_levels must be/],
+    ['eligible', (policy) => { policy.critical_elevation.eligible_roles.pop(); }, /eligible_roles is invalid/],
+    ['exempt', (policy) => { policy.critical_elevation.exempt_roles = []; }, /exempt_roles is invalid/],
+    ['rival', (policy) => { policy.roles.rival = 'deep'; }, /ordinary rival must use balanced/],
+  ]) {
+    const target = copySkill(`invalid-model-policy-${label}`);
+    const file = path.join(target, 'references', 'model-policy.json');
+    const policy = JSON.parse(fs.readFileSync(file, 'utf8'));
+    mutate(policy);
+    fs.writeFileSync(file, `${JSON.stringify(policy, null, 2)}\n`);
+    const result = validate(target);
+    assert.notEqual(result.status, 0, `${label} unexpectedly passed`);
+    assert.match(result.stderr, expected);
+  }
 });
 
 test('bundled presets cover every profile and resolve each role tier', () => {

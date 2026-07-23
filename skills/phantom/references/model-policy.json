@@ -1,7 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "profiles": ["inherit", "economy", "balanced", "deep", "frontier"],
   "default_profile": "balanced",
+  "risk_levels": ["low", "moderate", "high", "critical"],
+  "critical_elevation": {
+    "risk": "critical",
+    "profile": "deep",
+    "eligible_roles": [
+      "blade",
+      "gaze",
+      "sage",
+      "lens",
+      "archer",
+      "rival",
+      "plan-checker",
+      "hound"
+    ],
+    "exempt_roles": ["apex", "ward", "sweep", "warden"]
+  },
   "roles": {
     "apex": "frontier",
     "blade": "balanced",

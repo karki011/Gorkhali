@@ -37,30 +37,43 @@ authorizes bounded nesting and the runtime provides it natively.
 
 ## Delegation contract
 
-When the host supports structured output, use delegation contract version `1`.
+When the host supports structured output, use delegation contract version `2`.
 The task shape is:
 
 ```json
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "task_id": "T1",
+  "delegation_id": "delegation-T1-attempt-1",
   "role": "Blade",
   "profile": "balanced",
+  "risk": "moderate",
   "objective": "Implement one bounded change",
-  "context_refs": [{ "id": "plan", "kind": "artifact", "ref": "current-plan" }],
   "requires_judgment": false,
-  "inputs": {},
+  "locked_decisions": [],
+  "corrections": [],
   "constraints": [],
   "deliverables": ["Scoped implementation"],
   "acceptance_criteria": ["Focused checks pass"],
-  "write_scope": ["owned/path"]
+  "write_scope": ["owned/path"],
+  "context_refs": [{
+    "id": "plan",
+    "kind": "artifact",
+    "source": "session",
+    "locator": "plan.json",
+    "content_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "observed_at": "2026-01-01T00:00:00Z"
+  }]
 }
 ```
 
-Context references are typed pointers to an artifact, resource, or conversation
-already available to the host. They do not require a shared filesystem or
-provider-specific state service. Keep large shared context at its source and
-pass only the minimum task-specific inputs.
+The canonical task is recursively key-sorted JSON encoded as UTF-8 and is at
+most 4,800 bytes. It carries at most five locked decisions, five corrections,
+eight constraints, eight deliverables, eight acceptance criteria, twelve write
+scopes, and eight context references. References point to a workspace or
+session file, bind its exact bytes with SHA-256, and reject absolute paths,
+traversal, missing files, directories, and symlink escapes. Keep large context
+at its source and pass only the minimum assignment-specific references.
 
 Every delegated assignment must still include:
 
@@ -74,11 +87,19 @@ Every delegated assignment must still include:
 - verification expectations;
 - a prohibition on unrelated changes.
 
-The worker returns version `1` as
-`{ contract_version, task_id, status, output, error }`. For `status: "ok"`,
-`output` is an object and `error` is `null`; for `status: "error"`, `output` is
-`null` and `error` is `{ code, message, retryable }`. Put interpretive prose
-inside a typed output field instead of replacing the envelope.
+The worker returns version `2` with the matching `task_id`, `delegation_id`, and
+the SHA-256 `task_digest` of the accepted canonical task. Canonical result JSON
+is at most 2,000 UTF-8 bytes and is never truncated. For `status: "ok"`,
+`output` contains a summary of at most 500 bytes; required `files_changed`,
+`checks`, `findings`, and `risks` arrays; and a required `blocker` that is
+either `null` or at most 300 bytes. Paths must stay within `write_scope`.
+Checks use `{ name, status, summary? }`, where status is `passed`, `failed`, or
+`skipped` and summary is at most 240 bytes. String-array entries are at most
+240 bytes. For `status: "error"`, `output` is `null` and `error` remains
+`{ code, message, retryable }`.
+
+Version `1` tasks cannot be newly recorded. A version `1` result is accepted
+only to finish a matching version `1` task already recorded in the same run.
 
 The worker must return the selected rung and brief evidence when that choice
 materially shapes the implementation. Do not assume parent-session policy or

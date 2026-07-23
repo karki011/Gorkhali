@@ -8,7 +8,7 @@
 
 'use strict';
 
-const DOMAIN_NAMES = ['ui', 'data', 'auth', 'testing', 'tooling', 'migration', 'shadows'];
+const DOMAIN_NAMES = ['ui', 'data', 'auth', 'testing', 'tooling', 'migration', 'shadows', 'model-routing'];
 
 const FILE_DOMAIN_RULES = [
   { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
@@ -39,6 +39,7 @@ const DOMAIN_KEYWORDS = {
   shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'apex', 'blade', 'sage', 'ward', 'gaze', 'archer', 'hound'],
   migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
   tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
+  'model-routing': ['model-routing', 'compute-profile', 'fallback', 'requested_profile', 'actual_profile', 'frontier'],
 };
 
 // Expected learnings/{domain}.md files (check-learnings-index).
