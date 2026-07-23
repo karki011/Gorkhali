@@ -1,10 +1,10 @@
 # Per-user mutable state (not shared)
-config.yaml
-sessions/
-events/
-observations/
-state/
-repos/
+/config.yaml
+/sessions/
+/events/
+/observations/
+/state/
+/repos/
 
 # Runtime markers + audit logs (per-session, not shared)
 .apex-active

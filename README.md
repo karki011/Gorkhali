@@ -74,6 +74,12 @@ command surface:
 /phantom:pause → /clear → /phantom:resume     # context mgmt + portable handoff packet
 ```
 
+In Codex, type `$` or open `/skills`, then select the namespaced skill such as
+`phantom:start`, `phantom:pause`, `phantom:wrap`, `phantom:loop`, or
+`phantom:greploop`. Codex can also choose these skills implicitly from their
+descriptions. Start a new task or CLI session after installing or updating the
+plugin so the complete skill inventory is reloaded.
+
 ## Architecture — Adaptive Cognitive Router
 
 The router classifies incoming tasks and selects the right cognitive mode:
@@ -361,22 +367,53 @@ locally; the runner may supply an optional external override when needed.
 
 ### Native compatibility plugin
 
-The existing native plugin is retained for users who need its command, agent,
-and hook integrations. Install it from the self-hosted marketplace in this repo:
+The native plugin ships both `.codex-plugin/plugin.json` and the legacy-compatible
+`.claude-plugin` marketplace. It exposes every public workflow under `skills/`
+for Codex while retaining Claude Code command, agent, and hook integrations.
+
+In Codex, open the plugin browser and install Phantom from the repository
+marketplace:
+
+```bash
+git clone git@github.com:Cloudzero/research-phantom-skills.git
+cd research-phantom-skills
+codex
+# Then, inside Codex:
+/plugins
+```
+
+Select the repository marketplace, open `phantom`, and choose **Install**. Codex
+recognizes the repository's legacy-compatible `.claude-plugin/marketplace.json`
+and installs the native `.codex-plugin/plugin.json` bundle from the repository
+root.
+
+For Claude Code, install it from the self-hosted marketplace in this repo:
 
 ```
 /plugin marketplace add Cloudzero/research-phantom-skills
 /plugin install phantom@phantom
 ```
 
-That is the complete installation. Claude Code discovers the plugin's commands,
-agents, and hooks directly; Phantom creates mutable state and per-repository
+Codex loads the plugin's bundled skills; Claude Code discovers its commands,
+agents, and hooks directly. Phantom creates mutable state and per-repository
 learnings lazily on first use. No setup command, symlink, or config file is
 required. Optional behavior is controlled by environment variables (see
-**Configuration — Environment Variables** above). Update later with
-`/plugin update phantom`.
+**Configuration — Environment Variables** above).
 
-Prerequisites: Claude Code CLI, git. Recommended: gh CLI, Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, code-review-graph MCP.
+After a new remote version is published, Codex users should pull the marketplace
+checkout, open `/plugins`, uninstall and reinstall `phantom`, then start a new
+task or CLI session so the new cached version and skills are loaded:
+
+```bash
+git pull --ff-only
+```
+
+Claude Code users can run `/plugin update phantom`.
+
+Prerequisites: Codex CLI or the Codex desktop app for Codex installation;
+Claude Code CLI for Claude installation; and git for either flow. Recommended:
+gh CLI and Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, and
+code-review-graph MCP.
 
 ### Upgrading from a pre-plugin install
 

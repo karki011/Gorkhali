@@ -6,7 +6,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 user-invocable: false
 ---
 
-> **Preamble Tier: T2**
+> **Preamble Tier: T4**
 
 # /phantom:execute "$ARGUMENTS"
 

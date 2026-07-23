@@ -21,7 +21,7 @@ function normalize(cmd) {
 const TIERS = {
   T1: {
     label: 'T1 — Leaf (read-only / single action)',
-    commands: ['status', 'sessions', 'health', 'learn', 'note', 'scout'],
+    commands: ['status', 'sessions', 'health', 'learn', 'note', 'scout', 'evolve', 'grill'],
     sharedContexts: [
       '_shared.md',
     ],
@@ -30,7 +30,7 @@ const TIERS = {
   },
   T2: {
     label: 'T2 — Verification (diagnose / report)',
-    commands: ['verify', 'fix', 'validate', 'eval', 'hound'],
+    commands: ['verify', 'fix', 'validate', 'eval', 'hound', 'brainstorm', 'close', 'greploop', 'loop', 'q', 'wire'],
     sharedContexts: [
       '_shared.md',
       '_shared-repo-detection.md',
@@ -42,7 +42,7 @@ const TIERS = {
   },
   T3: {
     label: 'T3 — Planning (research / review / discuss)',
-    commands: ['review', 'contract', 'recruit', 'visual'],
+    commands: ['review', 'contract', 'recruit', 'visual', 'visualflow'],
     sharedContexts: [
       '_shared.md',
       '_shared-repo-detection.md',

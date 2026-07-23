@@ -7,11 +7,14 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'phantom');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-portable-skill.mjs');
+const CODEX_MANIFEST = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
+const CODEX_RUNTIME_RESOLVER = path.join(REPO_ROOT, 'codex-support', 'resolve-codex-runtime.mjs');
 const MANIFEST = path.join(SKILL_ROOT, 'manifest.json');
 const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
@@ -54,6 +57,157 @@ test('portable skill passes its strict provider-neutral validator', () => {
   const result = validate(SKILL_ROOT);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Portable skill is valid/);
+});
+
+test('command adapter validation rejects blank descriptions and orphaned adapters', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-adapters-'));
+  const commands = path.join(root, 'commands');
+  const skills = path.join(root, 'skills');
+  fs.mkdirSync(commands);
+  fs.mkdirSync(path.join(skills, 'start'), { recursive: true });
+  fs.mkdirSync(path.join(skills, 'orphan'), { recursive: true });
+  fs.writeFileSync(path.join(commands, 'start.md'), '# Start\n');
+  fs.writeFileSync(path.join(skills, 'start', 'SKILL.md'), [
+    '---',
+    'name: start',
+    'description:',
+    '---',
+    '',
+    'Read `../../commands/start.md` completely.',
+    '',
+  ].join('\n'));
+  fs.writeFileSync(path.join(skills, 'orphan', 'SKILL.md'), '---\nname: orphan\ndescription: Orphan.\n---\n');
+
+  const validator = await import(pathToFileURL(VALIDATOR).href);
+  const errors = validator.validateCommandAdapters(commands, skills);
+  assert.ok(errors.some((error) => error.includes('description must contain 1-1024 characters')));
+  assert.ok(errors.some((error) => error.includes('has no matching public command')));
+  assert.ok(errors.some((error) => error.includes('compatibility contract is missing')));
+  assert.ok(errors.some((error) => error.includes('must apply ../../codex-support/codex-compatibility.md')));
+});
+
+test('Codex manifest discovers every public workflow skill', () => {
+  const manifest = JSON.parse(fs.readFileSync(CODEX_MANIFEST, 'utf8'));
+  const skillRoot = path.resolve(REPO_ROOT, manifest.skills);
+  const commands = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3))
+    .sort();
+  const discovered = fs.readdirSync(skillRoot)
+    .filter((entry) => fs.existsSync(path.join(skillRoot, entry, 'SKILL.md')))
+    .sort();
+
+  assert.deepEqual(discovered, [...commands, 'phantom'].sort());
+});
+
+test('every public workflow adapter is tracked by git', () => {
+  const commands = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3))
+    .sort();
+  const tracked = new Set(execFileSync('git', ['ls-files', '--', 'skills/*/SKILL.md'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  }).trim().split('\n'));
+
+  for (const command of commands) {
+    assert.ok(tracked.has(`skills/${command}/SKILL.md`), `${command} adapter is not tracked`);
+  }
+});
+
+test('Codex runtime resolver returns package-relative roots and neutral state', () => {
+  const dataRoot = path.join(os.tmpdir(), 'phantom-codex-state');
+  const output = execFileSync(process.execPath, [CODEX_RUNTIME_RESOLVER], {
+    encoding: 'utf8',
+    env: { ...process.env, PHANTOM_DATA: dataRoot },
+  });
+  const runtime = JSON.parse(output);
+
+  assert.equal(runtime.plugin_root, REPO_ROOT);
+  assert.equal(runtime.portable_skill_root, path.join(REPO_ROOT, 'skills', 'phantom'));
+  assert.equal(runtime.compatibility_scripts_root, path.join(REPO_ROOT, 'scripts'));
+  assert.equal(runtime.data_root, dataRoot);
+});
+
+test('installed-cache resolver loads deterministic preambles for every workflow', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-cache-'));
+  const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
+  for (const directory of ['.codex-plugin', 'codex-support', 'commands', 'scripts', 'skills']) {
+    fs.cpSync(path.join(REPO_ROOT, directory), path.join(cachedPlugin, directory), { recursive: true });
+  }
+  const resolver = path.join(cachedPlugin, 'codex-support', 'resolve-codex-runtime.mjs');
+  const commands = fs.readdirSync(path.join(cachedPlugin, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3));
+  const expectedPreambles = {
+    T1: ['_shared.md'],
+    T2: ['_shared.md', '_shared-repo-detection.md', '_shared-auto-learning.md'],
+    T3: [
+      '_shared.md',
+      '_shared-repo-detection.md',
+      '_shared-auto-learning.md',
+      '_shared-shadows.md',
+      '_shared-discipline.md',
+      '_shared-contracts.md',
+    ],
+    T4: [
+      '_shared.md',
+      '_shared-repo-detection.md',
+      '_shared-auto-learning.md',
+      '_shared-shadows.md',
+      '_shared-discipline.md',
+      '_shared-contracts.md',
+      '_shared-hound.md',
+      '_shared-phantom-integration.md',
+    ],
+  };
+
+  for (const command of commands) {
+    const runtime = JSON.parse(execFileSync(process.execPath, [resolver, '--command', command], { encoding: 'utf8' }));
+    const realPlugin = fs.realpathSync(cachedPlugin);
+    assert.equal(runtime.plugin_root, realPlugin);
+    assert.equal(runtime.command_file, path.join(realPlugin, 'commands', `${command}.md`));
+    assert.match(runtime.preamble_tier, /^T[1-4]$/);
+    const expected = command === 'hound'
+      ? [...expectedPreambles[runtime.preamble_tier], '_shared-hound.md']
+      : expectedPreambles[runtime.preamble_tier];
+    assert.deepEqual(runtime.preamble_files.map((file) => path.basename(file)), expected);
+    assert.ok(!runtime.preamble_files.some((file) => file.endsWith('_shared-brain.md')));
+    const commandContent = fs.readFileSync(runtime.command_file, 'utf8');
+    assert.match(commandContent, new RegExp(`Preamble Tier: ${runtime.preamble_tier}`));
+    for (const file of runtime.preamble_files) {
+      assert.ok(file.startsWith(path.join(realPlugin, 'commands')));
+      assert.ok(fs.existsSync(file), `${command} preamble is missing: ${file}`);
+    }
+    if (['verify', 'fix', 'hound'].includes(command)) {
+      assert.ok(runtime.conditional_preamble_files.some((entry) => entry.file.endsWith('_shared-hound.md')));
+    }
+  }
+});
+
+test('installed-cache portable lifecycle keeps Codex state out of .claude', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-lifecycle-'));
+  const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
+  fs.cpSync(path.join(REPO_ROOT, 'skills'), path.join(cachedPlugin, 'skills'), { recursive: true });
+  const state = path.join(cachedPlugin, 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+  const workspace = path.join(root, 'workspace');
+  const dataRoot = path.join(root, 'phantom-data');
+  const fakeHome = path.join(root, 'home');
+  fs.mkdirSync(workspace);
+  const environment = { ...process.env, HOME: fakeHome, PHANTOM_DATA: dataRoot };
+  const run = (...args) => execFileSync(process.execPath, [state, ...args, '--workspace', workspace], {
+    encoding: 'utf8',
+    env: environment,
+  });
+
+  run('start', '--task', 'codex-cache-smoke', '--intent', 'Smoke test', '--route', 'direct');
+  run('pause', '--reason', 'Smoke pause');
+  run('resume');
+  const status = JSON.parse(run('status'));
+
+  assert.equal(status.status, 'active');
+  assert.ok(fs.existsSync(dataRoot));
+  assert.ok(!fs.existsSync(path.join(fakeHome, '.claude')));
 });
 
 test('portable bundle manifest versions every public contract', async () => {

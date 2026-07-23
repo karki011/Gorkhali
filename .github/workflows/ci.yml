@@ -23,9 +23,11 @@ jobs:
       - run: npm test
       - name: Validate portable Agent Skill boundary
         run: npm run validate:skill
-      - name: Validate Agent Skills specification
+      - name: Validate every bundled Agent Skill
         run: |
           python3 -m pip install 'git+https://github.com/agentskills/agentskills.git@38a2ff82958afee88dadf4831509e6f7e9d8ef4e#subdirectory=skills-ref'
-          skills-ref validate skills/phantom
+          for skill_dir in skills/*; do
+            skills-ref validate "$skill_dir" || exit 1
+          done
       - name: Schema docs are in sync
         run: node scripts/gen-schema-docs.js --check

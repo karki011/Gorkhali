@@ -1,0 +1,35 @@
+{
+  "name": "phantom",
+  "version": "0.2.1",
+  "description": "Provider-adaptive multi-agent development workflows for Codex and Claude Code.",
+  "author": {
+    "name": "Subash Karki"
+  },
+  "homepage": "https://github.com/Cloudzero/research-phantom-skills",
+  "repository": "https://github.com/Cloudzero/research-phantom-skills",
+  "keywords": [
+    "orchestration",
+    "multi-agent",
+    "agents",
+    "workflow",
+    "learning"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Phantom",
+    "shortDescription": "Provider-adaptive software delivery workflows",
+    "longDescription": "Plan, implement, investigate, review, verify, pause, resume, and ship software work through capability-adaptive workflows.",
+    "developerName": "Subash Karki",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Cloudzero/research-phantom-skills",
+    "defaultPrompt": [
+      "Use Phantom to plan and implement this task.",
+      "Use Phantom to investigate this failure.",
+      "Use Phantom to review and verify these changes."
+    ]
+  }
+}
