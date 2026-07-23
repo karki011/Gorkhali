@@ -115,6 +115,65 @@ test('every public workflow adapter is tracked by git', () => {
   }
 });
 
+test('public Claude command frontmatter names match filename stems', () => {
+  const commandsRoot = path.join(REPO_ROOT, 'commands');
+  const commands = fs.readdirSync(commandsRoot)
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .sort();
+
+  for (const entry of commands) {
+    const stem = entry.slice(0, -3);
+    const content = fs.readFileSync(path.join(commandsRoot, entry), 'utf8');
+    const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    assert.ok(frontmatter, `${entry} is missing YAML frontmatter`);
+    const name = frontmatter[1].match(/^name:\s*(\S+)\s*$/m);
+    assert.ok(name, `${entry} frontmatter is missing a name`);
+    assert.equal(name[1], stem, `${entry} frontmatter name must match filename stem`);
+    assert.doesNotMatch(name[1], /^phantom:/, `${entry} frontmatter name must not use the phantom namespace`);
+  }
+});
+
+test('documented checkpoint writes provide JSON stdin and fail open', () => {
+  const expectedWrites = [
+    'execute.md:dispatch-wave-complete',
+    'execute.md:execution-json-written',
+    'execute.md:plan-loaded',
+    'resume.md:resume-restore',
+    'start.md:brainstorm-gate1-approved',
+    'start.md:phase-a-context',
+    'start.md:phase-b-route',
+    'start.md:plan-gate-approved',
+  ];
+  const checkpointWrites = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md'))
+    .flatMap((entry) => fs.readFileSync(path.join(REPO_ROOT, 'commands', entry), 'utf8')
+      .split('\n')
+      .filter((line) => line.includes('scripts/lib/checkpoint.js" write'))
+      .map((line) => ({ entry, line })));
+
+  const observedWrites = checkpointWrites.map(({ entry, line }) => {
+    const phase = line.match(/\bwrite \{SESSION_DIR\}\/checkpoints ([a-z0-9-]+)/);
+    assert.ok(phase, `${entry} checkpoint write must name its expected phase`);
+    return `${entry}:${phase[1]}`;
+  }).sort();
+  assert.deepEqual(observedWrites, expectedWrites);
+
+  for (const { entry, line } of checkpointWrites) {
+    assert.ok(
+      line.includes('PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}";'),
+      `${entry} checkpoint write must resolve and normalize PR inline`,
+    );
+    assert.match(line, /if \[ -n "\$PR" \]; then/, `${entry} must skip when PR is empty`);
+    const input = line.match(
+      /printf '%s\\n' '([^']+)' \| node "\$PR\/scripts\/lib\/checkpoint\.js" write\b/,
+    );
+    assert.ok(input, `${entry} checkpoint write must receive JSON stdin`);
+    assert.doesNotThrow(() => JSON.parse(input[1]), `${entry} checkpoint stdin must be valid JSON`);
+    assert.equal(JSON.parse(input[1]).ticket, '{TICKET}', `${entry} checkpoint JSON must identify the ticket`);
+    assert.match(line, /\|\| :; fi/, `${entry} checkpoint write must fail open`);
+  }
+});
+
 test('Codex runtime resolver returns package-relative roots and neutral state', () => {
   const dataRoot = path.join(os.tmpdir(), 'phantom-codex-state');
   const output = execFileSync(process.execPath, [CODEX_RUNTIME_RESOLVER], {
@@ -214,7 +273,8 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.0.0',
+    bundle_version: '2.1.0',
+    contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
       state_envelope: 1,
@@ -226,6 +286,7 @@ test('portable bundle manifest versions every public contract', async () => {
       impact_report: 1,
     },
   });
+  assert.match(manifest.contract_resource_digest, /^sha256:[a-f0-9]{64}$/);
   const { BUNDLE_VERSION } = await import(RESOLVER_URL);
   assert.equal(BUNDLE_VERSION, manifest.bundle_version);
 });
@@ -244,6 +305,26 @@ test('portable validator rejects malformed manifest contract keys and versions',
     assert.notEqual(result.status, 0, `${label} unexpectedly passed`);
     assert.match(result.stderr, expected);
   }
+});
+
+test('portable validator detects stale bundle metadata after a lifecycle contract resource changes', () => {
+  const staleResource = copySkill('stale-contract-resource');
+  fs.appendFileSync(
+    path.join(staleResource, 'references', 'state.md'),
+    '\nA changed lifecycle rule requires refreshed bundle metadata.\n',
+  );
+  const changed = validate(staleResource);
+  assert.notEqual(changed.status, 0);
+  assert.match(changed.stderr, /contract_resource_digest is stale.*bump bundle_version/s);
+
+  const staleVersion = copySkill('stale-lifecycle-version');
+  const manifestFile = path.join(staleVersion, 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  manifest.bundle_version = '2.0.0';
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+  const versioned = validate(staleVersion);
+  assert.notEqual(versioned.status, 0);
+  assert.match(versioned.stderr, /bundle_version must be at least 2\.1\.0/);
 });
 
 test('portable validator requires every bundled planning and AI review resource', () => {
@@ -353,7 +434,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.0.0');
+    assert.equal(result.bundle_version, '2.1.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -473,7 +554,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.0.0');
+  assert.equal(resolver.bundle_version, '2.1.0');
   assert.equal(resolver.model, 'fable');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -701,4 +782,59 @@ test('minimum-sufficient solution policy is ordered, automatic, inherited, and s
     sweepCursor = next;
   }
   assert.match(verification, /Preserve all risk-proportionate and repository-required verification/i);
+});
+
+test('portable lifecycle authority is explicit, validated, and provider mechanics cannot override it', () => {
+  const compatibility = fs.readFileSync(
+    path.join(REPO_ROOT, 'codex-support', 'codex-compatibility.md'),
+    'utf8',
+  );
+  const start = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'start', 'SKILL.md'), 'utf8');
+  const state = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'state.md'), 'utf8');
+  const workflows = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'workflows.md'), 'utf8');
+
+  const authority = [
+    'User instructions, repository instructions, and runtime safety',
+    'The portable skill and its references',
+    'Compatible legacy command intent',
+    'Legacy or provider-specific mechanics',
+  ];
+  let cursor = -1;
+  for (const level of authority) {
+    const next = compatibility.indexOf(level, cursor + 1);
+    assert.ok(next > cursor, `missing or unordered authority level: ${level}`);
+    cursor = next;
+  }
+  assert.match(
+    compatibility,
+    /legacy command text may not add or override delegation, approval,\s+phase, state-path, or lifecycle authority/i,
+  );
+  assert.match(start, /local planning and implementation only/i);
+  assert.match(start, /no implicit PR lifecycle/i);
+  assert.match(start, /draft-PR shipping requires separate, explicit authorization/i);
+  assert.match(state, /schema_version: 1/i);
+  assert.match(state, /older sessions must synthesize missing\s+pending values/i);
+  assert.match(state, /worktree_fingerprint/i);
+  assert.match(state, /route and material intent are immutable/i);
+  assert.match(state, /Direction binds the current passed\s+`brainstorm`/i);
+  assert.match(state, /wiring binds both the\s+current passed `plan` and current passed `decisions`/i);
+  assert.match(state, /failed\s+artifact write must leave those lifecycle actions unchanged/i);
+  assert.match(state, /authoritative review must have a later\s+`record_sequence`/i);
+  assert.match(workflows, /`direct`.*None; implementation authorization is still required/is);
+  assert.match(workflows, /`plan`.*Approved plan plus implementation authorization/is);
+  assert.match(workflows, /`brainstorm`.*Approved direction before plan approval/is);
+  assert.match(workflows, /`full`.*Approved direction, approved plan, approved wiring/is);
+  assert.match(workflows, /`--mode to-plan` is a permanent denial of `execute` and `ship`/i);
+  assert.match(workflows, /route and material intent do not change after the\s+initial start/i);
+  assert.match(workflows, /A later\s+verification makes the earlier review stale/i);
+
+  const invalid = copySkill('missing-lifecycle-contract');
+  const invalidState = path.join(invalid, 'references', 'state.md');
+  fs.writeFileSync(
+    invalidState,
+    fs.readFileSync(invalidState, 'utf8').replaceAll('worktree_fingerprint', 'workspace_snapshot'),
+  );
+  const result = validate(invalid);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /references\/state\.md must define portable lifecycle contract token: worktree_fingerprint/);
 });

@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   closeSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   renameSync,
   statSync,
@@ -34,6 +37,20 @@ import {
 } from './lib/decision-contracts.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
+const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
+const ROUTE_APPROVALS = {
+  direct: [],
+  plan: ['plan'],
+  brainstorm: ['direction', 'plan'],
+  full: ['direction', 'plan', 'wiring'],
+};
+const APPROVAL_GATES = new Set(['direction', 'plan', 'wiring']);
+const APPROVAL_ARTIFACTS = {
+  direction: ['brainstorm'],
+  plan: ['plan'],
+  wiring: ['plan', 'decisions'],
+};
+const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-draft-pr']);
 const ARTIFACT_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked', 'skipped']);
 const ARTIFACTS = {
   context: {},
@@ -61,6 +78,117 @@ function fail(message) {
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function emptyDecision() {
+  return { status: 'pending', decided_at: null };
+}
+
+function lifecycleFor(session) {
+  const existing = isObject(session.lifecycle) ? session.lifecycle : {};
+  const mode = existing.mode === 'to-plan' || session.mode === 'to-plan' || session.to_plan === true
+    ? 'to-plan'
+    : 'standard';
+  return {
+    mode,
+    approvals: {
+      direction: emptyDecision(),
+      plan: emptyDecision(),
+      wiring: emptyDecision(),
+      ...(isObject(existing.approvals) ? existing.approvals : {}),
+    },
+    authorizations: {
+      implementation: emptyDecision(),
+      'ship-draft-pr': emptyDecision(),
+      ...(isObject(existing.authorizations) ? existing.authorizations : {}),
+    },
+    actions: {
+      execute: emptyDecision(),
+      verify: emptyDecision(),
+      ship: emptyDecision(),
+      ...(isObject(existing.actions) ? existing.actions : {}),
+    },
+  };
+}
+
+function granted(decision) {
+  return decision?.status === 'approved' || decision?.status === 'authorized';
+}
+
+function hashFileState(hash, workspace, relativePath, gitlink = false) {
+  const file = join(workspace, relativePath);
+  hash.update(`path\0${relativePath}\0`);
+  let metadata;
+  try {
+    metadata = lstatSync(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      hash.update('missing\0');
+      return;
+    }
+    throw error;
+  }
+  hash.update(`mode\0${metadata.mode & 0o7777}\0`);
+  if (metadata.isSymbolicLink()) {
+    hash.update(`link\0${readlinkSync(file)}\0`);
+  } else if (metadata.isFile()) {
+    hash.update('file\0');
+    hash.update(readFileSync(file));
+  } else if (metadata.isDirectory() && gitlink) {
+    hash.update(`gitlink-worktree\0${worktreeFingerprint(file)}\0`);
+  } else {
+    hash.update(`node\0${metadata.mode & 0o170000}\0`);
+  }
+}
+
+function worktreeFingerprint(workspace) {
+  const hash = createHash('sha256');
+  hash.update(`workspace\0${workspace}\0`);
+  let indexRecords = [];
+  let files = [];
+  let gitlinks = new Set();
+  try {
+    indexRecords = execFileSync(
+      'git',
+      ['-C', workspace, 'ls-files', '--stage', '-z'],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString('utf8').split('\0').filter(Boolean).sort();
+    const tracked = [];
+    for (const record of indexRecords) {
+      const separator = record.indexOf('\t');
+      if (separator < 0) continue;
+      const metadata = record.slice(0, separator).split(' ');
+      const relativePath = record.slice(separator + 1);
+      tracked.push(relativePath);
+      if (metadata[0] === '160000') gitlinks.add(relativePath);
+    }
+    const untracked = execFileSync(
+      'git',
+      ['-C', workspace, 'ls-files', '-z', '--others', '--exclude-standard'],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString('utf8').split('\0').filter(Boolean);
+    files = [...new Set([...tracked, ...untracked])].sort();
+  } catch {
+    indexRecords = [];
+    gitlinks = new Set();
+    const visit = (directory, prefix = '') => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.name === '.git') continue;
+        const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const file = join(directory, entry.name);
+        if (entry.isDirectory()) visit(file, relativePath);
+        else files.push(relativePath);
+      }
+    };
+    visit(workspace);
+    files.sort();
+  }
+
+  for (const record of indexRecords) hash.update(`index\0${record}\0`);
+  for (const relativePath of files) {
+    hashFileState(hash, workspace, relativePath, gitlinks.has(relativePath));
+  }
+  return `sha256:${hash.digest('hex')}`;
 }
 
 function lockFile(workspace) {
@@ -183,7 +311,9 @@ function currentSession(workspace) {
   const sessionDirectory = pointer.session_dir || paths.sessionDir;
   const session = readJson(join(sessionDirectory, 'session.json'));
   paths.sessionDir = sessionDirectory;
-  return session ? { paths, pointer, session } : null;
+  if (!session) return null;
+  session.lifecycle = lifecycleFor(session);
+  return { paths, pointer, session };
 }
 
 function requireCurrent(workspace) {
@@ -196,9 +326,13 @@ function requireCurrent(workspace) {
 function start(workspace, args) {
   if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
   const route = args.route || 'plan';
-  if (!new Set(['direct', 'plan', 'brainstorm', 'full']).has(route)) {
+  if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
   }
+  if (args.mode !== undefined && !['standard', 'to-plan'].includes(args.mode)) {
+    throw new Error('Unsupported mode. Use --mode standard or --mode to-plan.');
+  }
+  const requestedMode = args['to-plan'] === true || args.mode === 'to-plan' ? 'to-plan' : 'standard';
   const paths = sessionPaths(workspace, args.task);
   const current = currentSession(workspace);
   if (current && current.session.status !== 'completed' && current.paths.task !== paths.task) {
@@ -209,6 +343,26 @@ function start(workspace, args) {
   }
   mkdirSync(paths.sessionDir, { recursive: true });
   const existing = readJson(join(paths.sessionDir, 'session.json'));
+  if (existing) {
+    if (existing.route && existing.route !== route) {
+      throw new Error(
+        `Cannot change route for active task ${paths.task} from ${existing.route} to ${route}. `
+        + 'Record the change as a revision, or complete this session and restart with a new task id.',
+      );
+    }
+    if (!existing.intent_summary) {
+      throw new Error(
+        `Cannot resume active task ${paths.task}: its legacy session has no immutable intent summary. `
+        + 'Recover the original session metadata, or complete it and restart with a new task id.',
+      );
+    }
+    if (existing.intent_summary.trim() !== args.intent.trim()) {
+      throw new Error(
+        `Cannot change material intent for active task ${paths.task}. `
+        + 'Record the changed intent as a revision, or complete this session and restart with a new task id.',
+      );
+    }
+  }
   const session = existing || envelope('session', paths, 'active', {
     bundle_version: BUNDLE_VERSION,
     workspace: paths.repo.root,
@@ -217,13 +371,14 @@ function start(workspace, args) {
   });
   session.bundle_version = BUNDLE_VERSION;
   session.status = 'active';
-  session.route = route;
-  session.intent_summary = args.intent || session.intent_summary;
+  session.route = existing?.route || route;
+  session.lifecycle = lifecycleFor(existing ? session : { ...session, mode: requestedMode });
+  session.intent_summary = existing?.intent_summary || args.intent;
   session.updated_at = now();
   atomicWriteJson(join(paths.sessionDir, 'session.json'), session);
   atomicWriteJson(join(paths.sessionDir, 'intent.json'), envelope('intent', paths, 'active', {
     bundle_version: BUNDLE_VERSION,
-    summary: args.intent,
+    summary: session.intent_summary,
     route: session.route,
   }));
   atomicWriteJson(paths.currentFile, {
@@ -245,6 +400,7 @@ function updateStatus(workspace, nextStatus, extra = {}, current = requireCurren
   const session = {
     ...current.session,
     ...extra,
+    lifecycle: lifecycleFor(extra.lifecycle ? { ...current.session, lifecycle: extra.lifecycle } : current.session),
     bundle_version: BUNDLE_VERSION,
     status: nextStatus,
     updated_at: now(),
@@ -252,6 +408,199 @@ function updateStatus(workspace, nextStatus, extra = {}, current = requireCurren
   atomicWriteJson(join(current.paths.sessionDir, 'session.json'), session);
   atomicWriteJson(current.paths.currentFile, { ...current.pointer, updated_at: now() });
   return session;
+}
+
+function requireStandardMode(current, action) {
+  if (current.session.lifecycle.mode === 'to-plan') {
+    throw new Error(
+      `Cannot ${action}: this session is permanently plan-only (--to-plan). `
+      + 'Start a separate standard session when implementation or shipping is authorized.',
+    );
+  }
+}
+
+function missingPrerequisite(action, requirement, command) {
+  throw new Error(`Cannot ${action}: ${requirement}. Run \`${command}\` first.`);
+}
+
+function artifactDigest(artifact) {
+  return `sha256:${createHash('sha256').update(JSON.stringify(artifact)).digest('hex')}`;
+}
+
+function approvalArtifactErrors(type, artifact, current) {
+  if (!isObject(artifact)) return [`current passed ${type} artifact is missing`];
+  const errors = [];
+  if (artifact.schema_version !== 1) errors.push(`${type} artifact has an unsupported schema version`);
+  if (artifact.artifact_type !== type) errors.push(`${type} artifact type does not match`);
+  if (artifact.repo_id !== current.paths.repo.id) errors.push(`${type} artifact belongs to another repository`);
+  if (artifact.task_id !== current.paths.task) errors.push(`${type} artifact belongs to another task`);
+  if (artifact.status !== 'passed') errors.push(`${type} artifact is not passed`);
+  if (!Number.isInteger(artifact.record_sequence) || artifact.record_sequence < 1) {
+    errors.push(`${type} artifact has no stable record sequence`);
+  }
+  if (['brainstorm', 'plan'].includes(type)) {
+    errors.push(...validateDecisionContract(type, artifact.evidence, {
+      requireV3: true,
+      enforceCanonicalQuick: true,
+      enforceEvidenceFreshness: true,
+      enforcePathProvenance: true,
+      workspace: current.paths.repo.root,
+    }));
+  }
+  return errors;
+}
+
+function currentApprovalBindings(current, gate, action) {
+  const bindings = [];
+  for (const type of APPROVAL_ARTIFACTS[gate]) {
+    const artifact = readJson(join(current.paths.sessionDir, `${type}.json`));
+    const errors = approvalArtifactErrors(type, artifact, current);
+    if (errors.length) {
+      throw new Error(
+        `Cannot ${action}: ${errors.join('; ')}. `
+        + `Record a fresh passed ${type} artifact, then approve ${gate} again.`,
+      );
+    }
+    bindings.push({
+      artifact_type: type,
+      record_sequence: artifact.record_sequence,
+      digest: artifactDigest(artifact),
+    });
+  }
+  return bindings;
+}
+
+function requireCurrentApproval(current, gate, action) {
+  const approval = current.session.lifecycle.approvals[gate];
+  if (!granted(approval)) {
+    missingPrerequisite(
+      action,
+      `${gate} approval is missing for route ${current.session.route}`,
+      `phantom-state.mjs approve --gate ${gate} --workspace <path>`,
+    );
+  }
+  if (!Array.isArray(approval.artifact_bindings)) {
+    throw new Error(
+      `Cannot ${action}: ${gate} approval has no artifact binding and cannot be safely recovered. `
+      + `Record a fresh passed ${APPROVAL_ARTIFACTS[gate].join(' and ')} artifact, `
+      + `then run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
+    );
+  }
+  const currentBindings = currentApprovalBindings(current, gate, action);
+  if (JSON.stringify(approval.artifact_bindings) !== JSON.stringify(currentBindings)) {
+    throw new Error(
+      `Cannot ${action}: ${gate} approval is stale for the current passed artifact. `
+      + `Review it and run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
+    );
+  }
+}
+
+function approve(workspace, args) {
+  if (!APPROVAL_GATES.has(args.gate)) {
+    throw new Error('approve requires --gate direction, --gate plan, or --gate wiring.');
+  }
+  const current = requireCurrent(workspace);
+  const { route } = current.session;
+  if (!ROUTE_APPROVALS[route]?.includes(args.gate)) {
+    throw new Error(`Cannot approve ${args.gate}: route ${route} does not use that approval gate.`);
+  }
+  if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)
+    && !granted(current.session.lifecycle.approvals.direction)) {
+    missingPrerequisite('approve the plan', 'direction approval is missing',
+      'phantom-state.mjs approve --gate direction --workspace <path>');
+  }
+  if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)) {
+    requireCurrentApproval(current, 'direction', 'approve the plan');
+  }
+  if (args.gate === 'wiring' && !granted(current.session.lifecycle.approvals.plan)) {
+    missingPrerequisite(
+      'approve wiring',
+      'plan approval is missing',
+      'phantom-state.mjs approve --gate plan --workspace <path>',
+    );
+  }
+  if (args.gate === 'wiring') requireCurrentApproval(current, 'plan', 'approve wiring');
+  const artifactBindings = currentApprovalBindings(current, args.gate, `approve ${args.gate}`);
+  const lifecycle = lifecycleFor(current.session);
+  lifecycle.approvals[args.gate] = {
+    status: 'approved',
+    decided_at: now(),
+    by: args.by || 'user',
+    artifact_bindings: artifactBindings,
+  };
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function authorize(workspace, args) {
+  if (!AUTHORIZATION_SCOPES.has(args.scope)) {
+    throw new Error('authorize requires --scope implementation or --scope ship-draft-pr.');
+  }
+  const current = requireCurrent(workspace);
+  const lifecycle = lifecycleFor(current.session);
+  lifecycle.authorizations[args.scope] = {
+    status: 'authorized',
+    decided_at: now(),
+    by: args.by || 'user',
+  };
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function prepareExecute(current) {
+  requireStandardMode(current, 'execute');
+  const lifecycle = lifecycleFor(current.session);
+  if (!granted(lifecycle.authorizations.implementation)) {
+    missingPrerequisite(
+      'execute',
+      'implementation authorization is missing',
+      'phantom-state.mjs authorize --scope implementation --workspace <path>',
+    );
+  }
+  const requiredApprovals = ROUTE_APPROVALS[current.session.route];
+  if (!requiredApprovals) {
+    throw new Error(
+      'Cannot execute: the recovered session has no supported route. '
+      + 'Resume it with `phantom-state.mjs start --task <id> --intent <text> '
+      + '--route <direct|plan|brainstorm|full> --workspace <path>`.',
+    );
+  }
+  for (const gate of requiredApprovals) {
+    requireCurrentApproval(current, gate, 'execute');
+  }
+  lifecycle.actions.execute = {
+    status: 'started',
+    decided_at: now(),
+    worktree_fingerprint: worktreeFingerprint(current.paths.repo.root),
+  };
+  return lifecycle;
+}
+
+function execute(workspace) {
+  const current = requireCurrent(workspace);
+  const lifecycle = prepareExecute(current);
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function prepareVerify(current) {
+  const lifecycle = lifecycleFor(current.session);
+  if (lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'verify',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
+    );
+  }
+  lifecycle.actions.verify = {
+    status: 'started',
+    decided_at: now(),
+    worktree_fingerprint: worktreeFingerprint(current.paths.repo.root),
+  };
+  return lifecycle;
+}
+
+function verify(workspace) {
+  const current = requireCurrent(workspace);
+  const lifecycle = prepareVerify(current);
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
 
 function gateEvidenceErrors(type, evidence) {
@@ -281,14 +630,22 @@ function gateEvidenceErrors(type, evidence) {
   return [];
 }
 
-function gateArtifactErrors(type, artifact, current) {
-  if (!isObject(artifact)) return [`${type} artifact must be an object.`];
+function gateArtifactErrors(type, artifact, current, fingerprint) {
+  if (!isObject(artifact)) return [`current passed ${type} artifact is missing.`];
   const errors = [];
   if (artifact.schema_version !== 1) errors.push(`${type} artifact has an unsupported schema version.`);
   if (artifact.artifact_type !== type) errors.push(`${type} artifact type does not match its gate.`);
   if (artifact.repo_id !== current.paths.repo.id) errors.push(`${type} artifact belongs to another repository.`);
   if (artifact.task_id !== current.paths.task) errors.push(`${type} artifact belongs to another task.`);
   if (artifact.status !== 'passed') errors.push(`${type} artifact is not passed.`);
+  if (!Number.isInteger(artifact.record_sequence) || artifact.record_sequence < 1) {
+    errors.push(`${type} artifact has no stable record sequence; record a fresh ${type} artifact.`);
+  }
+  if (fingerprint && artifact.worktree_fingerprint !== fingerprint) {
+    errors.push(
+      `${type} artifact is stale for the current worktree; record a fresh passed ${type} artifact.`,
+    );
+  }
   errors.push(...gateEvidenceErrors(type, artifact.evidence));
   return errors;
 }
@@ -341,6 +698,51 @@ function latestGateArtifact(runsDirectory, type) {
     }
   }
   return latest?.artifact;
+}
+
+function latestRecordSequence(directory) {
+  if (!existsSync(directory)) return 0;
+  let latest = 0;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const file = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      latest = Math.max(latest, latestRecordSequence(file));
+    } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      const artifact = readJson(file);
+      if (Number.isInteger(artifact?.record_sequence)) {
+        latest = Math.max(latest, artifact.record_sequence);
+      }
+    }
+  }
+  return latest;
+}
+
+function requireCurrentPassedVerification(current, action, fingerprint) {
+  const runsDirectory = join(current.paths.sessionDir, 'runs');
+  const verification = existsSync(runsDirectory)
+    ? latestGateArtifact(runsDirectory, 'verification')
+    : null;
+  const errors = gateArtifactErrors('verification', verification, current, fingerprint);
+  if (errors.length) {
+    throw new Error(
+      `Cannot ${action}: ${errors.join(' ')} `
+      + 'Record a fresh passed verification artifact before independent review.',
+    );
+  }
+  return verification;
+}
+
+function restoreJson(file, value) {
+  if (JSON.stringify(readJson(file)) === JSON.stringify(value)) return;
+  if (value === null) {
+    try {
+      unlinkSync(file);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    return;
+  }
+  atomicWriteJson(file, value);
 }
 
 function record(workspace, args) {
@@ -397,13 +799,32 @@ function record(workspace, args) {
       : delegatedTask?.model_routing?.requested_profile);
   const profile = resolveProfile({ role, profile: profileOverride }).requested_profile;
   const routing = modelRouting(args, profile);
-  const recordSequence = Number.isInteger(current.session.last_record_sequence)
-    ? current.session.last_record_sequence + 1
-    : 1;
-  updateStatus(workspace, current.session.status, { last_record_sequence: recordSequence }, current);
+  const fingerprint = ['verification', 'review'].includes(args.type)
+    ? worktreeFingerprint(current.paths.repo.root)
+    : null;
+  let lifecycle = lifecycleFor(current.session);
+  if (args.type === 'execution') lifecycle = prepareExecute(current);
+  else if (args.type === 'verification') lifecycle = prepareVerify(current);
+  else if (args.type === 'review') {
+    requireCurrentPassedVerification(current, 'record review', fingerprint);
+  }
+  const recordSequence = Math.max(
+    Number.isInteger(current.session.last_record_sequence) ? current.session.last_record_sequence : 0,
+    latestRecordSequence(current.paths.sessionDir),
+  ) + 1;
+  const stateUpdate = { last_record_sequence: recordSequence, lifecycle };
+  if (['brainstorm', 'plan'].includes(args.type)) {
+    if (args.type === 'brainstorm') lifecycle.approvals.direction = emptyDecision();
+    lifecycle.approvals.plan = emptyDecision();
+    lifecycle.approvals.wiring = emptyDecision();
+  }
+  if (args.type === 'decisions') lifecycle.approvals.wiring = emptyDecision();
   const artifact = envelope(args.type, current.paths, args.status, {
     bundle_version: BUNDLE_VERSION,
     record_sequence: recordSequence,
+    ...(['verification', 'review'].includes(args.type)
+      ? { worktree_fingerprint: fingerprint }
+      : {}),
     producer: { role, compute_profile: profile },
     model_routing: routing,
     evidence: payload,
@@ -411,19 +832,93 @@ function record(workspace, args) {
   const file = ARTIFACTS[args.type].run
     ? join(current.paths.sessionDir, 'runs', runId, `${args.type}.json`)
     : join(current.paths.sessionDir, `${args.type}.json`);
+  const previousArtifact = readJson(file);
+  const previousSession = readJson(join(current.paths.sessionDir, 'session.json'));
+  const previousPointer = readJson(current.paths.currentFile);
   atomicWriteJson(file, artifact);
+  try {
+    updateStatus(workspace, current.session.status, stateUpdate, current);
+  } catch (error) {
+    const rollbackErrors = [];
+    for (const [rollbackFile, value] of [
+      [join(current.paths.sessionDir, 'session.json'), previousSession],
+      [current.paths.currentFile, previousPointer],
+      [file, previousArtifact],
+    ]) {
+      try {
+        restoreJson(rollbackFile, value);
+      } catch (rollbackError) {
+        rollbackErrors.push(`${rollbackFile}: ${rollbackError.message}`);
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new Error(
+        `${error.message} Record rollback was incomplete: ${rollbackErrors.join('; ')}`,
+      );
+    }
+    throw error;
+  }
   return { artifact, file };
+}
+
+function requireCurrentPassedGates(current, action) {
+  const runsDirectory = join(current.paths.sessionDir, 'runs');
+  const fingerprint = worktreeFingerprint(current.paths.repo.root);
+  const artifacts = {};
+  for (const gate of REQUIRED_GATES) {
+    const artifact = existsSync(runsDirectory) ? latestGateArtifact(runsDirectory, gate) : null;
+    const errors = gateArtifactErrors(gate, artifact, current, fingerprint);
+    if (errors.length > 0) {
+      throw new Error(`Cannot ${action}: ${errors.join(' ')}`);
+    }
+    artifacts[gate] = artifact;
+  }
+  if (artifacts.review.record_sequence <= artifacts.verification.record_sequence) {
+    throw new Error(
+      `Cannot ${action}: review artifact is stale because authoritative review must be newer `
+      + 'than the current passed verification. Record a fresh review after verification.',
+    );
+  }
+  return fingerprint;
+}
+
+function ship(workspace) {
+  const current = requireCurrent(workspace);
+  requireStandardMode(current, 'ship');
+  const lifecycle = lifecycleFor(current.session);
+  if (lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'ship',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
+    );
+  }
+  if (!granted(lifecycle.authorizations['ship-draft-pr'])) {
+    missingPrerequisite(
+      'ship',
+      'draft-PR shipping authorization is missing',
+      'phantom-state.mjs authorize --scope ship-draft-pr --workspace <path>',
+    );
+  }
+  const fingerprint = requireCurrentPassedGates(current, 'ship');
+  lifecycle.actions.ship = {
+    status: 'ready',
+    decided_at: now(),
+    worktree_fingerprint: fingerprint,
+  };
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
 
 function complete(workspace) {
   const current = requireCurrent(workspace);
-  const runsDirectory = join(current.paths.sessionDir, 'runs');
-  for (const gate of REQUIRED_GATES) {
-    const artifact = existsSync(runsDirectory) ? latestGateArtifact(runsDirectory, gate) : null;
-    if (gateArtifactErrors(gate, artifact, current).length > 0) {
-      throw new Error(`Cannot complete without a valid latest passed ${gate} artifact.`);
-    }
+  if (current.session.lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'complete',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
+    );
   }
+  requireCurrentPassedGates(current, 'complete');
   if (existsSync(current.paths.completedDir)) {
     throw new Error(`Completed session already exists: ${current.paths.completedDir}`);
   }
@@ -451,9 +946,17 @@ function main() {
       if (command === 'start') return start(workspace, args);
       if (command === 'pause') return updateStatus(workspace, 'paused', { pause_reason: args.reason || 'Paused by user.' });
       if (command === 'resume') return updateStatus(workspace, 'active', { resumed_at: now() });
+      if (command === 'approve') return approve(workspace, args);
+      if (command === 'authorize') return authorize(workspace, args);
+      if (command === 'execute') return execute(workspace);
+      if (command === 'verify') return verify(workspace);
       if (command === 'record') return record(workspace, args);
+      if (command === 'ship') return ship(workspace);
       if (command === 'complete') return complete(workspace);
-      throw new Error('Usage: phantom-state.mjs <start|status|pause|resume|record|complete> [options]');
+      throw new Error(
+        'Usage: phantom-state.mjs '
+        + '<start|status|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
+      );
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {

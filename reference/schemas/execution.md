@@ -50,6 +50,6 @@ Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads 
     }
   ],
   "totalSpawns": 2,
-  "agentOutputs": "~/.claude/phantom-data/repos/{REPO_NAME}/sessions/ENG-1234/agent-logs/"
+  "agentOutputs": "~/.phantom/repos/{REPO_NAME}/sessions/ENG-1234/agent-logs/"
 }
 ```

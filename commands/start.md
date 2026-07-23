@@ -1,5 +1,5 @@
 ---
-name: phantom:start
+name: start
 description: "Use when starting any new feature, bug fix, refactor, or task. Also use when user provides a Jira ticket key (e.g., PROJ-123), says 'implement', 'build', 'fix', 'work on', or describes a requirement. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
@@ -40,12 +40,12 @@ Agent spawn rules (all routes):
 
 ## Phase A: Context
 
-> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
+> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of phantom state.
 
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
    `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
-2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Apex env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.apex-active"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
+2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Apex env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${PHANTOM_DATA:-$HOME/.phantom}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.apex-active"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
 2.6. Link session to cost ledger (silent, never blocks; self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`): `[ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (empty `$PR` → skip silently)
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 3.2. **Jira lifecycle sync** (only when TICKET matches `[A-Z][A-Z0-9]+-\d+`; slug sessions skip silently). In order:
@@ -56,7 +56,7 @@ Agent spawn rules (all routes):
      by TICKET and touched file paths (recipes: `_shared-brain.md`). Cite matched card
      `id`s in `context.json`; no matches → skip silently.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
-   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
 
 ## Phase B: Classify + Route
@@ -66,12 +66,12 @@ READ `reference/router.md` for full algorithm.
 1. Gather signals (parallel, <5s): blast radius, patterns, novelty, history, ambiguity, AC
 2. Classify: hard overrides → uncertainty → scope → learnings correction → route
 3. Write `route-decision.json`. Report: `"[{ROUTE}] {rationale}"`
-   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-b-route` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-b-route || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
 ## Route: DIRECT (0 gates)
 
 1. Write `intent.json` with task scope
-2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 3. **Spawn Blade agent** via Agent tool:
    ```
    Agent call:
@@ -87,7 +87,7 @@ READ `reference/router.md` for full algorithm.
        {file paths to modify}
        Self-review your changes before returning.
    ```
-4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
+4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 5. After Blade returns → `Skill(skill="phantom:verify", args="--chained")` (chained flow).
    - **PASS → AUTO-CONTINUE** to `Skill(skill="phantom:wrap")`. Do NOT return to the human here.
    - **FAIL → verify threads** `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS, AUTO-CONTINUE to `Skill(skill="phantom:wrap")`.
@@ -98,7 +98,7 @@ READ `reference/router.md` for full algorithm.
 1. Intent → research → decision-first plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 3`. The decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts required by `reference/schemas/plan.md` must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate.
 2. Deliberation: Planner ↔ Challenger, 2 rounds (router.md)
 3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with the approval question, recommendation, evidence, architecture, risks, and validation, with files/tasks/waves in an execution appendix. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat. Material feedback updates `plan.json` and reruns plan-checker (and Rival when scope changes) before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same decision-first hierarchy in chat and state the capability failure. Never degrade to a task-only gate.
-   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
 5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
 6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap — wrap proceeds autonomously to a **draft PR**; the human gate is post-PR (review the draft, mark it ready-to-review).
@@ -106,7 +106,7 @@ READ `reference/router.md` for full algorithm.
 ## Route: BRAINSTORM (2 gates)
 
 `Skill(skill="phantom:brainstorm")` → **GATE 1** (pick direction)
-Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints brainstorm-gate1-approved` (advisory; resume reads latest; empty `$PR` skips silently).
+Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints brainstorm-gate1-approved || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 → PLAN route → **GATE 2** (approve plan)
 
 ## Route: FULL (3 gates)

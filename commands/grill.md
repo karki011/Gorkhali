@@ -1,5 +1,5 @@
 ---
-name: phantom:grill
+name: grill
 description: "Use when you want a Socratic challenge on your own changes — test your understanding, stress-test your reasoning, or quiz yourself before shipping. Also use when user says 'grill me', 'quiz me', 'test my understanding', 'challenge me on this', or 'play devil's advocate'. NOT for code review — use phantom:review."
 argument-hint: "[--hard] [--quick]"
 ---

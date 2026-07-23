@@ -90,6 +90,9 @@ function buildWorld() {
     PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
     PHANTOM_PROJECTS_DIR: projects,
     PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+    PHANTOM_MIGRATE_SRC_TEAM: legacy,
+    PHANTOM_MIGRATE_SRC_PHANTOM: legacy,
+    PHANTOM_MIGRATE_SRC_PHANTOM_DATA: legacy,
   };
   return { root, DATA, reposRoot, env, betaSha, SID };
 }

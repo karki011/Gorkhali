@@ -30,7 +30,10 @@ try {
   // fail open: a missing helper means we cannot resolve the active session →
   // every path below short-circuits to allow. Inline fallbacks keep the
   // counter/marker logic alive but resolution returns null → allow.
-  phantomData = () => process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  const home = os.homedir();
+  const data = process.env.PHANTOM_DATA ||
+    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  phantomData = () => data;
   stateDir = () => path.join(phantomData(), 'state');
   detectRepo = null;
   sessionsDir = null;

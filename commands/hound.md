@@ -1,5 +1,5 @@
 ---
-name: phantom:hound
+name: hound
 description: "Use when investigating an UNKNOWN cause — a bug, regression, or mysterious failure where you don't yet know what's wrong: behaving wrong with no error, wrong output, or it started failing after a deploy. Also use when user says 'investigate why', 'I suspect', 'started happening after', 'no error but it's behaving wrong', or 'something's off, find out why'. NOT for known failures (use phantom:fix) and NOT for the Phantom system itself (use phantom:health). Produces HTML forensic reports."
 argument-hint: "<symptoms or file paths>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]

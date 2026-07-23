@@ -3,7 +3,40 @@
 # Safe to `source` from other scripts: sets PHANTOM_DATA and
 # PHANTOM_PLUGIN_ROOT (if unset), no `set -e`, no output.
 
-: "${PHANTOM_DATA:=$HOME/.claude/phantom-data}"
+phantom__absolute_path() {
+  _phantom_candidate=$1
+  _phantom_base=${2:-$PWD}
+  case "$_phantom_candidate" in
+    /*) ;;
+    *) _phantom_candidate="$_phantom_base/$_phantom_candidate" ;;
+  esac
+
+  _phantom_result=
+  _phantom_old_ifs=$IFS
+  IFS=/
+  case $- in *f*) _phantom_had_noglob=1 ;; *) _phantom_had_noglob=0; set -f ;; esac
+  set -- $_phantom_candidate
+  [ "$_phantom_had_noglob" -eq 1 ] || set +f
+  IFS=$_phantom_old_ifs
+  for _phantom_part do
+    case "$_phantom_part" in
+      ''|.) ;;
+      ..) _phantom_result=${_phantom_result%/*} ;;
+      *) _phantom_result="$_phantom_result/$_phantom_part" ;;
+    esac
+  done
+  printf '%s\n' "${_phantom_result:-/}"
+}
+
+_phantom_workspace=$(pwd -P 2>/dev/null)
+[ -n "$_phantom_workspace" ] || _phantom_workspace=$PWD
+if [ -n "${PHANTOM_DATA:-}" ]; then
+  PHANTOM_DATA=$(phantom__absolute_path "$PHANTOM_DATA" "$_phantom_workspace")
+elif [ -n "${HOME:-}" ]; then
+  PHANTOM_DATA=$(phantom__absolute_path "$HOME/.phantom" "$_phantom_workspace")
+else
+  PHANTOM_DATA=$(phantom__absolute_path ".phantom" "$_phantom_workspace")
+fi
 export PHANTOM_DATA
 
 : "${PHANTOM_STATE_DIR:=$PHANTOM_DATA/state}"

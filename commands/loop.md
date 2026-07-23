@@ -1,5 +1,5 @@
 ---
-name: phantom:loop
+name: loop
 description: "Find every Jira ticket assigned to you in 'Ready for Implementation', triage each, then either run the phantom workflow to a draft PR (acceptance criteria solid) or produce a plan and wait for approval (acceptance criteria weak). One invocation = one pass. Alias: /phantom:q."
 argument-hint: "[--status]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
@@ -38,7 +38,7 @@ No project filter — any ticket assigned to you counts. Empty result → print 
 ## Step 2: Dedup
 
 Skip a ticket already in flight. A ticket is in flight if EITHER:
-- a session dir exists at `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}/`, OR
+- a session dir exists at `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}/`, OR
 - an open PR already exists for branch `feat/{ticket-lower}` (`gh pr list --head feat/{ticket-lower} --state open` — empty `gh`/non-repo → treat as not-in-flight, never crash).
 
 Every skip appears in the report with its reason + manual unblock (delete the session dir / close the PR).

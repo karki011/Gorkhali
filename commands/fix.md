@@ -1,5 +1,5 @@
 ---
-name: phantom:fix
+name: fix
 description: "Use when verification just failed inside an active phantom session — tests broke, build failed, lint issues, or CI went red and the failing step is known. Repairs a KNOWN failure; it does not start net-new work. Also use when user says 'fix the failing test', 'tests failing', 'build failed', or 'make it pass'. NOT for cold-start 'fix X' requests (those route to phantom:start) and NOT for unknown causes (use phantom:hound to investigate first). Triages failures, assigns scoped repairs, re-verifies. Loop ceiling owned by hooks/loop-controller.js."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
@@ -34,8 +34,8 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 5. Show fix packet. **CHAINED (`--chained` present) → AUTO-PROCEED past approval (the loop ceiling + step-9 exhaustion escalation is the safety net). STANDALONE (token absent) → wait for user approval.**
-6. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
-7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
+6. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
 8. **If re-verify passes** → exit, proceed to wrap.
    **If fails:** same class → scrap-and-redo (step 8.5) + write correction. Different class → increment loop, return to step 1.
 

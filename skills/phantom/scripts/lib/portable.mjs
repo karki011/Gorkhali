@@ -78,9 +78,10 @@ export function repoIdentity(workspace) {
 }
 
 export function dataRoot(workspace) {
-  if (process.env.PHANTOM_DATA) return resolve(process.env.PHANTOM_DATA);
-  if (process.env.HOME) return join(process.env.HOME, '.phantom');
-  return join(workspace, '.phantom');
+  const base = workspacePath(workspace);
+  if (process.env.PHANTOM_DATA) return resolve(base, process.env.PHANTOM_DATA);
+  if (process.env.HOME) return resolve(base, process.env.HOME, '.phantom');
+  return join(base, '.phantom');
 }
 
 export function readJson(file, fallback = null) {

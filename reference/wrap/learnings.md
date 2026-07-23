@@ -35,7 +35,7 @@ Update `learnings/INDEX.md` quick reference with one-liners for any new entries 
 
 ## 7. Promotion Check
 
-For any pattern with `[validated:5+]` that is technology-generic (not repo-specific), offer to promote to `${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/INDEX.md` with `[scope:global] derived_from:{REPO_NAME}` tag. Global entry starts at `[validated:1]` regardless of source count.
+For any pattern with `[validated:5+]` that is technology-generic (not repo-specific), offer to promote to `${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md` with `[scope:global] derived_from:{REPO_NAME}` tag. Global entry starts at `[validated:1]` regardless of source count.
 
 ## 8. Caveman Compress
 

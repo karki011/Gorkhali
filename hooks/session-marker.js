@@ -18,8 +18,12 @@ let stateDir, detectRepo, phantomData, learningsDir;
 try {
   ({ stateDir, detectRepo, phantomData, learningsDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
-  const os = require('os');
-  const data = process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  const base = process.cwd();
+  const data = process.env.PHANTOM_DATA
+    ? path.resolve(base, process.env.PHANTOM_DATA)
+    : process.env.HOME
+      ? path.resolve(base, process.env.HOME, '.phantom')
+      : path.join(base, '.phantom');
   stateDir = () => path.join(data, 'state');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
   phantomData = () => data;
@@ -33,23 +37,25 @@ try {
   sweepStaleArtifacts = () => 0; // atomic.js missing -> sweep is a no-op, never block the prompt
 }
 
-// Cut-over auto-run: on the FIRST prompt after the detection fix ships, sweep the
-// branch-named orphan repo dirs into their canonical dirs so detection and data
-// agree in one version (per [guards]: gate is cheap, the RUN is wrapped and can
-// never block the prompt). Marker-gated so we spawn the migrator at most once;
-// the migrator itself is independently idempotent.
-function maybeMigrateRepoDirs() {
+// Cut-over auto-run: migrate legacy data into the neutral root before sweeping
+// branch-named repo dirs. One detached child performs both operations in order,
+// so normal prompt handling never waits. The sync mode exists only for
+// deterministic tests. Both migrators independently gate and serialize runs.
+function maybeMigrateDataAndRepoDirs() {
   try {
-    const marker = path.join(phantomData(), '.repo-dirs-migrated');
-    if (fs.existsSync(marker)) return; // already migrated — skip the spawn entirely
-    const script = path.join(__dirname, '..', 'scripts', 'migrate-repo-dirs.js');
+    const dataRoot = phantomData();
+    const dataMarker = path.join(dataRoot, '.data-root-migrated-v2');
+    const repoMarker = path.join(dataRoot, '.repo-dirs-migrated');
+    if (fs.existsSync(dataMarker) && fs.existsSync(repoMarker)) return;
+    const script = path.join(__dirname, '..', 'scripts', 'migrate-data.js');
     if (!fs.existsSync(script)) return;
-    const opts = { stdio: 'ignore', timeout: 30000 };
+    const args = [script, '--then-repo-dirs'];
     if (process.env.PHANTOM_MIGRATE_SYNC) {
-      spawnSync(process.execPath, [script, '--apply'], opts); // deterministic for tests
+      spawnSync(process.execPath, args, { stdio: 'ignore', timeout: 30000 });
     } else {
-      const child = spawn(process.execPath, [script, '--apply'], { ...opts, detached: true });
-      child.unref(); // fire-and-forget: never delays the prompt
+      const child = spawn(process.execPath, args, { stdio: 'ignore', detached: true });
+      child.on('error', () => {});
+      child.unref();
     }
   } catch (_) { /* silent — migration must never break a prompt */ }
 }
@@ -101,6 +107,6 @@ try {
 } catch (_) { /* silent — never block the prompt */ }
 
 // Runs after the primary marker job so a migration hiccup can never affect it.
-maybeMigrateRepoDirs();
+maybeMigrateDataAndRepoDirs();
 
 process.exit(0);

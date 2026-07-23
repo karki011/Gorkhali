@@ -51,7 +51,9 @@ let stateDir, detectRepo;
 try {
   ({ stateDir, detectRepo } = require('./phantom-paths'));
 } catch (_) {
-  const data = process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  const home = os.homedir();
+  const data = process.env.PHANTOM_DATA ||
+    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   stateDir = () => path.join(data, 'state');
   detectRepo = null;
 }

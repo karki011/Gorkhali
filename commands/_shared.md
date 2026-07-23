@@ -37,7 +37,7 @@ REPO_NAME = resolved by detectRepo()/phantom_detect_repo() — 6-step precedence
             (worktrees fast-path → PHANTOM_REPO → git remote basename → git main-root
             basename → .git walk-up → "_default"). SINGLE SOURCE: _shared-repo-detection.md
             §"Repo Name Resolution". Do NOT restate the order here — it drifted before.
-TEAM_DIR  = ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}   # default ~/.claude/phantom-data; override with PHANTOM_DATA env
+TEAM_DIR  = ${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}   # default ~/.phantom; override with PHANTOM_DATA env
 SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
 DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md
@@ -45,8 +45,8 @@ DECISIONS_SESSION  = {TEAM_DIR}/sessions/{TICKET}/decisions.md
 LEARNINGS       = {TEAM_DIR}/learnings/
 LEARNINGS_INDEX = {TEAM_DIR}/learnings/INDEX.md
 LEARNINGS_EDGES = {TEAM_DIR}/learnings/EDGES.md
-GLOBAL_PATTERNS = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/INDEX.md
-GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/EDGES.md
+GLOBAL_PATTERNS = ${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md
+GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.phantom}/global/patterns/EDGES.md
 ```
 
 </context>
@@ -94,7 +94,7 @@ One line, one color. Examples:
 - `🔴 Blocked: missing DB credential, cannot run migration`
 
 ## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
 - Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
 - If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
 - After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.

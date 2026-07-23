@@ -1,5 +1,5 @@
 ---
-name: phantom:validate
+name: validate
 description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy the contracts/requirements. Also use when user says 'validate the session', 'check outputs against the contract', or 'did we cover all the requirements'. NOT for code quality review (use phantom:review), test/build runs (use phantom:verify), or repairing failures (use phantom:fix)."
 argument-hint: "[layer]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
@@ -24,7 +24,7 @@ Run validation scripts to check shadows guidance compliance. Layers: `plan`, `ou
 You are the coordinator. You do NOT run validation scripts directly. Instead:
 
 1. **Parse $ARGUMENTS** to determine which layer(s): `plan`, `output`, `session`, or `all`
-2. **Resolve paths**: session board JSON path (`${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json`), project root
+2. **Resolve paths**: session board JSON path (`${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json`), project root
 3. **Spawn a Ward agent** to execute the validation scripts and collect results
 4. **Present findings** to the user with pass/fail summary and actionable items
 
@@ -58,7 +58,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 ### Layer: `plan`
 
 ```bash
-$PR/scripts/validate-plan.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+$PR/scripts/validate-plan.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
 Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
@@ -74,7 +74,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 ### Layer: `session`
 
 ```bash
-$PR/scripts/validate-session.sh ${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/sessions/{TICKET}.json
+$PR/scripts/validate-session.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
 Checks: required fields, phase/task status enums, verification block after verify phase, visual verification block when visualVerify: true, loop count bounds, board JSON freshness.

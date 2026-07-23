@@ -1,5 +1,5 @@
 ---
-name: phantom:close
+name: close
 description: "Use when a PR has MERGED and you want to fully close out the ticket — move Jira to Done, finalize & archive the session, clean up the branch/worktree, record final cost. Also use when user says 'close it out', 'ticket merged', 'move to done', 'finish the session', 'close the session', 'clean up the branch', or 'archive the ticket'. NOT for shipping a PR (use phantom:wrap) — close is the post-merge terminal step that runs after merge."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
@@ -77,7 +77,7 @@ git worktree prune
 
 Skip cleanly if branch/worktree already gone. Log each action and result.
 
-Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${PHANTOM_DATA:-$HOME/.claude/phantom-data}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
+Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${PHANTOM_DATA:-$HOME/.phantom}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
 
 ## Step 5: Cost Finalize
 

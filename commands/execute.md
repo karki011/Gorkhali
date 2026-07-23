@@ -1,5 +1,5 @@
 ---
-name: phantom:execute
+name: execute
 description: "Use when an APPROVED plan already exists and you want to run it — dispatch the agents the plan defined and execute its waves. Also use when user says 'run the approved plan', 'run the plan', 'dispatch the agents', or 'execute the plan'. NOT for net-new work without a plan (use phantom:start) and NOT to continue a prior session (use phantom:resume)."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # Broad/imperative triggers ('go', 'let's do it') are intentionally muted by user-invocable:false — execute is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety: a bare 'go' would auto-dispatch agents.
@@ -18,14 +18,14 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 2. **Load plan**: Read `{TEAM_DIR}/sessions/{TICKET}/plan.json`
    - If missing: "No plan found. Run `/phantom:start` first."
-   Checkpoint (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`): `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint (self-resolve {PLUGIN_ROOT} env-free): `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
 3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
 
 4. **Load intent**: Read `{TEAM_DIR}/sessions/{TICKET}/intent.json`
 
-5. **Activate blade marker**: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+5. **Activate blade marker**: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 
 6. **Dispatch per plan**:
    - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
@@ -49,9 +49,9 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
 
-   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
-7. **Deactivate blade marker**: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
+7. **Deactivate blade marker**: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 
 <output_format>
 
@@ -89,7 +89,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 <no_git_until_wrap>
 
-   Checkpoint: `[ -n "$PR" ] && node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
 9. **No git operations.** All work is local until wrap.
 

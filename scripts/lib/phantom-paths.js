@@ -5,19 +5,18 @@
 
 'use strict';
 
-const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-let DATA_DIRNAME = 'phantom-data';
-try {
-  DATA_DIRNAME = require('./constants').PHANTOM_DATA_DIRNAME || DATA_DIRNAME;
-} catch (_) { /* fail open: lib missing → inline default */ }
-
 /** Root for all Phantom mutable state. PHANTOM_DATA overrides the default. */
-function phantomData() {
-  return process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', DATA_DIRNAME);
+function phantomData(workspace = process.cwd()) {
+  const resolved = path.resolve(workspace || process.cwd());
+  let base = resolved;
+  try { base = fs.realpathSync(resolved); } catch (_) {}
+  if (process.env.PHANTOM_DATA) return path.resolve(base, process.env.PHANTOM_DATA);
+  if (process.env.HOME) return path.resolve(base, process.env.HOME, '.phantom');
+  return path.join(base, '.phantom');
 }
 
 // Per-process memoization. Hooks are hot paths (detectRepo runs on every

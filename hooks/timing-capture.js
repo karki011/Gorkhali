@@ -23,7 +23,9 @@ try {
 } catch (_) {
   // fail open: resolver unavailable — degrade gracefully, never crash a spawn
   const os = require('os');
-  const data = process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  const home = os.homedir();
+  const data = process.env.PHANTOM_DATA ||
+    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   timingDir = () => path.join(data, 'timing');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
 }

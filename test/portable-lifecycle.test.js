@@ -6,9 +6,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 
 const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+let gateSequence = 0;
 
 function runScript(script, args, env) {
   return new Promise((resolve, reject) => {
@@ -36,6 +37,60 @@ function fixture() {
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'planning.md'), '# Existing planning context\n');
   return { root, workspace, data, env: { PHANTOM_DATA: data } };
+}
+
+async function authorizeAndExecute(context, approvals = []) {
+  const common = ['--workspace', context.workspace];
+  for (const gate of approvals) {
+    await recordApprovalArtifacts(context, gate);
+    parse(await run(['approve', ...common, '--gate', gate], context.env));
+  }
+  parse(await run([
+    'authorize', ...common, '--scope', 'implementation',
+  ], context.env));
+  return parse(await run(['execute', ...common], context.env));
+}
+
+async function recordArtifact(context, type, payload, status = 'passed') {
+  gateSequence += 1;
+  const input = path.join(context.root, `${type}-${gateSequence}.json`);
+  fs.writeFileSync(input, JSON.stringify(payload));
+  return parse(await run([
+    'record',
+    '--workspace', context.workspace,
+    '--type', type,
+    '--status', status,
+    '--run', `artifact-${gateSequence}`,
+    '--input', input,
+  ], context.env));
+}
+
+async function recordApprovalArtifacts(context, gate) {
+  if (gate === 'direction') {
+    await recordArtifact(context, 'brainstorm', portableBrainstorm());
+  } else if (gate === 'plan') {
+    await recordArtifact(context, 'plan', portablePlan());
+  } else {
+    await recordArtifact(context, 'decisions', { wiring: 'Use the approved plan dependency order.' });
+  }
+}
+
+async function recordGate(context, type, status = 'passed') {
+  gateSequence += 1;
+  const common = ['--workspace', context.workspace];
+  const payload = type === 'verification'
+    ? { checks: [{ name: 'focused tests', result: 'passed' }] }
+    : { verdict: 'pass', findings: [] };
+  const input = path.join(context.root, `${type}-${gateSequence}.json`);
+  fs.writeFileSync(input, JSON.stringify(payload));
+  return parse(await run([
+    'record',
+    ...common,
+    '--type', type,
+    '--status', status,
+    '--run', `gate-${gateSequence}`,
+    '--input', input,
+  ], context.env));
 }
 
 const portablePlan = () => ({
@@ -171,10 +226,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.0.0');
+  assert.equal(started.bundle_version, '2.1.0');
   assert.deepEqual(started.producer, { role: 'apex', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.0.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.1.0');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -187,8 +242,9 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.0.0');
+  assert.equal(resumed.bundle_version, '2.1.0');
   assert.ok(resumed.resumed_at);
+  await authorizeAndExecute(context, ['plan']);
 
   const evidenceFile = path.join(context.root, 'evidence.json');
   fs.writeFileSync(evidenceFile, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
@@ -205,7 +261,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.0.0');
+  assert.equal(recorded.artifact.bundle_version, '2.1.0');
   assert.deepEqual(recorded.artifact.producer, { role: 'ward', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -435,6 +491,7 @@ test('concurrent artifact writes remain complete JSON and leave no temporary fil
   parse(await run([
     'start', ...common, '--task', 'RACE-1', '--intent', 'Exercise atomic writes', '--route', 'direct',
   ], context.env));
+  await authorizeAndExecute(context);
   const evidence = path.join(context.root, 'verification.json');
   fs.writeFileSync(evidence, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
 
@@ -479,7 +536,7 @@ test('completion is blocked until verification and review pass', async () => {
 
   const result = await run(['complete', ...common], context.env);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /passed verification artifact/);
+  assert.match(result.stderr, /execution has not started/);
 
   const status = parse(await run(['status', ...common], context.env));
   assert.equal(status.status, 'active');
@@ -491,6 +548,8 @@ test('record rejects undocumented statuses and empty passed gate evidence', asyn
   parse(await run([
     'start', ...common, '--task', 'EVIDENCE-1', '--intent', 'Validate gate evidence', '--route', 'direct',
   ], context.env));
+  await authorizeAndExecute(context);
+  parse(await run(['verify', ...common], context.env));
 
   const unsupported = await run([
     'record', ...common, '--type', 'context', '--status', 'totally-invalid',
@@ -553,7 +612,7 @@ test('state records validated delegation task and result contracts', async () =>
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.0.0');
+  assert.equal(task.artifact.bundle_version, '2.1.0');
   assert.deepEqual(task.artifact.producer, { role: 'blade', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -632,6 +691,7 @@ test('completion revalidates persisted gate evidence and envelope identity', asy
   parse(await run([
     'start', ...common, '--task', 'TAMPER-1', '--intent', 'Reject tampered gates', '--route', 'direct',
   ], context.env));
+  await authorizeAndExecute(context);
 
   const verificationInput = path.join(context.root, 'verification.json');
   const reviewInput = path.join(context.root, 'review.json');
@@ -649,7 +709,7 @@ test('completion revalidates persisted gate evidence and envelope identity', asy
   fs.writeFileSync(verification.file, JSON.stringify(artifact));
   const completed = await run(['complete', ...common], context.env);
   assert.equal(completed.code, 1);
-  assert.match(completed.stderr, /valid latest passed verification artifact/);
+  assert.match(completed.stderr, /Passed verification evidence requires at least one check/);
 });
 
 test('a newer failed gate overrides an older passed gate', async () => {
@@ -658,6 +718,7 @@ test('a newer failed gate overrides an older passed gate', async () => {
   parse(await run([
     'start', ...common, '--task', 'LATEST-1', '--intent', 'Honor the latest gate', '--route', 'direct',
   ], context.env));
+  await authorizeAndExecute(context);
 
   const verificationInput = path.join(context.root, 'verification.json');
   const reviewInput = path.join(context.root, 'review.json');
@@ -681,7 +742,279 @@ test('a newer failed gate overrides an older passed gate', async () => {
   }
   const completed = await run(['complete', ...common], context.env);
   assert.equal(completed.code, 1);
-  assert.match(completed.stderr, /valid latest passed verification artifact/);
+  assert.match(completed.stderr, /verification artifact is not passed/);
+});
+
+test('route-specific execution gates fail actionably and pass after required approvals', async () => {
+  for (const scenario of [
+    { route: 'direct', approvals: [], missing: null },
+    { route: 'plan', approvals: ['plan'], missing: /plan approval is missing.*approve --gate plan/s },
+    {
+      route: 'brainstorm',
+      approvals: ['direction', 'plan'],
+      missing: /direction approval is missing.*approve --gate direction/s,
+    },
+    {
+      route: 'full',
+      approvals: ['direction', 'plan', 'wiring'],
+      missing: /direction approval is missing.*approve --gate direction/s,
+    },
+  ]) {
+    const context = fixture();
+    const common = ['--workspace', context.workspace];
+    parse(await run([
+      'start',
+      ...common,
+      '--task', `ROUTE-${scenario.route}`,
+      '--intent', `Exercise ${scenario.route}`,
+      '--route', scenario.route,
+    ], context.env));
+
+    const unauthorized = await run(['execute', ...common], context.env);
+    assert.equal(unauthorized.code, 1);
+    assert.match(
+      unauthorized.stderr,
+      /implementation authorization is missing.*authorize --scope implementation/s,
+    );
+    parse(await run([
+      'authorize', ...common, '--scope', 'implementation',
+    ], context.env));
+
+    if (scenario.missing) {
+      const unapproved = await run(['execute', ...common], context.env);
+      assert.equal(unapproved.code, 1);
+      assert.match(unapproved.stderr, scenario.missing);
+    }
+    for (const gate of scenario.approvals) {
+      if (gate === 'plan' && ['brainstorm', 'full'].includes(scenario.route)) {
+        const beforeDirection = fixture();
+        const beforeCommon = ['--workspace', beforeDirection.workspace];
+        parse(await run([
+          'start',
+          ...beforeCommon,
+          '--task', `ORDER-${scenario.route}`,
+          '--intent', 'Exercise approval order',
+          '--route', scenario.route,
+        ], beforeDirection.env));
+        const outOfOrder = await run([
+          'approve', ...beforeCommon, '--gate', 'plan',
+        ], beforeDirection.env);
+        assert.equal(outOfOrder.code, 1);
+        assert.match(outOfOrder.stderr, /direction approval is missing.*approve --gate direction/s);
+      }
+      await recordApprovalArtifacts(context, gate);
+      parse(await run(['approve', ...common, '--gate', gate], context.env));
+    }
+    const executed = parse(await run(['execute', ...common], context.env));
+    assert.equal(executed.lifecycle.actions.execute.status, 'started');
+  }
+});
+
+test('implementation and draft-PR shipping authorizations remain separate', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'AUTH-1', '--intent', 'Separate authorities', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  await recordGate(context, 'verification');
+  await recordGate(context, 'review');
+
+  const unauthorizedShip = await run(['ship', ...common], context.env);
+  assert.equal(unauthorizedShip.code, 1);
+  assert.match(
+    unauthorizedShip.stderr,
+    /draft-PR shipping authorization is missing.*authorize --scope ship-draft-pr/s,
+  );
+  parse(await run([
+    'authorize', ...common, '--scope', 'ship-draft-pr',
+  ], context.env));
+  const ready = parse(await run(['ship', ...common], context.env));
+  assert.equal(ready.lifecycle.actions.ship.status, 'ready');
+});
+
+test('to-plan sessions permanently deny execute and ship even after authorization', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start',
+    ...common,
+    '--task', 'PLAN-ONLY',
+    '--intent', 'Produce a plan only',
+    '--route', 'plan',
+    '--mode', 'to-plan',
+  ], context.env));
+  for (const scope of ['implementation', 'ship-draft-pr']) {
+    parse(await run(['authorize', ...common, '--scope', scope], context.env));
+  }
+  for (const action of ['execute', 'ship']) {
+    const denied = await run([action, ...common], context.env);
+    assert.equal(denied.code, 1);
+    assert.match(denied.stderr, /permanently plan-only/);
+  }
+
+  parse(await run([
+    'start',
+    ...common,
+    '--task', 'PLAN-ONLY',
+    '--intent', 'Produce a plan only',
+    '--route', 'plan',
+    '--mode', 'standard',
+  ], context.env));
+  const stillDenied = await run(['execute', ...common], context.env);
+  assert.equal(stillDenied.code, 1);
+  assert.match(stillDenied.stderr, /permanently plan-only/);
+});
+
+test('matching start preserves legacy top-level plan-only mode fields', async () => {
+  for (const [label, legacyMode] of [
+    ['mode', { mode: 'to-plan' }],
+    ['to-plan-flag', { to_plan: true }],
+  ]) {
+    const context = fixture();
+    const common = ['--workspace', context.workspace];
+    const intent = `Preserve legacy ${label}`;
+    const started = parse(await run([
+      'start', ...common, '--task', `LEGACY-${label}`, '--intent', intent, '--route', 'direct',
+    ], context.env));
+    const sessionFile = path.join(
+      context.data,
+      'repos',
+      started.repo_id,
+      'sessions',
+      started.task_id,
+      'session.json',
+    );
+    const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    delete legacy.lifecycle;
+    Object.assign(legacy, legacyMode);
+    fs.writeFileSync(sessionFile, JSON.stringify(legacy));
+
+    const resumed = parse(await run([
+      'start', ...common, '--task', `LEGACY-${label}`, '--intent', intent, '--route', 'direct',
+    ], context.env));
+    assert.equal(resumed.lifecycle.mode, 'to-plan');
+    for (const scope of ['implementation', 'ship-draft-pr']) {
+      parse(await run(['authorize', ...common, '--scope', scope], context.env));
+    }
+    for (const action of ['execute', 'ship']) {
+      const denied = await run([action, ...common], context.env);
+      assert.equal(denied.code, 1);
+      assert.match(denied.stderr, /permanently plan-only/);
+    }
+  }
+});
+
+test('shipping and completion reject stale or superseded worktree evidence', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'FRESH-1', '--intent', 'Bind quality evidence', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  parse(await run([
+    'authorize', ...common, '--scope', 'ship-draft-pr',
+  ], context.env));
+  const verified = await recordGate(context, 'verification');
+  const reviewed = await recordGate(context, 'review');
+  assert.match(verified.artifact.worktree_fingerprint, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(reviewed.artifact.worktree_fingerprint, verified.artifact.worktree_fingerprint);
+
+  fs.appendFileSync(path.join(context.workspace, 'planning.md'), 'Changed after review\n');
+  for (const action of ['ship', 'complete']) {
+    const stale = await run([action, ...common], context.env);
+    assert.equal(stale.code, 1);
+    assert.match(stale.stderr, /verification artifact is stale for the current worktree/);
+  }
+
+  await recordGate(context, 'verification');
+  const staleReview = await run(['ship', ...common], context.env);
+  assert.equal(staleReview.code, 1);
+  assert.match(staleReview.stderr, /review artifact is stale for the current worktree/);
+  await recordGate(context, 'review');
+  assert.equal(parse(await run(['ship', ...common], context.env)).lifecycle.actions.ship.status, 'ready');
+
+  await recordGate(context, 'verification', 'failed');
+  const rejectedReviewInput = path.join(context.root, 'review-after-failed-verification.json');
+  fs.writeFileSync(rejectedReviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  const rejectedReview = await run([
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'review-after-failed-verification',
+    '--input', rejectedReviewInput,
+  ], context.env);
+  assert.equal(rejectedReview.code, 1);
+  assert.match(rejectedReview.stderr, /verification artifact is not passed/);
+  const superseded = await run(['ship', ...common], context.env);
+  assert.equal(superseded.code, 1);
+  assert.match(superseded.stderr, /verification artifact is not passed/);
+});
+
+test('older sessions recover lifecycle defaults and identify the next command', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'LEGACY-1', '--intent', 'Recover old state', '--route', 'direct',
+  ], context.env));
+  const sessionFile = path.join(
+    context.data,
+    'repos',
+    started.repo_id,
+    'sessions',
+    started.task_id,
+    'session.json',
+  );
+  const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  delete legacy.lifecycle;
+  delete legacy.route;
+  fs.writeFileSync(sessionFile, JSON.stringify(legacy));
+
+  const recovered = parse(await run(['status', ...common], context.env));
+  assert.equal(recovered.lifecycle.mode, 'standard');
+  assert.equal(recovered.lifecycle.authorizations.implementation.status, 'pending');
+  const blocked = await run(['execute', ...common], context.env);
+  assert.equal(blocked.code, 1);
+  assert.match(
+    blocked.stderr,
+    /implementation authorization is missing.*phantom-state\.mjs authorize --scope implementation/s,
+  );
+  parse(await run([
+    'authorize', ...common, '--scope', 'implementation',
+  ], context.env));
+  const unrouted = await run(['execute', ...common], context.env);
+  assert.equal(unrouted.code, 1);
+  assert.match(unrouted.stderr, /recovered session has no supported route.*start --task <id>/s);
+  parse(await run([
+    'start',
+    ...common,
+    '--task', 'LEGACY-1',
+    '--intent', 'Recover old state',
+    '--route', 'direct',
+  ], context.env));
+  assert.equal(parse(await run(['execute', ...common], context.env)).lifecycle.actions.execute.status, 'started');
+});
+
+test('new decision artifacts invalidate approvals that depended on older content', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'REPLAN-1', '--intent', 'Require reapproval', '--route', 'plan',
+  ], context.env));
+  const input = path.join(context.root, 'replan.json');
+  fs.writeFileSync(input, JSON.stringify(portablePlan()));
+  parse(await run([
+    'record', ...common, '--type', 'plan', '--status', 'passed', '--input', input,
+  ], context.env));
+  parse(await run(['approve', ...common, '--gate', 'plan'], context.env));
+  parse(await run([
+    'record', ...common, '--type', 'plan', '--status', 'passed', '--input', input,
+  ], context.env));
+  parse(await run([
+    'authorize', ...common, '--scope', 'implementation',
+  ], context.env));
+
+  const blocked = await run(['execute', ...common], context.env);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.stderr, /plan approval is missing.*approve --gate plan/s);
 });
 
 test('starting a different task does not orphan the current active session', async () => {
@@ -697,6 +1030,219 @@ test('starting a different task does not orphan the current active session', asy
   assert.equal(second.code, 1);
   assert.match(second.stderr, /Cannot start task SECOND while current task FIRST is active/);
   assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'FIRST');
+});
+
+test('same-task restarts preserve immutable route and material intent', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'IMMUTABLE-1', '--intent', 'Preserve this intent', '--route', 'plan',
+  ], context.env));
+
+  for (const [args, expected] of [
+    [['--intent', 'Preserve this intent', '--route', 'direct'], /Cannot change route.*revision.*restart/s],
+    [['--intent', 'A materially different intent', '--route', 'plan'], /Cannot change material intent.*revision.*restart/s],
+  ]) {
+    const result = await run(['start', ...common, '--task', 'IMMUTABLE-1', ...args], context.env);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, expected);
+  }
+
+  const status = parse(await run(['status', ...common], context.env));
+  assert.equal(status.route, 'plan');
+  assert.equal(status.intent_summary, 'Preserve this intent');
+});
+
+test('approvals require and remain bound to current passed decision artifacts', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'BOUND-1', '--intent', 'Bind approval', '--route', 'plan',
+  ], context.env));
+
+  const missing = await run(['approve', ...common, '--gate', 'plan'], context.env);
+  assert.equal(missing.code, 1);
+  assert.match(missing.stderr, /current passed plan artifact is missing.*fresh passed plan artifact/s);
+
+  const plan = await recordArtifact(context, 'plan', portablePlan());
+  const approved = parse(await run(['approve', ...common, '--gate', 'plan'], context.env));
+  assert.deepEqual(approved.lifecycle.approvals.plan.artifact_bindings, [{
+    artifact_type: 'plan',
+    record_sequence: plan.artifact.record_sequence,
+    digest: approved.lifecycle.approvals.plan.artifact_bindings[0].digest,
+  }]);
+  assert.match(approved.lifecycle.approvals.plan.artifact_bindings[0].digest, /^sha256:[a-f0-9]{64}$/);
+
+  const artifact = JSON.parse(fs.readFileSync(plan.file, 'utf8'));
+  artifact.evidence.summary = `${artifact.evidence.summary} Changed after approval.`;
+  fs.writeFileSync(plan.file, JSON.stringify(artifact));
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  const stale = await run(['execute', ...common], context.env);
+  assert.equal(stale.code, 1);
+  assert.match(stale.stderr, /plan approval is stale.*approve --gate plan/s);
+});
+
+test('wiring approval explicitly binds the current passed plan and decisions artifacts', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'WIRING-1', '--intent', 'Bind wiring', '--route', 'full',
+  ], context.env));
+  await recordApprovalArtifacts(context, 'direction');
+  parse(await run(['approve', ...common, '--gate', 'direction'], context.env));
+  await recordApprovalArtifacts(context, 'plan');
+  parse(await run(['approve', ...common, '--gate', 'plan'], context.env));
+
+  const missing = await run(['approve', ...common, '--gate', 'wiring'], context.env);
+  assert.equal(missing.code, 1);
+  assert.match(missing.stderr, /current passed decisions artifact is missing/);
+  await recordApprovalArtifacts(context, 'wiring');
+  const approved = parse(await run(['approve', ...common, '--gate', 'wiring'], context.env));
+  assert.deepEqual(
+    approved.lifecycle.approvals.wiring.artifact_bindings.map((binding) => binding.artifact_type),
+    ['plan', 'decisions'],
+  );
+});
+
+test('record failures do not advance execution or verification lifecycle state', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'ATOMIC-1', '--intent', 'Keep failed records atomic', '--route', 'direct',
+  ], context.env));
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+
+  for (const args of [
+    ['--actual-profile', 'unknown'],
+    ['--wall-time-ms', '-1'],
+    ['--tool-turns', '1.5'],
+  ]) {
+    const failed = await run([
+      'record', ...common, '--type', 'execution', '--status', 'pending', ...args,
+    ], context.env);
+    assert.equal(failed.code, 1);
+    assert.equal(parse(await run(['status', ...common], context.env)).lifecycle.actions.execute.status, 'pending');
+  }
+
+  parse(await run(['execute', ...common], context.env));
+  const verificationInput = path.join(context.root, 'atomic-verification.json');
+  fs.writeFileSync(verificationInput, JSON.stringify({
+    checks: [{ name: 'atomic persistence', result: 'passed' }],
+  }));
+  const runDirectory = path.join(
+    context.data,
+    'repos',
+    parse(await run(['status', ...common], context.env)).repo_id,
+    'sessions',
+    'ATOMIC-1',
+    'runs',
+  );
+  fs.mkdirSync(runDirectory, { recursive: true });
+  fs.writeFileSync(path.join(runDirectory, 'write-failure'), 'blocks artifact directory creation');
+  const writeFailure = await run([
+    'record', ...common, '--type', 'verification', '--status', 'passed',
+    '--run', 'write-failure', '--input', verificationInput,
+  ], context.env);
+  assert.equal(writeFailure.code, 1);
+  assert.equal(parse(await run(['status', ...common], context.env)).lifecycle.actions.verify.status, 'pending');
+
+  if (process.platform !== 'win32') {
+    const pointerDirectory = path.join(context.data, 'state', 'current-session');
+    const partialArtifact = path.join(runDirectory, 'state-write-failure', 'verification.json');
+    fs.chmodSync(pointerDirectory, 0o555);
+    let stateWriteFailure;
+    try {
+      stateWriteFailure = await run([
+        'record', ...common, '--type', 'verification', '--status', 'passed',
+        '--run', 'state-write-failure', '--input', verificationInput,
+      ], context.env);
+    } finally {
+      fs.chmodSync(pointerDirectory, 0o755);
+    }
+    assert.equal(stateWriteFailure.code, 1);
+    assert.equal(fs.existsSync(partialArtifact), false);
+    assert.equal(parse(await run(['status', ...common], context.env)).lifecycle.actions.verify.status, 'pending');
+  }
+});
+
+test('review requires current passed verification and becomes stale after later verification', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'ORDERED-1', '--intent', 'Order quality gates', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  parse(await run(['verify', ...common], context.env));
+  const reviewInput = path.join(context.root, 'ordered-review.json');
+  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  const premature = await run([
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'premature', '--input', reviewInput,
+  ], context.env);
+  assert.equal(premature.code, 1);
+  assert.match(premature.stderr, /current passed verification artifact is missing/);
+
+  const verification = await recordGate(context, 'verification');
+  const review = await recordGate(context, 'review');
+  assert.ok(review.artifact.record_sequence > verification.artifact.record_sequence);
+  await recordGate(context, 'verification');
+  const stale = await run(['complete', ...common], context.env);
+  assert.equal(stale.code, 1);
+  assert.match(stale.stderr, /authoritative review must be newer.*fresh review after verification/s);
+});
+
+test('worktree fingerprints include index metadata, file state, untracked content, and dangling links', async () => {
+  const context = fixture();
+  const git = (...args) => execFileSync('git', ['-C', context.workspace, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  git('init');
+  git('config', 'user.name', 'Subash Karki');
+  git('config', 'user.email', 'subash@example.com');
+  git('add', 'planning.md');
+  git('commit', '-m', 'fixture');
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'FINGERPRINT-1', '--intent', 'Cover worktree state', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  const baseline = await recordGate(context, 'verification');
+
+  fs.writeFileSync(path.join(context.workspace, 'planning.md'), 'staged-only content\n');
+  git('add', 'planning.md');
+  fs.writeFileSync(path.join(context.workspace, 'planning.md'), '# Existing planning context\n');
+  const stagedOnly = await recordGate(context, 'verification');
+  assert.notEqual(stagedOnly.artifact.worktree_fingerprint, baseline.artifact.worktree_fingerprint);
+
+  git('reset', '--', 'planning.md');
+  if (process.platform !== 'win32') {
+    fs.chmodSync(path.join(context.workspace, 'planning.md'), 0o755);
+    const executable = await recordGate(context, 'verification');
+    assert.notEqual(executable.artifact.worktree_fingerprint, baseline.artifact.worktree_fingerprint);
+    fs.chmodSync(path.join(context.workspace, 'planning.md'), 0o644);
+  }
+
+  fs.unlinkSync(path.join(context.workspace, 'planning.md'));
+  const deleted = await recordGate(context, 'verification');
+  assert.notEqual(deleted.artifact.worktree_fingerprint, baseline.artifact.worktree_fingerprint);
+  fs.writeFileSync(path.join(context.workspace, 'planning.md'), '# Existing planning context\n');
+
+  fs.writeFileSync(path.join(context.workspace, 'untracked.txt'), 'untracked content\n');
+  const untracked = await recordGate(context, 'verification');
+  assert.notEqual(untracked.artifact.worktree_fingerprint, baseline.artifact.worktree_fingerprint);
+  fs.unlinkSync(path.join(context.workspace, 'untracked.txt'));
+
+  if (process.platform !== 'win32') {
+    fs.symlinkSync('missing-target', path.join(context.workspace, 'dangling-link'));
+    const dangling = await recordGate(context, 'verification');
+    assert.notEqual(dangling.artifact.worktree_fingerprint, baseline.artifact.worktree_fingerprint);
+  }
+
+  const beforeGitlink = await recordGate(context, 'verification');
+  const head = git('rev-parse', 'HEAD').toString('utf8').trim();
+  git('update-index', '--add', '--cacheinfo', `160000,${head},vendor/submodule`);
+  const gitlink = await recordGate(context, 'verification');
+  assert.notEqual(gitlink.artifact.worktree_fingerprint, beforeGitlink.artifact.worktree_fingerprint);
 });
 
 test('lifecycle lock blocks concurrent owners and recovers after a dead owner', async () => {

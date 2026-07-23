@@ -55,7 +55,7 @@ Every JSON artifact must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "2.0.0",
+  "bundle_version": "2.1.0",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"
@@ -87,6 +87,74 @@ review pass completed; it never means the user approved the recommendation.
 Approval remains in the decision record. Session completion specifically
 requires `passed` verification and review artifacts.
 
+## Route-aware lifecycle state
+
+The session envelope additively carries a `lifecycle` object while retaining
+`schema_version: 1`. Consumers of older sessions must synthesize missing
+pending values rather than rejecting the session:
+
+```json
+{
+  "lifecycle": {
+    "mode": "standard",
+    "approvals": {
+      "direction": { "status": "pending", "decided_at": null },
+      "plan": { "status": "pending", "decided_at": null },
+      "wiring": { "status": "pending", "decided_at": null }
+    },
+    "authorizations": {
+      "implementation": { "status": "pending", "decided_at": null },
+      "ship-draft-pr": { "status": "pending", "decided_at": null }
+    },
+    "actions": {
+      "execute": { "status": "pending", "decided_at": null },
+      "verify": { "status": "pending", "decided_at": null },
+      "ship": { "status": "pending", "decided_at": null }
+    }
+  }
+}
+```
+
+Implementation authorization and draft-PR shipping authorization are distinct;
+one never implies the other. Starting with `--mode to-plan` (or `--to-plan`)
+sets a permanent plan-only mode for that session. It can produce planning
+artifacts and record authorization decisions, but `execute` and `ship` remain
+denied. Verification still cannot start because execution never started.
+For an existing active task, route and material intent are immutable. `start`
+may backfill a missing route on a legacy session, but a route or intent change
+must be captured as an explicit revision or restarted under a new task id. It
+must never silently retain approvals across changed intent.
+
+Record decisions and cross lifecycle gates with the helper:
+
+```text
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate direction
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate plan
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
+node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope implementation
+node <skill-directory>/scripts/phantom-state.mjs execute --workspace <path>
+node <skill-directory>/scripts/phantom-state.mjs verify --workspace <path>
+node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-draft-pr
+node <skill-directory>/scripts/phantom-state.mjs ship --workspace <path>
+```
+
+Missing prerequisites fail with the exact missing decision and the command that
+records it. Route gates are cumulative: `direct` needs no approval, `plan`
+needs plan approval, `brainstorm` needs direction approval before plan
+approval, and `full` additionally needs wiring approval. Recording a new
+brainstorm invalidates direction and downstream approvals; recording a new plan
+invalidates plan and wiring approvals, and recording new decisions invalidates
+wiring approval, so changed decisions must be approved again.
+
+Every approval is bound to the corresponding current passed artifact by its
+`record_sequence` and SHA-256 digest. Direction binds the current passed
+`brainstorm`; plan binds the current passed `plan`; wiring binds both the
+current passed `plan` and current passed `decisions` artifact because there is
+no separate wiring artifact. Approval fails until those artifacts exist and
+have passed. `execute` revalidates every binding. A recovered legacy approval
+without a binding is not trusted: record a fresh passed artifact and approve it
+again.
+
 Delegated passes use versioned `delegation-task` and `delegation-result`
 payloads stored under `runs/<run-id>/`. Both must validate against the portable
 contract in [roles](roles.md) before the result can be synthesized.
@@ -95,6 +163,11 @@ contract in [roles](roles.md) before the result can be synthesized.
 
 - Write JSON to a unique temporary file in the destination directory, flush it,
   then rename it atomically.
+- Validate inputs, decision contracts, model diagnostics, gate evidence, and
+  the worktree fingerprint before persistence. Persist a recorded artifact
+  successfully before advancing execute or verify lifecycle state. A failed
+  artifact write must leave those lifecycle actions unchanged; if the later
+  state write fails, restore the prior artifact, session, and pointer values.
 - Serialize lifecycle mutations with the per-repository advisory lock under
   `locks/`. Recover a lock whose owning process no longer exists, and reject a
   second active task rather than silently replacing the current-session pointer.
@@ -109,6 +182,17 @@ contract in [roles](roles.md) before the result can be synthesized.
   failed or blocked gate cannot be overridden by an older pass. A passed
   verification includes at least one named passed check; a passed review has a
   `pass` verdict and a findings array.
+- Bind every verification and review artifact to the current
+  `worktree_fingerprint`. `ship` and `complete` require the latest artifact for
+  each gate to be passed and bound to the current fingerprint. Any subsequent
+  tracked or untracked content change makes that evidence stale. The fingerprint
+  includes index stage, mode, blob, and gitlink entries plus tracked working
+  state, executable bits, deletions, untracked content, and symbolic-link
+  targets, including dangling links.
+- Record review only after the authoritative current passed verification for
+  the same fingerprint. The authoritative review must have a later
+  `record_sequence`; any later verification makes an earlier review stale and
+  blocks `ship` and `complete` until review runs again.
 - Never delete a session to complete it; move or copy it to `completed`.
 
 The bundled state helper implements the portable baseline. If command execution

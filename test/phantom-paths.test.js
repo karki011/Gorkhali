@@ -8,8 +8,21 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
+const { pathToFileURL } = require('url');
 
 const paths = require('../scripts/lib/phantom-paths');
+const COMMONJS_PATHS = require.resolve('../scripts/lib/phantom-paths');
+const SHELL_PATHS = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
+const PORTABLE_PATHS = path.resolve(
+  __dirname,
+  '..',
+  'skills',
+  'phantom',
+  'scripts',
+  'lib',
+  'portable.mjs',
+);
 const {
   detectRepo,
   learningsDir,
@@ -49,6 +62,139 @@ function withEnv(overrides, fn) {
 function mkTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
+
+function resolvedRoot(kind, { cwd, workspace = cwd, env }) {
+  let result;
+  if (kind === 'commonjs') {
+    result = spawnSync(
+      process.execPath,
+      [
+        '-e',
+        'process.stdout.write(require(process.argv[1]).phantomData(process.argv[2]))',
+        COMMONJS_PATHS,
+        workspace,
+      ],
+      { cwd, env, encoding: 'utf8' },
+    );
+  } else if (kind === 'shell') {
+    result = spawnSync(
+      '/bin/sh',
+      ['-c', '. "$1"; printf "%s" "$PHANTOM_DATA"', 'sh', SHELL_PATHS],
+      { cwd, env, encoding: 'utf8' },
+    );
+  } else {
+    const moduleUrl = pathToFileURL(PORTABLE_PATHS).href;
+    result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import { dataRoot } from ${JSON.stringify(moduleUrl)}; ` +
+          'process.stdout.write(dataRoot(process.argv[1]));',
+        workspace,
+      ],
+      { cwd, env, encoding: 'utf8' },
+    );
+  }
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout;
+}
+
+test('phantomData: explicit PHANTOM_DATA override has highest precedence', () => {
+  const explicit = path.join(os.tmpdir(), 'phantom-explicit-root');
+  withEnv({ PHANTOM_DATA: explicit }, () => {
+    assert.equal(paths.phantomData(), explicit);
+  });
+});
+
+test('phantomData: default root is neutral ~/.phantom', () => {
+  const home = mkTmp('paths-home-');
+  try {
+    withEnv({ PHANTOM_DATA: undefined, HOME: home }, () => {
+      assert.equal(paths.phantomData(), path.join(home, '.phantom'));
+    });
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('shell resolver matches explicit override and neutral default root', () => {
+  const home = mkTmp('paths-shell-home-');
+  const shellLib = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
+  const command = '. "$1"; printf "%s" "$PHANTOM_DATA"';
+  try {
+    const defaultEnv = { ...process.env, HOME: home };
+    delete defaultEnv.PHANTOM_DATA;
+    const defaultRun = spawnSync('/bin/sh', ['-c', command, 'sh', shellLib], {
+      env: defaultEnv,
+      encoding: 'utf8',
+    });
+    assert.equal(defaultRun.status, 0, defaultRun.stderr);
+    assert.equal(defaultRun.stdout, path.join(home, '.phantom'));
+
+    const explicit = path.join(home, 'explicit');
+    const explicitRun = spawnSync('/bin/sh', ['-c', command, 'sh', shellLib], {
+      env: { ...defaultEnv, PHANTOM_DATA: explicit },
+      encoding: 'utf8',
+    });
+    assert.equal(explicitRun.status, 0, explicitRun.stderr);
+    assert.equal(explicitRun.stdout, explicit);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('all root resolvers normalize relative overrides against their workspace or cwd', () => {
+  const root = mkTmp('paths-cross-relative-');
+  const workspace = path.join(root, 'workspace');
+  const otherCwd = path.join(root, 'other-cwd');
+  fs.mkdirSync(workspace);
+  fs.mkdirSync(otherCwd);
+  const canonicalWorkspace = fs.realpathSync(workspace);
+  const env = { ...process.env, PHANTOM_DATA: path.join('relative', '..', 'state') };
+  try {
+    assert.equal(
+      resolvedRoot('commonjs', { cwd: otherCwd, workspace, env }),
+      path.join(canonicalWorkspace, 'state'),
+    );
+    assert.equal(
+      resolvedRoot('shell', { cwd: workspace, env }),
+      path.join(canonicalWorkspace, 'state'),
+    );
+    assert.equal(
+      resolvedRoot('portable', { cwd: otherCwd, workspace, env }),
+      path.join(canonicalWorkspace, 'state'),
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('all root resolvers treat an empty override as unset and use workspace when HOME is unset', () => {
+  const root = mkTmp('paths-cross-fallback-');
+  const workspace = path.join(root, 'workspace');
+  const otherCwd = path.join(root, 'other-cwd');
+  fs.mkdirSync(workspace);
+  fs.mkdirSync(otherCwd);
+  const canonicalWorkspace = fs.realpathSync(workspace);
+  const env = { ...process.env, PHANTOM_DATA: '', HOME: '' };
+  try {
+    assert.equal(
+      resolvedRoot('commonjs', { cwd: otherCwd, workspace, env }),
+      path.join(canonicalWorkspace, '.phantom'),
+    );
+    assert.equal(
+      resolvedRoot('shell', { cwd: workspace, env }),
+      path.join(canonicalWorkspace, '.phantom'),
+    );
+    assert.equal(
+      resolvedRoot('portable', { cwd: otherCwd, workspace, env }),
+      path.join(canonicalWorkspace, '.phantom'),
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('detectRepo: PHANTOM_REPO env override wins (trimmed)', () => {
   withEnv({ PHANTOM_REPO: '  my-override-repo  ' }, () => {

@@ -115,7 +115,7 @@ function latestCheckpoint(dir) {
 
 module.exports = { writeCheckpoint, readCheckpoints, latestCheckpoint };
 
-// CLI: node checkpoint.js write <dir> <phase>   (JSON on stdin)
+// CLI: node checkpoint.js write <dir> <phase>   (optional JSON on stdin; defaults to {})
 //      node checkpoint.js latest <dir>
 //      node checkpoint.js list <dir>
 if (require.main === module) {
@@ -124,7 +124,7 @@ if (require.main === module) {
   function usage() {
     process.stderr.write(
       'Usage:\n' +
-      '  node checkpoint.js write <dir> <phase>   # JSON on stdin\n' +
+      '  node checkpoint.js write <dir> <phase>   # optional JSON on stdin; defaults to {}\n' +
       '  node checkpoint.js latest <dir>\n' +
       '  node checkpoint.js list <dir>\n'
     );
@@ -141,7 +141,7 @@ if (require.main === module) {
     process.stdin.on('end', () => {
       let data;
       try {
-        data = JSON.parse(raw);
+        data = raw.trim() === '' ? {} : JSON.parse(raw);
       } catch (err) {
         process.stderr.write(`[checkpoint] invalid JSON on stdin: ${err.message}\n`);
         process.exit(1);

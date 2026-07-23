@@ -1,5 +1,5 @@
 ---
-name: phantom:visual
+name: visual
 description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
 argument-hint: "[/route1 /route2 ...] [--autonomous] [--no-fix]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
@@ -40,9 +40,9 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 ## Visual Fix Loop (max 3 iterations)
 
 1. Lens outputs structured fix packet (issue, screenshot, element ref, expected vs actual, affected file)
-2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 3. Apex dispatches Blade (`subagent_type: "blade"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
-4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
+4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
 6. Re-spawn Lens on same routes
 7. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.

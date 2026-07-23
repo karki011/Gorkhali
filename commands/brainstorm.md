@@ -1,5 +1,5 @@
 ---
-name: phantom:brainstorm
+name: brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
 argument-hint: "<requirement or problem statement> [--council|--simple]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]

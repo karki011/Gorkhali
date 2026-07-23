@@ -1,5 +1,5 @@
 ---
-name: phantom:visualflow
+name: visualflow
 description: "Use when building a NEW screen, feature, or flow — especially with NO Figma or design — and you want to nail down the flow BEFORE writing code. Produces a reviewable HTML flow artifact (screens, states, transitions) gated by a human before implementation. Also use when user says 'visual flow', 'plan the screens', 'flow before we build', or 'wireframe the flow'."
 argument-hint: "<screen/feature description or ticket>"
 allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob", "LS", "Skill"]

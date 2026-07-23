@@ -1,5 +1,5 @@
 ---
-name: phantom:health
+name: health
 description: "Use when the Phantom SYSTEM ITSELF seems broken — learnings index is stale, sessions are corrupted, or artifacts are missing. Diagnoses the knowledge layer — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is phantom broken', 'is the phantom broken', 'phantom seems broken', 'check phantom health', or 'diagnose phantom'. NOT for broken user code (use phantom:fix for known failures, phantom:hound to investigate unknown ones)."
 ---
 
@@ -25,7 +25,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 7. **Edge integrity** — if `EDGES.md` exists, check that all Source and Target IDs reference entries that still exist in INDEX.md or domain files. Report broken refs as `BROKEN EDGE: [{source}] → [{target}] — target not found`.
 
-8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `${PHANTOM_DATA:-~/.claude/phantom-data}/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
+8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
 
 9. **File size caps**: Check all skill/reference/learnings files against caps:
    - `commands/*.md` (non-shared) > 80 lines → needs trimming

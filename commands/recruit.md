@@ -1,5 +1,5 @@
 ---
-name: phantom:recruit
+name: recruit
 description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, audit, or focused coding job. Spawns a Blade agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer', 'accessibility expert', 'performance auditor', 'security reviewer'). Also use when user says 'spawn an agent', 'spawn a specialist', 'get a specialist for', 'expert on', or 'audit this with an agent'. NOT for generic 'I need help' — net-new work routes to phantom:start."
 argument-hint: "<role-focus>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
@@ -13,8 +13,8 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 
 1. Parse the requested role focus from arguments (e.g., "data migration", "performance", "security", "accessibility")
 2. Load active contracts and session context
-3. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.claude/phantom-data}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+3. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 4. Spawn a Blade with the specified ROLE FOCUS directive baked into the prompt (`subagent_type: "blade"`, `mode: "bypassPermissions"`) (effort = session `high`; model per `reference/agents.md` → Model Routing)
-5. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.claude/phantom-data}/.blade-editing"`
+5. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 6. The Blade output follows the same Post-Agent Hook as core shadows
 7. Record Blade (ROLE FOCUS) participation in session state

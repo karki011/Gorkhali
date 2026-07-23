@@ -27,7 +27,7 @@ node validate-artifact.js <artifact-type> <file-path>
 
 **Example:**
 ```bash
-node validate-artifact.js verification ~/.claude/phantom-data/repos/myrepo/sessions/ENG-1234/verification.json
+node validate-artifact.js verification ~/.phantom/repos/myrepo/sessions/ENG-1234/verification.json
 ```
 
 ---
@@ -40,7 +40,7 @@ Verifies that `learnings/INDEX.md` is internally consistent with the domain file
 node check-learnings-index.js [learnings-dir]
 ```
 
-**Default dir:** `~/.claude/phantom-data/repos/_default/learnings`
+**Default dir:** `${PHANTOM_DATA:-~/.phantom}/repos/<detected-repo>/learnings`
 
 **Checks:**
 - Every `.md` file referenced in INDEX.md exists on disk
@@ -52,7 +52,7 @@ node check-learnings-index.js [learnings-dir]
 
 **Example:**
 ```bash
-node check-learnings-index.js ~/.claude/phantom-data/repos/feature-web-apps/learnings
+node check-learnings-index.js ~/.phantom/repos/feature-web-apps/learnings
 ```
 
 ---
@@ -78,10 +78,10 @@ Checks a session directory for expected artifacts and validates their JSON.
 **Examples:**
 ```bash
 # Auto-detect phase
-./session-health.sh ~/.claude/phantom-data/repos/myrepo/sessions/ENG-1234
+./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234
 
 # Check that all wrap-phase artifacts are present
-./session-health.sh ~/.claude/phantom-data/repos/myrepo/sessions/ENG-1234 --phase wrap
+./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234 --phase wrap
 ```
 
 ---

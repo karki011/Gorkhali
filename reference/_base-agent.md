@@ -12,7 +12,7 @@ Before starting work, inherit project-specific knowledge:
 6. If found, follow their patterns EXACTLY
 
 ## Project Learnings
-Check `${PHANTOM_DATA:-~/.claude/phantom-data}/repos/{REPO_NAME}/learnings/` for project context:
+Check `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/learnings/` for project context:
 - `INDEX.md` — quick reference (always read)
 - Domain files matching your task: `ui.md`, `data.md`, `auth.md`, `testing.md`, `shadows.md`, `migration.md`, `tooling.md`
 

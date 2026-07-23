@@ -1,5 +1,5 @@
 ---
-name: phantom:learn
+name: learn
 description: "Use when you discover something worth remembering, want to record a correction, save a pattern, or note a gotcha for future sessions. Captures learnings to the domain knowledge files so future work benefits. Also use when user says 'remember this', 'note that', 'don't do that again', 'save this pattern', or 'correction'."
 argument-hint: "<correction>"
 ---

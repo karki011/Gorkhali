@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const CHECKPOINT_PATH = require.resolve('../scripts/lib/checkpoint');
 const { writeCheckpoint, readCheckpoints, latestCheckpoint } = require(CHECKPOINT_PATH);
@@ -156,6 +156,49 @@ test('CLI round-trip: write with stdin JSON → latest returns it', () => {
   assert.equal(latestResult.seq, 1);
   assert.equal(latestResult.phase, 'cli-phase');
   assert.equal(latestResult.data.value, 42);
+});
+
+// ── CLI write: optional stdin defaults to an empty object ─────────────────
+
+for (const [label, input] of [
+  ['empty', ''],
+  ['whitespace-only', ' \n\t'],
+]) {
+  test(`CLI write with ${label} stdin writes a minimal checkpoint`, () => {
+    const dir = tmpDir();
+    const result = spawnSync(
+      process.execPath,
+      [CHECKPOINT_PATH, 'write', dir, 'phase-a-context'],
+      { input, encoding: 'utf8' }
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.deepEqual(output, {
+      seq: 1,
+      file: path.join(dir, '001-phase-a-context.json'),
+    });
+
+    const checkpoint = JSON.parse(fs.readFileSync(output.file, 'utf8'));
+    assert.equal(checkpoint._meta.phase, 'phase-a-context');
+    assert.equal(checkpoint._meta.ticket, null);
+    assert.equal(typeof checkpoint._meta.ts, 'string');
+    assert.deepEqual(checkpoint.data, {});
+  });
+}
+
+test('CLI write rejects malformed non-empty JSON without writing a checkpoint', () => {
+  const dir = path.join(tmpDir(), 'checkpoints');
+  const result = spawnSync(
+    process.execPath,
+    [CHECKPOINT_PATH, 'write', dir, 'phase-a-context'],
+    { input: '{not valid JSON', encoding: 'utf8' }
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^\[checkpoint\] invalid JSON on stdin:/);
+  assert.equal(result.stdout, '');
+  assert.equal(fs.existsSync(dir), false);
 });
 
 // ── CLI list ──────────────────────────────────────────────────────────────

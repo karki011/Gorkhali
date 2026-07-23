@@ -35,7 +35,7 @@ edges:
   - relates_to: rb-9f0e1d
   - supersedes: rb-000abc
 trace:
-  session: /Users/x/.claude/phantom-data/repos/research-team-skills/sessions/repo-brain
+  session: /Users/x/.phantom/repos/research-team-skills/sessions/repo-brain
   transcript: /Users/x/.claude/projects/-Users-x-.../<session>.jsonl
   pr: https://github.com/org/repo/pull/62
   commit: 34b3690

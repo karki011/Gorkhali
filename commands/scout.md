@@ -1,5 +1,5 @@
 ---
-name: phantom:scout
+name: scout
 description: "Use when you need context before planning — explore the codebase, understand how something is implemented, map dependencies, or find patterns. Also use when user says 'how is X implemented', 'before we build', 'what does this do', 'how does this work', 'find related code', 'explore', or 'gather context'. NOT for implementation — use phantom:start."
 argument-hint: "[area]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]

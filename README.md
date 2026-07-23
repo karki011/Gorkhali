@@ -186,8 +186,8 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 ```
 
 Portable mutable state lives outside the skill under
-`${PHANTOM_DATA:-~/.phantom}`. The legacy native plugin keeps its existing
-`${PHANTOM_DATA:-~/.claude/phantom-data}` default for backward compatibility:
+`${PHANTOM_DATA:-~/.phantom}`. Set `PHANTOM_DATA` to use an explicit root;
+otherwise every supported runtime uses `~/.phantom`:
 
 ```
 ${PHANTOM_DATA:-~/.phantom}/
@@ -317,7 +317,7 @@ There is no config file. All optional behavior is controlled by environment vari
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PHANTOM_DATA` | `~/.phantom` portable; `~/.claude/phantom-data` legacy | Root for all mutable state (sessions, learnings) |
+| `PHANTOM_DATA` | `~/.phantom` | Root for all mutable state (sessions, learnings) |
 | `PHANTOM_REPO` | git-root basename | Override the repo name used for state partitioning |
 | `PHANTOM_ROUTING_NUDGE` | `1` (on) | Prompt-time routing reminder; set `0` to silence |
 | `PHANTOM_ROUTING_ENFORCE` | `0` (off) | When `1`, hard-block implementation edits outside a phantom session |
@@ -430,9 +430,14 @@ only those entries because `hooks/hooks.json` now owns them:
 - `context-compact-guide.sh`
 
 Back up `settings.json` before editing and preserve every non-Phantom hook. If
-you need data from an old `~/.claude/team` or `~/.claude/phantom` directory,
-the optional `scripts/migrate-data.js` utility copies its data whitelist into
-`PHANTOM_DATA` without modifying the source.
+you need data from an old `~/.claude/team`, `~/.claude/phantom`, or
+`~/.claude/phantom-data` directory, the optional `scripts/migrate-data.js`
+utility copies its data whitelist into `PHANTOM_DATA` (or `~/.phantom` when
+unset) without modifying the source. Pre-existing destination entries always
+win; otherwise legacy collisions use `phantom-data`, then `phantom`, then
+`team` priority. The migrator reconstructs only a valid portable active-session
+pointer whose session and workspace identity still match, and reports rather
+than copying stale or unsupported root markers.
 
 ## Author
 

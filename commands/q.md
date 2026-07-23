@@ -1,5 +1,5 @@
 ---
-name: phantom:q
+name: q
 description: "Alias of /phantom:loop — start the Mission Control queue loop from any session. Use when user types /phantom:q or says 'q'."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---

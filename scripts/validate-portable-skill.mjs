@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +42,11 @@ const requiredContractVersions = {
   model_routing: 1,
   state_envelope: 1,
 };
+const lifecycleContractResources = [
+  'references/state.md',
+  'references/workflows.md',
+  'scripts/phantom-state.mjs',
+];
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -121,12 +127,41 @@ function validatePresets(presets, policy, errors) {
   }
 }
 
-function validateManifest(manifest, errors) {
-  if (!checkKeys(manifest, ['name', 'bundle_version', 'contract_versions'], 'Manifest', errors)) return;
+function lifecycleContractDigest(skillDirectory) {
+  const hash = createHash('sha256');
+  for (const resource of lifecycleContractResources) {
+    const file = join(skillDirectory, resource);
+    if (!existsSync(file)) continue;
+    hash.update(resource);
+    hash.update('\0');
+    hash.update(readFileSync(file));
+    hash.update('\0');
+  }
+  return `sha256:${hash.digest('hex')}`;
+}
+
+function validateManifest(manifest, errors, skillDirectory) {
+  if (!checkKeys(
+    manifest,
+    ['name', 'bundle_version', 'contract_resource_digest', 'contract_versions'],
+    'Manifest',
+    errors,
+  )) return;
   if (manifest.name !== 'phantom') errors.push('Manifest name must be phantom.');
   if (typeof manifest.bundle_version !== 'string'
     || !/^\d+\.\d+\.\d+$/.test(manifest.bundle_version)) {
     errors.push('Manifest bundle_version must be a semantic version.');
+  } else {
+    const [major, minor] = manifest.bundle_version.split('.').map(Number);
+    if (major < 2 || (major === 2 && minor < 1)) {
+      errors.push('Manifest bundle_version must be at least 2.1.0 for the additive lifecycle contract.');
+    }
+  }
+  if (manifest.contract_resource_digest !== lifecycleContractDigest(skillDirectory)) {
+    errors.push(
+      'Manifest contract_resource_digest is stale for lifecycle contract resources; '
+      + 'bump bundle_version and refresh the digest.',
+    );
   }
   if (!checkKeys(
     manifest.contract_versions,
@@ -186,6 +221,12 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       'PHANTOM_DATA=<data_root>',
       '~/.phantom',
       'never write Codex workflow state under `.claude`',
+      'User instructions, repository instructions, and runtime safety',
+      'The portable skill and its references',
+      'Compatible legacy command intent',
+      'Legacy or provider-specific mechanics',
+      'may not add or override delegation, approval,',
+      'phase, state-path, or lifecycle authority',
     ]) {
       if (!compatibility.includes(requirement)) {
         errors.push(`Codex compatibility contract must define ${requirement}.`);
@@ -235,6 +276,19 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
     }
     if (!content.includes(`workflow \`${command}\``)) {
       errors.push(`skills/${command}/SKILL.md must identify workflow \`${command}\`.`);
+    }
+    if (command === 'start') {
+      const normalizedContent = content.replace(/\s+/g, ' ');
+      for (const requirement of [
+        'local planning and implementation only',
+        'implementation authorization',
+        'no implicit PR lifecycle',
+        'separate, explicit authorization',
+      ]) {
+        if (!normalizedContent.includes(requirement)) {
+          errors.push(`skills/start/SKILL.md must define ${requirement}.`);
+        }
+      }
     }
   }
 
@@ -353,6 +407,60 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     if (!existsSync(join(skillDirectory, item))) errors.push(`Required portable resource is missing: ${item}`);
   }
 
+  const lifecycleContract = {
+    'references/state.md': [
+      'schema_version: 1',
+      '--mode to-plan',
+      '--gate direction',
+      '--gate plan',
+      '--gate wiring',
+      '--scope implementation',
+      '--scope ship-draft-pr',
+      'worktree_fingerprint',
+      'record_sequence',
+      'SHA-256 digest',
+      'The authoritative review must have a later',
+    ],
+    'references/workflows.md': [
+      '`direct`',
+      '`plan`',
+      '`brainstorm`',
+      '`full`',
+      'direction before plan approval',
+      'approved wiring',
+      '`--mode to-plan`',
+      '`ship-draft-pr` authorization is separate',
+      'route and material intent do not change',
+      'wiring approval binds the current passed plan plus decisions',
+      'A later verification makes the earlier review stale',
+    ],
+    'scripts/phantom-state.mjs': [
+      "const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full'])",
+      "'ship-draft-pr'",
+      'worktreeFingerprint',
+      'APPROVAL_ARTIFACTS',
+      'artifact_bindings',
+      'latestRecordSequence',
+      "command === 'approve'",
+      "command === 'authorize'",
+      "command === 'execute'",
+      "command === 'verify'",
+      "command === 'ship'",
+      "command === 'complete'",
+    ],
+  };
+  for (const [resource, requirements] of Object.entries(lifecycleContract)) {
+    const file = join(skillDirectory, resource);
+    if (!existsSync(file)) continue;
+    const content = readFileSync(file, 'utf8');
+    const normalizedContent = content.replace(/\s+/g, ' ');
+    for (const requirement of requirements) {
+      if (!normalizedContent.includes(requirement.replace(/\s+/g, ' '))) {
+        errors.push(`${resource} must define portable lifecycle contract token: ${requirement}.`);
+      }
+    }
+  }
+
   const modelPolicyFile = join(skillDirectory, 'references', 'model-policy.json');
   const modelPresetsFile = join(skillDirectory, 'references', 'model-presets.json');
   const manifestFile = join(skillDirectory, 'manifest.json');
@@ -395,7 +503,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     }
   }
   if (modelPresets !== undefined) validatePresets(modelPresets, modelPolicy, errors);
-  if (manifest !== undefined) validateManifest(manifest, errors);
+  if (manifest !== undefined) validateManifest(manifest, errors, skillDirectory);
 
   return [...new Set(errors)];
 }

@@ -1,5 +1,5 @@
 ---
-name: phantom:greploop
+name: greploop
 description: "Use when you want to drive a PR to a perfect Greptile review — iteratively trigger Greptile, fix every actionable comment, resolve threads, re-review, and repeat until 5/5 confidence with zero unresolved comments. Also use when user says 'greploop', 'loop greptile', 'get this to 5/5', 'clear all greptile comments', or 'optimize the PR against review'. Auto-invoked by phantom:wrap after a draft PR is created."
 allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 ---

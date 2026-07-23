@@ -14,6 +14,29 @@ impact, reversibility, and confidence.
 
 Explain the selected route and signals in the session. The user may override it.
 
+Lifecycle authority is explicit and cumulative:
+
+| Route | Approval prerequisites before `execute` |
+|---|---|
+| `direct` | None; implementation authorization is still required. |
+| `plan` | Approved plan plus implementation authorization. |
+| `brainstorm` | Approved direction before plan approval, then approved plan plus implementation authorization. |
+| `full` | Approved direction, approved plan, approved wiring, and implementation authorization. |
+
+`--mode to-plan` is a permanent denial of `execute` and `ship` for that session.
+Starting work never grants draft-PR shipping authority. The
+`ship-draft-pr` authorization is separate from implementation authorization.
+For the same active task, route and material intent do not change after the
+initial start. Only a missing legacy route may be backfilled; changed direction
+must be recorded as a revision or restarted under a new task id.
+
+Approval applies to reviewed content, not merely to a gate name. Direction
+approval binds the current passed brainstorm, plan approval binds the current
+passed plan, and wiring approval binds the current passed plan plus decisions
+artifact. Each binding records the artifact `record_sequence` and digest and is
+revalidated at `execute`; changed or recovered unbound artifacts require fresh
+approval.
+
 ## Automatic delegation decision
 
 Routing selects gates and artifacts; Apex separately selects the execution
@@ -92,7 +115,9 @@ rationale, requested profiles, and any fallback in session state.
 
 ## Execute
 
-1. Confirm the active branch, worktree, plan, contracts, and allowed scope.
+1. Pass the portable `execute` gate. Confirm implementation authorization and
+   the active route's approval prerequisites, then confirm the active branch,
+   worktree, plan, contracts, and allowed scope.
 2. Build execution waves from observed dependency evidence. Do not parallelize
    shared writes, and do not treat partial graph coverage as proof of isolation.
 3. Apply the recorded topology. Delegate bounded Blade assignments through the
@@ -124,7 +149,14 @@ stale.
 
 ## Verify and finish
 
-Run Ward, Sweep, conditional Ward, and Gaze in that order. Add Lens for visual
+Pass the portable `verify` gate after execution starts. Run Ward, Sweep,
+conditional Ward, and Gaze in that order. Add Lens for visual
 changes and Archer for cross-file or architectural changes. Fix blocking
-findings within scope and repeat affected checks. Prepare lifecycle actions only
-when authorized. Capture reusable learnings, then complete or pause the session.
+findings within scope and repeat affected checks. Record verification and review
+against the current worktree fingerprint. Review may be recorded only after the
+current passed verification and must have a later record sequence. A later
+verification makes the earlier review stale. `ship` additionally requires
+separate draft-PR authorization and the latest passed, current-fingerprint
+verification and review. `complete` requires execution plus those same current
+quality gates, but does not implicitly ship. Capture reusable learnings, then
+complete or pause the session.

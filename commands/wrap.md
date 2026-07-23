@@ -1,5 +1,5 @@
 ---
-name: phantom:wrap
+name: wrap
 description: "Use when work is DONE and you want to SHIP it — create a PR, finalize the session, record learnings, open a pull request. Also use when user says 'wrap up', 'ship it', 'create the PR', 'open PR', 'finalize and ship', 'submit the PR', 'finish up and ship', or 'record what we learned'. NOT for a bare git push or commit with no PR. Runs shadows eval, saves learnings, creates PR."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---

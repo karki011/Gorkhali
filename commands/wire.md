@@ -1,5 +1,5 @@
 ---
-name: phantom:wire
+name: wire
 description: "Map dependency topology from approved plan — wave assignments, integration points, risk detection. Use after plan approval on FULL route or optionally on PLAN route (>5 files). Also use when user says 'wire it', 'show dependencies', 'what order', or 'map the topology'."
 argument-hint: "[TICKET]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]

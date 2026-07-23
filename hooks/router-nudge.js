@@ -17,7 +17,10 @@ try {
   ({ phantomData, stateDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   // fail open: inline fallback matching phantom-paths.js logic
-  phantomData = () => process.env.PHANTOM_DATA || path.join(os.homedir(), '.claude', 'phantom-data');
+  const home = os.homedir();
+  const data = process.env.PHANTOM_DATA ||
+    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  phantomData = () => data;
   stateDir = () => path.join(phantomData(), 'state');
 }
 
