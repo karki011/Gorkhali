@@ -24,6 +24,7 @@ const SKIP_DIRECTORIES = new Set([
   'node_modules', 'target', 'vendor',
 ]);
 const JS_EXTENSIONS = ['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts'];
+const RIPGREP_EXCLUDED_GLOBS = [...SKIP_DIRECTORIES].map((directory) => `**/${directory}/**`);
 const DEFAULTS = {
   depth: 2,
   maxBytes: 50 * 1024 * 1024,
@@ -128,6 +129,82 @@ function discoverFiles(workspace, limit) {
   } catch {
     return { discovery: 'walk', ...walkFiles(workspace, limit) };
   }
+}
+
+function referenceTerms(target) {
+  const extension = extname(target);
+  const withoutExtension = extension ? target.slice(0, -extension.length) : target;
+  const basename = withoutExtension.split('/').at(-1);
+  return [...new Set([
+    target,
+    withoutExtension,
+    extension ? `${basename}${extension}` : null,
+    basename ? (basename.length >= 4 ? basename : `/${basename}`) : null,
+  ].filter(Boolean))].sort();
+}
+
+function referenceScanResult(status, candidates, failedTargets, truncated) {
+  return { tool: 'ripgrep', status, candidates, failed_targets: failedTargets, truncated };
+}
+
+function scanTextReferences(workspace, targets, options) {
+  const candidates = [];
+  const failedTargets = [];
+  let resultCount = 0;
+  let truncated = false;
+
+  for (const target of targets) {
+    if (resultCount >= options.maxResults) {
+      truncated = true;
+      break;
+    }
+    const args = [
+      '--files-with-matches',
+      '--fixed-strings',
+      '--hidden',
+      '--no-messages',
+      '--null',
+      '--sort',
+      'path',
+      '--max-filesize',
+      String(options.maxFileBytes),
+      ...RIPGREP_EXCLUDED_GLOBS.flatMap((glob) => ['--glob', `!${glob}`]),
+      ...referenceTerms(target).flatMap((term) => ['-e', term]),
+      '--',
+      '.',
+    ];
+    let output;
+    try {
+      output = execFileSync('rg', args, {
+        cwd: workspace,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return referenceScanResult('unavailable', candidates, [], truncated);
+      }
+      if (error.status === 1) {
+        output = '';
+      } else {
+        failedTargets.push(target);
+        continue;
+      }
+    }
+
+    const files = [...new Set(output.split('\0')
+      .map((path) => toPosix(path.replace(/^\.\//, '')))
+      .filter((path) => path && path !== target))]
+      .sort();
+    const remaining = options.maxResults - resultCount;
+    if (files.length > remaining) truncated = true;
+    const boundedFiles = files.slice(0, remaining);
+    resultCount += boundedFiles.length;
+    candidates.push({ target, files: boundedFiles });
+  }
+
+  return referenceScanResult(failedTargets.length ? 'partial' : 'complete', candidates, failedTargets, truncated);
 }
 
 function matches(content, pattern, group = 1) {
@@ -383,6 +460,9 @@ function inspect(workspace, targets, options) {
     .map((item) => `Unresolved local import in ${item.path}: ${item.specifier}`);
   const warningList = [...new Set([...warnings, ...unresolvedWarnings])].sort();
   const partial = truncated || warningList.length > 0;
+  const referenceScan = partial
+    ? scanTextReferences(workspace, targets, options)
+    : referenceScanResult('skipped', [], [], false);
   return {
     schema_version: 1,
     status: partial ? 'partial' : 'complete',
@@ -407,6 +487,7 @@ function inspect(workspace, targets, options) {
       impact_score: graph.nodes.size ? Number((allBlast.length / graph.nodes.size).toFixed(3)) : 0,
     },
     related_files: context.filter((item) => item.distance > 0).map((item) => item.path),
+    reference_scan: referenceScan,
     warnings: warningList.slice(0, 100),
   };
 }

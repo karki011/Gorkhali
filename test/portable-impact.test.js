@@ -20,12 +20,24 @@ function workspace(files) {
   return root;
 }
 
-function run(root, targets, options = []) {
+function run(root, targets, options = [], spawnOptions = {}) {
   return spawnSync(
     process.execPath,
     [ANALYZER, 'inspect', '--workspace', root, ...options, ...targets],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', ...spawnOptions },
   );
+}
+
+function withFakeRipgrep(root, output) {
+  const bin = path.join(root, '.test-bin');
+  const executable = path.join(bin, 'rg');
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(executable, `#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(output)});\n`);
+  fs.chmodSync(executable, 0o755);
+  return {
+    ...process.env,
+    PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+  };
 }
 
 function parse(result) {
@@ -63,6 +75,7 @@ test('impact analysis is deterministic and unions direct and transitive importer
     'test/app.test.ts',
   ]);
   assert.equal(output.coverage.discovery, 'walk');
+  assert.equal(output.reference_scan.status, 'skipped');
 });
 
 test('cycles terminate without duplicating related files', () => {
@@ -227,6 +240,46 @@ test('unresolved local imports are reported instead of guessed', () => {
   const output = parse(run(root, ['src/broken.ts']));
 
   assert.equal(output.status, 'partial');
+  assert.match(output.warnings.join('\n'), /Unresolved local import/);
+});
+
+test('partial analysis supplements the import graph with bounded ripgrep candidates', () => {
+  const root = workspace({
+    'docs/another-reference.md': 'The fallback is implemented in src/broken.ts.\n',
+    'docs/reference.md': 'See src/broken.ts for the fallback behavior.\n',
+    'src/broken.ts': "import './missing';\n",
+  });
+  const env = withFakeRipgrep(root, 'docs/another-reference.md\0docs/reference.md\0src/broken.ts\0');
+  const output = parse(run(root, ['src/broken.ts'], ['--max-results', '1'], { env }));
+
+  assert.equal(output.status, 'partial');
+  assert.deepEqual(output.reference_scan, {
+    tool: 'ripgrep',
+    status: 'complete',
+    candidates: [
+      {
+        target: 'src/broken.ts',
+        files: ['docs/another-reference.md'],
+      },
+    ],
+    failed_targets: [],
+    truncated: true,
+  });
+  assert.deepEqual(output.blast_radius.directly_affected, []);
+});
+
+test('ripgrep remains optional when partial analysis needs supplemental references', () => {
+  const root = workspace({
+    'src/broken.ts': "import './missing';\n",
+  });
+  const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-impact-path-'));
+  const output = parse(run(root, ['src/broken.ts'], [], {
+    env: { ...process.env, PATH: emptyPath },
+  }));
+
+  assert.equal(output.status, 'partial');
+  assert.equal(output.reference_scan.status, 'unavailable');
+  assert.deepEqual(output.reference_scan.candidates, []);
   assert.match(output.warnings.join('\n'), /Unresolved local import/);
 });
 
