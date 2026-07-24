@@ -62,6 +62,13 @@ gap when nothing more specific is set. For implementer roles (blade, sweep, ward
 override above opus is invalid - `hooks/blade-model-gate.js` denies fable regardless of source.
 Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
 
+**Articulate before you escalate.** Every implementer spawn MUST state one visible line:
+`scope: mechanical|standard|complex · floor-sufficient? Y/N · reason`. The floor is sonnet (haiku
+for trivial mechanical). Choosing opus requires a concrete reason tied to *this* subtask - a named
+design decision, cross-file coupling, or genuine ambiguity. "It's subtle/tricky" is not a reason.
+If you can't name why the floor fails, the floor wins. Weak scoping is fixed by re-decomposing, not
+by escalating.
+
 ## Spawning Rules
 
 - All agents: `mode: "bypassPermissions"`

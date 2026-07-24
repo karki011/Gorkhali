@@ -52,6 +52,9 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      (see `reference/agents.md` → Model Routing):
      # default: task-appropriate tier — `model: "sonnet"` for mechanical & well-scoped, contract-backed subtasks; escalate to opus (implementer ceiling - never fable) for complex, ambiguous, or cross-cutting work.
      # effort is uniform high (session-inherited) — there is no per-spawn effort param.
+   - **Scope check before spawn:** before spawning each Blade, write the one-line scope check
+     (`scope: … · floor-sufficient? … · reason`) from `reference/agents.md` → Model Routing, visibly
+     in output; escalating above the floor without a concrete per-subtask reason is a routing error.
    - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
      spawn `subagent_type: blade` with `model: "haiku"` override.
    - All agents: `mode: "bypassPermissions"`.
