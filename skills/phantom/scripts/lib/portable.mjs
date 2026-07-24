@@ -1,10 +1,16 @@
 // Author: Subash Karki
 
-import { createHash } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+
+// The shared codec owns data-root and repository-id resolution so this portable
+// ESM layer, the CommonJS compatibility scripts, and the shell resolver all
+// agree on one root and one id for the same workspace. It ships inside the skill
+// (sibling file), so the portable skill stays standalone.
+const require = createRequire(import.meta.url);
+const codec = require('./shared-state.cjs');
 
 export function isMainModule(moduleUrl, argvPath = process.argv[1]) {
   if (!argvPath) return false;
@@ -50,38 +56,27 @@ export function workspacePath(value) {
   return existsSync(candidate) ? realpathSync(candidate) : candidate;
 }
 
-function gitValue(workspace, args) {
-  try {
-    return execFileSync('git', ['-C', workspace, ...args], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return '';
-  }
-}
-
 const repoIdentityCache = new Map();
 
 export function repoIdentity(workspace) {
   const cached = repoIdentityCache.get(workspace);
   if (cached) return cached;
-  const root = gitValue(workspace, ['rev-parse', '--show-toplevel']) || workspace;
-  const remote = gitValue(root, ['config', '--get', 'remote.origin.url']);
-  const source = remote || realpathSync(root);
-  const nameSource = remote ? remote.replace(/\.git$/, '').split(/[/:]/).pop() : basename(root);
-  const name = sanitizeSegment(nameSource, 'repository').toLowerCase();
-  const hash = createHash('sha256').update(source).digest('hex').slice(0, 10);
-  const identity = { id: `${name}-${hash}`, root };
+  const root = codec.resolveDataRoot(workspace);
+  const identity = codec.repoIdentity(workspace, {
+    dataRoot: root,
+    phantomRepo: process.env.PHANTOM_REPO,
+  });
+  // Persist this repo's aliases (legacy plain name, raw-hash, codec-upgrade ids)
+  // so its earlier ids stay discoverable through <data>/repos/.aliases.json.
+  // Merge-only and guarded: identity resolution must never break on a write
+  // failure, so fail open with the identity still returned.
+  try { codec.recordAliases(root, identity); } catch { /* fail open */ }
   repoIdentityCache.set(workspace, identity);
   return identity;
 }
 
 export function dataRoot(workspace) {
-  const base = workspacePath(workspace);
-  if (process.env.PHANTOM_DATA) return resolve(base, process.env.PHANTOM_DATA);
-  if (process.env.HOME) return resolve(base, process.env.HOME, '.phantom');
-  return join(base, '.phantom');
+  return codec.resolveDataRoot(workspace);
 }
 
 export function readJson(file, fallback = null) {

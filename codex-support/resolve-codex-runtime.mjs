@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { existsSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+
+// Route the data root through the shared codec so Codex resolves the same
+// neutral root as every other layer. The codec ships inside the portable skill.
+const require = createRequire(import.meta.url);
+const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
 
 function commandName(argv) {
   const index = argv.indexOf('--command');
@@ -22,7 +27,7 @@ export function resolveCodexRuntime(environment = process.env, workflow = null) 
     plugin_root: pluginRoot,
     portable_skill_root: join(pluginRoot, 'skills', 'phantom'),
     compatibility_scripts_root: join(pluginRoot, 'scripts'),
-    data_root: resolve(environment.PHANTOM_DATA || join(homedir(), '.phantom')),
+    data_root: codec.resolveDataRoot(process.cwd(), environment),
   };
   if (!workflow) return runtime;
 

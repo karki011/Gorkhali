@@ -31,7 +31,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
-const { sessionsDir, stateDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, sessionTelemetryFile, detectRepo } = require('./lib/phantom-paths');
 const { render } = require('./lib/render-output');
 const { resolveFields, pickFields } = require('./lib/fields');
 const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
@@ -158,8 +158,8 @@ async function buildResult(ticket, repo) {
       bySession.get(e.session_id).intervals.push([e.opened_at, e.closed_at || now]);
     }
   } else {
-    // No ledger - fall back to the current-session marker, whole transcript.
-    const marker = loadJson(path.join(stateDir(), 'current-session', repo + '.json'));
+    // No ledger - fall back to the runtime session-telemetry marker, whole transcript.
+    const marker = loadJson(sessionTelemetryFile(repo));
     if (marker && marker.session_id) {
       bySession.set(marker.session_id, { cost: 0, inTok: 0, outTok: 0, events: 0, first: null, intervals: [[0, now]] });
       fallbackNote = 'no ledger - showing current session only';

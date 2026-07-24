@@ -15,11 +15,16 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const HOOK = path.join(REPO_ROOT, 'hooks', 'memory-reader.js');
 const EVO_RUNNER = path.join(REPO_ROOT, 'scripts', 'evolution-runner.js');
+const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+
+const HAS_GIT = (() => {
+  try { execSync('git --version', { stdio: 'ignore' }); return true; } catch (_) { return false; }
+})();
 
 const REPO = 'testrepo';
 // A real CORRECTION line, exactly the shape agents/command-defs write.
@@ -134,6 +139,36 @@ test('SEAM REGRESSION GUARD: a FLAT-only learnings layout is NOT read (old bug s
     );
   } finally {
     fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('SEAM: hook surfaces a correction sharded under the canonical codec repo id', { skip: !HAS_GIT }, () => {
+  // Prove the full chain works WITHOUT PHANTOM_REPO: the hook resolves the repo
+  // through detectRepo -> shared codec -> `<name>-<hash>`, and reads learnings
+  // from repos/<canonical-id>/. This is the real path a git repo takes.
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'seam-canonical-'));
+  const fixture = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'seam-repo-')));
+  try {
+    execSync('git -c init.defaultBranch=main init -q', { cwd: fixture, stdio: 'ignore' });
+    execSync('git remote add origin git@github.com:Cloudzero/seam-canonical.git', { cwd: fixture, stdio: 'ignore' });
+    const canonicalId = codec.repoId(fixture, { dataRoot: data });
+    assert.match(canonicalId, /^seam-canonical-[0-9a-f]{10}$/, 'resolves to a canonical hashed id');
+    seedRepoLearnings(data, canonicalId);
+
+    // Run the hook FROM the fixture cwd, no PHANTOM_REPO — pure codec resolution.
+    const env = { ...process.env, PHANTOM_DATA: data };
+    delete env.PHANTOM_REPO;
+    const stdout = execFileSync('node', [HOOK], {
+      input: JSON.stringify({ prompt: 'how do I fetch the correct remote for a branch compare?' }),
+      env,
+      cwd: fixture,
+      encoding: 'utf-8',
+    });
+    assert.ok(stdout.includes('branch-compare'), `expected the canonical-id correction to surface.\nstdout: ${JSON.stringify(stdout)}`);
+    assert.ok(stdout.includes('memory-injection'), 'uses the memory-injection envelope');
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(fixture, { recursive: true, force: true });
   }
 });
 

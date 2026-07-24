@@ -51,6 +51,9 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { phantomData, detectRepo, repoDir, auditDir } = require('./lib/phantom-paths');
 const { collectSessionIds } = require('./lib/session-trace');
+const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
+const { isDataMigrationInProgress, atomicWriteText, loadLearningApi } = require('./migrate-data');
 
 const MARKER_NAME = '.repo-dirs-migrated';
 const LOCK_NAME = '.repo-dirs-migrating';
@@ -333,8 +336,18 @@ function copyFile(src, dest, apply) {
   try { fs.utimesSync(dest, st.atime, st.mtime); } catch (_) { /* best effort */ }
 }
 
-/** Append source .md lines missing from dest, once-prefixed with attribution. */
-function mergeLearningFile(src, dest, srcLabel, apply, stats) {
+/** Merge a source .md into dest through the T3 learning grammar (INDEX/auto by
+ *  key, domain files by validated bullets + deduped append). A raw line-append
+ *  would grow duplicate headers and split-count entries, so it is never used.
+ *
+ *  The read-merge-write against an EXISTING dest runs inside the T3 per-
+ *  learnings-dir lock (learningApi.withLearningLock), the identical mechanism
+ *  migrate-data.js's merge uses -- otherwise a concurrent memory-writer capture/
+ *  consolidate could lock+write fresh entries after this sweep's unlocked read,
+ *  and this sweep's later write would silently drop them. On lock contention the
+ *  merge is deferred (never applied unlocked) rather than blocking the whole
+ *  sweep -- fail-closed per file, fail-open for the run. */
+function mergeLearningFile(src, dest, srcLabel, apply, stats, learningApi) {
   let srcText;
   try { srcText = fs.readFileSync(src, 'utf8'); } catch (_) { return; }
   if (!fs.existsSync(dest)) {
@@ -342,14 +355,22 @@ function mergeLearningFile(src, dest, srcLabel, apply, stats) {
     stats.merged++;
     return;
   }
-  const destText = (() => { try { return fs.readFileSync(dest, 'utf8'); } catch (_) { return ''; } })();
-  const destLines = new Set(destText.split('\n'));
-  const additions = srcText.split('\n').filter((l) => l.trim() && !destLines.has(l));
-  stats.merged++;
-  if (!additions.length) { stats.deduped++; return; }
-  if (apply) {
-    const header = `\n\n<!-- merged from ${srcLabel} (append-only, ${additions.length} new lines) -->\n`;
-    fs.appendFileSync(dest, header + additions.join('\n') + '\n');
+  const doMerge = () => {
+    const destText = (() => { try { return fs.readFileSync(dest, 'utf8'); } catch (_) { return ''; } })();
+    const { content, changed } = learningGrammar.mergeLearningContent(
+      path.basename(dest), destText, srcText, srcLabel,
+    );
+    stats.merged++;
+    if (!changed) { stats.deduped++; return; }
+    // Atomic (tmp + fsync + rename) so a crash/SIGKILL mid-write never truncates the
+    // canonical learnings file this runs against on the production auto-run path.
+    if (apply) atomicWriteText(dest, content);
+  };
+  if (!apply) { doMerge(); return; } // dry-run never mutates -- no lock needed
+  try {
+    learningApi.withLearningLock(path.dirname(dest), doMerge);
+  } catch (error) {
+    stats.deferred.push({ dest, reason: `learnings-lock-contended: ${error.message}` });
   }
 }
 
@@ -362,9 +383,9 @@ function uniqueDest(dest) {
 }
 
 /** Merge one orphan `srcDir` into `<data>/repos/<target>`. */
-function mergeOrphan(srcDir, srcName, target, apply, report) {
+function mergeOrphan(srcDir, srcName, target, apply, report, learningApi) {
   const destRoot = repoDir(target);
-  const stats = { merged: 0, deduped: 0, copied: 0, collisions: [], movedChildren: [] };
+  const stats = { merged: 0, deduped: 0, copied: 0, collisions: [], movedChildren: [], deferred: [] };
 
   let topEntries;
   try { topEntries = fs.readdirSync(srcDir, { withFileTypes: true }); } catch (_) { topEntries = []; }
@@ -393,7 +414,7 @@ function mergeOrphan(srcDir, srcName, target, apply, report) {
         const rel = path.relative(srcEntry, f);
         const dest = path.join(destRoot, 'learnings', rel);
         if (path.extname(f) === '.md') {
-          mergeLearningFile(f, dest, srcName, apply, stats);
+          mergeLearningFile(f, dest, srcName, apply, stats, learningApi);
         } else if (fs.existsSync(dest)) {
           const parked = uniqueDest(dest + '.migrated');
           stats.collisions.push({ file: 'learnings/' + rel, kept: dest, parked });
@@ -430,15 +451,18 @@ function mergeOrphan(srcDir, srcName, target, apply, report) {
     }
   }
 
-  // Never delete the source: rename it aside so originals survive for audit.
-  if (apply) {
+  // Never delete the source: rename it aside so originals survive for audit. A
+  // deferred learnings merge means fresh src content was never folded into dest
+  // -- renaming away now would silently lose it, so leave the source in place
+  // and let the next sweep retry the merge instead.
+  if (apply && stats.deferred.length === 0) {
     try { fs.renameSync(srcDir, uniqueDest(srcDir + MIGRATED_SUFFIX)); } catch (_) { /* leave in place */ }
   }
 
   report.resolved.push({
     src: srcName, srcDir, target, destRoot,
     merged: stats.merged, deduped: stats.deduped, copied: stats.copied,
-    collisions: stats.collisions, movedChildren: stats.movedChildren,
+    collisions: stats.collisions, movedChildren: stats.movedChildren, deferred: stats.deferred,
   });
 }
 
@@ -446,7 +470,14 @@ function mergeOrphan(srcDir, srcName, target, apply, report) {
 // Sweep one root (`<data>/repos` or the legacy repos root).
 // ---------------------------------------------------------------------------
 function sweepRoot(root, opts, report) {
-  const { apply, dataReposRoot, mapOverrides, projectsDir } = opts;
+  const { apply, dataReposRoot, mapOverrides, projectsDir, dataRoot, learningApi } = opts;
+  // Canonicalize a resolved target through the T1 codec's alias map so an orphan
+  // consolidates into the SAME canonical dir every writer (and the data-root
+  // migrator) uses -- a legacy id that has an alias lands on its canonical repo.
+  // The map is seeded before this runs: candidates() detects each real checkout
+  // through detectRepo(), which persists that repo's aliases (belt-and-suspenders
+  // even on a machine where no session hook ran after the codec upgrade).
+  const canon = (target) => codec.resolveCanonical(dataRoot, target);
   let entries;
   try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch (_) { return; }
 
@@ -472,7 +503,7 @@ function sweepRoot(root, opts, report) {
     // into <data>/repos/<name>.
     if (knownCanonical().has(name)) {
       if (isDataRoot) { report.canonical.push({ src: name, signal: 'known-repo' }); continue; }
-      mergeOrphan(srcDir, name, name, apply, report);
+      mergeOrphan(srcDir, name, canon(name), apply, report, learningApi);
       const rec = report.resolved[report.resolved.length - 1];
       rec.signal = 'legacy-canonical'; rec.root = root;
       continue;
@@ -487,7 +518,7 @@ function sweepRoot(root, opts, report) {
       continue;
     }
 
-    mergeOrphan(srcDir, name, res.repo, apply, report);
+    mergeOrphan(srcDir, name, canon(res.repo), apply, report, learningApi);
     report.resolved[report.resolved.length - 1].signal = res.signal;
     report.resolved[report.resolved.length - 1].via = res.via;
     report.resolved[report.resolved.length - 1].root = root;
@@ -541,7 +572,7 @@ function acquireMigrationLock(lockPath) {
   return null;
 }
 
-function run(argv = process.argv.slice(2)) {
+async function run(argv = process.argv.slice(2)) {
   // The migrator resolves canonical names for MANY candidate repos, not "the
   // current one" — honoring a per-spawn PHANTOM_REPO override here would
   // collapse every candidate onto one name and silently cross-merge orphans
@@ -563,8 +594,17 @@ function run(argv = process.argv.slice(2)) {
     return { skipped: true, reason: 'already migrated', marker };
   }
 
+  // Observe the data-root migration-wide lock: while a data migration holds it,
+  // this sweep must NOT mutate the same tree. Fail closed (skip) rather than race
+  // the migration -- a per-prompt hook mutating a source/destination mid-migration
+  // is the plan's named risk. Dry-run reads only, so it is never gated.
+  if (apply && isDataMigrationInProgress(DATA)) {
+    return { skipped: true, reason: 'data-root migration in progress' };
+  }
+
   // Only --apply mutates; a dry-run reads and never needs the lock.
   let lockFd;
+  let learningApi = null;
   if (apply) {
     try { fs.mkdirSync(DATA, { recursive: true }); } catch (_) {}
     lockFd = acquireMigrationLock(lockPath);
@@ -572,7 +612,14 @@ function run(argv = process.argv.slice(2)) {
   }
 
   try {
-    return runSweep({ apply, force, mapOverrides, DATA, dataReposRoot, legacyRoot, projectsDir, marker });
+    // Loaded once, up front, so every learnings merge in this run can call the
+    // (synchronous) withLearningLock without further awaits down a call chain
+    // that stays sync -- the ESM import is the only async step. Kept INSIDE this
+    // try so a failed import still releases the migration lock via the finally
+    // below (otherwise a throwing import leaks lockFd and every subsequent
+    // per-prompt sweep self-gates as 'in progress' until the lock goes stale).
+    if (apply) learningApi = await loadLearningApi();
+    return runSweep({ apply, force, mapOverrides, DATA, dataReposRoot, legacyRoot, projectsDir, marker, learningApi });
   } finally {
     if (typeof lockFd === 'number') {
       try { fs.closeSync(lockFd); } catch (_) {}
@@ -581,7 +628,7 @@ function run(argv = process.argv.slice(2)) {
   }
 }
 
-function runSweep({ apply, mapOverrides, DATA, dataReposRoot, legacyRoot, projectsDir, marker }) {
+function runSweep({ apply, mapOverrides, DATA, dataReposRoot, legacyRoot, projectsDir, marker, learningApi }) {
   const report = {
     mode: apply ? 'apply' : 'dry-run',
     at: new Date().toISOString(),
@@ -590,7 +637,7 @@ function runSweep({ apply, mapOverrides, DATA, dataReposRoot, legacyRoot, projec
     resolved: [], unresolved: [], pruned: [], canonical: [], reserved: [],
   };
 
-  const opts = { apply, dataReposRoot, mapOverrides, projectsDir };
+  const opts = { apply, dataReposRoot, mapOverrides, projectsDir, dataRoot: DATA, learningApi };
   if (isDir(dataReposRoot)) sweepRoot(dataReposRoot, opts, report);
   if (isDir(legacyRoot)) sweepRoot(legacyRoot, opts, report);
 
@@ -626,16 +673,20 @@ function runSweep({ apply, mapOverrides, DATA, dataReposRoot, legacyRoot, projec
 module.exports = { run, resolveTarget, candidates, encodeCwd, MARKER_NAME };
 
 if (require.main === module) {
-  const r = run();
-  if (r.skipped) {
-    console.log(`  ○ repo-dirs migration: ${r.reason} (skipping)`);
-  } else {
-    console.log(
-      `  ${r.mode === 'apply' ? '✓' : '·'} repo-dirs migration [${r.mode}]: ` +
-      `resolved=${r.counts.resolved} pruned=${r.counts.pruned} ` +
-      `unresolved=${r.counts.unresolved} canonical=${r.counts.canonical}` +
-      (r.reportPath ? ` → ${r.reportPath}` : '')
-    );
-  }
-  process.exit(0);
+  run().then((r) => {
+    if (r.skipped) {
+      console.log(`  ○ repo-dirs migration: ${r.reason} (skipping)`);
+    } else {
+      console.log(
+        `  ${r.mode === 'apply' ? '✓' : '·'} repo-dirs migration [${r.mode}]: ` +
+        `resolved=${r.counts.resolved} pruned=${r.counts.pruned} ` +
+        `unresolved=${r.counts.unresolved} canonical=${r.counts.canonical}` +
+        (r.reportPath ? ` → ${r.reportPath}` : '')
+      );
+    }
+    process.exit(0);
+  }).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

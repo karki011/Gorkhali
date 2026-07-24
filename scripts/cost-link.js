@@ -19,7 +19,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionTelemetryFile, sessionsDir, detectRepo } = require('./lib/phantom-paths');
 
 function loadJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch (_) { return null; }
@@ -39,7 +39,7 @@ if (!action || !ticket || !['open', 'close'].includes(action)) {
 
 try {
   const repo = detectRepo();
-  const marker = loadJson(path.join(stateDir(), 'current-session', repo + '.json'));
+  const marker = loadJson(sessionTelemetryFile(repo));
   const ticketDir = path.join(sessionsDir(repo), ticket);
   fs.mkdirSync(ticketDir, { recursive: true });
   const ledgerPath = path.join(ticketDir, 'costs.json');

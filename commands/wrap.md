@@ -26,7 +26,7 @@ Single ship ceremony. All git operations happen here — no commits, pushes, or 
 
 Wrap is reasoning-heavy, so it stays on the **session model** for judgment steps and pushes only the **mechanical plumbing** down to the pinned cheap `warden` agent:
 
-- **Session model (Apex)** — Steps 2 (diff/scope review), 3 (grill), 5 (session eval), 6 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 8 evolution already runs on pinned `ward`.
+- **Session model (Apex)** — Steps 2 (diff/scope review), 3 (defense brief), 5 (session eval), 6 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 8 evolution already runs on pinned `ward`.
 - **Pinned `warden` (sonnet)** — the mechanical tail: Step 7 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 11 cost report, and the Step 9 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
 
 `warden` does plumbing only — never scope judgment, session-brief authoring, or learnings synthesis (those stay with Apex). If `warden` is unavailable (older install), run the mechanical tail inline. The Greptile loop (`phantom:greploop`) is its own skill and runs as before.
@@ -47,11 +47,31 @@ Scope creep -> present to user, they decide before PR. Clean -> proceed.
 
 Lightweight, skip by default. When invoked with `--recap` — or auto when the diff is large or touches UI — emit a self-contained HTML recap of the change (files changed, key diffs, schema/API moves, UI impact) to `{TEAM_DIR}/sessions/{TICKET}/wrap-recap.html`, then reference its path in the wrap output. Reuse the visualflow aesthetic — see `reference/visualflow/flow-template.md` (shared styling). Never blocks; if it fails, proceed with the wrap.
 
-## Step 3: Grill Gate (auto-triggered if 3+ agent-changed files)
+## Step 3: Defense Brief (auto, always)
 
-Run `Skill(skill="phantom:grill", args="--quick")` — 3-question rapid grill.
-**SHIP IT** -> proceed. **NOT YET** -> block, user must address and re-grill.
-Skip silently if < 3 files. User override: `--skip-grill` flag.
+Runs on every wrap regardless of file count - no 3-file threshold, no skip flag. Apex synthesizes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md` from session artifacts (`intent.json`, `plan.json`, decisions, `execution.json`, `verification.json`, `review-panel.json`, and the `main...HEAD` diff) with EXACTLY these six sections, in order:
+
+- `## What we did`
+- `## Why we did it`
+- `## Watch out for`
+- `## What you need to know`
+- `## Likely questions and answers` - Q/A pairs, each answer anchored to a `file:line` or a session artifact
+- `## Decision log` - choice, rejected alternatives, why
+
+See [reference/wrap/defense-brief.md] for the full authoring protocol.
+
+Authoring the brief is Apex judgment work - never warden. The brief renders above the SESSION WRAPPED box (Step 9). A missing brief blocks Step 7 ship: before the ship ceremony runs, warden's preflight checks the file exists and contains all six section headings, using this exact command:
+
+```bash
+SESSION_DIR="{TEAM_DIR}/sessions/{TICKET}"
+for h in "What we did" "Why we did it" "Watch out for" "What you need to know" "Likely questions and answers" "Decision log"; do
+  grep -qF "## $h" "$SESSION_DIR/defense-brief.md" || exit 1
+done
+```
+
+Any failure stops Step 7 before git operations begin.
+
+Legacy grill quiz remains available via `--grill` (runs `phantom:grill` in ADDITION to the defense brief, never instead).
 
 ## Step 4: Pre-Ship Review Panel (RPSL) — MANDATORY
 
@@ -99,7 +119,7 @@ Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermission
 <output_format>
 ## Step 9: Write Wrap Artifact
 
-Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `reviewPanel` (allPass, perspectives, blockers), `eval` (from Step 5 — `{score, rubric}` on success, or `{score: "eval-failed"}` with rubric omitted if the eval could not run), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 10 after the card is emitted; `null` if the emit was skipped), `modelRouting` (`{perRole, deltas, fallbacks, records, reconciliationActive}` - populated in Step 12 after the routing report runs; absent if the report could not run).
+Write `{TEAM_DIR}/sessions/{TICKET}/wrap.json` with: `_meta` (writtenAt, gitHead, gitBranch, phase, skill, version), `brief` (3-6 sentence session recap — see below), `defenseBrief` (`{path, questions, sections}` - `path` is the defense-brief.md location, `questions` is the count of Q/A pairs in "Likely questions and answers", `sections` is always `6`), `reviewPanel` (allPass, perspectives, blockers), `eval` (from Step 5 — `{score, rubric}` on success, or `{score: "eval-failed"}` with rubric omitted if the eval could not run), `pr` (number, url, status, skipReason), `jira` (ticket, transition, commented), `greptile` (requested, status), `learnings` (recorded, promoted, pruned), `brainCard` (`{id, status}` — populated in Step 10 after the card is emitted; `null` if the emit was skipped), `modelRouting` (`{perRole, deltas, fallbacks, records, reconciliationActive}` - populated in Step 12 after the routing report runs; absent if the report could not run).
 
 ### Session Brief
 

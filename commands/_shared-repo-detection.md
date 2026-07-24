@@ -5,29 +5,43 @@
 
 ---
 
-## Repo Name Resolution
+## Repo ID Resolution
 
-`REPO_NAME` is the shard key for ALL per-repo state (`<data>/repos/<REPO_NAME>/…`).
-It is resolved by a single seam — `detectRepo(cwd)` in `scripts/lib/phantom-paths.js`
-and its byte-for-byte mirror `phantom_detect_repo` in `scripts/lib/phantom-paths.sh`.
-**This section is the single documented source of the precedence.** Do not restate
-the order elsewhere (it drifted once, in `_shared.md`).
+`REPO_ID` is the shard key for ALL per-repo state (`<data>/repos/<REPO_ID>/…`).
+It is resolved by ONE shared codec - `skills/phantom/scripts/lib/shared-state.cjs` -
+which `detectRepo(cwd)` in `scripts/lib/phantom-paths.js`, the portable ESM skill
+(`skills/phantom/scripts/lib/portable.mjs`), and `phantom_detect_repo` in
+`scripts/lib/phantom-paths.sh` all route through, so every layer produces the
+SAME id for the same workspace. **This section is the single documented source of
+the precedence.** Do not restate the order elsewhere (it drifted once, in
+`_shared.md`).
 
-Precedence — first match wins, never throws:
+Precedence - first match wins, never throws:
 
 | # | Step | Why |
 |---|------|-----|
-| 1 | cwd inside `<data>/worktrees/<repo>/…` → that `<repo>` segment | Phantom-**managed** worktrees. **`~/.phantom-os/worktrees` is NOT this root** — user worktrees never hit this step; they resolve at step 3. |
-| 2 | `PHANTOM_REPO` env (trimmed) | Per-spawn override; never export globally. |
-| 3 | `git remote get-url origin` → basename minus `.git` | **The fix.** Worktree- and clone-name-invariant. User worktrees live at `~/.phantom-os/worktrees/{repo}/{branch}`, so a naive `.git` walk-up returns the **BRANCH**, sharding state under branch names. The remote name is stable across every checkout. |
-| 4 | `git rev-parse --path-format=absolute --git-common-dir` → main-root basename | No-remote fallback. Common-dir points at the MAIN checkout's `.git`, so it is worktree-safe (returns the real repo dir, not the worktree/branch dir). |
+| 1 | cwd inside `<data>/worktrees/<seg>/…` → that `<seg>` verbatim | Phantom-**managed** worktrees. **`~/.phantom-os/worktrees` is NOT this root** - user worktrees never hit this step; they resolve at step 3/4. |
+| 2 | `PHANTOM_REPO` env (trimmed) → verbatim | Per-spawn, deterministic override; never export globally. |
+| 3 | origin remote → normalized → `<name>-<hash>` | Collision-resistant and convergent. The remote is normalized (host lowercased, credentials and default ports `22`/`443` stripped, trailing `.git` removed, owner/repo case preserved) so SSH, HTTPS, SCP-short, renamed clones, and worktrees of one repo share one id, while same-named repos under different owners/hosts stay distinct. |
+| 4 | `git rev-parse --path-format=absolute --git-common-dir` → main-root basename | No-remote fallback. Common-dir points at the MAIN checkout's `.git`, so a worktree and its main checkout resolve to the same id. |
 | 5 | Walk up to the first `.git` entry (dir or file) → basename | Last resort when git is unavailable or the dir is a bare tree. |
 | 6 | `_default` | Nothing matched. |
 
 **Guards:** every `git` invocation (not just `command -v git`) is wrapped; a
 missing binary, non-git dir, timeout, or nonzero exit degrades to the next step.
+The shell delegates steps 3–6 to the codec via a small `node -e` call and, only
+when node is unavailable, falls back to a pure-shell walk-up.
 **Perf:** the JS resolver memoizes per resolved cwd (+ `PHANTOM_REPO` + data root),
 so the hot hook path is a single map hit after the first call.
+
+**Aliases:** a repo's earlier ids (the plain remote basename, or a hash of the
+un-normalized remote) are recorded as aliases in `<data>/repos/.aliases.json`
+(alias → canonical, merge-only) so state written under a previous id stays
+discoverable after an origin change or codec upgrade.
+
+**Data root:** `<data>` is `PHANTOM_DATA` when set (deterministic; absolute wins,
+relative resolves against the workspace), else `$HOME/.phantom`, else
+`<workspace>/.phantom` - the same codec resolves it for every layer.
 
 ---
 

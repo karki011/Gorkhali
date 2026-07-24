@@ -14,9 +14,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
-let stateDir, detectRepo, phantomData, learningsDir;
+let stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir;
 try {
-  ({ stateDir, detectRepo, phantomData, learningsDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   const base = process.cwd();
   const data = process.env.PHANTOM_DATA
@@ -28,6 +28,7 @@ try {
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
   phantomData = () => data;
   learningsDir = (repo) => path.join(data, 'repos', repo, 'learnings');
+  sessionTelemetryDir = () => path.join(data, 'state', 'session-telemetry');
 }
 
 let sweepStaleArtifacts;
@@ -37,19 +38,22 @@ try {
   sweepStaleArtifacts = () => 0; // atomic.js missing -> sweep is a no-op, never block the prompt
 }
 
-// Cut-over auto-run: migrate legacy data into the neutral root before sweeping
-// branch-named repo dirs. One detached child performs both operations in order,
-// so normal prompt handling never waits. The sync mode exists only for
-// deterministic tests. Both migrators independently gate and serialize runs.
-function maybeMigrateDataAndRepoDirs() {
+// Auto-run: consolidate branch-named orphan repo dirs into their canonical dirs.
+// This is idempotent, marker-gated, and safe to run every prompt.
+//
+// The cross-root DATA-ROOT migration (scripts/migrate-data.js) is deliberately NOT
+// auto-applied here: it is dry-run-FIRST and its apply is an explicitly gated,
+// operator-reviewed step (a prior dry-run manifest is required, and the real apply
+// is signed off separately). The prompt path never auto-mutates the accumulated
+// cross-root knowledge; it only runs the in-root repo-dirs sweep.
+function maybeSweepRepoDirs() {
   try {
     const dataRoot = phantomData();
-    const dataMarker = path.join(dataRoot, '.data-root-migrated-v2');
     const repoMarker = path.join(dataRoot, '.repo-dirs-migrated');
-    if (fs.existsSync(dataMarker) && fs.existsSync(repoMarker)) return;
-    const script = path.join(__dirname, '..', 'scripts', 'migrate-data.js');
+    if (fs.existsSync(repoMarker)) return;
+    const script = path.join(__dirname, '..', 'scripts', 'migrate-repo-dirs.js');
     if (!fs.existsSync(script)) return;
-    const args = [script, '--then-repo-dirs'];
+    const args = [script, '--apply'];
     if (process.env.PHANTOM_MIGRATE_SYNC) {
       spawnSync(process.execPath, args, { stdio: 'ignore', timeout: 30000 });
     } else {
@@ -57,7 +61,7 @@ function maybeMigrateDataAndRepoDirs() {
       child.on('error', () => {});
       child.unref();
     }
-  } catch (_) { /* silent — migration must never break a prompt */ }
+  } catch (_) { /* silent - the sweep must never break a prompt */ }
 }
 
 function readPayload() {
@@ -96,7 +100,12 @@ try {
   if (sessionId) {
     const cwd = payload.cwd || process.cwd();
     const repo = detectRepo(cwd);
-    const dir = path.join(stateDir(), 'current-session');
+    // Runtime telemetry lives under state/session-telemetry, NOT
+    // state/current-session. The latter holds the durable portable task pointer
+    // written by phantom-state.mjs; keeping them on separate paths makes it
+    // physically impossible for a per-prompt telemetry write to clobber the
+    // active task pointer.
+    const dir = sessionTelemetryDir();
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, repo + '.json');
     maybeSweepStaleLocks(file, sessionId, repo);
@@ -106,7 +115,7 @@ try {
   }
 } catch (_) { /* silent — never block the prompt */ }
 
-// Runs after the primary marker job so a migration hiccup can never affect it.
-maybeMigrateDataAndRepoDirs();
+// Runs after the primary marker job so a sweep hiccup can never affect it.
+maybeSweepRepoDirs();
 
 process.exit(0);

@@ -59,6 +59,28 @@ test('portable skill passes its strict provider-neutral validator', () => {
   assert.match(result.stdout, /Portable skill is valid/);
 });
 
+test('shared-state codec ships inside the skill and depends only on node built-ins', () => {
+  const codecPath = path.join(SKILL_ROOT, 'scripts', 'lib', 'shared-state.cjs');
+  assert.ok(fs.existsSync(codecPath), 'codec is bundled inside the portable skill');
+  const source = fs.readFileSync(codecPath, 'utf8');
+  const targets = [...source.matchAll(/\brequire\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]);
+  assert.ok(targets.length > 0, 'codec requires at least one module');
+  const builtins = new Set(['fs', 'path', 'crypto', 'child_process', 'os', 'url', 'util', 'module']);
+  for (const target of targets) {
+    const bare = target.replace(/^node:/, '');
+    assert.ok(
+      builtins.has(bare),
+      `codec must stay standalone: forbidden non-builtin require('${target}')`,
+    );
+  }
+  // Resolvable in isolation: a copied skill can load it with no external tree.
+  const copied = copySkill('codec-standalone');
+  const isolated = require(path.join(copied, 'scripts', 'lib', 'shared-state.cjs'));
+  assert.equal(typeof isolated.repoId, 'function');
+  assert.equal(typeof isolated.resolveDataRoot, 'function');
+  assert.equal(isolated.ROOT_DIRNAME, '.phantom');
+});
+
 test('command adapter validation rejects blank descriptions and orphaned adapters', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-adapters-'));
   const commands = path.join(root, 'commands');

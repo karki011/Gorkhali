@@ -37,7 +37,9 @@ module.exports = {
   // extract-learnings.js subprocess kill timeout (memory-writer / memory-consolidator).
   EXTRACT_TIMEOUT_MS: numFromEnv('PHANTOM_EXTRACT_TIMEOUT_MS', 5000),
 
-  // Dirname under ~/.claude for the mutable data root (PHANTOM_DATA env overrides the full path).
+  // Legacy data-root dirname, retained ONLY as a migration source. The canonical
+  // mutable data root is now ~/.phantom (PHANTOM_DATA overrides the full path),
+  // resolved by the shared codec at skills/phantom/scripts/lib/shared-state.cjs.
   PHANTOM_DATA_DIRNAME: 'phantom-data',
 
   // Learning retention tiers (evolution-runner); tune via the PHANTOM_LEARNING_* env vars below.

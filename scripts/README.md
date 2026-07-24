@@ -142,6 +142,57 @@ node routing-report.js ~/.phantom/repos/myrepo/sessions/ENG-1234 --json
 
 ---
 
+### `migrate-data.js`
+
+Consolidates every historical Phantom data root into the one canonical neutral root (`<data>`, resolved by the T1 codec, `~/.phantom` by default).
+It is dry-run-FIRST, content-fingerprinted, and migration-wide-locked.
+
+```bash
+node migrate-data.js                          # DRY-RUN (default). Zero writes; full manifest -> stdout.
+node migrate-data.js > plan.json              # capture the dry-run plan for review + apply
+node migrate-data.js --apply --manifest plan.json    # APPLY using a prior dry-run manifest
+node migrate-data.js --map <srcId>=<canonId>  # pin an unresolved repo id (repeatable)
+node migrate-data.js --apply --manifest plan.json --force  # ignore the marker; rescan changed sources
+```
+
+**Source registry (all env-overridable for tests):** the legacy Claude data root (`PHANTOM_MIGRATE_SRC_PHANTOM_DATA`), the legacy Claude phantom root (`PHANTOM_MIGRATE_SRC_PHANTOM`), the Claude team root (`PHANTOM_MIGRATE_SRC_TEAM`), and the upper- and lower-case Codex phantom roots (`PHANTOM_MIGRATE_SRC_CODEX_UPPER`, `PHANTOM_MIGRATE_SRC_CODEX_LOWER`).
+The two Codex cases resolve to one inode on a case-insensitive filesystem and are deduped by realpath, so nothing is scanned twice.
+See `buildSources()` for the exact defaults.
+The existing `~/.phantom` is the destination BASELINE, never an immutable source.
+
+**Safety guarantees:**
+- The default invocation performs ZERO filesystem writes.
+- Apply requires BOTH `--apply` and a manifest from a prior dry-run, and fails closed otherwise.
+- External sources are never renamed, deleted, or symlinked; their bytes are byte-identical after apply.
+- Before a learnings merge modifies a pre-existing canonical file, its original bytes are copied to a content-addressed rollback backup under `<data>/audit/rollback-backups/` and both hashes are recorded in the manifest.
+- Repository ids map through the codec + aliases; an id that is not a safe path segment stays `unresolved` and requires an explicit `--map` (mappings are never guessed).
+- Identical bytes at a canonical path DEDUPLICATE; different bytes CONFLICT-PARK under a deterministic `.from-<source>.<hash>` suffix (the baseline is never overwritten); learnings merge append-only through the T3 learning API lock.
+- Apply takes a migration-wide lock (`<data>/locks/.data-migration.lock`) for the whole window, routes learnings merges through the per-learnings-dir lock and per-repo writes through the phantom-state lifecycle lock, so a concurrent state writer that races the migration blocks or fails closed.
+
+**Per-item manifest classes:** `imported`, `deduplicated`, `conflict-parked`, `unresolved`, `skipped-live-state`, with per-root and per-artifact counts.
+
+**Exit:** 0 = dry-run printed / apply succeeded / already-migrated / lock skip; 2 = apply refused (missing or mismatched manifest); 1 = unexpected error.
+
+The real apply against live machine state is a separately gated, signed-off step -- the prompt path never auto-applies it.
+
+---
+
+### `migrate-repo-dirs.js`
+
+Dry-run-first, non-destructive consolidation of branch-named orphan repo dirs under `<data>/repos/*` (and the legacy repos root named by `PHANTOM_MIGRATE_LEGACY_ROOT`) into their canonical repo dir.
+Resolved targets are canonicalized through the T1 codec alias map so consolidation agrees with every other writer.
+
+```bash
+node migrate-repo-dirs.js                # DRY-RUN (default): computes the plan, writes a report, mutates nothing.
+node migrate-repo-dirs.js --apply        # execute the plan + write the idempotent marker
+node migrate-repo-dirs.js --apply --force  # ignore the marker; pick up newly-appeared orphans
+node migrate-repo-dirs.js --map a=b      # pin orphan dir `a` to repo `b` (repeatable)
+```
+
+The `UserPromptSubmit` hook (`hooks/session-marker.js`) auto-runs `--apply` once per data root (marker-gated).
+
+---
+
 ## Usage from skill commands
 
 Reference these scripts from skill `.md` files by self-resolving the plugin dir env-free (deterministic — never via `CLAUDE_PLUGIN_ROOT`, which is reserved for `hooks/hooks.json`):

@@ -57,6 +57,16 @@ test('defaults match the pre-centralization literals exactly', () => {
   assert.equal(C.MARKER_FRESHNESS_MS, 12 * 60 * 60 * 1000);
 });
 
+test('PHANTOM_DATA_DIRNAME is legacy-only; the canonical data-root dirname is codec-owned', () => {
+  const C = freshConstants();
+  // Retained ONLY as a migration source; T2 removes provider-owned operational
+  // defaults. The canonical root dirname now lives in the shared codec.
+  assert.equal(C.PHANTOM_DATA_DIRNAME, 'phantom-data');
+  const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+  assert.equal(codec.ROOT_DIRNAME, '.phantom');
+  assert.notEqual(C.PHANTOM_DATA_DIRNAME, codec.ROOT_DIRNAME);
+});
+
 test('env overrides apply to every numeric constant', () => {
   const C = freshConstants({
     PHANTOM_FIX_LOOP_CEILING: '4',

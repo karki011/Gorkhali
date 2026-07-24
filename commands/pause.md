@@ -92,13 +92,16 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    - Key decisions made
    - Resume instructions
 
-5. **Append learnings** to relevant domain files in `learnings/`
+5. **Record learnings** through the canonical locked API - never edit
+   `learnings/` files by hand. Pipe candidates as JSON to
+   `skills/phantom/scripts/phantom-learning.mjs capture --learnings <dir>`; it
+   takes the per-repo lock, dedups, graduates, and updates `INDEX.md`,
+   `auto-captures.md`, and domain files without ever writing unlocked
+   (see `skills/phantom/references/state.md` § Learning index).
 
-6. **Update INDEX.md** with new entries
+6. **Update auto-memory** in project memory directory
 
-7. **Update auto-memory** in project memory directory
-
-8. **Close cost interval + report**:
+7. **Close cost interval + report**:
    ```bash
    PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
    [ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}

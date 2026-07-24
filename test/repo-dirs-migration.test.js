@@ -199,6 +199,31 @@ test('learnings merge is append-only with dedup + source attribution', () => {
   } finally { cleanup(w.root); }
 });
 
+test('canonical learnings merge write is atomic (tmp + fsync + rename), never a bare in-place write', () => {
+  // Static guard: mergeLearningFile must route its write through migrate-data's
+  // atomicWriteText helper (tmp + fsync + rename), not a bare fs.writeFileSync --
+  // a bare write on this auto-run path can truncate the canonical file on a
+  // crash/SIGKILL/disk-full mid-write, with no way to recover the original bytes.
+  const src = fs.readFileSync(SCRIPT, 'utf8');
+  const mergeFn = src.slice(src.indexOf('function mergeLearningFile'), src.indexOf('function uniqueDest'));
+  assert.match(mergeFn, /atomicWriteText\(dest, content\)/, 'merge write uses the atomic helper');
+  assert.doesNotMatch(mergeFn, /fs\.writeFileSync\(dest, content\)/, 'no bare in-place write remains');
+
+  // Executed guard: a real merge that changes an existing dest leaves the merged
+  // file intact (never truncated/partial) and no stray tmp artifact behind --
+  // the observable signature of tmp+rename over a bare overwrite.
+  const w = buildWorld();
+  try {
+    runMigrate(w.env, ['--apply']);
+    const destDir = path.join(w.reposRoot, 'repo-alpha', 'learnings');
+    const merged = fs.readFileSync(path.join(destDir, 'data.md'), 'utf8');
+    assert.ok(merged.length > 0, 'merged dest is not empty/truncated');
+    assert.ok(merged.includes('unique-from-canonical') && merged.includes('unique-from-orphan'));
+    const stray = fs.readdirSync(destDir).filter((f) => /\.tmp\.\d+\.[0-9a-f]+$/.test(f));
+    assert.deepEqual(stray, [], 'no leftover tmp file after the atomic write completes');
+  } finally { cleanup(w.root); }
+});
+
 test('--apply is idempotent; --force re-runs on a new orphan', () => {
   const w = buildWorld();
   try {
@@ -268,6 +293,53 @@ test('two orphans colliding on the same top-level filename park distinctly (neve
   } finally { cleanup(root); }
 });
 
+test('orphan learnings merge through the T3 grammar: one header, max validated count, no duplicate sections', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdm-grammar-'));
+  const DATA = path.join(root, 'data');
+  const reposRoot = path.join(DATA, 'repos');
+  const candParent = path.join(root, 'candidates'); // empty: resolution is PR-driven
+  const projects = path.join(root, 'projects');
+  const legacy = path.join(root, 'legacy-absent');
+  mkdirp(reposRoot); mkdirp(candParent); mkdirp(projects);
+
+  // Canonical dest repo-alpha (self PR -> recognised as canonical, self-skips) with
+  // a baseline INDEX.md and a baseline domain file.
+  writeJson(path.join(reposRoot, 'repo-alpha', 'sessions', 'self', 'wrap.json'),
+    { pr: 'https://github.com/AcmeOrg/repo-alpha/pull/1' });
+  write(path.join(reposRoot, 'repo-alpha', 'learnings', 'INDEX.md'),
+    '# Learnings\n\n## Auto-Captured\n\nauto: shared lesson [validated:2] v:2 q:0.8 u:2026-07-01\n');
+  write(path.join(reposRoot, 'repo-alpha', 'learnings', 'workflow.md'),
+    '# Workflow Learnings\n\n## Validated Patterns\n\n- baseline pattern [validated:3] q:0.9 u:2026-07-01\n');
+
+  // Orphan br-x resolves to repo-alpha by PR; its learnings collide on both files.
+  writeJson(path.join(reposRoot, 'br-x', 'sessions', 'T', 'wrap.json'),
+    { pr: 'https://github.com/AcmeOrg/repo-alpha/pull/7' });
+  write(path.join(reposRoot, 'br-x', 'learnings', 'INDEX.md'),
+    '# Learnings\n\n## Auto-Captured\n\nauto: shared lesson [validated:5] v:5 q:0.9 u:2026-07-20\n');
+  write(path.join(reposRoot, 'br-x', 'learnings', 'workflow.md'),
+    '# Workflow Learnings\n\n## Validated Patterns\n\n- orphan pattern [validated:4] q:0.9 u:2026-07-10\n');
+
+  const env = {
+    PHANTOM_DATA: DATA,
+    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
+    PHANTOM_PROJECTS_DIR: projects,
+    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+  };
+  try {
+    runMigrate(env, ['--apply']);
+    const index = fs.readFileSync(path.join(reposRoot, 'repo-alpha', 'learnings', 'INDEX.md'), 'utf8');
+    assert.equal((index.match(/## Auto-Captured/g) || []).length, 1, 'INDEX keeps one Auto-Captured header');
+    assert.match(index, /auto: shared lesson \[validated:5\] v:5 q:0.9 u:2026-07-20/, 'INDEX keeps the max count + newest date');
+    assert.equal(index.split('\n').filter((l) => l.includes('shared lesson')).length, 1, 'the shared key is not split into two lines');
+
+    const domain = fs.readFileSync(path.join(reposRoot, 'repo-alpha', 'learnings', 'workflow.md'), 'utf8');
+    assert.equal((domain.match(/## Validated Patterns/g) || []).length, 1, 'domain keeps one Validated Patterns header');
+    assert.equal(domain.split('\n').filter((l) => l.trim() === '# Workflow Learnings').length, 1, 'no injected mid-file title');
+    assert.match(domain, /baseline pattern/, 'baseline bullet preserved');
+    assert.match(domain, /orphan pattern/, 'orphan bullet merged under the single header');
+  } finally { cleanup(root); }
+});
+
 test('a live lock makes --apply skip; a stale lock is reclaimed', () => {
   const w = buildWorld();
   const lock = path.join(w.DATA, '.repo-dirs-migrating');
@@ -314,11 +386,21 @@ test('an inherited PHANTOM_REPO override never collapses candidate resolution', 
   }
 });
 
-test('auto-run hook (session-marker) triggers exactly one migration, then self-gates', () => {
+test('auto-run hook (session-marker) is lock-aware, triggers exactly one migration, then self-gates', () => {
   const w = buildWorld();
   try {
     const env = { ...process.env, ...w.env, PHANTOM_MIGRATE_SYNC: '1' };
     const payload = JSON.stringify({ session_id: 'sess-1', cwd: w.reposRoot });
+
+    // Lock-awareness: while a data-root migration holds the migration-wide lock,
+    // the hook's sweep must NOT run (no marker, no consolidation).
+    const dmLock = path.join(w.DATA, 'locks', '.data-migration.lock');
+    write(dmLock, JSON.stringify({ pid: process.pid, token: 'live', created_at: new Date().toISOString() }) + '\n');
+    const rLocked = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
+    assert.equal(rLocked.status, 0, 'hook stays fail-open while locked out: ' + rLocked.stderr);
+    assert.ok(!fs.existsSync(path.join(w.DATA, '.repo-dirs-migrated')), 'no sweep while the migration-wide lock is held');
+    assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'no consolidation while locked out');
+    fs.unlinkSync(dmLock);
 
     const r1 = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
     assert.equal(r1.status, 0, 'hook must exit 0: ' + r1.stderr);
@@ -333,5 +415,95 @@ test('auto-run hook (session-marker) triggers exactly one migration, then self-g
     const r2 = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
     assert.equal(r2.status, 0);
     assert.equal(applyReports().length, 1, 'no second migration — marker self-gates');
+  } finally { cleanup(w.root); }
+});
+
+test('a resolved target is canonicalized through the codec alias map', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdm-codec-'));
+  const DATA = path.join(root, 'data');
+  const reposRoot = path.join(DATA, 'repos');
+  const candParent = path.join(root, 'candidates'); // empty: resolution is PR-driven
+  const projects = path.join(root, 'projects');
+  const legacy = path.join(root, 'legacy-absent');
+  mkdirp(reposRoot); mkdirp(candParent); mkdirp(projects);
+
+  // T1 codec alias map: a legacy repo id maps to its canonical id.
+  writeJson(path.join(reposRoot, '.aliases.json'), { 'repo-legacy': 'repo-canonical' });
+  // An orphan whose PR signal resolves to the PRE-alias legacy id.
+  writeJson(path.join(reposRoot, 'br-x', 'sessions', 'T', 'wrap.json'),
+    { pr: 'https://github.com/AcmeOrg/repo-legacy/pull/5' });
+
+  const env = {
+    PHANTOM_DATA: DATA,
+    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
+    PHANTOM_PROJECTS_DIR: projects,
+    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+  };
+  try {
+    runMigrate(env, ['--apply']);
+    // The orphan lands in the codec-canonical dir, not the pre-alias legacy name.
+    assert.ok(fs.existsSync(path.join(reposRoot, 'repo-canonical', 'sessions', 'T', 'wrap.json')),
+      'orphan consolidated into the codec-canonical repo dir');
+    assert.ok(!fs.existsSync(path.join(reposRoot, 'repo-legacy')), 'not left under the pre-alias id');
+    assert.ok(fs.existsSync(path.join(reposRoot, 'br-x.migrated-away')), 'source preserved');
+  } finally { cleanup(root); }
+});
+
+test('the repo-dirs sweep observes the migration-wide lock: skips and mutates nothing while it is held', () => {
+  const w = buildWorld();
+  try {
+    // A data-root migration holds the migration-wide lock (<data>/locks/.data-migration.lock).
+    const dmLock = path.join(w.DATA, 'locks', '.data-migration.lock');
+    write(dmLock, JSON.stringify({ pid: process.pid, token: 'live', created_at: new Date().toISOString() }) + '\n');
+
+    const out = runMigrate(w.env, ['--apply']);
+    assert.match(out.stdout, /data-root migration in progress/, 'sweep fails closed while the migration-wide lock is held');
+    assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'no orphan consolidated while locked out');
+    assert.ok(!fs.existsSync(path.join(w.DATA, '.repo-dirs-migrated')), 'no marker written while locked out');
+    assert.ok(!fs.existsSync(path.join(w.DATA, '.repo-dirs-migrating')), 'the sweep never took its own lock');
+
+    // Once the migration-wide lock is released, the sweep proceeds normally.
+    fs.unlinkSync(dmLock);
+    runMigrate(w.env, ['--apply']);
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'sweep runs after the migration lock clears');
+  } finally { cleanup(w.root); }
+});
+
+test('a live T3 learnings lock defers the merge without clobbering; the orphan is preserved for retry', () => {
+  const w = buildWorld();
+  try {
+    // Simulate a concurrent memory-writer (capture/consolidate) mid-write on the
+    // canonical dest, exactly as phantom-learning's withLearningLock would hold
+    // it: the sweep must never read-merge-write around this lock unlocked.
+    const learningsDir = path.join(w.reposRoot, 'repo-alpha', 'learnings');
+    const dataFile = path.join(learningsDir, 'data.md');
+    const before = fs.readFileSync(dataFile, 'utf8');
+    write(path.join(learningsDir, '.learning.lock'),
+      JSON.stringify({ pid: process.pid, token: 'live-writer', created_at: new Date().toISOString() }) + '\n');
+
+    const out = runMigrate(w.env, ['--apply']); // asserts exit 0 -- fail-open at the run level
+    assert.equal(fs.readFileSync(dataFile, 'utf8'), before, 'canonical learnings file is never merged unlocked');
+
+    // The orphan is NOT renamed away: a deferred merge means its fresh content
+    // was never folded into dest, so renaming it away now would lose it forever.
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'br-pr')), 'orphan source preserved while its merge is deferred');
+    assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')),
+      'orphan not marked migrated while its learnings merge was deferred');
+
+    const report = latestReport(w.DATA, 'apply');
+    const rec = report.resolved.find((r) => r.src === 'br-pr');
+    assert.ok(rec, 'br-pr still appears in the report');
+    assert.equal(rec.deferred.length, 1, 'the deferral is recorded');
+    assert.match(rec.deferred[0].reason, /learnings-lock-contended/);
+    assert.match(out.stdout, /repo-dirs migration \[apply\]/, 'the sweep completed rather than crashing');
+
+    // Once the lock clears, a forced retry picks the deferred merge back up --
+    // the fresh orphan content was never silently dropped.
+    fs.unlinkSync(path.join(learningsDir, '.learning.lock'));
+    runMigrate(w.env, ['--apply', '--force']);
+    const merged = fs.readFileSync(dataFile, 'utf8');
+    assert.ok(merged.includes('unique-from-canonical'), 'canonical bytes preserved through the retry');
+    assert.ok(merged.includes('unique-from-orphan'), 'the deferred orphan content is merged once the lock clears');
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'orphan consolidated after the retry');
   } finally { cleanup(w.root); }
 });

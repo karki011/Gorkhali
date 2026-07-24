@@ -337,6 +337,22 @@ test('portable state defaults to a neutral home directory and honors its overrid
   assert.ok(fs.existsSync(context.data));
 });
 
+test('portable start shards under the canonical codec repo id', async () => {
+  const context = fixture();
+  execFileSync('git', ['-C', context.workspace, 'init', '-q']);
+  execFileSync('git', ['-C', context.workspace, 'remote', 'add', 'origin', 'git@github.com:org/portable-shard.git']);
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'SHARD-1', '--intent', 'Shard by codec id', '--route', 'direct',
+  ], context.env));
+
+  const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+  const expected = codec.repoId(context.workspace, { dataRoot: context.data });
+  assert.match(started.repo_id, /^portable-shard-[0-9a-f]{10}$/, 'canonical remote-backed id');
+  assert.equal(started.repo_id, expected, 'portable routes identity through the shared codec');
+  assert.ok(fs.existsSync(path.join(context.data, 'repos', expected, 'sessions', 'SHARD-1')));
+});
+
 test('portable lifecycle records brainstorm artifacts and rejects an invalid declared v3 contract', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];

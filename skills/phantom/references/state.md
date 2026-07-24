@@ -7,18 +7,60 @@ created it.
 
 Resolve the data root in this order:
 
-1. `PHANTOM_DATA` when set.
+1. `PHANTOM_DATA` when set (absolute wins; a relative value resolves against the
+   workspace).
 2. `$HOME/.phantom` when a home directory is available.
 3. `<workspace>/.phantom` as the final fallback.
 
 Do not use a provider-owned directory as the portable default. A runtime name
 may appear as optional diagnostic metadata but must never select behavior.
 
+Every layer resolves this through one shared codec so the value is identical
+across runtimes. `PHANTOM_DATA` is deterministic: the same value always yields
+the same root, and the codec never falls back to another root when it is set.
+
+## Repository identity
+
+The shard key for all per-repository state (`repos/<repo-id>/…`) is resolved by
+the same shared codec, so the CommonJS scripts, the portable ESM skill, and the
+shell resolver all produce one id for one workspace. The codec is versioned; a
+change that alters an id keeps the previous ids discoverable as aliases.
+
+Precedence, first match wins, never throws:
+
+1. A working directory inside `<data-root>/worktrees/<segment>/…` resolves to
+   that `<segment>` verbatim. These are Phantom-managed worktrees only; user
+   worktrees elsewhere are not this root and resolve through the git steps.
+2. `PHANTOM_REPO`, when set, is used verbatim (trimmed). It is deterministic and
+   per-spawn; never export it globally.
+3. With an origin remote, the id is `<name>-<hash>`. The remote is normalized
+   first so equivalent forms converge: the host is lowercased, credentials and
+   the scheme's default port (`22` for ssh, `443` for https) are stripped, a
+   trailing `.git` is removed, and owner/repository path case is preserved.
+   SSH, HTTPS, SCP-short, renamed clones, and worktrees of the same repository
+   therefore share one id, while same-named repositories under different owners
+   or hosts stay distinct.
+4. With no origin remote, the id is the basename of the repository's main root,
+   found through the Git common directory. A worktree and its main checkout
+   resolve to the same id.
+5. Without git, the id is the basename of the nearest ancestor holding a `.git`
+   entry.
+6. Otherwise the id is `_default`.
+
+Because a repository's id can already exist under earlier conventions (the plain
+remote basename, or a hash of the un-normalized remote), the codec records those
+earlier ids as aliases in a reverse map at `repos/.aliases.json` under the data
+root, keyed alias-to-canonical. Recording is merge-only and never drops an
+existing entry, so an origin change or codec upgrade leaves prior ids
+discoverable. Alias recording is an explicit write; plain identity resolution
+has no side effects.
+
 ## Layout
 
 ```text
 <data-root>/
-  state/current-session/<repo-id>.json
+  state/current-session/<repo-id>.json       # durable task pointer (this contract)
+  state/session-telemetry/<repo-id>.json     # transient runtime telemetry (separate path)
   repos/<repo-id>/
     sessions/<task-id>/
       session.json
@@ -41,6 +83,19 @@ may appear as optional diagnostic metadata but must never select behavior.
 Derive `repo-id` from stable repository identity when possible, with a short
 collision-resistant hash. Sanitize task identifiers before using them as path
 segments.
+
+## Pointer contract
+
+The durable task pointer at `state/current-session/<repo-id>.json` is the only
+authority on which task is current. It is a version-1 record
+(`{ schema_version, repo_id, task_id, session_dir, updated_at }`) written solely
+by the lifecycle helper on `start`, `record`, and `complete`.
+
+Runtime telemetry (the host session id captured per prompt) is written to a
+physically separate path, `state/session-telemetry/<repo-id>.json`
+(`{ session_id, cwd, ts }`). Telemetry must never be written to the durable
+pointer path, so a per-prompt telemetry write cannot overwrite the active task
+pointer. A reader keeps the two apart by path, not by inspecting fields.
 
 ## Artifact envelope
 
@@ -194,6 +249,24 @@ contract in [roles](roles.md) before the result can be synthesized.
   `record_sequence`; any later verification makes an earlier review stale and
   blocks `ship` and `complete` until review runs again.
 - Never delete a session to complete it; move or copy it to `completed`.
+
+## Learning index
+
+The learning files under `repos/<repo-id>/learnings/` (`INDEX.md`,
+`auto-captures.md`, and `<domain>.md`) are mutated through one concurrent-safe
+API, the bundled `scripts/phantom-learning.mjs`. Every mutation runs under a
+per-learnings-dir advisory lock; a contended writer waits and then fails rather
+than writing unlocked, so concurrent writers preserve every entry and leave a
+valid index. Both runtimes use it the same way:
+
+```text
+node <skill-directory>/scripts/phantom-learning.mjs capture --learnings <dir>      # candidates JSON on stdin
+node <skill-directory>/scripts/phantom-learning.mjs consolidate --learnings <dir>  # candidates JSON on stdin
+node <skill-directory>/scripts/phantom-learning.mjs check --learnings <dir>        # validate; exit 1 on problems
+```
+
+There is intentionally no unlocked write path. A caller that cannot take the
+lock drops its best-effort capture instead of clobbering a concurrent writer.
 
 The bundled state helper implements the portable baseline. If command execution
 is unavailable, reproduce this contract with file tools.

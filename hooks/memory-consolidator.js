@@ -19,8 +19,6 @@ try {
 const LEARNINGS_DIR = learningsDir();
 const OBS_DIR = observationsDir();
 const STATE_DIR = stateDir();
-const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
-const AUTO_CAPTURES_PATH = path.join(LEARNINGS_DIR, 'auto-captures.md');
 const EXTRACT_SCRIPT = path.join(__dirname, '..', 'scripts', 'extract-learnings.js');
 const HIGH_CONFIDENCE_THRESHOLD = 3; // file touched 3+ times → important
 
@@ -44,31 +42,23 @@ function domainFromFile(filePath) {
 // Keep a LOAD-FAILURE fallback so a missing/broken atomic.js degrades to the prior
 // inline behavior (unlocked best-effort write) and never crashes the PreCompact hook.
 
-let atomicWrite, atomicUpdate;
+let atomicWrite;
 try {
-  ({ atomicWrite, atomicUpdate } = require('../scripts/lib/atomic'));
+  ({ atomicWrite } = require('../scripts/lib/atomic'));
 } catch (_) {
   atomicWrite = (filePath, content) => {
     const tmp = filePath + '.tmp';
     fs.writeFileSync(tmp, content);
     fs.renameSync(tmp, filePath);
   };
-  atomicUpdate = (filePath, transform) => {
-    let current = null;
-    try { current = fs.readFileSync(filePath, 'utf-8'); } catch { /* absent */ }
-    const next = transform(current);
-    if (next != null) atomicWrite(filePath, next);
-  };
 }
 
-// md-grammar splices the regenerated ## Auto-Captured section back into INDEX.md
-// while every other line (manual preamble, sibling sections) stays byte-identical.
-// LOAD-FAILURE fallback: absent/broken → the prior slice+trimEnd reassembly, which
-// reflows the rest but never crashes the PreCompact hook.
-let mdGrammar = null;
-try {
-  mdGrammar = require('../scripts/lib/md-grammar');
-} catch (_) { /* fail open: md-grammar missing → string-reassembly fallback below */ }
+// The shared learning index is mutated only through the canonical learning API
+// (skills/phantom/scripts/phantom-learning.mjs). It takes the advisory lock, so
+// this hook and memory-writer.js serialize against one lock and never write the
+// index unlocked. atomicWrite above is still used for the per-session snapshot,
+// which is single-writer and needs no lock.
+const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 
 // ── Step 1: Read stdin and determine session ──────────────────────────────────
 
@@ -221,86 +211,25 @@ try {
       });
 
       if (matched.length > 0) {
-        // Read or create INDEX.md
-        fs.mkdirSync(LEARNINGS_DIR, { recursive: true });
-        // Serialize this read-modify-write on the shared INDEX so a concurrent
-        // memory-writer/consolidator can't clobber it. run-unlocked on contention
-        // keeps the prior best-effort write rather than dropping the update.
-        atomicUpdate(INDEX_PATH, (existing) => {
-          const indexContent = existing || '';
-
-          const autoHeader = '## Auto-Captured';
-          const todayStr = new Date().toISOString().slice(0, 10);
-          let autoSection = '';
-          let restContent = indexContent;
-
-          // Split existing auto-captured section
-          const autoIdx = indexContent.indexOf(autoHeader);
-          if (autoIdx !== -1) {
-            // Find next ## header or end of file
-            const afterAuto = indexContent.indexOf('\n## ', autoIdx + autoHeader.length);
-            if (afterAuto !== -1) {
-              autoSection = indexContent.slice(autoIdx, afterAuto);
-              restContent = indexContent.slice(0, autoIdx) + indexContent.slice(afterAuto);
-            } else {
-              autoSection = indexContent.slice(autoIdx);
-              restContent = indexContent.slice(0, autoIdx);
-            }
-          }
-
-          // Parse existing auto-captured entries for dedup (same format as memory-writer)
-          // Format: auto: {text} [{status}] v:{count} q:{confidence} u:{date}
-          const existingTexts = new Set();
-          const autoLines = autoSection.split('\n');
-          for (const line of autoLines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith('auto:')) {
-              const textEnd = trimmed.indexOf('[');
-              if (textEnd > 0) {
-                existingTexts.add(trimmed.slice(5, textEnd).trim().toLowerCase());
-              }
-            }
-          }
-
-          // Build new entries using same format as memory-writer
-          const newEntries = [];
-          for (const m of matched) {
-            const normEntry = (m.entry || '').toLowerCase();
-            if (existingTexts.has(normEntry)) {
-              // Bump validation count on existing entry
-              autoSection = autoSection.replace(
-                new RegExp(`(auto:\\s+${m.entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\[validated:)(\\d+)(\\])`),
-                (_, prefix, count, suffix) => `${prefix}${parseInt(count, 10) + 1}${suffix}`
-              );
-            } else {
-              newEntries.push(`auto: ${m.entry} [validated:1] v:1 q:${m.confidence || 0} u:${todayStr}`);
-            }
-          }
-
-          // Reassemble
-          let updatedAuto = autoSection;
-          if (!updatedAuto.startsWith(autoHeader)) {
-            updatedAuto = autoHeader + '\n';
-          }
-          if (newEntries.length > 0) {
-            updatedAuto = updatedAuto.trimEnd() + '\n' + newEntries.join('\n') + '\n';
-          }
-
-          // md-grammar path: drop the regenerated body back into ## Auto-Captured and
-          // let the grammar preserve the rest of INDEX.md verbatim. The dedup/bump
-          // logic above is unchanged — only the untouched-content preservation improves.
-          if (mdGrammar) {
-            try {
-              const doc = mdGrammar.parse(indexContent);
-              const autoBodyLines = updatedAuto.replace(/\n+$/, '').split('\n').slice(1);
-              mdGrammar.setSection(doc, 'Auto-Captured', autoBodyLines);
-              doc.finalNewline = true;
-              return mdGrammar.render(doc);
-            } catch (_) { /* fall through to the string-reassembly path */ }
-          }
-
-          return restContent.trimEnd() + '\n\n' + updatedAuto.trimEnd() + '\n';
-        }, { onContended: 'run-unlocked' });
+        // Route through the canonical learning API. It takes the advisory lock
+        // and folds these high-confidence patterns into the INDEX. Fail-closed:
+        // on contention past the budget or any error we skip rather than writing
+        // the index unlocked.
+        const consolidatedCandidates = matched.map((m) => ({
+          entry: m.entry,
+          confidence: m.confidence || 0,
+        }));
+        try {
+          execFileSync(process.execPath, [
+            LEARNING_API, 'consolidate', '--learnings', LEARNINGS_DIR,
+          ], {
+            input: JSON.stringify(consolidatedCandidates),
+            stdio: ['pipe', 'ignore', 'ignore'],
+            timeout: EXTRACT_TIMEOUT_MS,
+          });
+        } catch {
+          // Contended or unavailable → skip; never write the index unlocked.
+        }
       }
     } catch {
       // Step 5 failed — non-fatal, continue to output

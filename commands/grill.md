@@ -58,7 +58,7 @@ Don't accept hand-waving. Follow up: "Show me which line handles that."
 
 ## Integration
 
-Auto-called by `/phantom:wrap` before PR when 3+ files changed by agents. Can also run manually. Verdict recorded in the session board (`{TEAM_DIR}/sessions/{TICKET}.json`).
+Manual only - `/phantom:wrap` no longer auto-invokes grill. Run it yourself anytime, or pass `--grill` to `/phantom:wrap` to run it in addition to the always-on Defense Brief (see `reference/wrap/defense-brief.md`), never instead of it. Verdict recorded in the session board (`{TEAM_DIR}/sessions/{TICKET}.json`).
 
 ## Rules
 

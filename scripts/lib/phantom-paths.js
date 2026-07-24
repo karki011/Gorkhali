@@ -5,18 +5,12 @@
 
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const codec = require('../../skills/phantom/scripts/lib/shared-state.cjs');
 
 /** Root for all Phantom mutable state. PHANTOM_DATA overrides the default. */
 function phantomData(workspace = process.cwd()) {
-  const resolved = path.resolve(workspace || process.cwd());
-  let base = resolved;
-  try { base = fs.realpathSync(resolved); } catch (_) {}
-  if (process.env.PHANTOM_DATA) return path.resolve(base, process.env.PHANTOM_DATA);
-  if (process.env.HOME) return path.resolve(base, process.env.HOME, '.phantom');
-  return path.join(base, '.phantom');
+  return codec.resolveDataRoot(workspace);
 }
 
 // Per-process memoization. Hooks are hot paths (detectRepo runs on every
@@ -26,43 +20,16 @@ function phantomData(workspace = process.cwd()) {
 const REPO_CACHE = new Map();
 
 /**
- * Run a git subcommand, capturing trimmed stdout or null. Guards the RUN, not
- * just the precondition (per [guards]): a missing binary, non-git dir, timeout,
- * or nonzero exit all degrade to null and the caller falls through to the next
- * precedence step.
- */
-function gitCapture(cwd, gitArgs) {
-  try {
-    const out = execSync('git ' + gitArgs, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 2000,
-      encoding: 'utf8',
-    });
-    const value = out.trim();
-    return value || null;
-  } catch (_) {
-    return null;
-  }
-}
-
-/** Repo name from a remote URL: last path/scp segment, minus a trailing .git. */
-function repoNameFromRemote(url) {
-  let s = url.trim().replace(/[/\\]+$/, '');
-  s = s.slice(s.lastIndexOf('/') + 1);   // https/ssh path segment
-  s = s.slice(s.lastIndexOf(':') + 1);   // scp-short host:repo (no slash)
-  return s.replace(/\.git$/, '');
-}
-
-/**
- * Resolve the current repo name. Precedence (identical in phantom-paths.sh):
- *   1. cwd inside <data>/worktrees/<repo>/... -> that <repo> segment. Phantom-
- *      MANAGED worktrees only. NOTE: user worktrees at ~/.phantom-os/worktrees/
- *      are NOT this root — they never hit this step and are resolved by (3).
- *   2. PHANTOM_REPO env override (per-spawn; never export globally).
- *   3. `git remote get-url origin` basename minus .git — worktree-invariant and
- *      clone-name-invariant, so it survives the ~/.phantom-os/worktrees/{repo}/
- *      {branch} layout where a walk-up would return the BRANCH, not the repo.
+ * Resolve the current repo id. The full precedence lives in the shared codec
+ * (skills/phantom/scripts/lib/shared-state.cjs) so this CommonJS layer, the
+ * portable ESM skill, and the shell resolver all agree on ONE id:
+ *   1. cwd inside <data>/worktrees/<seg>/... -> that <seg> (Phantom-managed
+ *      worktree; verbatim). NOTE: user worktrees at ~/.phantom-os/worktrees/ are
+ *      NOT this root; they never hit this step and are resolved by (3)/(4).
+ *   2. PHANTOM_REPO env override (per-spawn, verbatim; never export globally).
+ *   3. Origin remote -> normalized -> `<name>-<hash>` (worktree- and
+ *      clone-name-invariant; SSH/HTTPS/renamed clones converge; collision-safe
+ *      across owners and hosts).
  *   4. `git rev-parse --git-common-dir` -> main-root basename. No-remote,
  *      worktree-safe fallback (common-dir points at the MAIN checkout's .git).
  *   5. Walk up to the first `.git` entry (dir or file) and take its basename.
@@ -76,58 +43,19 @@ function detectRepo(cwd = process.cwd()) {
     key = String(cwd);
   }
   if (REPO_CACHE.has(key)) return REPO_CACHE.get(key);
-  const result = resolveRepo(cwd);
-  REPO_CACHE.set(key, result);
-  return result;
-}
-
-function resolveRepo(cwd) {
-  try {
-    // (1) phantom-managed <data>/worktrees/<repo> fast-path.
-    try {
-      // realpath both sides: macOS tmp/home symlinks (/var -> /private/var).
-      const realRoot = fs.realpathSync(worktreesRoot());
-      const realCwd = fs.realpathSync(path.resolve(cwd));
-      if (realCwd !== realRoot && realCwd.startsWith(realRoot + path.sep)) {
-        const repo = realCwd.slice(realRoot.length + 1).split(path.sep)[0];
-        if (repo) return repo;
-      }
-    } catch (_) { /* root or cwd unresolvable -> next step */ }
-
-    // (2) PHANTOM_REPO override.
-    const override = process.env.PHANTOM_REPO;
-    if (override && override.trim()) return override.trim();
-
-    const resolvedCwd = path.resolve(cwd);
-
-    // (3) git remote origin basename.
-    const remote = gitCapture(resolvedCwd, 'remote get-url origin');
-    if (remote) {
-      const name = repoNameFromRemote(remote);
-      if (name) return name;
-    }
-
-    // (4) main-root basename via git common dir (no-remote / worktree-safe).
-    const commonDir = gitCapture(resolvedCwd, 'rev-parse --path-format=absolute --git-common-dir');
-    if (commonDir) {
-      const name = path.basename(path.dirname(path.resolve(resolvedCwd, commonDir)));
-      if (name && name !== '.git' && name !== '.') return name;
-    }
-
-    // (5) walk-up to the first .git entry basename.
-    let dir = resolvedCwd;
-    while (true) {
-      if (fs.existsSync(path.join(dir, '.git'))) return path.basename(dir);
-      const parent = path.dirname(dir);
-      if (parent === dir) break; // reached filesystem root
-      dir = parent;
-    }
-
-    // (6) default.
-    return '_default';
-  } catch (_err) {
-    return '_default';
-  }
+  const dataRoot = phantomData();
+  const identity = codec.repoIdentity(cwd, {
+    dataRoot,
+    phantomRepo: process.env.PHANTOM_REPO,
+  });
+  // Persist this repo's aliases (legacy plain name, raw-hash, codec-upgrade ids)
+  // into <data>/repos/.aliases.json so its earlier ids stay discoverable and the
+  // migrators collapse them onto the canonical id. Merge-only: recordAliases writes
+  // only when the map would change, and detection must never break on a write
+  // failure, so fail open with the id still returned. Cold path only (memoized).
+  try { codec.recordAliases(dataRoot, identity); } catch (_) { /* fail open */ }
+  REPO_CACHE.set(key, identity.id);
+  return identity.id;
 }
 
 /** Per-repo state dir: <data>/repos/<repoName> */
@@ -157,6 +85,21 @@ function globalPatternsDir() {
 
 /** Hook/session state dir: <data>/state */
 function stateDir()     { return path.join(phantomData(), 'state'); }
+
+/**
+ * Runtime session-telemetry dir: <data>/state/session-telemetry.
+ * Per-repo `<repo>.json` = { session_id, cwd, ts } written by the
+ * UserPromptSubmit hook. This is transient runtime telemetry and is kept
+ * PHYSICALLY SEPARATE from the durable portable task pointer at
+ * state/current-session/<repo>.json (owned by phantom-state.mjs), so a
+ * per-prompt telemetry write can never overwrite the active task pointer.
+ */
+function sessionTelemetryDir() { return path.join(stateDir(), 'session-telemetry'); }
+
+/** Path to a repo's runtime session-telemetry file. */
+function sessionTelemetryFile(repo = detectRepo()) {
+  return path.join(sessionTelemetryDir(), repo + '.json');
+}
 
 /** Per-repo session dir: <data>/repos/<repo>/sessions */
 function sessionsDir(repo = detectRepo())  { return path.join(repoDir(repo), 'sessions'); }
@@ -207,4 +150,6 @@ module.exports = {
   currentRunPointer,
   worktreesRoot,
   worktreeDir,
+  sessionTelemetryDir,
+  sessionTelemetryFile,
 };

@@ -48,6 +48,11 @@ export PHANTOM_STATE_DIR PHANTOM_AUDIT_DIR PHANTOM_GLOBAL_PATTERNS_DIR
 # <root>/scripts/lib/, so root is two levels up. ${BASH_SOURCE:-$0}: bash sets
 # BASH_SOURCE when sourced; zsh's $0 is the sourced file. cd runs in a subshell;
 # empty on failure, never errors.
+# NOTE: strict POSIX sh (e.g. dash, Ubuntu's /bin/sh) has NO portable way for a
+# *sourced* file to self-locate - BASH_SOURCE is unset and $0 is the shell name,
+# not this file. Callers under such shells MUST export PHANTOM_PLUGIN_ROOT before
+# sourcing (all real callers are bash, where self-location works; the parity
+# tests source under sh and set it explicitly).
 if [ -z "${PHANTOM_PLUGIN_ROOT:-}" ]; then
   PHANTOM_PLUGIN_ROOT=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE:-$0}")/../.." 2>/dev/null && pwd)
 fi
@@ -67,21 +72,24 @@ phantom__realpath() {
   return 1
 }
 
-# Resolve repo name at CALL time, not source time (sourced at shell startup with
-# PWD=$HOME). IDENTICAL 6-step precedence to detectRepo() in phantom-paths.js:
-#   1. <data>/worktrees/<repo> fast-path (phantom-MANAGED worktrees only;
-#      ~/.phantom-os/worktrees is NOT this root — those ride step 3)
-#   2. PHANTOM_REPO env override
-#   3. `git remote get-url origin` basename minus .git
-#   4. `git rev-parse --git-common-dir` -> main-root basename (no-remote fallback)
-#   5. pure-shell walk up to the first `.git` entry (dir or file) basename
+# Resolve repo id at CALL time, not source time (sourced at shell startup with
+# PWD=$HOME). Same precedence as detectRepo() in phantom-paths.js, routed
+# through the shared codec so all layers produce ONE id:
+#   1. <data>/worktrees/<seg> fast-path (phantom-MANAGED worktrees only;
+#      ~/.phantom-os/worktrees is NOT this root - those ride step 3/4)
+#   2. PHANTOM_REPO env override (verbatim)
+#   3. origin remote -> normalized -> `<name>-<hash>` (via codec)
+#   4. no remote -> Git common-root basename (via codec; worktree-safe)
+#   5. walk up to the first `.git` entry basename (via codec)
 #   6. `_default`
-# Every git INVOCATION is guarded (2>/dev/null); git absent/erroring degrades to
-# the walk-up. Never errors. Optional $1 overrides $PWD (used by tests).
+# Steps 1-2 stay pure-shell (verbatim, node-free). Steps 3-6 delegate to the
+# codec through a small `node -e` call so the hash matches the JS/ESM layers;
+# if node is unavailable the shell degrades to a pure-shell walk-up. Never
+# errors. Optional $1 overrides $PWD (used by tests).
 phantom_detect_repo() {
   _pcwd=${1:-$PWD}
 
-  # (1) phantom-managed <data>/worktrees/<repo> fast-path.
+  # (1) phantom-managed <data>/worktrees/<seg> fast-path.
   _wtroot=$(phantom__realpath "$PHANTOM_DATA/worktrees")
   _rcwd=$(phantom__realpath "$_pcwd")
   if [ -n "$_wtroot" ] && [ -n "$_rcwd" ] && [ "$_rcwd" != "$_wtroot" ]; then
@@ -103,30 +111,20 @@ phantom_detect_repo() {
     return 0
   fi
 
-  # (3) git remote origin basename.
-  _remote=$(git -C "$_pcwd" remote get-url origin 2>/dev/null)
-  if [ -n "$_remote" ]; then
-    _remote=${_remote%/}       # strip trailing slash
-    _remote=${_remote##*/}     # https/ssh path segment
-    _remote=${_remote##*:}     # scp-short host:repo
-    _remote=${_remote%.git}    # strip .git suffix
-    if [ -n "$_remote" ]; then
-      printf '%s\n' "$_remote"
+  # (3-6) Delegate git-based identity to the shared codec via node so the shell
+  # produces the SAME canonical id as the JS and ESM layers.
+  _codec="$PHANTOM_PLUGIN_ROOT/skills/phantom/scripts/lib/shared-state.cjs"
+  if command -v node >/dev/null 2>&1 && [ -f "$_codec" ]; then
+    _id=$(node -e 'const c=require(process.argv[1]);process.stdout.write(String(c.repoId(process.argv[2],{dataRoot:process.env.PHANTOM_DATA,phantomRepo:""})));' "$_codec" "$_pcwd" 2>/dev/null)
+    if [ -n "$_id" ]; then
+      printf '%s\n' "$_id"
       return 0
     fi
   fi
 
-  # (4) main-root basename via git common dir (no-remote / worktree-safe).
-  _common=$(git -C "$_pcwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-  if [ -n "$_common" ]; then
-    _name=$(basename "$(dirname "$_common")")
-    if [ -n "$_name" ] && [ "$_name" != ".git" ] && [ "$_name" != "." ]; then
-      printf '%s\n' "$_name"
-      return 0
-    fi
-  fi
-
-  # (5) pure-shell walk up to the first `.git` entry basename.
+  # Fallback when node is unavailable: pure-shell walk up to the first `.git`
+  # entry basename, else `_default`. This degraded path keeps the shell
+  # non-fatal; the canonical remote id needs the codec.
   d=$_pcwd
   while [ -n "$d" ]; do
     if [ -e "$d/.git" ]; then
@@ -137,7 +135,6 @@ phantom_detect_repo() {
     d=$(dirname "$d")
   done
 
-  # (6) default.
   printf '%s\n' "_default"
 }
 
