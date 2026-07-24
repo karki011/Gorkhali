@@ -37,6 +37,11 @@ import {
   validateDelegationResultContract,
   validateDelegationTaskContract,
 } from './lib/decision-contracts.mjs';
+import {
+  defectProofErrors,
+  hasDefectSignal,
+  resolveWorkKind,
+} from './lib/defect-proof.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
@@ -143,7 +148,7 @@ function hashFileState(hash, workspace, relativePath, gitlink = false) {
   }
 }
 
-function worktreeFingerprint(workspace) {
+export function worktreeFingerprint(workspace) {
   const hash = createHash('sha256');
   hash.update(`workspace\0${workspace}\0`);
   let indexRecords = [];
@@ -415,8 +420,17 @@ function currentSession(workspace) {
   const session = readJson(join(sessionDirectory, 'session.json'));
   paths.sessionDir = sessionDirectory;
   if (!session) return null;
+  const sessionHadWorkKind = session.work_kind !== undefined;
   session.lifecycle = lifecycleFor(session);
-  return { paths, pointer, session };
+  if (!sessionHadWorkKind) {
+    session.work_kind = resolveWorkKind(undefined, session.intent_summary);
+  }
+  return {
+    paths,
+    pointer,
+    session,
+    sessionHadWorkKind,
+  };
 }
 
 function requireCurrent(workspace) {
@@ -428,6 +442,7 @@ function requireCurrent(workspace) {
 
 function start(workspace, args) {
   if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
+  const requestedWorkKind = resolveWorkKind(args['work-kind'], args.intent);
   const route = args.route || 'plan';
   if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
@@ -447,6 +462,13 @@ function start(workspace, args) {
   mkdirSync(paths.sessionDir, { recursive: true });
   const existing = readJson(join(paths.sessionDir, 'session.json'));
   if (existing) {
+    const existingWorkKind = resolveWorkKind(existing.work_kind, existing.intent_summary);
+    if (existingWorkKind !== requestedWorkKind) {
+      throw new Error(
+        `Cannot change work kind for active task ${paths.task} from `
+        + `${existingWorkKind} to ${requestedWorkKind}.`,
+      );
+    }
     if (existing.route && existing.route !== route) {
       throw new Error(
         `Cannot change route for active task ${paths.task} from ${existing.route} to ${route}. `
@@ -475,6 +497,7 @@ function start(workspace, args) {
   session.bundle_version = BUNDLE_VERSION;
   session.status = 'active';
   session.route = existing?.route || route;
+  session.work_kind = requestedWorkKind;
   session.lifecycle = lifecycleFor(existing ? session : { ...session, mode: requestedMode });
   session.intent_summary = existing?.intent_summary || args.intent;
   session.updated_at = now();
@@ -483,6 +506,7 @@ function start(workspace, args) {
     bundle_version: BUNDLE_VERSION,
     summary: session.intent_summary,
     route: session.route,
+    work_kind: session.work_kind,
   }));
   atomicWriteJson(paths.currentFile, {
     schema_version: 1,
@@ -497,6 +521,14 @@ function start(workspace, args) {
 function status(workspace) {
   const current = currentSession(workspace);
   return current?.session || { schema_version: 1, status: 'none', workspace };
+}
+
+function fingerprint(workspace) {
+  return {
+    schema_version: 1,
+    workspace,
+    worktree_fingerprint: worktreeFingerprint(workspace),
+  };
 }
 
 function updateStatus(workspace, nextStatus, extra = {}, current = requireCurrent(workspace)) {
@@ -648,9 +680,105 @@ function authorize(workspace, args) {
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
 
+function isLegacyClassificationArtifact(bundleVersion) {
+  if (bundleVersion === undefined) return true;
+  if (typeof bundleVersion !== 'string') return false;
+  const match = bundleVersion.match(/^(\d+)\.(\d+)\.\d+$/);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major < 2 || (major === 2 && minor < 2);
+}
+
+function authoritativeWorkKind(current) {
+  const errors = [];
+  const sessionSummary = current.session.intent_summary;
+  if (typeof sessionSummary !== 'string' || sessionSummary.trim() === '') {
+    errors.push('session intent_summary is missing or malformed');
+  }
+  let sessionKind;
+  try {
+    if (!current.sessionHadWorkKind
+      && !isLegacyClassificationArtifact(current.session.bundle_version)) {
+      errors.push('session work_kind is missing from a current classification artifact');
+    }
+    sessionKind = resolveWorkKind(current.session.work_kind, sessionSummary);
+    if (current.session.work_kind !== sessionKind) {
+      errors.push('session work_kind conflicts with defect signals in session intent_summary');
+    }
+  } catch (error) {
+    errors.push(`session work_kind is invalid: ${error.message}`);
+  }
+
+  const intent = readJson(join(current.paths.sessionDir, 'intent.json'));
+  let intentKind;
+  if (!isObject(intent)) {
+    errors.push('intent.json is missing or malformed');
+  } else {
+    if (intent.repo_id !== current.paths.repo.id) {
+      errors.push('intent.json repo_id does not match the active session');
+    }
+    if (intent.task_id !== current.paths.task) {
+      errors.push('intent.json task_id does not match the active session');
+    }
+    if (typeof intent.summary !== 'string' || intent.summary.trim() === '') {
+      errors.push('intent.json summary is missing');
+    } else if (intent.summary.trim() !== String(sessionSummary || '').trim()) {
+      errors.push('intent.json summary does not match session intent_summary');
+    }
+    try {
+      if (intent.work_kind === undefined
+        && !isLegacyClassificationArtifact(intent.bundle_version)) {
+        errors.push('intent.json work_kind is missing from a current classification artifact');
+      }
+      intentKind = resolveWorkKind(intent.work_kind, intent.summary);
+      if (intent.work_kind !== undefined && intent.work_kind !== intentKind) {
+        errors.push('intent.json work_kind conflicts with defect signals in its summary');
+      }
+    } catch (error) {
+      errors.push(`intent.json work_kind is invalid: ${error.message}`);
+    }
+  }
+
+  if (sessionKind && intentKind && sessionKind !== intentKind) {
+    errors.push('session and intent.json work_kind classifications do not match');
+  }
+  if (hasDefectSignal(sessionSummary) || hasDefectSignal(intent?.summary)) {
+    if (sessionKind !== 'investigation' || intentKind !== 'investigation') {
+      errors.push('defect signals require investigation classification');
+    }
+  }
+  return { errors, workKind: sessionKind };
+}
+
 function prepareExecute(current) {
   requireStandardMode(current, 'execute');
   const lifecycle = lifecycleFor(current.session);
+  const currentFingerprint = worktreeFingerprint(current.paths.repo.root);
+  const classification = authoritativeWorkKind(current);
+  if (classification.errors.length) {
+    throw new Error(
+      'Cannot execute: authoritative classification artifacts are inconsistent. '
+      + classification.errors.join('; '),
+    );
+  }
+  if (classification.workKind === 'investigation') {
+    const proof = readJson(join(current.paths.sessionDir, 'defect-proof.json'));
+    const errors = defectProofErrors(proof, {
+      repoId: current.paths.repo.id,
+      taskId: current.paths.task,
+      baselineFingerprint: currentFingerprint,
+      sessionDir: current.paths.sessionDir,
+      nowMs: Date.now(),
+    });
+    if (errors.length) {
+      throw new Error(
+        'Cannot execute investigation: defect proof is not ready. '
+        + `${errors.join('; ')}. Preserve waiting_for_evidence/unconfirmed_defect `
+        + 'and run Hound again with the missing evidence.',
+      );
+    }
+  }
   if (!granted(lifecycle.authorizations.implementation)) {
     missingPrerequisite(
       'execute',
@@ -672,7 +800,7 @@ function prepareExecute(current) {
   lifecycle.actions.execute = {
     status: 'started',
     decided_at: now(),
-    worktree_fingerprint: worktreeFingerprint(current.paths.repo.root),
+    worktree_fingerprint: currentFingerprint,
   };
   return lifecycle;
 }
@@ -1071,6 +1199,7 @@ function main() {
   try {
     let result;
     if (command === 'status') result = status(workspace);
+    else if (command === 'fingerprint') result = fingerprint(workspace);
     else result = withLifecycleLock(workspace, () => {
       if (command === 'start') return start(workspace, args);
       if (command === 'pause') return updateStatus(workspace, 'paused', { pause_reason: args.reason || 'Paused by user.' });
@@ -1084,7 +1213,7 @@ function main() {
       if (command === 'complete') return complete(workspace);
       throw new Error(
         'Usage: phantom-state.mjs '
-        + '<start|status|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
+        + '<start|status|fingerprint|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
       );
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

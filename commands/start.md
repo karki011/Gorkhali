@@ -57,7 +57,21 @@ Agent spawn rules (all routes):
      `id`s in `context.json`; no matches → skip silently.
 4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
-5. Bug detected (keywords/Jira type/branch prefix) → spawn Hound agent (see `phantom:hound`) for pre-scan per `reference/detective/depth-levels.md`
+5. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
+   Jira type, or branch prefix → classify `workKind: "investigation"` in
+   `context.json` and `intent.json`, then spawn Hound and write
+   `{SESSION_DIR}/defect-proof.json` per `reference/defect-proof.md`.
+   - Before any Blade mutation, require observed reproduction evidence and a
+     traced root-cause claim confirmed by the user. Only
+     `ready_for_fix` / `confirmed_defect` may proceed.
+   - Inconclusive or conflicting proof MUST become
+     `waiting_for_evidence` / `unconfirmed_defect`; record the missing evidence
+     and next observation, then STOP before Blade activation or dispatch.
+   - Diagnostic instrumentation is denied unless a recorded, unexpired
+     `DiagnosticGrant` names the objective, actions, paths, expiry, and cleanup.
+     The grant authorizes only that reversible evidence collection; it never
+     authorizes a fix or changes the verdict. Resume the proof gate after
+     diagnostics.
 
 ## Phase B: Classify + Route
 
@@ -70,7 +84,11 @@ READ `reference/router.md` for full algorithm.
 
 ## Route: DIRECT (0 gates)
 
-1. Write `intent.json` with task scope
+1. Write `intent.json` with task scope. If `workKind` is `investigation`, reread
+   `{SESSION_DIR}/defect-proof.json` and require the complete
+   `ready_for_fix` / `confirmed_defect` contract from
+   `reference/defect-proof.md`; otherwise STOP in
+   `waiting_for_evidence` / `unconfirmed_defect`.
 2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 3. **Spawn Blade agent** via Agent tool:
    ```
@@ -88,7 +106,14 @@ READ `reference/router.md` for full algorithm.
        Self-review your changes before returning.
    ```
 4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
-5. After Blade returns → `Skill(skill="phantom:verify", args="--chained")` (chained flow).
+5. After Blade returns → independent
+   `Skill(skill="phantom:verify", args="--chained")` (chained flow). For a
+   confirmed defect, the verifier must rerun the recorded reproduction and the
+   focused regression check. The implementing Blade's self-review or test
+   result is not independent verification. Before marking the direct scope
+   done, write its independent
+   `{SESSION_DIR}/scope-verifications/{task-id}.json` record per
+   `reference/defect-proof.md`.
    - **PASS → AUTO-CONTINUE** to `Skill(skill="phantom:wrap")`. Do NOT return to the human here.
    - **FAIL → verify threads** `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS, AUTO-CONTINUE to `Skill(skill="phantom:wrap")`.
 6. Escalation path AFTER the fix-loop is exhausted (not the immediate response): escalate to PLAN route. >3 files touched → log correction.
@@ -100,7 +125,9 @@ READ `reference/router.md` for full algorithm.
 3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with the approval question, recommendation, evidence, architecture, risks, and validation, with files/tasks/waves in an execution appendix. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat. Material feedback updates `plan.json` and reruns plan-checker (and Rival when scope changes) before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same decision-first hierarchy in chat and state the capability failure. Never degrade to a task-only gate.
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
-5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")` — execute spawns agents per plan
+5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")`: execute rechecks
+   defect proof, spawns agents per plan, and requires independent verification
+   for every implementation scope
 6. `Skill(skill="phantom:verify", args="--chained")` → on FAIL verify threads `--chained` through to `Skill(skill="phantom:fix")` (re-verifies internally; loop ceiling owned by `hooks/loop-controller.js`) → on PASS flow straight to `Skill(skill="phantom:wrap")`. No human return between verify/fix/wrap — wrap proceeds autonomously to a **draft PR**; the human gate is post-PR (review the draft, mark it ready-to-review).
 
 ## Route: BRAINSTORM (2 gates)

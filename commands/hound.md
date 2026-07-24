@@ -21,6 +21,11 @@ Resolve TICKET from session state or `git branch --show-current`.
 
 Load relevant learnings from `_shared-auto-learning.md` — prior investigations of same area, past corrections.
 
+Read `reference/defect-proof.md` and any existing
+`{SESSION_DIR}/defect-proof.json`. Preserve prior evidence and explicit user
+confirmation unless new evidence contradicts it. Read any `DiagnosticGrant`
+before running instrumentation; actions outside its paths or scope are denied.
+
 **Large-scope sweep → recommend a workflow.** If the forensics scope is big (many files / deep
 git history / repo-wide), recommend running the sweep as a Claude Code dynamic workflow per
 `reference/workflow-delegation.md`: it fans out investigators and returns ranked root causes only,
@@ -56,7 +61,33 @@ NEVER present a hypothesis without specific evidence. Valid example:
 Use git recipes from reference/detective/git-recipes.md and hotspot/coupling formulas from reference/detective/hotspots.md — do not invent variations.
 If Phantom MCP available, use phantom_graph_blast_radius + phantom_graph_related on suspects.
 
-## Output
+## Defect proof artifact
+Write or update {TEAM_DIR}/sessions/{TICKET}/defect-proof.json according to
+reference/defect-proof.md. It MUST record:
+- reproduction.status as observed or not_observed, the exact scenario,
+  expected/actual behavior, baseline revision, timestamp, and evidence refs;
+- rootCause.status, one falsifiable claim, exactCodePath, causal evidence refs,
+  confirmedByUser, and confirmedAt. Never infer user confirmation;
+- the focused regression check, missing evidence, and next observation;
+- the active repo/task ids and current worktree baselineFingerprint;
+- any DiagnosticGrant exactly as scoped, including grantedBy, grantedAt,
+  expiresAt, revokedAt, objective, allowedActions, allowedPaths,
+  baselineFingerprint, cleanupRequired, structured instrumentation records,
+  cleanupStatus, cleanedAt, cleanup evidence refs, and any explicit cleanup
+  approval.
+
+Obtain the canonical fingerprint with portable
+`phantom-state.mjs fingerprint --workspace <path>` when command execution is
+available. Do not invent or approximate it.
+
+Only explicit user confirmation may set confirmedByUser true. Only observed
+cleanup evidence may set cleanupStatus to cleaned; only explicit user approval
+may set approved_in_scope. Missing or conflicting proof MUST produce
+waiting_for_evidence / unconfirmed_defect. Hound never authorizes or implements
+a fix. Set ready_for_fix / confirmed_defect only when every mutation-gate
+condition in the reference is satisfied.
+
+## Other output
 Write {TEAM_DIR}/sessions/{TICKET}/investigation.html using reference/detective/report-template.md.
 Then return a conversation summary: hypothesis + confidence; key evidence (commit SHA, file, line); recommended fix approach; files to modify; who to consult (if bus factor = 1).
 ```
@@ -65,9 +96,18 @@ Then return a conversation summary: hypothesis + confidence; key evidence (commi
 
 After Hound completes:
 1. Read agent's returned summary.
-2. Present to user as 3-5 bullet summary.
-3. Confirm `investigation.html` written to `{TEAM_DIR}/sessions/{TICKET}/`.
-4. Record outcome to learnings via `_shared-auto-learning.md`.
+2. Validate `defect-proof.json` against `reference/defect-proof.md`. Missing,
+   malformed, contradictory, or stale proof becomes
+   `waiting_for_evidence` / `unconfirmed_defect`.
+3. If this exact claim does not already have explicit user confirmation,
+   present its evidence and ask the user to confirm or reject it.
+4. After the response, update `confirmedByUser`, `confirmedAt`,
+   `rootCause.status`, and the gate state/verdict. Without explicit
+   confirmation, preserve `waiting_for_evidence` / `unconfirmed_defect`.
+5. Present the remaining findings as a 3-5 bullet summary.
+6. Confirm `investigation.html` and `defect-proof.json` were written to
+   `{TEAM_DIR}/sessions/{TICKET}/`.
+7. Record outcome to learnings via `_shared-auto-learning.md`.
 
 </instructions>
 
@@ -77,9 +117,9 @@ After Hound completes:
 
 | Caller | When | Depth | Output |
 |--------|------|-------|--------|
-| `start.md` Phase A | Bug report detected | Pre-scan | `hound` field in context.json |
-| `verify.md` | Correctness fails | Failure scan | `hound` field in verification.json |
-| `fix.md` loop 2+ | Same failure class repeats | Full | investigation.html |
+| `start.md` Phase A | Bug report detected | Pre-scan | `defect-proof.json` + `hound` field in context.json |
+| `verify.md` | Correctness fails | Failure scan | `defect-proof.json` + `hound` field in verification.json |
+| `fix.md` loop 2+ | Same failure class repeats | Full | `defect-proof.json` + investigation.html |
 
 Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When triggered with abbreviated depth (Pre-scan or Failure scan), add to Hound prompt: `"Depth: {depth_level} — follow abbreviated flow from reference/detective/depth-levels.md"`.
 
@@ -90,6 +130,10 @@ Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When tr
 ## Rules
 
 - Evidence before conclusions. Always.
+- Every Hound run writes or updates `defect-proof.json`; inconclusive evidence
+  fails closed without authorizing mutation.
+- Instrumentation requires a current DiagnosticGrant. Hound records its cleanup
+  state and evidence but never infers cleanup or user approval.
 - Coordinator delegates entirely to Hound agent — runs no investigation steps itself.
 - Hound uses git recipes from `_shared-hound.md` / `reference/detective/git-recipes.md`. Do not invent variations.
 - One hypothesis at a time. Rank by confidence, present highest first.

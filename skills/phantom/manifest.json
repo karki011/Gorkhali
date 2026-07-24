@@ -1,11 +1,12 @@
 {
   "name": "phantom",
-  "bundle_version": "2.1.0",
-  "contract_resource_digest": "sha256:c98dcd22184000f7868b9ab5a3f89e901ebf6754290b827381cc4284d0c0f079",
+  "bundle_version": "2.2.0",
+  "contract_resource_digest": "sha256:453495ec925f09d1d1503c829817986daf02eac5ebc18511e2138103d741711a",
   "contract_versions": {
     "capability_ledger": 1,
     "state_envelope": 1,
     "decision_artifact": 3,
+    "defect_proof": 1,
     "delegation": 2,
     "model_policy": 2,
     "model_presets": 1,

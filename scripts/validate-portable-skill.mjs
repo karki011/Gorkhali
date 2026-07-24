@@ -35,6 +35,7 @@ const selectionOrder = [
 const requiredContractVersions = {
   capability_ledger: 1,
   decision_artifact: 3,
+  defect_proof: 1,
   delegation: 2,
   impact_report: 1,
   model_policy: 2,
@@ -45,6 +46,7 @@ const requiredContractVersions = {
 const lifecycleContractResources = [
   'references/state.md',
   'references/workflows.md',
+  'scripts/lib/defect-proof.mjs',
   'scripts/phantom-state.mjs',
 ];
 const riskLevels = ['low', 'moderate', 'high', 'critical'];
@@ -165,8 +167,8 @@ function validateManifest(manifest, errors, skillDirectory) {
     errors.push('Manifest bundle_version must be a semantic version.');
   } else {
     const [major, minor] = manifest.bundle_version.split('.').map(Number);
-    if (major < 2 || (major === 2 && minor < 1)) {
-      errors.push('Manifest bundle_version must be at least 2.1.0 for the additive lifecycle contract.');
+    if (major < 2 || (major === 2 && minor < 2)) {
+      errors.push('Manifest bundle_version must be at least 2.2.0 for the defect-proof lifecycle contract.');
     }
   }
   if (manifest.contract_resource_digest !== lifecycleContractDigest(skillDirectory)) {

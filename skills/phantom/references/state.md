@@ -66,6 +66,7 @@ has no side effects.
       session.json
       context.json
       intent.json
+      defect-proof.json
       capabilities.json
       brainstorm.json
       plan.json
@@ -110,7 +111,7 @@ Every JSON artifact must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "2.1.0",
+  "bundle_version": "2.2.0",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"
@@ -141,6 +142,40 @@ For plan and brainstorm artifacts, `passed` means the artifact validated and its
 review pass completed; it never means the user approved the recommendation.
 Approval remains in the decision record. Session completion specifically
 requires `passed` verification and review artifacts.
+
+## Defect-proof gate
+
+`start --work-kind investigation` explicitly classifies defect work.
+Conservative `bug`, `defect`, `regression`, `incident`, or `flaky failure`
+intent signals always classify the session as `investigation`, even if
+`--work-kind implementation` is supplied; otherwise the explicit value or
+`implementation` default applies. The selected `work_kind` is persisted in
+both `session.json` and `intent.json` and cannot change during an active
+session. Execute reconciles both artifacts, their summaries, and defect signals
+before selecting a gate. Missing, mismatched, or internally contradictory
+classification artifacts fail closed.
+
+Before portable `execute` can start an investigation, the session-scoped
+`defect-proof.json` must pass contract version 1. It must bind the active
+repository, task, and current worktree fingerprint; record an observed
+reproduction with evidence; record a confirmed causal code path and evidence;
+and contain explicit user confirmation. Its state/verdict must be
+`ready_for_fix` / `confirmed_defect`.
+Every required evidence reference must be a normalized session-relative path
+to an existing regular file that resolves inside the active session directory.
+Missing files, absolute paths, traversal, and path escapes fail closed.
+
+A DiagnosticGrant is optional. When present it records `grantedBy`,
+`objective`, `grantedAt`, `expiresAt`, `allowedActions`, `allowedPaths`,
+`baselineFingerprint`, boolean `cleanupRequired`, and `revokedAt`. The portable
+gate rejects expired, revoked, malformed, out-of-scope, status-inconsistent, or
+cleanup-pending grants. Instrumentation records must match an allowed action
+and path. Cleaned instrumentation requires cleanup evidence; instrumentation
+retained in implementation scope requires explicit approval fields.
+
+`waiting_for_evidence` / `unconfirmed_defect` is a resumable hold, not a
+completed session. Pause and resume preserve the proof artifact, but execute
+continues to fail closed until Hound updates it with complete current evidence.
 
 ## Route-aware lifecycle state
 
@@ -187,6 +222,7 @@ node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --ga
 node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate plan
 node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
 node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope implementation
+node <skill-directory>/scripts/phantom-state.mjs fingerprint --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs execute --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs verify --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-draft-pr
@@ -209,6 +245,12 @@ no separate wiring artifact. Approval fails until those artifacts exist and
 have passed. `execute` revalidates every binding. A recovered legacy approval
 without a binding is not trusted: record a fresh passed artifact and approve it
 again.
+
+The portable hard gate in bundle 2.2 covers defect proof. Per-implementation-
+scope independent verification records remain required by the compatibility
+command contract but are not yet a versioned portable lifecycle artifact. A
+follow-up contract version must make that validation authoritative before the
+portable runtime claims per-scope enforcement.
 
 Delegated passes use versioned `delegation-task` and `delegation-result`
 payloads stored under `runs/<run-id>/`. Both must validate against the portable

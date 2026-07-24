@@ -295,12 +295,13 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.1.0',
+    bundle_version: '2.2.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
       state_envelope: 1,
       decision_artifact: 3,
+      defect_proof: 1,
       delegation: 2,
       model_policy: 2,
       model_presets: 1,
@@ -346,7 +347,7 @@ test('portable validator detects stale bundle metadata after a lifecycle contrac
   fs.writeFileSync(manifestFile, JSON.stringify(manifest));
   const versioned = validate(staleVersion);
   assert.notEqual(versioned.status, 0);
-  assert.match(versioned.stderr, /bundle_version must be at least 2\.1\.0/);
+  assert.match(versioned.stderr, /bundle_version must be at least 2\.2\.0/);
 });
 
 test('portable validator requires every bundled planning and AI review resource', () => {
@@ -456,7 +457,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.1.0');
+    assert.equal(result.bundle_version, '2.2.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -638,7 +639,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.1.0');
+  assert.equal(resolver.bundle_version, '2.2.0');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [

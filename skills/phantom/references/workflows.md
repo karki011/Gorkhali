@@ -84,8 +84,10 @@ rationale, requested profiles, and any fallback in session state.
 7. Select required role passes and automatically choose `current-agent`,
    `native-serial`, or `native-parallel` using the policy above. Resolve each
    delegated profile only after the topology and bounded assignment are known.
-8. For a defect, use Hound: reproduce, collect evidence, trace the exact path,
-   form one root-cause hypothesis, and obtain user confirmation before a fix.
+8. For a defect, use Hound after starting with `--work-kind investigation` (or
+   preserving the conservative detected classification). Hound writes
+   `defect-proof.json`: reproduce, collect evidence, trace the exact path, form
+   one root-cause hypothesis, and obtain user confirmation before a fix.
 9. For a `brainstorm` or `full` route, follow
    [brainstorming](brainstorming.md): establish the decision frame and stance,
    gather evidence, diverge into traceable ideas, cluster connections, converge
@@ -115,9 +117,10 @@ rationale, requested profiles, and any fallback in session state.
 
 ## Execute
 
-1. Pass the portable `execute` gate. Confirm implementation authorization and
-   the active route's approval prerequisites, then confirm the active branch,
-   worktree, plan, contracts, and allowed scope.
+1. Pass the portable `execute` gate. For investigation work, first validate the
+   session-scoped defect proof and any DiagnosticGrant against the current
+   worktree. Then confirm implementation authorization, the active route's
+   approval prerequisites, branch, plan, contracts, and allowed scope.
 2. Build execution waves from observed dependency evidence. Do not parallelize
    shared writes, and do not treat partial graph coverage as proof of isolation.
 3. Apply the recorded topology. Delegate bounded Blade assignments through the
@@ -145,7 +148,8 @@ relevant corrections.
 On resume, re-read governing instructions, validate workspace identity, compare
 the worktree to the checkpoint, re-check corrections, and continue from the
 first incomplete criterion. Do not repeat completed work without evidence it is
-stale.
+stale. `waiting_for_evidence` / `unconfirmed_defect` remains resumable, but it
+does not permit execute until Hound records complete current proof.
 
 ## Verify and finish
 

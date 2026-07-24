@@ -23,7 +23,25 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
 
-4. **Load intent**: Read `{TEAM_DIR}/sessions/{TICKET}/intent.json`
+4. **Load intent and context**: Read
+   `{TEAM_DIR}/sessions/{TICKET}/intent.json` and `context.json` when present.
+
+4.5. **Defect proof gate**: If any loaded intent, context, plan, or contract
+   classifies or describes defect/regression work, require
+   `workKind: "investigation"` consistently and read
+   `{SESSION_DIR}/defect-proof.json`. Classification disagreement or omitted
+   proof fails closed. Validate the complete contract in
+   `reference/defect-proof.md`.
+   - Require `state: "ready_for_fix"`,
+     `verdict: "confirmed_defect"`, an observed current reproduction with
+     evidence, and a confirmed causal code path with
+     `confirmedByUser: true`.
+   - Missing, stale, malformed, contradictory, or incomplete proof → set or
+     preserve `state: "waiting_for_evidence"` and
+     `verdict: "unconfirmed_defect"`, then BLOCK before the Blade marker.
+   - Diagnostic instrumentation is allowed only under an unexpired
+     `DiagnosticGrant` that explicitly lists its objective, actions, paths,
+     expiry, and cleanup. It never authorizes this implementation step.
 
 5. **Activate blade marker**: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
 
@@ -48,6 +66,16 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/<agent-name>.json` (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass `name: "<agent-name>"` — the same string as the stub filename. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
+   - **Independent verification assignment**: every implementation task in the
+     plan MUST name a Ward or other read-only verifier that is independent of
+     its implementing Blade. After that Blade returns, the verifier reruns the
+     task's acceptance checks and writes
+     `{SESSION_DIR}/scope-verifications/{task-id}.json` per
+     `reference/defect-proof.md`; for confirmed defects it also reruns the
+     reproduction and focused regression check recorded in
+     `defect-proof.json`. Do not count Blade self-review, Blade-run tests, or
+     only a later aggregate suite as the per-scope independent result. A scope
+     without its own `status: "passed"` record cannot be marked `done`.
 
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
@@ -75,6 +103,12 @@ Execute a plan from artifacts. Used by start.md router or standalone.
          "filesRead": ["src/api/client.ts"],
          "selfReviewScore": 8,
          "testResult": { "passed": true, "summary": "5 tests green" },
+         "independentVerification": {
+           "record": "scope-verifications/t1.json",
+           "verifier": "ward-pagination",
+           "status": "passed",
+           "summary": "Reproduction and focused regression check pass"
+         },
          "blocker": null,
          "outputSummary": "Added usePagination hook"
        }
@@ -83,7 +117,12 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    }
    ```
 
-   Populate each task from the Blade's typed completion record — `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary`. Read these fields directly; do NOT re-parse the free-text handoff. `status` is one of `done` | `failed` | `skipped`.
+   Populate each task from the Blade's typed completion record and the
+   independent verifier record: `filesChanged`, `filesRead`,
+   `selfReviewScore`, `testResult`, `independentVerification`, `blocker`,
+   `outputSummary`. Read these fields directly; do NOT re-parse the free-text
+   handoff. `status` is one of `done` | `failed` | `skipped`; `done` requires
+   a matching independent-verification record with `status: "passed"`.
 
 </output_format>
 
