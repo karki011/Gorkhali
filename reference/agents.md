@@ -8,7 +8,7 @@
 | Blade | sonnet for well-scoped/contract-backed work · escalate to opus (hard ceiling - never fable, never session-inherit) for complex, ambiguous, cross-cutting work | Implementation — code, tests, config | agents/blade.md |
 | Ward | haiku (frontmatter pin) | QA — runs verify commands, checks contracts | agents/ward.md |
 | Gaze | opus (pinned — review tier) | Quality gate — power level, scoring | agents/gaze.md |
-| Sage | fable (pinned — top tier) | Advisory — <100 words, no tools, no user output | agents/sage.md |
+| Sage | opus (pinned — top tier) | Advisory — <100 words, no tools, no user output | agents/sage.md |
 | Lens | sonnet (frontmatter pin) | Visual — browser verification, screenshots | agents/lens.md |
 | Archer | opus (pinned — review tier) | Cross-file — cache coherence, regression, dead code | agents/archer.md |
 | Rival | sonnet (frontmatter pin) | Plan challenger — 5 categories, verdict | agents/rival.md |
@@ -19,11 +19,11 @@
 
 ## Model Routing (Apex decides at spawn)
 
-**Fable 5 never implements. Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus;
-the escalation ladder is re-decompose -> sonnet -> opus. If a subtask looks like it needs Fable, the
-scoping failed - Apex re-decomposes.**
+**Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus and never run fable;
+the escalation ladder is re-decompose -> sonnet -> opus. If a subtask can't be scoped to fit within
+opus, the scoping failed - Apex re-decomposes.**
 
-**Default = task-appropriate tier, not "inherit everything."** The session model (often Fable 5)
+**Default = task-appropriate tier, not "inherit everything."** The session model (now Opus 5)
 belongs to orchestration; for implementer roles the ceiling is opus, and the floor logic below routes
 the cheapest model that fits the work. Apex picks the model per spawn via the Agent tool `model:` param.
 **Effort is uniform `high`**, inherited from the session — there is NO per-spawn effort param, so
@@ -43,9 +43,8 @@ Apex has OPTIONS, not a rigid lookup. Use these criteria per role:
   cross-cutting work, or where decomposition left the subtask fuzzy. "Good tasking earns Sonnet" — fix
   weak scoping by re-decomposing, not by throwing the expensive model at it.
 - **Reasoning / review roles** (Gaze, Archer, Hound, Rival, Sage) → **UNCHANGED**. Gaze and Archer
-  pin `opus` in frontmatter (review tier — independent benchmarks (CodeRabbit review bench, 2026-06)
-  show Fable 5 is no better than Opus 4.8 at code review at 2x the price). Sage pins `fable` (top-tier
-  advisory — Fable 5 by default, falling back to `opus` when Fable 5 is unavailable). Hound pins opus
+  pin `opus` in frontmatter (review tier — opus is the top tier now that Fable is retired from
+  Phantom's routing). Sage pins `opus` (top-tier advisory). Hound pins opus
   and Rival pins sonnet in frontmatter. Do NOT downshift Gaze, Archer, or Hound.
 - **Orchestration** (Apex) → the session model.
 
@@ -61,12 +60,12 @@ When decomposing, keep tagging each subtask `mechanical | standard | complex`. C
 honored, and any user-supplied config override is honored on top of them — the rubric only fills the
 gap when nothing more specific is set. For implementer roles (blade, sweep, ward, lens, warden) any
 override above opus is invalid - `hooks/blade-model-gate.js` denies fable regardless of source.
-Use bare aliases (fable/opus/sonnet/haiku); never pin dated or prior-generation model IDs.
+Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
 
 ## Spawning Rules
 
 - All agents: `mode: "bypassPermissions"`
-- Model: Apex picks per spawn per **Model Routing** above (default = task-appropriate tier; sonnet floor for mechanical and well-scoped work, escalate for complex/ambiguous/cross-cutting up to opus - hard ceiling for implementers, never fable, never session-inherit). Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (fable/opus/sonnet/haiku); never pin dated or prior-generation model IDs.
+- Model: Apex picks per spawn per **Model Routing** above (default = task-appropriate tier; sonnet floor for mechanical and well-scoped work, escalate for complex/ambiguous/cross-cutting up to opus - hard ceiling for implementers, never fable, never session-inherit). Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
 - Parallel agents: use `isolation: "worktree"` to prevent file conflicts
 - Sage: max 3 calls per Blade. No tools. No user output.
 - Background: use `run_in_background: true` for non-blocking agents

@@ -21,7 +21,7 @@ Write a detailed handoff note covering: what was done, key decisions, files chan
 
 ## Sage Escalation
 When stuck on a hard decision (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (foreground — Sage's agent definition pins the top tier, Fable 5 with opus fallback) with: question, context, tentative approach
+- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach
 - Sage returns structured guidance (<100 words) — follow it
 - Max 3 consultations per session. Beyond that = escalate to Apex.
 

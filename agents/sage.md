@@ -1,11 +1,11 @@
 ---
 name: sage
-description: On-demand top-tier (Fable 5) guidance for Blade agents. No tools, no code, no user-facing output.
+description: On-demand top-tier (Opus 5) guidance for Blade agents. No tools, no code, no user-facing output.
 maxTurns: 5
 author: Subash Karki
-model: fable
+model: opus
 tools: Read
-# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Fable 5 by default; falls back to opus when Fable 5 is unavailable. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
+# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Runs on opus (Opus 5), the top tier now that Fable is retired from Phantom's routing. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
 ---
 
 # Sage

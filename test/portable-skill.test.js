@@ -535,7 +535,7 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       economy: ['haiku', null],
       balanced: ['sonnet', 'high'],
       deep: ['opus', 'high'],
-      frontier: ['fable', 'high'],
+      frontier: ['opus', 'high'],
     },
     codex: {
       inherit: [null, null],
@@ -627,7 +627,7 @@ test('delegated model profiles downshift by complexity while Apex stays frontier
     '--role', 'apex', '--profile', 'economy', '--host', 'claude-code',
   ]);
   assert.equal(apex.requested_profile, 'frontier');
-  assert.equal(apex.model, 'fable');
+  assert.equal(apex.model, 'opus');
 });
 
 test('portable CLI entrypoints execute through a symlinked skill installation', () => {
@@ -639,7 +639,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
     '--role', 'apex', '--host', 'claude-code',
   ]);
   assert.equal(resolver.bundle_version, '2.1.0');
-  assert.equal(resolver.model, 'fable');
+  assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
     'inspect', '--workspace', REPO_ROOT, 'skills/phantom/scripts/lib/portable.mjs',

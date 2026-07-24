@@ -10,12 +10,12 @@ Multi-agent shadows for this repository. Compatible with Claude Code, Cursor, Wi
 | Blade | sonnet (pinned); opus hard ceiling - never fable | Implementation — infers specialization from task domain |
 | Ward | haiku | Verification — repo-aware lint/build/test |
 | Gaze | opus (pinned) | Quality gate — code review, scored 0-10 |
-| Sage | fable (pinned; opus fallback) | On-demand guidance for stuck agents (<100 words) |
+| Sage | opus (pinned — top tier) | On-demand guidance for stuck agents (<100 words) |
 | Lens | sonnet | Visual — Figma extraction + browser-based UI verification |
 
-Implementers pin cheap models with an opus hard ceiling; only Apex inherits the session model (Fable 5 recommended). Two deliberate pins beyond Blade's ceiling:
-- Gaze pins opus — review benchmarks (CodeRabbit, 2026-06) show Fable 5 is no better than Opus at code review at 2x the price. Do not "fix" this to fable.
-- Sage pins fable so escalations from sonnet Blades reach the top tier. Fable 5 by default; falls back to `opus` when Fable 5 is unavailable. No plugin-source edits needed.
+Implementers pin cheap models with an opus hard ceiling; only Apex inherits the session model (Opus 5 recommended). Two deliberate pins beyond Blade's ceiling:
+- Gaze pins opus, the top tier now that Fable is retired from Phantom's routing. Do not "fix" this to fable.
+- Sage pins opus (Opus 5), the top tier, so escalations from sonnet Blades reach it. No plugin-source edits needed.
 
 ## Workflow
 

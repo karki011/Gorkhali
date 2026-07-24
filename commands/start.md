@@ -16,7 +16,7 @@ No git operations until wrap. All work is local.
 
 > **Tip:** Run `/effort high` before starting. Phantom runs every agent at `high` (Apex pinned). Avoid `ultracode`/`xhigh` — under ultracode the runtime can wrap a gated phase in a background workflow that takes no mid-run input, silently bypassing Phantom's approval gates.
 >
-> Run the session on Fable 5 (recommended) — its improved tool triggering and compaction recovery make the subagent-driven flow and pause/resume more reliable. Agents inherit the session model unless their definition pins one.
+> Run the session on Opus 5 (recommended) - its stronger instruction-following, built-in self-verification, and fewer steers make the subagent-driven flow and pause/resume more reliable. Agents inherit the session model unless their definition pins one.
 
 <subagent_law>
 

@@ -13,7 +13,7 @@
         "economy": { "model": "haiku", "effort": null },
         "balanced": { "model": "sonnet", "effort": "high" },
         "deep": { "model": "opus", "effort": "high" },
-        "frontier": { "model": "fable", "effort": "high" }
+        "frontier": { "model": "opus", "effort": "high" }
       }
     },
     "codex": {

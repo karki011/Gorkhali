@@ -6,14 +6,14 @@
 
 ## Model Routing
 
-**Apex routes the model; effort is uniform.** Apex pins only effort (`high`) in frontmatter. Default = task-appropriate tier, NOT "inherit the session model" — the session model is the ceiling, not the floor. Mechanical/tool-driver roles (sweep/lens/plan-checker) pin `sonnet`; ward pins `haiku`; gaze/archer pin `opus` (review tier); sage pins `fable` (top-tier advisory). Apex picks the `model:` param per spawn — cheap (sonnet) for mechanical & well-scoped work, escalate to opus (hard ceiling for implementers - Fable 5 never implements) for complex, ambiguous, or cross-cutting work. There is no per-spawn effort param.
+**Apex routes the model; effort is uniform.** Apex pins only effort (`high`) in frontmatter. Default = task-appropriate tier, NOT "inherit the session model" — the session model is the ceiling, not the floor. Mechanical/tool-driver roles (sweep/lens/plan-checker) pin `sonnet`; ward pins `haiku`; gaze/archer pin `opus` (review tier); sage pins `opus` (top-tier advisory). Apex picks the `model:` param per spawn — cheap (sonnet) for mechanical & well-scoped work, escalate to opus (hard ceiling for implementers - Fable 5 never implements) for complex, ambiguous, or cross-cutting work. There is no per-spawn effort param.
 
 | Agent | default model | role |
 |-------|---------------|------|
 | apex | inherits session model (effort high) | orchestrator |
 | blade | sonnet for well-scoped/contract-backed work; opus hard ceiling - never fable | implementation |
 | hound | opus (pinned - forensic root-cause tracing) | forensics |
-| sage | fable (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
+| sage | opus (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
 | gaze | opus (pinned — review tier) | quality gate |
 | archer | opus (pinned — review tier) | cross-file review |
 | rival | sonnet (frontmatter pin) | adversarial plan review |
@@ -22,7 +22,7 @@
 | lens | sonnet | visual QA |
 | sweep | sonnet | simplification |
 
-- `fable` resolves to `claude-fable-5` (Mythos tier above Opus, 1M context, 128K output, $10/$50 per MTok); `opus` to `claude-opus-4-8`; `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
+- `opus` resolves to `claude-opus-5` (Phantom's top tier); `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
 - **Default = task-appropriate tier.** Sonnet is the floor for mechanical and well-scoped, contract-backed subtasks; escalate to opus (hard ceiling for implementers - Fable 5 never implements) for complex, ambiguous, or cross-cutting work, or where decomposition left a subtask fuzzy. "Good tasking earns Sonnet" — fix weak scoping by re-decomposing, not by throwing the expensive model at it.
 - `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
 - Effort is uniform `high` (session-inherited); never set effort at spawn. Check MODEL_OVERRIDE at session start.

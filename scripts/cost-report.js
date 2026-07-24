@@ -40,8 +40,9 @@ const COST_MODEL_VERSION = '2026-06-30';
 
 // USD per MILLION tokens. Longest-prefix match on lowercased model id.
 // Cache read ~= 0.1x input, cache write (5m) ~= 1.25x input.
-// Source: Anthropic public pricing. Opus 4.5+ dropped to $5/$25; Opus 4.0/4.1 stay $15/$75.
+// Source: Anthropic public pricing. Opus 5 and Opus 4.5+ are $5/$25; Opus 4.0/4.1 stay $15/$75.
 const PRICES = [
+  { prefix: 'claude-opus-5', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
   { prefix: 'claude-opus-4-8', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
   { prefix: 'claude-opus-4-7', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },
   { prefix: 'claude-opus-4-6', in: 5.0, out: 25.0, cacheRead: 0.5, cacheWrite: 6.25 },

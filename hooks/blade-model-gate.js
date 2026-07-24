@@ -5,7 +5,9 @@
 //
 // RULE 1 (fable-deny): blade|sweep|ward|lens|warden are implementer agents -
 // none may run on a Fable-tier model (bare alias "fable" or full id like
-// "claude-fable-5"). Fable is reserved for Apex/Sage-level judgment calls.
+// "claude-fable-5"). Fable is retired from Phantom's routing (opus/Opus 5 is
+// the top tier); this rule stays as a defensive guard so a stray fable pin
+// never reaches an implementer.
 // Matching on subagent_type is EXACT and case-insensitive after stripping the "phantom:" prefix -
 // never substring - so "phantom:reference:blade-conventions" does not match
 // "blade". config.yaml model overrides (see evals/evals.json) surface here as
@@ -56,9 +58,9 @@ function main() {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
           permissionDecisionReason:
-            'IMPLEMENTER MODEL GATE: Fable is a top-tier reasoning model reserved ' +
-            'for Apex/Sage-level judgment calls, not implementer subtasks ' +
-            '("blade", "sweep", "ward", "lens", "warden"). Re-spawn with model: ' +
+            'IMPLEMENTER MODEL GATE: Fable is retired from Phantom\'s routing ' +
+            'and is never a legal implementer model for "blade", "sweep", ' +
+            '"ward", "lens", or "warden". Re-spawn with model: ' +
             '"opus" for complex/ambiguous work, or model: "sonnet" for ' +
             'well-scoped, contract-backed subtasks. See reference/agents.md → ' +
             'Model Routing.',

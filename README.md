@@ -215,7 +215,7 @@ ${PHANTOM_DATA:-~/.phantom}/
 | Blade | sonnet (pinned); opus ceiling - never fable/session-inherit | high | Implementation — parallel execution with ROLE FOCUS directives |
 | Ward | haiku (pinned) | high | QA — lint, build, test verification |
 | Gaze | opus (pinned — review tier) | high | Quality gate — power level (scored, P0-P3) |
-| Sage | fable (pinned — top tier; opus fallback) | high | Advisory — guidance for stuck agents (<100 words) |
+| Sage | opus (pinned — top tier) | high | Advisory — guidance for stuck agents (<100 words) |
 | Lens | sonnet | high | Visual verification — screenshot + diff |
 | Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
 | Rival | sonnet (pinned) | high | Plan challenger — adversarial review (no tools, forced precision) |
@@ -225,12 +225,11 @@ ${PHANTOM_DATA:-~/.phantom}/
 | Warden | sonnet | high | Mechanical session-lifecycle executor — ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
 Model discipline is split by role.
-Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap models - sonnet by default, haiku only for truly mechanical single-file edits - with an opus hard ceiling enforced by `hooks/blade-model-gate.js`.
-**Gaze** and **Archer** pin `opus` (review tier - independent benchmarks show no review-precision gain from Fable 5 at 2x cost), and **Sage** pins `fable` (top-tier advisory, reachable even from a downshifted Blade; no Fable 5 entitlement falls back to `opus`).
-Fable 5 is reserved for the session and **Apex** (orchestration) and for **Sage** (advisory) only.
-Fable 5 never implements.
-Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus; the escalation ladder is re-decompose -> sonnet -> opus.
-If a subtask looks like it needs Fable, the scoping failed - Apex re-decomposes.
+Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap models - sonnet by default, haiku only for truly mechanical single-file edits - with an opus hard ceiling enforced by `hooks/blade-model-gate.js` (which still denies `fable` on implementers as a defensive guard).
+**Gaze** and **Archer** pin `opus` (review tier), and **Sage** pins `opus` (top-tier advisory, reachable even from a downshifted Blade).
+Opus 5 is the top tier and the recommended session model for the session and **Apex** (orchestration).
+Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus, and never run fable; the escalation ladder is re-decompose -> sonnet -> opus.
+If a subtask can't be scoped to fit within opus, the scoping failed - Apex re-decomposes.
 Apex tunes per spawn only to downshift further (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session - there is no per-spawn effort param.
 Use bare aliases only; never pin dated or prior-generation model IDs.
 
@@ -251,7 +250,7 @@ portable bundle without changing existing resolver fields or precedence.
 | `economy` | `haiku` | `gpt-5.6-luna` |
 | `balanced` | `sonnet` at high effort | `gpt-5.6-terra` at high effort |
 | `deep` | `opus` at high effort | `gpt-5.6-sol` at high effort |
-| `frontier` | `fable` at high effort | `gpt-5.6-sol` at max effort |
+| `frontier` | `opus` at high effort | `gpt-5.6-sol` at max effort |
 
 Apex always requests `frontier` for planning, decomposition, and synthesis.
 Delegated work selects the lowest sufficient profile: `economy` for mechanical
@@ -264,13 +263,14 @@ The following policy describes the existing native compatibility plugin only.
 
 Phantom runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
 **Model is the per-task lever, not effort.**
-Only the session and **Apex** (orchestration) leave model unset and inherit the session model - run your session on **Fable 5** (`/model fable`) for the best orchestration experience.
+Only the session and **Apex** (orchestration) leave model unset and inherit the session model - run your session on **Opus 5** (`/model opus`) for the best orchestration experience.
 Implementer roles never inherit the session model; they pin cheap models with an opus hard ceiling instead (see above).
 See `reference/agents.md` → Model Routing.
 
 **Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 
-Fable 5 (`claude-fable-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law. Note it is usage-credit-gated; sessions without entitlement run cleanly on Opus 4.8 since no agent except Sage hard-pins the new tier (and Sage falls back to `opus` when Fable 5 is unavailable).
+Opus 5 (`claude-opus-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law.
+It is Phantom's top tier: the session and **Apex** run on it, and every agent that pins the top tier (Gaze, Archer, Hound, Sage) resolves `opus` to it.
 
 ## Commands
 

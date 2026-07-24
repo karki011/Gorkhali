@@ -294,7 +294,7 @@
         "type": "regex",
         "pattern": "^(?![\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?\"?\\bmodel\\b\"?\\s*:)[\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?"
       },
-      "expected_behavior": "The Sage spawn in the transcript omits the model param entirely, so sage.md's front-matter pin (model: fable) applies — no model: line appears in the spawn params"
+      "expected_behavior": "The Sage spawn in the transcript omits the model param entirely, so sage.md's front-matter pin (model: opus) applies — no model: line appears in the spawn params"
     },
     {
       "id": 39,

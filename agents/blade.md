@@ -4,7 +4,7 @@ description: Full-stack frontend engineer. Apex spawns instances with ROLE FOCUS
 maxTurns: 25
 author: Subash Karki
 model: sonnet
-# executor — Sonnet default, opus hard ceiling (never fable); Apex specs tightly and Blade escalates to Sage (Fable, Opus fallback) when stuck
+# executor — Sonnet default, opus hard ceiling (never fable); Apex specs tightly and Blade escalates to Sage (opus, the top tier) when stuck
 ---
 
 # Blade
@@ -40,7 +40,7 @@ Understand the problem first (read the touched code, trace the flow), then stop 
 ## Sage Escalation
 
 When stuck (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (foreground — Sage's agent definition pins the top tier, Fable 5 with opus fallback) with: question, context, tentative approach
+- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach
 - Max 3 consultations per task. Beyond that, escalate to Apex.
 
 ## Subtask Execution Protocol
