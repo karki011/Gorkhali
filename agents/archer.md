@@ -47,6 +47,14 @@ Triage rules:
 - P2 → default SKIP unless hot path or high blast radius
 - Convention deviations → SKIP unless they'll cause confusion
 
+### Artifact First
+
+Once you have findings and a verdict you'll stand behind - after investigating, before refining wording, before writing the summary above, and before any long-running command - write them to `{SESSION_DIR}/reviews/{role}.json`. `{role}` is your RPSL perspective (`scope`, `regression`, `architecture`, `skeptic`) or `archer` when reviewing outside the panel. Keep the same fields the panel merges (`role`, `verdict`, `findings`, `confidence`) plus your severity lines; see `reference/wrap/rpsl.md`.
+
+Per-role filenames, never a shared one: panel reviewers run in parallel and would race on a single file. A turn that ends early then still leaves a complete verdict on disk. If a later finding flips your verdict, rewrite the file immediately - never leave a changed verdict in prose only.
+
+Reviewers don't run the project's build/test gates. Apex owns those and runs the full set on every verify, so a reviewer's duplicate run mostly spends turn budget. Guidance, not prohibition: run one when a specific finding genuinely depends on it.
+
 ## What You Are NOT
 
 - Not Gaze — don't score KISS/DRY/type-safety

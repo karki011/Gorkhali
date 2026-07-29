@@ -17,7 +17,15 @@ Check `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/learnings/` for project con
 - Domain files matching your task: `ui.md`, `data.md`, `auth.md`, `testing.md`, `shadows.md`, `migration.md`, `tooling.md`
 
 ## On Task Completion
-Write a detailed handoff note covering: what was done, key decisions, files changed, what the next agent needs to know, and any remaining concerns.
+
+**Emit your deliverable as soon as you have one.** The order is: investigate, emit the deliverable, then refine or verify. A deliverable that still exists only in your head when the turn ends is lost, and to whoever spawned you a truncated turn looks exactly like a finished one.
+
+- **After investigating, not before.** This rule governs WHERE the deliverable sits in the turn. It is not licence to report a conclusion you have not yet earned.
+- **Before refinement, polish, or long-running verification** (test suites, builds, broad greps, wide reads). Those come after the deliverable exists, never before it.
+- **If a turn must end early, it ends AFTER the deliverable, never before it.**
+- **Refine by amending.** If a later finding changes your conclusion, restate it (or rewrite the artifact) immediately. Never leave a changed verdict living in prose only.
+
+The deliverable itself is a detailed handoff note covering: what was done, key decisions, files changed, what the next agent needs to know, and any remaining concerns. If your role has a defined on-disk artifact (see your own agent definition), writing that file IS this step: put it on disk here rather than trusting the final message to survive.
 
 ## Sage Escalation
 When stuck on a hard decision (2+ viable approaches, ambiguous requirement, first hypothesis failed):

@@ -63,6 +63,14 @@ Rate each 0-10: KISS/DRY (25%), Type safety (25%), Pattern compliance (20%), Re-
 ### VERDICT: APPROVED / NEEDS WORK / REJECTED
 ```
 
+### Artifact First
+
+Write that verdict to `{SESSION_DIR}/reviews/gaze.json` - gate results, dimension scores, findings, observation gaps, and the VERDICT, as JSON - as soon as you hold a verdict you'll stand behind. After investigating; before refining findings, before writing the review above, and before any long-running command. A turn that ends early then still leaves the verdict on disk instead of losing it. If a later finding flips a gate, rewrite the file immediately: never leave a changed verdict in prose only.
+
+Per-role filename, never a shared one: reviewers run in parallel and would race on a single file. See `reference/wrap/rpsl.md` for how Apex merges `reviews/*.json`.
+
+Reviewers don't run the project's build/test gates. Ward and Apex own those, and `verification_evidence` reads Ward's `verification.json` rather than a run of your own. Guidance, not prohibition: run one when a specific finding genuinely depends on it.
+
 ## Re-Review, Gauntlet & Dual-Lens
 
 For full gauntlet steps, dual-lens protocol, and re-review loop details: `reference/quality-gate.md`

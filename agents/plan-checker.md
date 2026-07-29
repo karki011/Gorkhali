@@ -61,6 +61,14 @@ Write `plan-check.json` to the session directory:
 }
 ```
 
+### Artifact First
+
+`plan-check.json` is a file for exactly this reason: a turn that ends early must still leave the verdict on disk. Write it as soon as the five checks are done and you hold a verdict you'll stand behind - after checking, before refining details, before summarising in chat, and before any long-running command. If a later observation changes a check result or the verdict, rewrite the file immediately; never leave a changed verdict in chat prose only.
+
+When spawned as one perspective of a review panel rather than standalone, write the same JSON to `{SESSION_DIR}/reviews/plan-checker.json` so Apex's panel merge picks it up (`reference/wrap/rpsl.md`). Per-role filenames, never a shared one: panel reviewers run in parallel and would race on a single file.
+
+Reviewers don't run the project's build/test gates. Apex owns those and runs the full set on every verify, so a reviewer's duplicate run mostly spends turn budget. Guidance, not prohibition: run one when a specific check genuinely depends on it.
+
 ## Disposition
 
 - Any FAIL -> verdict = BLOCKED. Report to human. Do not proceed to execution.
