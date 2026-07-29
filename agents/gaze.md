@@ -4,6 +4,7 @@ description: Quality gate. Code review, KISS/DRY enforcement, sweep gauntlet, ar
 maxTurns: 15
 author: Subash Karki
 model: opus
+# GENERATED from model-policy.json (role: gaze -> profile: deep) - do not hand-edit
 # review tier — pinned to opus, the top tier now that Fable is retired from Phantom's routing.
 ---
 

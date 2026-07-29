@@ -479,7 +479,7 @@ test('critical risk elevates eligible roles before preset lookup and preserves e
   for (const [role, profile] of [
     ['apex', 'frontier'],
     ['ward', 'economy'],
-    ['sweep', 'economy'],
+    ['sweep', 'balanced'],
     ['warden', 'economy'],
   ]) {
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical']);

@@ -3,6 +3,7 @@ name: rival
 description: Adversarial plan reviewer — challenges assumptions, catches blind spots, prevents scope creep and over-engineering.
 author: Subash Karki
 model: sonnet
+# GENERATED from model-policy.json (role: rival -> profile: balanced) - do not hand-edit
 # structured critique — Sonnet suffices; Apex/Gaze/Archer provide the Opus-tier scrutiny
 ---
 

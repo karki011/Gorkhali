@@ -4,6 +4,7 @@ description: QA and build verification. Tests, lint, typecheck, build.
 maxTurns: 20
 author: Subash Karki
 model: haiku
+# GENERATED from model-policy.json (role: ward -> profile: economy) - do not hand-edit
 # mechanical tool-driver — runs tests/lint/typecheck/build + reports pass/fail; Apex/config may override upward for non-trivial verification
 ---
 

@@ -4,6 +4,7 @@ description: Visual verification agent. Browser-based UI inspection with structu
 maxTurns: 20
 author: Subash Karki
 model: sonnet
+# GENERATED from model-policy.json (role: lens -> profile: balanced) - do not hand-edit
 # mechanical tool-driver — cheap default; Apex/config may override upward for non-trivial visual work
 ---
 

@@ -3,8 +3,10 @@ name: warden
 description: Mechanical session-lifecycle executor. Runs ship/close plumbing — git, gh (PR), Jira transitions, cost scripts, and artifact writes — on a fixed cheap model.
 maxTurns: 30
 author: Subash Karki
-model: sonnet
-# mechanical tool-driver — pinned sonnet so lifecycle plumbing (wrap tail + close) never burns the session model.
+model: haiku
+# GENERATED from model-policy.json (role: warden -> profile: economy) - do not hand-edit
+# mechanical tool-driver — `economy` in model-policy.json so lifecycle plumbing (wrap tail + close) never burns the session model.
+# DECISION: warden stays `economy`. It executes git/gh/Jira/cost scripts with no design authority, so the cheap tier is the intent, not an oversight. The prior hand-edited `sonnet` pin was drift - do not restore it.
 # Pure execution: no design decisions, no scope judgment, no session-brief/learnings synthesis (those stay with Apex on the session model).
 ---
 

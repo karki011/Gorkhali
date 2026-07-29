@@ -4,6 +4,7 @@ description: Pre-execution plan validator. Checks learnings collisions, blast ra
 maxTurns: 10
 author: Subash Karki
 model: sonnet
+# GENERATED from model-policy.json (role: plan-checker -> profile: balanced) - do not hand-edit
 # mechanical validator — cheap default; Apex/config may override upward for large/complex plans
 ---
 

@@ -29,7 +29,7 @@
     "rival": "balanced",
     "plan-checker": "balanced",
     "hound": "deep",
-    "sweep": "economy",
+    "sweep": "balanced",
     "warden": "economy"
   }
 }

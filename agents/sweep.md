@@ -4,7 +4,8 @@ description: Simplifies and refines recently modified code for clarity, consiste
 maxTurns: 15
 author: Subash Karki
 model: sonnet
-# mechanical tool-driver — cheap default; Apex/config may override upward capped at opus (never fable)
+# GENERATED from model-policy.json (role: sweep -> profile: balanced) - do not hand-edit
+# DECISION: sweep is `balanced` in model-policy.json, not `economy`. Simplification is judgment work - a weak model's bad suggestion costs more review time than the tokens it saves. Policy was the thing that was wrong here, not the pin. Apex/config may override upward capped at opus (never fable).
 ---
 
 <!-- Absorbed from code-sweep plugin (claude-plugins-official v1.0.0) on 2026-05-23.

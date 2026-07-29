@@ -4,6 +4,7 @@ description: On-demand top-tier (Opus 5) guidance for Blade agents. No tools, no
 maxTurns: 5
 author: Subash Karki
 model: opus
+# GENERATED from model-policy.json (role: sage -> profile: deep) - do not hand-edit
 tools: Read
 # top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Runs on opus (Opus 5), the top tier now that Fable is retired from Phantom's routing. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
 ---

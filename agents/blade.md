@@ -4,6 +4,7 @@ description: Full-stack frontend engineer. Apex spawns instances with ROLE FOCUS
 maxTurns: 25
 author: Subash Karki
 model: sonnet
+# GENERATED from model-policy.json (role: blade -> profile: balanced) - do not hand-edit
 # executor — Sonnet default, opus hard ceiling (never fable); Apex specs tightly and Blade escalates to Sage (opus, the top tier) when stuck
 ---
 

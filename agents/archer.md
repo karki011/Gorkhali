@@ -4,6 +4,7 @@ description: Cross-file pre-PR reviewer. Catches cache coherence bugs, regressio
 maxTurns: 15
 author: Subash Karki
 model: opus
+# GENERATED from model-policy.json (role: archer -> profile: deep) - do not hand-edit
 # review tier — pinned to opus, the top tier now that Fable is retired from Phantom's routing.
 ---
 

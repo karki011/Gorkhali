@@ -5,6 +5,7 @@ description: >
   hotspot detection, temporal coupling, and ownership mapping. Produces HTML investigation reports.
 maxTurns: 30
 model: opus
+# GENERATED from model-policy.json (role: hound -> profile: deep) - do not hand-edit
 # forensic root-cause tracing is deep reasoning — pin Opus, never inherit
 ---
 

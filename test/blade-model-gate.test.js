@@ -12,6 +12,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -145,4 +147,42 @@ test('16. subagent_type:"Blade" (capitalized) + model:"fable" → DENY (case-ins
 test('17. subagent_type:"PHANTOM:SWEEP" (uppercase) + model:"fable" → DENY (case-insensitive, prefix stripped)', () => {
   const res = runGate(agentSpawn('PHANTOM:SWEEP', { model: 'fable' }));
   assertImplementerDeny(res);
+});
+
+// ── policy-sourced deny wording (advisory read, never the decision) ─────────
+
+test('18. deny reason names the role\'s model-policy.json profile, not a bare model alias', () => {
+  const res = runGate(bladeSpawn());
+  const reason = JSON.parse(res.stdout).hookSpecificOutput.permissionDecisionReason;
+  const policy = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'), 'utf8')
+  );
+  assert.match(reason, new RegExp(`profile "${policy.roles.blade}"`), 'reason states the policy profile');
+  assert.match(reason, /critical_elevation|risk "critical"/, 'reason points at the risk-elevation path');
+  assert.doesNotMatch(reason, /"(sonnet|haiku|opus)"/, 'concrete aliases live in model-presets.json, not in the gate');
+});
+
+test('19. unreadable policy → still DENY with a generic reason (advisory read never changes the decision)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-gate-'));
+  const isolated = path.join(dir, 'hooks');
+  fs.mkdirSync(isolated);
+  const hookCopy = path.join(isolated, 'blade-model-gate.js');
+  fs.copyFileSync(HOOK, hookCopy);
+  let stdout = '';
+  try {
+    stdout = execFileSync('node', [hookCopy], {
+      input: JSON.stringify(bladeSpawn()),
+      encoding: 'utf-8',
+    });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const out = JSON.parse(stdout);
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /BLADE MODEL GATE/);
+  assert.doesNotMatch(
+    out.hookSpecificOutput.permissionDecisionReason,
+    /model-policy\.json puts/,
+    'no policy file → no policy sentence, same decision'
+  );
 });
