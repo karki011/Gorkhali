@@ -194,6 +194,17 @@ WRAP_JSON="$SESSION_DIR/wrap.json"
 
 Warden includes the printed table verbatim in the SESSION WRAPPED output - a mechanical include, no judgment applied, matching the plumbing-only mandate for warden (no scope judgment, no synthesis; see the Model split note above).
 
+## Step 13: Outcome Record
+
+Write the closed-schema outcome record for this ticket now that the PR exists (never blocks the wrap; on failure, log one line and continue):
+
+```bash
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} || echo "phantom: outcome-write failed or unavailable - outcome.json not written, wrap continues"
+```
+
+`outcome-write.js` derives `pr_url` and `pr_state` from `gh pr view`, so it runs here, after the PR is created in Step 7.
+
 ---
 
 > **Output:** Session Brief (3-6 sentence recap of the whole session), then the SESSION WRAPPED box with Ticket, Route, Outcome, Loops, RPSL verdict, Eval score (or `eval-failed`), PR status, Jira transition, Learned count, Corrections count, AI Cost (session + ticket total). Random sign-off.

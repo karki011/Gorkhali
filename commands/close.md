@@ -46,7 +46,10 @@ gh pr view {pr.number} --json state,mergedAt,mergeCommit,headRefName
 
 ## Step 3: Jira → Done
 
-Running this command IS the authorization; no confirmation required. Honor config `jira.auto_transition` (skip transition if explicitly `false`).
+Running this command IS the authorization; no confirmation required.
+Read `jira.auto_transition` from the real reader (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && node "$PR/scripts/phantom-config.js" get jira.auto_transition`).
+Skip the transition ONLY when that command prints exactly `false`.
+Unset prints nothing on stdout (exit 1, reason on stderr) and is NOT a skip signal, so the transition proceeds - unchanged from today for anyone who has never set the key.
 
 Using the Atlassian MCP:
 1. `getTransitionsForJiraIssue({ issueIdOrKey: jira.ticket })` — fetch valid transitions.
@@ -151,7 +154,16 @@ Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
 ```
 </output_format>
 
-## Step 8: Future Autonomy Note
+## Step 8: Outcome Record
+
+Write the closed-schema outcome record for this ticket now that the session is finalized, so it picks up the final merged state (never blocks the close; on failure, log one line and continue):
+
+```bash
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} || echo "phantom: outcome-write failed or unavailable - outcome.json not written, close continues"
+```
+
+## Step 9: Future Autonomy Note
 
 Full autonomy — a Mission Control watcher that auto-fires `phantom:close` on merge and advances the ticket queue — is a future layer. This manual skill is the primitive it will call.
 
