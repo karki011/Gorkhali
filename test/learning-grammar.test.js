@@ -277,6 +277,37 @@ test('INDEX.md never resolves to itself or to a retired snapshot', () => {
   assert.ok(!Object.values(map).includes('workflow.original.md'));
 });
 
+// --- INDEX.md: the bare bullet form is anchored, not a scan of the whole line ----
+//
+// Same defect class as the em-dash break above: a bare `.md` match that is not
+// anchored to the bullet position will happily resolve the FIRST `.md` token
+// anywhere in the line, including one sitting in an entry's prose body. The two
+// fixtures below are lifted verbatim from auto-captures.md on this repo (the
+// PR #97 mutation-audit retro and the scope-not-tier correction), reshaped only
+// from `auto: ...` prefix to a bullet so BULLET_RE accepts them - the awkward
+// real-world wording is kept intact rather than sanitized into a tidy string.
+
+test('INDEX.md bare form does not resolve a .md token sitting in the entry prose', () => {
+  const src =
+    '- a path merely ending in review.md, one where reverting the verdict enum cell left the suite passing';
+  const map = G.parseIndexDomainFiles(src);
+  assert.ok(!('review' in map));
+  assert.ok(!Object.values(map).includes('review.md'));
+});
+
+test('INDEX.md bare form does not resolve a .md token inside a path-bearing citation', () => {
+  const src =
+    '- routed nearly every subtask to opus, justified as subtle or high-consequence, the exact reason reference/agents.md:40 rejects';
+  const map = G.parseIndexDomainFiles(src);
+  assert.ok(!('agents' in map));
+  assert.ok(!Object.values(map).includes('agents.md'));
+});
+
+test('INDEX.md bare form still resolves when the .md token is the bullet reference itself', () => {
+  const src = '- workflow.md - em-dash-in-new-text [failed]; grep-count-exit [failed]';
+  assert.equal(G.parseIndexDomainFiles(src).workflow, 'workflow.md');
+});
+
 // --- retirement -----------------------------------------------------------------
 
 test('retired and non-domain files are excluded from live knowledge', () => {

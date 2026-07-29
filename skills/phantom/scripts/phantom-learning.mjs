@@ -482,9 +482,18 @@ export function validateLearningIndex(learningsDir, { knownDomains = [] } = {}) 
   }
   const indexContent = readFileSync(indexPath, 'utf8');
 
+  // A domain reference is a markdown link target `[label](file.md)` or a bare
+  // `file.md` anchored at the start of an entry line (`- file.md ...`). A token
+  // that carries a path separator (e.g. `reference/agents.md:40`) or one that
+  // appears mid-sentence outside a link is prose, not a domain pointer - both
+  // shapes are real entry bodies in this INDEX.md, not references.
   const referencedDomains = new Set();
-  for (const match of indexContent.matchAll(/\b([\w-]+\.md)\b/g)) {
+  for (const match of indexContent.matchAll(/\[[^\]]*\]\(([\w-]+\.md)\)/g)) {
     if (match[1] !== 'INDEX.md' && match[1] !== 'EDGES.md') referencedDomains.add(match[1]);
+  }
+  for (const line of indexContent.split('\n')) {
+    const bare = line.match(/^\s*-\s+([\w-]+\.md)\b/);
+    if (bare && bare[1] !== 'INDEX.md' && bare[1] !== 'EDGES.md') referencedDomains.add(bare[1]);
   }
 
   const actualFiles = readdirSync(learningsDir)

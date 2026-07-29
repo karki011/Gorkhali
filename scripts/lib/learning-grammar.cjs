@@ -231,6 +231,10 @@ function isTemplatePlaceholder(text) {
  * a markdown table (`| Domain | `file.md` |`) and a bullet list (`- file.md - ...`
  * or `- [infra](infra.md) - ...`). The reader previously accepted the table only,
  * against a bullet-list INDEX, so no domain ever resolved.
+ *
+ * The bare bullet form is anchored to the position immediately after the bullet
+ * marker so a `.md` token sitting in an entry's prose body is never mistaken for
+ * the domain reference.
  */
 function parseIndexDomainFiles(indexContent) {
   const map = {};
@@ -260,7 +264,7 @@ function parseIndexDomainFiles(indexContent) {
       continue;
     }
 
-    const bare = line.match(new RegExp(FILENAME_RE));
+    const bare = line.match(new RegExp(`^\\s*[-*+]\\s+${FILENAME_RE}`));
     if (bare) put(bare[1].replace(/\.md$/, ''), bare[1]);
   }
 
