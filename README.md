@@ -1,17 +1,19 @@
-# PHANTOM — Your Shadow Army of AI Agents
+# PHANTOM - Your Shadow Army of AI Agents
 
 **Author: Subash Karki**
 
 > Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
-> Say `/phantom:recruit` — "Arise!" — and they answer.
+> Say `/phantom:recruit` - "Arise!" - and they answer.
 
 ## What It Does
 
-Every task is a Gate. Phantom reads the difficulty, assembles the right shadows, and clears it. After every run, the system gains EXP — learning what works, remembering what doesn't.
+Every task is a Gate. Phantom reads the difficulty, assembles the right shadows, and clears it. After every run, the system gains EXP - learning what works, remembering what doesn't.
 
 Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex tasks get full dependency wiring. Shadows deliberate among themselves; humans approve consensus or break ties.
 
 Zero external plugin dependencies. Fully self-contained.
+
+See `ROADMAP.md` for the durable backlog, decisions, and measured baseline.
 
 ## Portable Agent Skill
 
@@ -80,7 +82,7 @@ In Codex, type `$` or open `/skills`, then select the namespaced skill such as
 descriptions. Start a new task or CLI session after installing or updating the
 plugin so the complete skill inventory is reloaded.
 
-## Architecture — Adaptive Cognitive Router
+## Architecture - Adaptive Cognitive Router
 
 The router classifies incoming tasks and selects the right cognitive mode:
 
@@ -124,25 +126,25 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 ## Key Concepts
 
-**Adaptive Routing** — AI reads the task and picks the route. Signals: scope clarity, file count, uncertainty level, risk, learnings history. See `reference/router.md`.
+**Adaptive Routing** - AI reads the task and picks the route. Signals: scope clarity, file count, uncertainty level, risk, learnings history. See `reference/router.md`.
 
-**Deliberative Planning** — Planner produces plan, Challenger (Rival) reviews it. If consensus → human gets a quick OK. If disagreement → human breaks the tie. Max 2 rounds.
+**Deliberative Planning** - Planner produces plan, Challenger (Rival) reviews it. If consensus → human gets a quick OK. If disagreement → human breaks the tie. Max 2 rounds.
 
-**Brainstorm Mode** — Diverge/converge for ambiguous scope. Proposes 2-3 approaches with tradeoffs. Asks only what it can't infer from codebase context. See `reference/brainstorm.md`.
+**Brainstorm Mode** - Diverge/converge for ambiguous scope. Proposes 2-3 approaches with tradeoffs. Asks only what it can't infer from codebase context. See `reference/brainstorm.md`.
 
-**Wiring Mode** — Novel: explicit dependency topology between plan tasks. Maps producers/consumers, assigns parallel execution waves, flags integration risk points. No other system does this. See `reference/wiring.md`.
+**Wiring Mode** - Novel: explicit dependency topology between plan tasks. Maps producers/consumers, assigns parallel execution waves, flags integration risk points. No other system does this. See `reference/wiring.md`.
 
-**Core Disciplines** — 15 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
+**Core Disciplines** - 15 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
 
-**Power Level** — P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
+**Power Level** - P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
 
-**Direct HTML Review** — For plan and brainstorm gates, the active AI authors a self-contained candidate HTML page from canonical JSON. A local validator promotes it to the accepted artifact, which opens directly; approval and feedback stay in the existing chat. Visualflow artifacts also open directly, with feedback captured in chat.
+**Direct HTML Review** - For plan and brainstorm gates, the active AI authors a self-contained candidate HTML page from canonical JSON. A local validator promotes it to the accepted artifact, which opens directly; approval and feedback stay in the existing chat. Visualflow artifacts also open directly, with feedback captured in chat.
 
-**Anti-Repetition** — Scans learnings before every approach. `[failed]` entries are blocked. `[validated:5+]` entries auto-apply.
+**Anti-Repetition** - Scans learnings before every approach. `[failed]` entries are blocked. `[validated:5+]` entries auto-apply.
 
-**Self-Evolution** — Tier 0: external absorption (user approval). Tier 1: reference auto-promote. Tier 2: skill edits (user approval). Tier 3: skill spawning (user approval).
+**Self-Evolution** - Tier 0: external absorption (user approval). Tier 1: reference auto-promote. Tier 2: skill edits (user approval). Tier 3: skill spawning (user approval).
 
-**Final Status Block** — every skill ends with a clear 🟢 done / 🟡 done-with-caveat / 🔴 blocked work-state signal.
+**Final Status Block** - every skill ends with a clear 🟢 done / 🟡 done-with-caveat / 🔴 blocked work-state signal.
 
 ## Folder Structure
 
@@ -177,7 +179,13 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── check-learnings-index.js
 │   ├── session-health.sh
 │   ├── preamble-tier.js
-│   └── timing-report.js       # per-model agent timing (wall-clock by model)
+│   ├── timing-report.js       # per-model agent timing (wall-clock by model)
+│   ├── phantom-config.js      # config CLI: get/set/list (see Configuration)
+│   ├── baseline-report.js     # read-only retrospective miner: PR/merge rates, spawn counts, policy-vs-observed model
+│   ├── outcome-write.js       # writes the per-ticket outcome record (closed pr_state enum); called from wrap and close
+│   ├── run-guard.js           # unattended-run guard: spend ceiling + stuck detection
+│   ├── gen-agent-frontmatter.js  # regenerates agents/*.md model pins from model-policy.json; --check is the CI drift gate
+│   └── release-version.js     # keeps the three plugin manifests' versions in sync; --check / --set <semver>
 ├── evals/             # 55 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
 │   ├── hooks.json         # Plugin-owned hook registrations
@@ -203,26 +211,26 @@ ${PHANTOM_DATA:-~/.phantom}/
 
 ## Legacy Plugin Repo Brain
 
-**Per-session distilled knowledge cards.** After every session, Phantom writes a lightweight card to the Repo Brain — one card per ticket. Cards live in `${PHANTOM_DATA}/repos/{REPO_NAME}/brain/cards/` as markdown files and grow monotonically (never deleted, only superseded). On-demand grep retrieval retrieves relevant cards at task start (see `commands/_shared-brain.md` for the retrieval query, and `reference/brain.md` for the card schema).
+**Per-session distilled knowledge cards.** After every session, Phantom writes a lightweight card to the Repo Brain - one card per ticket. Cards live in `${PHANTOM_DATA}/repos/{REPO_NAME}/brain/cards/` as markdown files and grow monotonically (never deleted, only superseded). On-demand grep retrieval retrieves relevant cards at task start (see `commands/_shared-brain.md` for the retrieval query, and `reference/brain.md` for the card schema).
 
-**Auto-migration on first run:** Branch-named repo dirs (leftover from old detection logic) are consolidated on first run via `scripts/migrate-repo-dirs.js` — idempotent and non-destructive.
+**Auto-migration on first run:** Branch-named repo dirs (leftover from old detection logic) are consolidated on first run via `scripts/migrate-repo-dirs.js` - idempotent and non-destructive.
 
 ## Legacy Plugin Shadows
 
 | Agent | Model | Effort | Role |
 |-------|-------|--------|------|
-| Apex | inherits session model | high | Orchestrator — plans, decomposes, coordinates, runs router, routes models |
-| Blade | sonnet (pinned); opus ceiling - never fable/session-inherit | high | Implementation — parallel execution with ROLE FOCUS directives |
-| Ward | haiku (pinned) | high | QA — lint, build, test verification |
-| Gaze | opus (pinned — review tier) | high | Quality gate — power level (scored, P0-P3) |
-| Sage | opus (pinned — top tier) | high | Advisory — guidance for stuck agents (<100 words) |
-| Lens | sonnet | high | Visual verification — screenshot + diff |
-| Archer | opus (pinned — review tier) | high | Cross-file review — pre-PR structural analysis |
-| Rival | sonnet (pinned) | high | Plan challenger — adversarial review (no tools, forced precision) |
-| Plan-checker | sonnet (pinned) | high | Pre-execution plan validator — learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
-| Hound | opus (pinned) | high | Forensic investigator — 7-step protocol, HTML reports |
-| Sweep | sonnet | high | Code clarity — simplify changed files post-verify |
-| Warden | sonnet | high | Mechanical session-lifecycle executor — ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
+| Apex | inherits session model | high | Orchestrator - plans, decomposes, coordinates, runs router, routes models |
+| Blade | sonnet (pinned); opus ceiling - never fable/session-inherit | high | Implementation - parallel execution with ROLE FOCUS directives |
+| Ward | haiku (pinned) | high | QA - lint, build, test verification |
+| Gaze | opus (pinned - review tier) | high | Quality gate - power level (scored, P0-P3) |
+| Sage | opus (pinned - top tier) | high | Advisory - guidance for stuck agents (<100 words) |
+| Lens | sonnet | high | Visual verification - screenshot + diff |
+| Archer | opus (pinned - review tier) | high | Cross-file review - pre-PR structural analysis |
+| Rival | sonnet (pinned) | high | Plan challenger - adversarial review (no tools, forced precision) |
+| Plan-checker | sonnet (pinned) | high | Pre-execution plan validator - learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
+| Hound | opus (pinned) | high | Forensic investigator - 7-step protocol, HTML reports |
+| Sweep | sonnet | high | Code clarity - simplify changed files post-verify |
+| Warden | sonnet | high | Mechanical session-lifecycle executor - ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
 Model discipline is split by role.
 Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap models - sonnet by default, haiku only for truly mechanical single-file edits - with an opus hard ceiling enforced by `hooks/blade-model-gate.js` (which still denies `fable` on implementers as a defensive guard).
@@ -259,6 +267,10 @@ cross-cutting risk. If a bundled model is unavailable, the host retries without
 a selector and inherits the active model. Explicit user choices are never
 silently replaced.
 
+For the native compatibility plugin, `scripts/gen-agent-frontmatter.js` generates
+each `agents/*.md` `model:` pin from this policy (and `model-presets.json` for
+the host); a drift test fails CI on any hand-edited pin.
+
 The following policy describes the existing native compatibility plugin only.
 
 Phantom runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
@@ -269,7 +281,7 @@ See `reference/agents.md` → Model Routing.
 
 **Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
 
-Opus 5 (`claude-opus-5`, the recommended session model) is a step change on long-horizon agentic work — stronger instruction-following, built-in self-verification, and fewer steers — reinforcing the subagent-driven law.
+Opus 5 (`claude-opus-5`, the recommended session model) is a step change on long-horizon agentic work - stronger instruction-following, built-in self-verification, and fewer steers - reinforcing the subagent-driven law.
 It is Phantom's top tier: the session and **Apex** run on it, and every agent that pins the top tier (Gaze, Archer, Hound, Sage) resolves `opus` to it.
 
 ## Commands
@@ -277,32 +289,32 @@ It is Phantom's top tier: the session and **Apex** run on it, and every agent th
 | Command | Route | Description |
 |---------|-------|-------------|
 | `/phantom:start` | Entry | Adaptive router → classify → execute appropriate route |
-| `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop — polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a draft PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
-| `/phantom:verify` | — | Power Level with auto-fix for P0/P1 |
-| `/phantom:wrap` | — | Commit, push, PR, Jira transition (+ optional `--recap` HTML diff recap) |
-| `/phantom:close` | — | Post-merge closeout — Jira→Done, finalize+archive session, cleanup branch/worktree, final cost |
-| `/phantom:greploop` | — | Drive a PR to a perfect Greptile review (auto-invoked by wrap) |
-| `/phantom:fix` | — | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
-| `/phantom:pause` | — | Save session state + emit a portable handoff packet (`handoff.md`) for cold/cross-session continuation |
-| `/phantom:resume` | — | Restore session from saved state |
-| `/phantom:hound` | — | Forensic investigation with HTML report |
-| `/phantom:review` | — | Trigger Gaze quality gate |
-| `/phantom:visual` | — | Trigger Lens visual inspection |
-| `/phantom:visualflow` | — | Visual flow pass for net-new UI (auto-recommended, user-gated) |
-| `/phantom:scout` | — | Background research agents |
-| `/phantom:recruit` | — | Spawn specialist agent (role focus) |
-| `/phantom:grill` | — | Quiz yourself on the diff before shipping |
-| `/phantom:contract` | — | Create contract (feature/api/testing/ui/fix) |
-| `/phantom:brainstorm` | — | Diverge/converge approaches for ambiguous scope (usually auto-invoked by start) |
-| `/phantom:wire` | — | Map dependency topology → execution waves (auto/optional after plan) |
-| `/phantom:execute` | — | Execute a saved plan |
-| `/phantom:learn` | — | Capture a learning mid-session |
-| `/phantom:evolve` | — | Scan learnings, propose promotions |
-| `/phantom:health` | — | Diagnose knowledge layer |
-| `/phantom:eval` | — | Evaluate shadows performance |
-| `/phantom:validate` | — | Validate plan/output/session |
-| `/phantom:sessions` | — | List all sessions with status |
-| `/phantom:status` | — | Current task board |
+| `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop - polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a draft PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
+| `/phantom:verify` | - | Power Level with auto-fix for P0/P1 |
+| `/phantom:wrap` | - | Commit, push, PR, Jira transition (+ optional `--recap` HTML diff recap) |
+| `/phantom:close` | - | Post-merge closeout - Jira→Done, finalize+archive session, cleanup branch/worktree, final cost |
+| `/phantom:greploop` | - | Drive a PR to a perfect Greptile review (auto-invoked by wrap) |
+| `/phantom:fix` | - | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
+| `/phantom:pause` | - | Save session state + emit a portable handoff packet (`handoff.md`) for cold/cross-session continuation |
+| `/phantom:resume` | - | Restore session from saved state |
+| `/phantom:hound` | - | Forensic investigation with HTML report |
+| `/phantom:review` | - | Trigger Gaze quality gate |
+| `/phantom:visual` | - | Trigger Lens visual inspection |
+| `/phantom:visualflow` | - | Visual flow pass for net-new UI (auto-recommended, user-gated) |
+| `/phantom:scout` | - | Background research agents |
+| `/phantom:recruit` | - | Spawn specialist agent (role focus) |
+| `/phantom:grill` | - | Quiz yourself on the diff before shipping |
+| `/phantom:contract` | - | Create contract (feature/api/testing/ui/fix) |
+| `/phantom:brainstorm` | - | Diverge/converge approaches for ambiguous scope (usually auto-invoked by start) |
+| `/phantom:wire` | - | Map dependency topology → execution waves (auto/optional after plan) |
+| `/phantom:execute` | - | Execute a saved plan |
+| `/phantom:learn` | - | Capture a learning mid-session |
+| `/phantom:evolve` | - | Scan learnings, propose promotions |
+| `/phantom:health` | - | Diagnose knowledge layer |
+| `/phantom:eval` | - | Evaluate shadows performance |
+| `/phantom:validate` | - | Validate plan/output/session |
+| `/phantom:sessions` | - | List all sessions with status |
+| `/phantom:status` | - | Current task board |
 
 ## Independence
 
@@ -311,9 +323,32 @@ It is Phantom's top tier: the session and **Apex** run on it, and every agent th
 - Feature-dev: disabled, reference removed from gaze.md
 - Code-sweep: absorbed into `agents/sweep.md` (plugin still enabled as backup, can be disabled)
 
-## Configuration — Environment Variables
+## Configuration
 
-There is no config file. All optional behavior is controlled by environment variables. The user-relevant ones:
+### Config File
+
+Optional and layered, created lazily - a fresh install needs no setup step.
+Two JSON files, per-repo winning over global:
+
+- `<data>/repos/<repo>/config.json` - per-repo
+- `<data>/config.json` - global default
+
+Resolution order, first hit wins: explicit override, per-repo, global, detect,
+unset. Every resolved value carries provenance, so you can see why a setting
+has its value; an unset key reports unset with the layers it searched, never
+a fabricated default.
+
+CLI: `node scripts/phantom-config.js get|set|list`, with `--global` on `set`
+and `--json` throughout.
+
+Current keys: `tracker.provider` (`jira`|`linear`|`github`|`file`|`none`),
+`tracker.ready_signal`, `tracker.label`, `tracker.chosen`, `tracker.chosen_at`,
+`jira.auto_transition`, `review.external` (`greptile`|`none`), `spend.ceiling_usd`.
+
+### Environment Variables
+
+The rest of optional behavior is controlled by environment variables. The
+user-relevant ones:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -324,9 +359,11 @@ There is no config file. All optional behavior is controlled by environment vari
 | `PHANTOM_ADHOC` | unset | Set `1` for logged ad-hoc edits when routing enforcement is on |
 | `PHANTOM_PROTECTED_BRANCHES` | `main,master` | Branches Phantom refuses to commit to directly |
 | `PHANTOM_GREPTILE_TONE` | `neutral` | Tone for greploop's in-thread review replies |
-| `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` / `PHANTOM_VISUAL_LOOP_CEILING` | — | Loop ceilings for fix / greploop / visual loops |
+| `PHANTOM_SPEND_CEILING_USD` | `5` | Unattended-run spend ceiling in USD (`scripts/run-guard.js`); binds only unattended runs - an interactive session is never capped because the watching human is the ceiling |
+| `PHANTOM_STUCK_REPEAT_LIMIT` | `2` | Unattended-run stuck detection: same-failure-class repeats that halt the run |
+| `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` / `PHANTOM_VISUAL_LOOP_CEILING` | - | Loop ceilings for fix / greploop / visual loops |
 
-Many more internal vars exist (eval, migration, learning-decay tuning) — grep `PHANTOM_` across `hooks/` and `reference/` for the full set.
+Many more internal vars exist (eval, migration, learning-decay tuning) - grep `PHANTOM_` across `hooks/` and `reference/` for the full set.
 
 ## Install
 
@@ -396,9 +433,10 @@ For Claude Code, install it from the self-hosted marketplace in this repo:
 
 Codex loads the plugin's bundled skills; Claude Code discovers its commands,
 agents, and hooks directly. Phantom creates mutable state and per-repository
-learnings lazily on first use. No setup command, symlink, or config file is
-required. Optional behavior is controlled by environment variables (see
-**Configuration — Environment Variables** above).
+learnings lazily on first use. No setup command or symlink is required, and
+the config file is optional and created lazily on first `set`. Optional
+behavior is controlled by environment variables and the optional config file
+(see **Configuration** above).
 
 After a new remote version is published, Codex users should pull the marketplace
 checkout, open `/plugins`, uninstall and reinstall `phantom`, then start a new
