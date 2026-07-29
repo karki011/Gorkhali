@@ -185,6 +185,7 @@ test('list reports provenance per key, including unset keys', () => {
       'spend.ceiling_usd',
       'tracker.chosen',
       'tracker.chosen_at',
+      'tracker.label',
       'tracker.provider',
       'tracker.ready_signal',
     ]);
@@ -355,6 +356,55 @@ test('the CLI never reads stdin (an unattended caller can never be blocked)', ()
   } finally {
     cleanup(repo, data);
   }
+});
+
+test('tracker.label roundtrips, is unset by default, and rejects an illegal label', () => {
+  const repo = mkRepo();
+  const data = mkData();
+  try {
+    // UNSET is the default, and unset means "stamp no label" - never a fabricated one.
+    const before = cli(['get', 'tracker.label', '--repo', repo], data);
+    assert.equal(before.status, 1, 'unset is a miss, not a success');
+    assert.equal(before.stdout, '', 'no fabricated default label');
+    assert.match(before.stderr, /tracker\.label is unset/);
+
+    assert.equal(cli(['set', 'tracker.label', 'phantom', '--repo', repo], data).status, 0);
+    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'phantom\n');
+
+    const json = JSON.parse(cli(['get', 'tracker.label', '--repo', repo, '--json'], data).stdout);
+    assert.equal(json.value, 'phantom');
+    assert.equal(json.provenance, 'repo');
+
+    // A label with a space and an empty label are both illegal in Jira, so the
+    // config layer refuses them rather than letting a tracker call fail later.
+    for (const bad of ['bad label', '', 'trailing\ttab', 'x'.repeat(256)]) {
+      const res = cli(['set', 'tracker.label', bad, '--repo', repo], data);
+      assert.equal(res.status, 2, 'rejected: ' + JSON.stringify(bad));
+      assert.match(res.stderr, /tracker\.label must be a valid tracker label/);
+    }
+    // A rejected set leaves the previously stored value untouched.
+    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'phantom\n');
+  } finally {
+    cleanup(repo, data);
+  }
+});
+
+test('tracker.label prose in start.md names the real reader and keeps the set-semantics hazard', () => {
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'start.md'), 'utf-8');
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.includes('tracker.label'));
+  assert.ok(at >= 0, 'start.md must govern tracker.label');
+  assert.match(
+    lines[at],
+    /scripts\/phantom-config\.js" get tracker\.label/,
+    'start.md must name the real reader, not a config that does not exist',
+  );
+  // The read-modify-write hazard is the whole point of the step; a future
+  // "simplification" into a single destructive write must break this test.
+  const block = lines.slice(at, at + 8).join('\n');
+  assert.match(block, /getJiraIssue/, 'must read current labels before writing');
+  assert.match(block, /SET semantics/, 'must state the set-semantics hazard');
+  assert.match(block, /already-present/, 'must record the idempotent outcome');
 });
 
 test('jira.auto_transition prose in close.md and start.md names the real reader', () => {

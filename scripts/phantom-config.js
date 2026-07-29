@@ -40,6 +40,9 @@ const SCHEMA_VERSION = 1;
 const KEYS = {
   'tracker.provider': { type: 'enum', values: ['jira', 'linear', 'github', 'file', 'none'] },
   'tracker.ready_signal': { type: 'string' },
+  // Tracker-level, not Jira-level: Jira, Linear, and GitHub Issues all have labels.
+  // Each provider APPLIES it its own way (commands/start.md step 3.2c).
+  'tracker.label': { type: 'label' },
   'tracker.chosen': { type: 'enum', values: ['asked', 'detected', 'explicit'] },
   'tracker.chosen_at': { type: 'iso-date' },
   'jira.auto_transition': { type: 'boolean' },
@@ -68,11 +71,20 @@ function invalid(message, suggestions = []) {
 // Schema validation
 // ---------------------------------------------------------------------------
 
+// Jira rejects a label containing whitespace and caps one at 255 characters; GitHub
+// labels behave badly with whitespace too. Validating here means the stamping step in
+// commands/start.md never has to guess whether a configured label is legal - an
+// illegal one is refused at `set` time, before it can reach a tracker.
+const LABEL_MAX = 255;
+
 function describe(spec) {
   if (spec.type === 'enum') return 'one of: ' + spec.values.join(', ');
   if (spec.type === 'iso-date') return 'an ISO 8601 timestamp string';
   if (spec.type === 'number') return 'a non-negative number';
   if (spec.type === 'boolean') return 'a boolean (true or false)';
+  if (spec.type === 'label') {
+    return 'a valid tracker label: non-empty, no whitespace, at most ' + LABEL_MAX + ' characters';
+  }
   return 'a non-empty string';
 }
 
@@ -86,6 +98,8 @@ function accepts(spec, value) {
       return typeof value === 'number' && Number.isFinite(value) && value >= 0;
     case 'iso-date':
       return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value));
+    case 'label':
+      return typeof value === 'string' && /^\S+$/.test(value) && value.length <= LABEL_MAX;
     default:
       return typeof value === 'string' && value.trim() !== '';
   }
