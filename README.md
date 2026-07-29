@@ -1,7 +1,13 @@
 # PHANTOM - Your Shadow Army of AI Agents
+
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
+[![version](https://img.shields.io/badge/version-0.2.8-blue)](.claude-plugin/plugin.json)
+[![tests](https://img.shields.io/badge/tests-689-brightgreen)](test/)
+[![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI-8A2BE2)](#install)
 
 **Author: Subash Karki**
+
+Phantom is a multi-agent development harness for Claude Code and Codex CLI that plans, implements, verifies, and ships work through specialized agents behind mechanically enforced gates.
 
 > Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
 > Say `/phantom:recruit` - "Arise!" - and they answer.
@@ -15,6 +21,62 @@ Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex 
 Zero external plugin dependencies. Fully self-contained.
 
 See `ROADMAP.md` for the durable backlog, decisions, and measured baseline.
+
+## Mechanical Gates, Not Advice
+
+The usual way to constrain an agent is prose in a prompt, which the model is free to ignore.
+Phantom's gates are code that returns a decision before the tool call runs.
+
+- `hooks/blade-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` when an implementer role is pinned above its ceiling or onto a retired tier.
+  The spawn does not happen.
+- `hooks/greploop-gate.js` is a `Stop` hook that returns `decision: "block"` when a live PR has not been through the review loop, so a session cannot quietly end unreviewed.
+  It is bounded, and any ambiguity allows the stop.
+- `hooks/routing-gate.js` returns `permissionDecision: "deny"` on `Edit`/`Write` inside a Phantom-known repo with no active session.
+  It is opt-in via `PHANTOM_ROUTING_ENFORCE=1` and fails open by design.
+- `test/agent-frontmatter-drift.test.js` fails CI when any `agents/*.md` model pin drifts from `references/model-policy.json`.
+  A hand-edited routing decision does not survive to a merge.
+
+Every registration is visible in `hooks/hooks.json`.
+
+## Measured, Not Claimed
+
+One number, with its sample stated before the number.
+
+**99.1% merge rate across 112 distinct PRs** (111 merged, 1 closed), taken from `gh` as ground truth.
+Produced by `scripts/baseline-report.js` over 191 canonical wrap records spanning 152 tickets and two months of real use.
+
+The caveats matter more than the figure.
+This is one developer's usage on their own repositories, the PRs were largely authored and merged by the same person, and external review ran on only 50 of those 191 sessions.
+n=112 is a sample, not a study, and no third party has validated it.
+The full table, and the beliefs that measurement disproved, are in `ROADMAP.md` sections 3 and 4.
+
+## One Ticket, End To End
+
+```text
+/phantom:start CP-41606
+  |- router classifies    -> PLAN route (3+ files, clear scope)
+  |- Apex + Rival         -> plan, adversarially reviewed; you approve or break the tie
+  |- Blade x2 (parallel)  -> implementation in isolated worktrees
+  |- Ward                 -> lint, build, test -> verification.json
+  |- Gaze + Archer        -> scored review; P0/P1 auto-fixed, P2/P3 dropped
+  `- /phantom:wrap        -> draft PR + ticket cost total
+```
+
+The PR body's `## Validation` section is assembled from those artifacts: verify verdict with test counts, review panel outcome, grill verdict.
+A missing artifact means a missing subsection, never invented text.
+The PR opens as a **draft** deliberately, because marking it ready to review stays a human action.
+
+Report a defect instead of a feature and no fix runs first.
+The work is classified `investigation`, and no fix route can be selected until the evidence reaches `ready_for_fix`.
+
+## What Is Actually In The Box
+
+- **Proof before fix.** Every reported bug, regression, or flake writes a `defect-proof.json` and cannot reach a fix route until it reaches `ready_for_fix`. Spec: `reference/defect-proof.md`.
+- **An unattended spend ceiling that halts honestly.** `PHANTOM_SPEND_CEILING_USD` (default `5`), enforced by `scripts/run-guard.js`, halts only on a CONFIRMED overrun and writes a halt record. Unknown spend continues rather than failing silently. Interactive sessions are never capped, because the watching human is the ceiling.
+- **Model routing generated from one policy file.** `references/model-policy.json` holds semantic role policy, `references/model-presets.json` holds per-host models, and `scripts/gen-agent-frontmatter.js` generates every agent pin from them. No value is hand-maintained twice.
+- **Outcome records with closed enums.** `scripts/outcome-write.js` writes a per-ticket outcome whose `pr_state` is one of `draft | open | merged | closed | absent`, derived from `gh` alone. Anything unmappable is recorded as unresolved instead of guessed. This is what made the measurement above possible at all.
+- **A config layer with provenance.** `scripts/phantom-config.js get|set|list`, per-repo winning over global, created lazily. Every resolved value reports which layer it came from, and an unset key reports unset rather than a fabricated default.
+- **Portable across runtimes.** One provider-neutral Agent Skill at `skills/phantom/` runs on Claude Code and Codex CLI alongside a native plugin distribution. Optional host capabilities degrade to explicit fallbacks instead of breaking the workflow.
 
 ## Portable Agent Skill
 
