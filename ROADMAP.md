@@ -12,6 +12,18 @@ Research basis: `docs/research/agnostic-improvement-research.md` is AUTHORITATIV
 This document does not restate those findings.
 It records what was DECIDED, what was MEASURED, what was CORRECTED, and the order of work.
 
+Each backlog item traces to a research weakness (section 6 of the research doc):
+
+| Weakness | Backlog item |
+|---|---|
+| W1 - eval loop never closed | B2 |
+| W2 - memory injection priority inversion | B3 |
+| W3 - model routing two sources of truth | B1 |
+| W4 - cost accounting Claude-locked/role-blind | B5 |
+| W5 - wake-classifier reverse-engineered | section 12, port only `classify()` |
+| W6 - repo and context bloat | B7 |
+| W7 - ceremony candidates | B8 |
+
 ---
 
 ## 1. Status at a glance
@@ -32,15 +44,16 @@ It records what was DECIDED, what was MEASURED, what was CORRECTED, and the orde
 | T1 | Tracker abstraction (loop providers) | PENDING | 3d | needs C1 |
 | T3 | phantom-doctor | PENDING | 2d | needs C1 |
 | T2 | phantom-setup + Terminal bundling | PENDING | 3d | needs C1, after B7/B8 |
+| T5 | Dev-link for local skill edits | PENDING | 0.5d | needs T2 |
 | B4 | Codex CLI hook adapter | PENDING | 3d | - |
 | T4 | De-CloudZero + license + CONTRIBUTING | PENDING | 2d | after B2, B7/B8 |
 | B5 | Per-role cost attribution | PENDING | 1d | partly collapsed into B0b |
 | B6 | Down-pin measurement gate | PENDING | 1d | needs B1 |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the three plugin manifests | PENDING | 1d | - |
+| E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
 
-Two agents are live in this repo right now.
-Do not touch config files, `commands/close.md`, or `commands/start.md` while C1 is in flight.
+C1 and B2 landed after this table was first written; the status column above is authoritative.
 
 ---
 
@@ -74,6 +87,13 @@ None of this lands before B2 exists as a safety net, because a deletion without 
 Open-sourcing is planned.
 That is the only reason portability, setup, and doctor work exist at all.
 It is also why B2 gates publication: shipping unmeasured effectiveness claims to a public audience is the one failure mode that cannot be walked back.
+
+**D6. Terminal bundling is layered, not merged.**
+The skills repo stays canonical and independently publishable; Phantom Terminal vendors a pinned built artifact at build time; a dev-link (T5) lets local skill edits apply immediately with no publish step.
+This settles both readings of "stop juggling two repos": end users get all 29 skills with no separate clone (T2), and Subash stops hand-syncing two clones day to day (T5).
+Rejected: a monorepo merge.
+Moving skills into the internal app repo would make D5's open-sourcing require a permanent filtered export, and would graft 286 files / 44k lines / 49 test files into a Swift plus Rust app repo whose CI would then run both suites.
+Both `research-phantom-skills` and `project-phantom-teminal` are INTERNAL in the CloudZero org today, so this is not resolving a public/private conflict, it is preserving the option to open one of them later without the other blocking it.
 
 ---
 
@@ -147,6 +167,12 @@ Same "one value, N places, nothing enforcing agreement" pattern as F1.
 **F6. Agent completion claims are unreliable.**
 3 of 4 implementation agents this session ended their turns with fragment results while the work was actually on disk.
 Verification must be mechanical (`git status`, run the thing), never prose trust.
+
+**F7. The 0/6 route result is the more suspicious number in the first baseline, not the 47.3% headline.**
+`evals/baselines/sonnet.json` (committed `8e6b553`) scores 26/55, passRate 0.473: untyped/trigger 14/30 (47%, failed ids 1,2,4,7,8,10,11,13,14,17,19,20,22,23,25,29), route 0/6 (0%, failed ids 31-36), convention 12/19 (63%, failed ids 39,40,41,46,47,48,49).
+Zero of six on routing contradicts months of working daily use and the measured 99.1% merge rate (section 3), so this most likely means the eval harness measures routing wrong, not that routing is broken.
+Cross-reference E1: both the 7 llm-judge cases (F3) and these 6 route cases bear on whether this baseline is trustworthy at all.
+Consequence: the 47.3% figure must not be quoted as a system-effectiveness number until the 6 route cases are diagnosed (E3).
 
 ---
 
@@ -236,6 +262,13 @@ Why: the app already writes shims to `~/.phantom-terminal/bin/`, so the install 
 Lands AFTER B7/B8, because bundling multiplies the audience for whatever quality currently exists.
 Test: on a clean machine with no `~/.phantom`, run setup and watch it print each detected capability, then run `/phantom:status` successfully without editing a file by hand.
 
+### T5 - Dev-link for local skill edits. 0.5d.
+
+What: a symlink or env var (`PHANTOM_SKILLS_DEV_PATH`) that makes Terminal's vendored skills bundle resolve to this repo's working tree instead of the pinned build artifact.
+Why: D6 settles the bundling shape as vendor-plus-dev-link; without this half, Subash is back to hand-copying files between two clones on every skill edit.
+Test: set the dev-link, edit one skill's `SKILL.md` in this repo, and watch Phantom Terminal pick up the edited text on next invocation with no build or publish step run.
+Depends on T2.
+
 ### B4 - Codex CLI hook adapter. 3d.
 
 What: per `agnostic-improvement-research.md` section 7 B4.
@@ -271,6 +304,12 @@ What: one script or generator that bumps `.claude-plugin/plugin.json`, `.claude-
 Why: F5.
 Test: run the bump to a new version and watch all three files change in one `git diff`; hand-edit one out of sync and watch CI go red.
 
+### E3 - Diagnose the 0/6 route eval failures. 1d.
+
+What: read failing route case ids 31-36 in `evals/evals.json` against what `run-evals.js` actually asserts for `kind: route`, and determine whether the harness asserts the wrong thing rather than routing being broken (F7).
+Why: a 0% subscore this far from the measured 99.1% merge rate must be explained before the 47.3% baseline is quoted anywhere; cross-refs E1.
+Test: after the fix or explanation, re-run the baseline and watch the route subscore change from 0/6 to a number that matches manual inspection of the same 6 prompts.
+
 ---
 
 ## 8. Loop provider design
@@ -294,8 +333,7 @@ So the provider interface is two functions.
 | `file` | unchecked items in `.phantom/backlog.md` | check the box |
 | `none` | inactive | n/a |
 
-Build `file` FIRST.
-Zero dependencies, zero-config onboarding, and it proves the seam with no network or auth in the way.
+Build `file` FIRST: zero dependencies, zero-config, proves the seam with no network or auth in the way.
 Then `github`.
 Jira becomes one provider among four rather than the substrate.
 
@@ -308,10 +346,8 @@ The trigger never changes: typing the command IS the authorization (line 12), wh
 `tracker: none` generalizes the EXISTING `LOOP INACTIVE:` message at line 26 rather than adding new behavior.
 
 **The real limitation is not the tracker.**
-Loop's autonomy is gated on AC quality, and AC quality is a property of the team's process, not the tracker.
-Most drive-by GitHub issues will be judged WEAK and will produce plans rather than PRs.
-That is the rubric working correctly on thinner input.
-Document it so a user whose loop only emits plans does not assume it is broken.
+Loop's autonomy is gated on AC quality, a property of the team's process, not the tracker.
+Most drive-by GitHub issues will be judged WEAK and produce plans rather than PRs - that is the rubric working correctly on thinner input, and it should be documented so a plans-only user does not assume loop is broken.
 
 `--status` (line 20) is read-only with no writes.
 Preserve that per provider and make it the acceptance test for every new provider.
@@ -331,10 +367,8 @@ Fix:
 - `greptile.status` becomes a closed enum: `pending | settled | unavailable | not_configured`;
 - keep fail-open as defense in depth, but stop DEPENDING on it.
 
-Rename to `phantom:reviewloop` at T4.
-`greploop` is vendor-branded, which is odd for a public repo.
-A `coderabbit` key already appears in one historical `wrap.json`, so a second provider exists in the history.
-Per ponytail rung 1, gate it now with a closed enum and add provider adapters only when a second provider is actually needed.
+Rename to `phantom:reviewloop` at T4; `greploop` is vendor-branded, which is odd for a public repo.
+A `coderabbit` key already appears in one historical `wrap.json`, so per ponytail rung 1, gate now with a closed enum and add provider adapters only when a second provider is actually needed.
 
 **Standing principle: the ship path must never hard-depend on a paid third-party SaaS.**
 This covers Greptile, Jira, and whatever comes next.
@@ -359,6 +393,8 @@ A skill in the list that does not work is worse than one that is not there, and 
 Three layers.
 
 1. **Bundling.** Terminal ships this repo as a version-pinned plugin. The app already writes shims to `~/.phantom-terminal/bin/`, so the install path is the same shape of work.
+   Bundling is settled as vendor-plus-dev-link, not a monorepo merge; see D6 (T2 for the vendored path, T5 for the dev-link).
+   Terminal-side integration points for whoever picks this up: `daemon/src/sessions.rs`, `daemon/src/bin/phantom-claude.rs`, `app/Sources/PhantomApp/GhosttyTerminalSurface.swift` (all verified in `project-phantom-teminal`).
 2. **The doctor as UI.** `phantom-doctor` output is better as a Terminal panel than as terminal text: trigger collisions, hook conflicts, degraded capabilities, and unresolvable profiles as a clickable checklist. No CLI-only peer can do this. It is what makes bundling more than convenience.
 3. **Terminal owns the durable record.** `phantomd` already has SQLite with 60 tables and an event journal. The reason `wrap.json` accumulated 89 ad-hoc keys is that the skills layer's persistence is unstructured files an LLM writes freehand.
 
