@@ -54,11 +54,27 @@ test('memory-reader.js source contains no child-process execution', () => {
   assert.doesNotMatch(src, /\bexecSync\b|\bspawnSync\b|\bexecFileSync\b|\bexec\(|\bspawn\(/, 'memory-reader.js must never call an execution primitive');
 });
 
-test('memory-reader.js stays non-empty against real repo state (regression smoke)', () => {
-  // The exact command from the assignment's verification block: prove the hook still
-  // functions end-to-end after these changes, using the real on-disk learnings.
-  const out = execFileSync('node', [HOOK], { input: JSON.stringify({ prompt: 'nul byte binary diff' }), encoding: 'utf8' });
-  assert.ok(out.length > 0, 'memory-reader.js produced no output against real repo state');
+test('memory-reader.js stays non-empty against a hermetic learnings fixture (regression smoke)', () => {
+  // Was: invoked with no env override, so it resolved learningsDir() against the
+  // developer's real ~/.phantom data. That passes on a machine with learnings on disk
+  // and produces 0 bytes on a clean CI runner - the hook was correctly emitting nothing
+  // for an empty state, but the test asserted "non-empty" unconditionally. Build the
+  // learnings fixture the same way every other test in this file does, so the assertion
+  // is checking the hook's behavior, not the developer's disk.
+  const { root } = makeWorkspace({
+    'workflow.md': [
+      'PATTERN [p-smoke]: a validated entry the hook should inject (2026-07-20) [validated:1]',
+      '',
+    ].join('\n'),
+  });
+
+  const out = execFileSync('node', [HOOK], {
+    input: JSON.stringify({ prompt: 'nul byte binary diff' }),
+    encoding: 'utf8',
+    env: env(root),
+  });
+
+  assert.match(out, /<!-- memory-injection -->/, 'memory-reader.js must emit the injection block when learnings exist');
 });
 
 // ── Requirement: default run parses and COUNTS but never executes ────────────────
