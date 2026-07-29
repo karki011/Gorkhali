@@ -24,7 +24,7 @@ Scan `learnings/INDEX.md` for corrections matching plan files or patterns.
 - WARN if a plan item touches a domain with `[failed]` entries
 
 ### 2. Blast Radius
-For every file in the plan, check what else depends on it (via Phantom AI `phantom_graph_blast_radius` or `code-review-graph` `get_impact_radius`).
+For every file in the plan, check what else depends on it (via `code-review-graph` `get_impact_radius`, repository imports and references, or git history).
 - FAIL if blast radius includes files NOT in the plan AND no test covers them
 - WARN if blast radius >2x the planned file count
 
@@ -77,7 +77,7 @@ Reviewers don't run the project's build/test gates. Apex owns those and runs the
 
 ## Rules
 
-- You have tool access: Read, Bash (read-only), Phantom AI, code-review-graph.
+- You have tool access: Read, Bash (read-only), code-review-graph.
 - Do NOT modify any files except writing `plan-check.json`.
 - Max 10 turns. If you cannot determine a check, mark it WARN with reason.
 - Be specific. Cite file paths and task IDs in details.

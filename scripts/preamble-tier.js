@@ -65,10 +65,9 @@ const TIERS = {
       '_shared-discipline.md',
       '_shared-contracts.md',
       '_shared-hound.md',
-      '_shared-phantom-integration.md',
     ],
     ironLaws: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-    description: 'All shared contexts. Full Core Rules. Phantom graph.',
+    description: 'All shared contexts. Full Core Rules.',
   },
 };
 
@@ -81,7 +80,6 @@ const CONTEXT_PURPOSES = {
   '_shared-discipline.md': 'Plan/execution discipline',
   '_shared-contracts.md': 'Contract templates, hooks',
   '_shared-hound.md': 'Forensic analysis (loaded on hound trigger)',
-  '_shared-phantom-integration.md': 'Graph intelligence (optional)',
   '_shared-archer.md': 'Archer spec (loaded on demand)',
 };
 

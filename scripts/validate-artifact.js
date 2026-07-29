@@ -111,8 +111,6 @@ const SCHEMAS = {
       { field: 'source', type: '`"jira"` | `"args"` | `"branch"`', required: 'yes', description: 'Where context was sourced from' },
       { field: 'jira', type: 'object | `null`', required: 'no', description: 'Raw Jira issue fields (if source=jira)' },
       { field: 'learningsRefs', type: 'string[]', required: 'no', description: 'Paths to relevant learning files' },
-      { field: 'phantomStrategy', type: 'string', required: 'no', description: 'Strategy from phantom_orchestrator_process' },
-      { field: 'blastRadius', type: 'string[]', required: 'no', description: 'Files flagged by phantom_graph_blast_radius' },
       { field: 'modelOverride', type: 'string | `null`', required: 'no', description: 'Force a specific model for spawns' },
     ],
     validate: (d, errors) => {
@@ -122,7 +120,6 @@ const SCHEMAS = {
       const validSources = ['jira', 'args', 'branch'];
       if (!validSources.includes(d.source)) errors.push(`source: must be one of ${validSources.join('|')}, got "${d.source}"`);
       if (d.learningsRefs !== undefined && !Array.isArray(d.learningsRefs)) errors.push('learningsRefs: must be array if present');
-      if (d.blastRadius !== undefined && !Array.isArray(d.blastRadius)) errors.push('blastRadius: must be array if present');
     },
   },
 

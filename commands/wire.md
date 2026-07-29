@@ -45,7 +45,7 @@ prompt: |
   ### Phase 1: Dependency Analysis
   Per task: PRODUCES (files/exports created), CONSUMES (files/exports from other tasks).
   Edges: A produces X, B consumes X -> B depends on A.
-  Validate with graph tools (phantom_graph_context, query_graph) if available.
+  Validate with `code-review-graph` (`query_graph`) if available.
   v1 fallback: derive from tasks[].dependsOn directly.
 
   ### Phase 2: Topology Generation

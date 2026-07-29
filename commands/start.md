@@ -63,9 +63,8 @@ Agent spawn rules (all routes):
 3.5. Brain recall (optional, on-demand — never preloaded): grep `{TEAM_DIR}/brain/cards/`
      by TICKET and touched file paths (recipes: `_shared-brain.md`). Cite matched card
      `id`s in `context.json`; no matches → skip silently.
-4. Phantom MCP → `phantom_before_edit` (non-blocking). Write `context.json`.
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
-5. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
+4. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
    Jira type, or branch prefix → classify `workKind: "investigation"` in
    `context.json` and `intent.json`, then spawn Hound and write
    `{SESSION_DIR}/defect-proof.json` per `reference/defect-proof.md`.

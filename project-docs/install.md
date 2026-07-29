@@ -85,8 +85,7 @@ Claude Code users can run `/plugin update phantom`.
 
 Prerequisites: Codex CLI or the Codex desktop app for Codex installation;
 Claude Code CLI for Claude installation; and git for either flow. Recommended:
-gh CLI and Atlassian MCP. Optional: phantom-ai MCP, Slack MCP, and
-code-review-graph MCP.
+gh CLI and Atlassian MCP. Optional: Slack MCP and code-review-graph MCP.
 
 ## Upgrading from a pre-plugin install
 

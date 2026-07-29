@@ -96,7 +96,7 @@ Run `Skill(skill="phantom:eval")` (or spawn per its protocol) to score the activ
 
 See [reference/wrap/learnings.md] for full protocol.
 
-Session file, decisions, shadows eval, learnings update, INDEX update, validation counters, promotion check, caveman compress, phantom outcome feedback, auto-learning trigger 3, testgaps scan.
+Session file, decisions, shadows eval, learnings update, INDEX update, validation counters, promotion check, caveman compress, auto-learning trigger 3, testgaps scan.
 
 ## Step 7: Ship Ceremony
 

@@ -239,7 +239,6 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
       '_shared-discipline.md',
       '_shared-contracts.md',
       '_shared-hound.md',
-      '_shared-phantom-integration.md',
     ],
   };
 

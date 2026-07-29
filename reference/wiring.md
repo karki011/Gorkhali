@@ -23,7 +23,7 @@ For each task in `plan.json -> tasks[]`, identify:
 
 Build edges: if task A `produces` X and task B `consumes` X -> B depends on A.
 
-Use `code-review-graph` (`query_graph`) or `phantom_graph_context` to validate declared dependencies against actual import chains. Flag discrepancies.
+Use `code-review-graph` (`query_graph`) when available, otherwise inspect repository imports and references to validate declared dependencies against actual import chains. Flag discrepancies.
 
 ## Wave Assignment
 

@@ -52,14 +52,7 @@ fi
 ```
 Skip `INDEX.md` (already terse). This keeps learnings compressed for future sessions.
 
-## 9. Phantom Outcome Feedback
-
-If phantom available:
-- Call `phantom_evaluate_output` with verification summary + Gaze verdict as output, original goal as context
-- This closes phantom's learning loop — the orchestrator records success/failure and adjusts strategy weights for similar future goals
-- If verification failed: phantom records failure reason, penalizing the strategy for similar goals going forward
-
-## 10. Auto-learning Trigger 3
+## 9. Auto-learning Trigger 3
 
 - Validate all patterns used this session: increment `[validated:N]` on patterns that held, downgrade patterns that caused issues
 - Auto-promote `[validated:5+]` patterns to `global/patterns/INDEX.md`
@@ -67,7 +60,7 @@ If phantom available:
 - Append session summary to INDEX.md: `SESSION {TICKET}: route={route}, outcome={outcome}, fix_loops={N}, patterns_validated={N}, corrections_added={N} ({date})`
 - See `_shared-auto-learning.md` for full protocol
 
-## 11. Testgaps Scan (advisory — does not block wrap)
+## 10. Testgaps Scan (advisory — does not block wrap)
 
 Check for changed source files without corresponding test changes:
 ```bash

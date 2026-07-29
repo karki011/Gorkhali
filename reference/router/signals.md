@@ -46,7 +46,7 @@ shadows. Apex cannot self-launch — it recommends; the user triggers. Full test
 
 | Signal | Source | Cost |
 |--------|--------|------|
-| file_count_estimate | `phantom_graph_blast_radius` or `get_impact_radius` | 1 MCP call |
+| file_count_estimate | `get_impact_radius` or the planned file list | 1 MCP call or free |
 | package_span | Derived from blast radius file paths | Free |
 | layer_span | Path heuristic on blast radius | Free |
 | domain_novelty | `learnings/INDEX.md` match count | 1 file read |
