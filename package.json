@@ -5,6 +5,7 @@
   "author": "Subash Karki",
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
-    "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom"
+    "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom",
+    "version:check": "node scripts/release-version.js --check"
   }
 }
