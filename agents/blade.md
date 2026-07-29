@@ -72,7 +72,7 @@ Emit a **typed completion record** per task — these are the exact fields Apex 
 - `filesChanged` — files you modified
 - `filesRead` — files you read but did NOT change (for next-wave awareness)
 - `selfReviewScore` — your 0-10 self-review
-- `testResult` — `{ passed, summary }` or a short string; what tests ran and the outcome
+- `testResult` — `{ passed, summary }` or a short string; what tests ran and the outcome. For a check you did not run, write `{ observation: "not_observed", summary: "<why it did not run>" }` and omit `passed`: the boolean cannot express "not yet run", and `passed: false` claims a failure nobody observed. Amend the record once the check runs.
 - `blocker` — blocker text if blocked, else null
 - `outputSummary` — 1-2 sentence summary
 

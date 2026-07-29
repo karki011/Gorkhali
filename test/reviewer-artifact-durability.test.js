@@ -993,3 +993,55 @@ test('_base-agent.md leaves the unrelated sections intact', () => {
   assert.equal(count('## Sage Escalation'), 1, 'Sage Escalation section must be untouched');
   assert.equal(count('## Model Behavior Notes'), 1, 'Model Behavior Notes section must be untouched');
 });
+
+// ── tasks[].testResult: not_observed spelling agrees between the two docs a
+// Blade actually reads ──────────────────────────────────────────────────────
+// agents/blade.md:75 tells a Blade what to write for a check it did not run;
+// reference/schemas/execution.md's generated table is what the validator
+// (scripts/validate-artifact.js) actually enforces. Both must agree on the
+// not_observed spelling and on passed being omitted, or a Blade following one
+// document ships a testResult the validator reads from the other rejects.
+// Each assertion is scoped to the single row/bullet that carries the rule -
+// not_observed legitimately appears elsewhere in both files (the confidence
+// vocabulary shared with agents/ward.md, the correctness.observations fields),
+// so an unscoped /not_observed/ match on the whole file would pin nothing.
+
+const EXECUTION_SCHEMA = 'reference/schemas/execution.md';
+
+test('execution.md testResult.observation row names not_observed as the unrun-check spelling', () => {
+  const content = read(EXECUTION_SCHEMA);
+  const row = content.split('\n').find((l) => l.trimStart().startsWith('| tasks[].testResult.observation'));
+  assert.ok(row, `${EXECUTION_SCHEMA} must document the tasks[].testResult.observation row`);
+  assert.ok(
+    row.includes('`"not_observed"`'),
+    `${EXECUTION_SCHEMA}'s testResult.observation row must list "not_observed" as a legal enum value`
+  );
+  assert.ok(
+    /only legal spelling/i.test(row),
+    `${EXECUTION_SCHEMA}'s testResult.observation row must state not_observed is the only legal spelling for an unrun check`
+  );
+});
+
+test('execution.md testResult.passed row requires passed be omitted when observation is not_observed', () => {
+  const content = read(EXECUTION_SCHEMA);
+  const row = content.split('\n').find((l) => l.trimStart().startsWith('| tasks[].testResult.passed'));
+  assert.ok(row, `${EXECUTION_SCHEMA} must document the tasks[].testResult.passed row`);
+  assert.ok(
+    /must be omitted when `observation` is `not_observed`/.test(row),
+    `${EXECUTION_SCHEMA}'s testResult.passed row must require passed be omitted when observation is not_observed`
+  );
+});
+
+test('blade.md testResult bullet tells a Blade to write not_observed and omit passed for an unrun check', () => {
+  const content = read('agents/blade.md');
+  const bullet = content.split('\n').find((l) => l.trimStart().startsWith('- `testResult`'));
+  assert.ok(bullet, 'agents/blade.md must carry the `testResult` completion-record bullet');
+  assert.ok(
+    /observation: "not_observed"/.test(bullet),
+    'agents/blade.md\'s testResult bullet must instruct writing observation: "not_observed" for a check that did not run'
+  );
+  assert.ok(
+    /omit `passed`/.test(bullet),
+    "agents/blade.md's testResult bullet must instruct omitting `passed` for an unrun check"
+  );
+});

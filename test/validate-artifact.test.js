@@ -3,6 +3,10 @@
 // hand-rolled validator (scripts/validate-artifact.js): the plan v1/v2 version
 // gate on tasks[].acceptance_criteria + tasks[].verify, the optional
 // intent.problem field, and the two new artifact types (brainstorm, decisions).
+// Also covers the execution artifact's tasks[].testResult three-state contract
+// (reference/schemas/execution.md lines 17-20): legacy `{ passed, summary }`,
+// a plain string for a check that ran, and the `not_observed` object form for a
+// check that did not run, where `passed` must be omitted and `summary` required.
 // These tests spawn the REAL validator CLI, same pattern as execution-schema.test.js.
 'use strict';
 
@@ -227,4 +231,91 @@ test('brainstorm: omitting optional visualType and mutualExclusivity still passe
     recommendedDefault: { id: 'approach-a-hooks-first', reason: 'Lowest risk' },
   });
   assert.equal(res.code, 0, `both are optional, got stderr: ${res.stderr}`);
+});
+
+// --- execution: tasks[].testResult three-state contract ---
+// reference/schemas/execution.md lines 17-20: testResult is an object or a
+// string; the string form is only for a check that ran. observation is
+// checked:pass | checked:fail | not_observed. passed is required unless
+// observation is not_observed, must agree with observation when both are
+// present, and must be omitted when observation is not_observed. summary is
+// required when observation is not_observed.
+
+const baseExecTask = (testResult) => ({
+  id: 'T1',
+  status: 'done',
+  filesChanged: ['src/a.ts'],
+  outputSummary: 'Did the thing.',
+  ...(testResult !== undefined ? { testResult } : {}),
+});
+
+const execArtifact = (testResult) => ({
+  _meta: metaFor(),
+  tasks: [baseExecTask(testResult)],
+  totalSpawns: 1,
+});
+
+test('execution: legacy `{ passed, summary }` shape (no observation) still passes', () => {
+  const res = runValidator('execution', execArtifact({ passed: true, summary: '12 tests green' }));
+  assert.equal(res.code, 0, `legacy shape must stay valid, got stderr: ${res.stderr}`);
+});
+
+test('execution: testResult as a plain string (a check that ran) passes', () => {
+  const res = runValidator('execution', execArtifact('12 tests passed'));
+  assert.equal(res.code, 0, `string form must be valid for a ran check, got stderr: ${res.stderr}`);
+});
+
+test('execution: `{ observation: "not_observed", summary }` with passed omitted passes', () => {
+  const res = runValidator(
+    'execution',
+    execArtifact({ observation: 'not_observed', summary: 'tests not run: blocked on a dependency' })
+  );
+  assert.equal(res.code, 0, `not_observed with passed omitted must be valid, got stderr: ${res.stderr}`);
+});
+
+test('execution: `{ observation: "checked:pass", passed: true, summary }` (both present, agreeing) passes', () => {
+  const res = runValidator(
+    'execution',
+    execArtifact({ observation: 'checked:pass', passed: true, summary: 'suite green' })
+  );
+  assert.equal(res.code, 0, `agreeing observation+passed must be valid, got stderr: ${res.stderr}`);
+});
+
+test('execution: not_observed with passed present is rejected (passed must be omitted)', () => {
+  const res = runValidator(
+    'execution',
+    execArtifact({ observation: 'not_observed', passed: false, summary: 'blocked on a dependency' })
+  );
+  assert.equal(res.code, 1, `passed must be omitted when observation is not_observed`);
+  assert.match(
+    res.stderr,
+    /tasks\[0\]\.testResult\.passed: must be omitted when testResult\.observation is not_observed/
+  );
+});
+
+test('execution: checked:pass with passed: false is rejected (observation/passed disagree)', () => {
+  const res = runValidator('execution', execArtifact({ observation: 'checked:pass', passed: false }));
+  assert.equal(res.code, 1, `disagreeing observation+passed must be rejected`);
+  assert.match(
+    res.stderr,
+    /tasks\[0\]\.testResult\.passed: must agree with testResult\.observation \(checked:pass -> true, checked:fail -> false\)/
+  );
+});
+
+test('execution: not_observed with no summary is rejected (the reason is required)', () => {
+  const res = runValidator('execution', execArtifact({ observation: 'not_observed' }));
+  assert.equal(res.code, 1, `not_observed with no summary must be rejected`);
+  assert.match(
+    res.stderr,
+    /tasks\[0\]\.testResult\.summary: required string when testResult\.observation is not_observed/
+  );
+});
+
+test('execution: an unknown observation value is rejected', () => {
+  const res = runValidator('execution', execArtifact({ observation: 'maybe', passed: true }));
+  assert.equal(res.code, 1, `unknown observation value must be rejected`);
+  assert.match(
+    res.stderr,
+    /tasks\[0\]\.testResult\.observation: must be one of checked:pass\|checked:fail\|not_observed if present, got "maybe"/
+  );
 });

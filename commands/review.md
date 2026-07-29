@@ -18,10 +18,12 @@ recommend running the sweep as a Claude Code dynamic workflow per
 reach context (READ-ONLY — "Audit and REPORT only — do not modify files"). Fall back to
 turn-by-turn review for normal-sized diffs or when workflows are unavailable.
 
-2. Spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (effort = session `high`; model per `reference/agents.md` → Model Routing)
+2. Delete `{SESSION_DIR}/reviews/gaze.json` if it exists, then spawn Gaze (`subagent_type: "gaze"`, `mode: "bypassPermissions"`) with: (effort = session `high`; model per `reference/agents.md` → Model Routing)
    - All files touched in this session
    - Active contracts
    - Repo rules from `.claude/rules/`
+
+   That pre-spawn clear is the same one Apex does for the four panel role files in `reference/wrap/rpsl.md`, and it is load-bearing on a repeated review: step 4 below checks that the file is present and carries a `verdict`, it does not check freshness. A Gaze that truncates before rewriting the file leaves the previous run's verdict on disk, step 4 reads it as a satisfied review, skips the resume, and records an APPROVED produced against an earlier revision. The clear belongs to this caller rather than to `agents/gaze.md`: a truncated agent may never reach its own cleanup, which is the failure mode being defended against.
 3. Gaze produces:
    - CRITICAL / WARNING / INFO findings
    - VERDICT: APPROVED or NEEDS WORK

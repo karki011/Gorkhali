@@ -513,7 +513,10 @@ const SCHEMAS = {
       { field: 'tasks[].filesChanged', type: 'string[]', required: 'yes', description: 'Files actually modified' },
       { field: 'tasks[].filesRead', type: 'string[]', required: 'no', description: 'Files read but NOT changed (wave-handoff awareness)' },
       { field: 'tasks[].selfReviewScore', type: 'number', required: 'no', description: 'Agent\'s self-review score (0-10)' },
-      { field: 'tasks[].testResult', type: 'object | string', required: 'no', description: '`{ passed: bool, summary?: string }` or a short string' },
+      { field: 'tasks[].testResult', type: 'object | string', required: 'no', description: '`{ passed: bool, summary?: string }` or a short string. The string form is only for a check that ran' },
+      { field: 'tasks[].testResult.observation', type: '`"checked:pass"` | `"checked:fail"` | `"not_observed"`', required: 'no', description: 'Whether the check actually ran - same vocabulary as `agents/ward.md`. A check that has not run is recorded `not_observed`, which is its only legal spelling here' },
+      { field: 'tasks[].testResult.passed', type: 'boolean', required: 'yes, unless `observation` is `not_observed`', description: 'Whether the check passed. Must agree with `observation` when both are present (`checked:pass` means true, `checked:fail` means false), and must be omitted when `observation` is `not_observed` - an unrun check has no boolean truth' },
+      { field: 'tasks[].testResult.summary', type: 'string', required: 'when `observation` is `not_observed`; else no', description: 'What ran and the outcome; carries the reason the check did not run when `observation` is `not_observed`' },
       { field: 'tasks[].blocker', type: 'string | null', required: 'no', description: 'Blocker description; null/absent when none' },
       { field: 'tasks[].wave', type: 'object', required: 'no', description: 'Wave membership `{ index, isLastInWave }` — drives the wake classifier\'s last-in-wave surface' },
       { field: 'tasks[].drift', type: 'boolean', required: 'no', description: 'True when output drifted from stated intent; drives an actionable wake' },
@@ -541,8 +544,22 @@ const SCHEMAS = {
             errors.push(`tasks[${i}].testResult: must be object or string if present`);
           }
           if (t.testResult !== undefined && t.testResult !== null && typeof t.testResult === 'object') {
-            if (typeof t.testResult.passed !== 'boolean') errors.push(`tasks[${i}].testResult.passed: required boolean when testResult is object`);
-            if (t.testResult.summary !== undefined && typeof t.testResult.summary !== 'string') errors.push(`tasks[${i}].testResult.summary: must be string if present`);
+            const tr = t.testResult;
+            const observations = ['checked:pass', 'checked:fail', 'not_observed'];
+            if (tr.observation !== undefined && !observations.includes(tr.observation)) {
+              errors.push(`tasks[${i}].testResult.observation: must be one of ${observations.join('|')} if present, got "${tr.observation}"`);
+            }
+            // A check that never ran has no boolean truth: false reads as "tests failed"
+            // and true as "tests passed", so not_observed carries it and passed is absent.
+            if (tr.observation === 'not_observed') {
+              if (tr.passed !== undefined) errors.push(`tasks[${i}].testResult.passed: must be omitted when testResult.observation is not_observed`);
+              if (typeof tr.summary !== 'string') errors.push(`tasks[${i}].testResult.summary: required string when testResult.observation is not_observed - record why the check did not run`);
+            } else if (typeof tr.passed !== 'boolean') {
+              errors.push(`tasks[${i}].testResult.passed: required boolean when testResult is object, unless testResult.observation is not_observed`);
+            } else if (tr.observation !== undefined && tr.passed !== (tr.observation === 'checked:pass')) {
+              errors.push(`tasks[${i}].testResult.passed: must agree with testResult.observation (checked:pass -> true, checked:fail -> false)`);
+            }
+            if (tr.summary !== undefined && typeof tr.summary !== 'string') errors.push(`tasks[${i}].testResult.summary: must be string if present`);
           }
           if (t.blocker !== undefined && t.blocker !== null && typeof t.blocker !== 'string') {
             errors.push(`tasks[${i}].blocker: must be string or null if present`);

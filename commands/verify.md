@@ -42,6 +42,8 @@ Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on cha
 
 ## Step 2: Power Level (1 agent)
 
+Delete `{SESSION_DIR}/reviews/gaze.json` if it exists, before spawning Gaze - the same pre-spawn clear Apex does for the four panel role files in `reference/wrap/rpsl.md`, and for the same reason. The clear is load-bearing on a re-run: the guard below checks that the file is present and carries a `findings` key, it does not check freshness. A Gaze that truncates before rewriting the file leaves the previous run's verdict in place, this step reads it as a satisfied review, skips the resume, and verification can print `review: 0 P0/P1 findings` against a diff nobody reviewed. Clear it again before each Step 3 re-review, which is another Gaze run on a changed diff. The clear belongs here and not in `agents/gaze.md`: a truncated agent may never reach its own cleanup, which is the failure mode being defended against.
+
 Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
 - Input: `git diff main...HEAD` + intent from session
 - Prompt: load from `reference/temperature-review.md` — "Review Agent Prompt" section
