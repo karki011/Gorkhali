@@ -1,4 +1,5 @@
 # PHANTOM - Your Shadow Army of AI Agents
+[![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
 
 **Author: Subash Karki**
 
