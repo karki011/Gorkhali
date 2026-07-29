@@ -98,8 +98,6 @@ only those entries because `hooks/hooks.json` now owns them:
 - `memory-writer.js`
 - `apex-subagent-driven-law.sh`
 - `memory-reader.js`
-- `memory-consolidator.js`
-- `context-compact-guide.sh`
 
 Back up `settings.json` before editing and preserve every non-Phantom hook. If
 you need data from an old `~/.claude/team`, `~/.claude/phantom`, or

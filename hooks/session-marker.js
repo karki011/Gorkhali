@@ -81,8 +81,8 @@ function readPayload() {
 
 // First-prompt-of-session sweep: reclaim orphaned `*.lock.stale.<pid>.<nonce>`
 // takeover artifacts (scripts/lib/atomic.js sweepStaleArtifacts) from this repo's
-// learnings dir - the only path anything in this repo ever locks (memory-writer/
-// memory-consolidator's INDEX.md). Gated on the marker's PREVIOUS session_id so
+// learnings dir - the only path anything in this repo ever locks (memory-writer's
+// INDEX.md). Gated on the marker's PREVIOUS session_id so
 // it fires once per session, not once per prompt; best-effort, never blocks.
 function maybeSweepStaleLocks(markerFile, sessionId, repo) {
   try {

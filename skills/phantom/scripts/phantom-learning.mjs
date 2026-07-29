@@ -7,9 +7,9 @@
 //   <learnings>/auto-captures.md  -- the staging file for proposed captures
 //   <learnings>/<domain>.md       -- graduated `## Validated Patterns`
 //
-// Both host-side entry points (hooks/memory-writer.js via `capture`,
-// hooks/memory-consolidator.js via `consolidate`) and portable workflow prose
-// invoke it -- the hooks by shelling out to the CLI, portable runtimes the same
+// Both the host-side entry point (hooks/memory-writer.js via `capture`)
+// and portable workflow prose invoke it -- the hook by shelling out to the
+// CLI, portable runtimes the same
 // way. Every mutation runs under a per-learnings-dir advisory lock; a contended
 // writer WAITS for the lock and, if the budget is exhausted, THROWS rather than
 // running unlocked. There is intentionally no unlocked write path: a caller that
@@ -405,7 +405,7 @@ function applyCaptures(learningsDir, candidates) {
   atomicWriteText(autoPath, rebuildAutoCaptures(autoEntries));
 }
 
-// --- consolidate policy (memory-consolidator) -------------------------------
+// --- consolidate policy (portable-workflow `consolidate` CLI verb) ---------
 
 /**
  * The consolidate read-modify-write, run inside the lock. Adds high-confidence

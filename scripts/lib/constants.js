@@ -34,7 +34,7 @@ module.exports = {
   // domain file → global patterns promotion (evolution-runner Tier 2).
   PROMOTE_THRESHOLD: numFromEnv('PHANTOM_PROMOTE_THRESHOLD', 5),
 
-  // extract-learnings.js subprocess kill timeout (memory-writer / memory-consolidator).
+  // extract-learnings.js subprocess kill timeout (memory-writer).
   EXTRACT_TIMEOUT_MS: numFromEnv('PHANTOM_EXTRACT_TIMEOUT_MS', 5000),
 
   // Legacy data-root dirname, retained ONLY as a migration source. The canonical

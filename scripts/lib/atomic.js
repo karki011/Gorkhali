@@ -4,7 +4,7 @@
 // Adapted from tasks-axi lock.ts (MIT, © 2026 Kun Chen) —
 // github.com/kunchenguid/tasks-axi. The TypeScript original is async and throws a
 // typed AxiError on contention; this port is SYNCHRONOUS (callers are sync
-// Stop/PreCompact hooks) and FAIL-OPEN (a lock it cannot acquire never throws
+// Stop hooks) and FAIL-OPEN (a lock it cannot acquire never throws
 // through a hook's main path — the caller chooses to degrade to an unlocked
 // best-effort write rather than lose the update).
 //

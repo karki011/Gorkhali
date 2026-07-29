@@ -1,6 +1,6 @@
 // Author: Subash Karki
 // domains.js — canonical domain taxonomy: names, file-path routing rules, prompt keywords.
-// Dep-free. Consumers: memory-consolidator, memory-reader, extract-learnings,
+// Dep-free. Consumers: memory-reader, extract-learnings,
 // check-learnings-index. First match wins — rule order is part of the contract.
 // Unification: the old copies conflicted (extract-learnings' loose /ui|frontend/
 // substring routed 'build'/'gui' etc. to ui; consolidator routed scripts/→tooling) —
