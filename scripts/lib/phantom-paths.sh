@@ -140,7 +140,31 @@ phantom_detect_repo() {
 
 # Per-repo dirs, all resolved at call time via phantom_detect_repo.
 phantom_repo_dir()      { printf '%s\n' "$PHANTOM_DATA/repos/$(phantom_detect_repo)"; }
-phantom_learnings_dir() { printf '%s\n' "$(phantom_repo_dir)/learnings"; }
+
+# Alias-aware learnings dir, mirroring resolveRepoSubdir() in phantom-paths.js:
+# canonical wins when populated, else the first populated aliased dir, else the
+# canonical path (so a first WRITE still has a stable target). The command layer
+# reaches this dir by shelling out (commands/pause.md -> `phantom-learning.mjs
+# capture --learnings <dir>`) and cannot require() the JS resolver, so without this
+# the command layer would WRITE into the empty canonical dir while JS READS the
+# aliased one - splitting the knowledge across two directories. Delegates through
+# `node -e` exactly like phantom_detect_repo above (the JS side owns the alias-key
+# shape check, so no path is ever built from a map key here). Never errors and never
+# prints empty: any failure falls back to the canonical join.
+phantom_learnings_dir() {
+  _lrepo=$(phantom_detect_repo)
+  _lcanonical="$PHANTOM_DATA/repos/$_lrepo/learnings"
+  _lpaths="$PHANTOM_PLUGIN_ROOT/scripts/lib/phantom-paths.js"
+  if command -v node >/dev/null 2>&1 && [ -f "$_lpaths" ]; then
+    _ldir=$(node -e 'const p=require(process.argv[1]);process.stdout.write(String(p.resolveRepoSubdir(process.argv[2],"learnings")));' "$_lpaths" "$_lrepo" 2>/dev/null)
+    if [ -n "$_ldir" ]; then
+      printf '%s\n' "$_ldir"
+      return 0
+    fi
+  fi
+  printf '%s\n' "$_lcanonical"
+}
+
 phantom_sessions_dir()  { printf '%s\n' "$(phantom_repo_dir)/sessions"; }
 phantom_runs_dir()         { printf '%s\n' "$(phantom_sessions_dir)/$1/runs"; }
 phantom_run_dir()          { printf '%s\n' "$(phantom_runs_dir "$1")/$2"; }

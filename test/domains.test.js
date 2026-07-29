@@ -77,10 +77,32 @@ test('DOMAIN_KEYWORDS is exactly the canonical set (keys AND keywords)', () => {
     migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
     tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
     'model-routing': ['model-routing', 'compute-profile', 'fallback', 'requested_profile', 'actual_profile', 'frontier'],
+    infra: ['infra', 'installer', 'plugin', 'marketplace', 'vendor', 'release', 'version', 'cache', 'regex', 'resolver'],
+    workflow: ['workflow', 'session', 'wrap', 'gate', 'marker', 'lock', 'commit', 'worktree', 'prompt', 'injection'],
   });
 });
 
 test('KNOWN_DOMAIN_FILES matches the canonical domain list (order preserved)', () => {
-  assert.deepEqual(KNOWN_DOMAIN_FILES, ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'shadows.md', 'model-routing.md']);
+  assert.deepEqual(KNOWN_DOMAIN_FILES, ['ui.md', 'data.md', 'auth.md', 'testing.md', 'tooling.md', 'migration.md', 'shadows.md', 'model-routing.md', 'infra.md', 'workflow.md']);
   assert.deepEqual(KNOWN_DOMAIN_FILES, DOMAIN_NAMES.map(d => `${d}.md`));
+});
+
+// infra.md and workflow.md are the only domain files that actually exist on disk.
+// Before they were declared, every real learnings file was an "Unknown domain file"
+// warning from check-learnings-index.js, whose sole input is KNOWN_DOMAIN_FILES.
+test('the domain files that exist on disk are declared, so they stop reporting as unknown', () => {
+  assert.ok(KNOWN_DOMAIN_FILES.includes('infra.md'));
+  assert.ok(KNOWN_DOMAIN_FILES.includes('workflow.md'));
+});
+
+// Retired snapshots must stay UNdeclared: the unknown-domain warning is the only
+// human-visible trace that a stale file is still on disk awaiting deletion.
+// Do not "fix" this warning by declaring the file - that hides the signal.
+test('retired domain files are excluded from the known set on purpose', () => {
+  const { RETIRED_DOMAIN_FILES } = require('../scripts/lib/domains');
+  assert.deepEqual(RETIRED_DOMAIN_FILES, ['workflow.original.md']);
+  for (const retired of RETIRED_DOMAIN_FILES) {
+    assert.ok(!KNOWN_DOMAIN_FILES.includes(retired), `${retired} must not be declared known`);
+    assert.ok(!DOMAIN_NAMES.includes(retired.replace(/\.md$/, '')), `${retired} must not be a domain name`);
+  }
 });

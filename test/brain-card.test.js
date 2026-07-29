@@ -11,7 +11,7 @@ const os = require('os');
 const path = require('path');
 
 const brain = require('../scripts/lib/brain-card');
-const { makeCardId, renderCard, parseCard, writeCard, readCard, supersede, cardPath, ID_RE } = brain;
+const { makeCardId, renderCard, parseCard, writeCard, readCard, supersede, cardsDir, cardPath, ID_RE } = brain;
 
 function mkTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -228,5 +228,106 @@ test('guard: unwritable brain dir throws in writeCard but the RUN-guard swallows
 test('supersede: missing card throws (caller guards)', () => {
   withData(() => {
     assert.throws(() => supersede('rb-000000', 'rb-111111', { repo: 'r' }), /not found/);
+  });
+});
+
+// --- alias-aware cardsDir ----------------------------------------------------
+// detectRepo() returns the CANONICAL id, but cards written under an earlier id
+// (legacy plain name, pre-normalization hash) still live in that aliased dir.
+// A bare join greps an empty dir and recall silently reports "no matches".
+
+const CANON = 'research-phantom-skills-490f3d276e';
+const LEGACY = 'research-phantom-skills';
+
+/** Write <data>/repos/.aliases.json. The map includes the canonical self-mapping,
+ *  exactly as recordAliases writes it, so the reverse lookup must exclude it. */
+function writeAliasMap(tmp, map) {
+  const dir = path.join(tmp, 'repos');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, '.aliases.json'), JSON.stringify(map), 'utf8');
+}
+
+function seedCard(tmp, repo, id) {
+  const dir = path.join(tmp, 'repos', repo, 'brain', 'cards');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${id}.md`), renderCard({ id, ticket: 't', title: id, date: '2026-07-01' }), 'utf8');
+  return dir;
+}
+
+test('cardsDir: legacy-named dir holding the cards resolves for the canonical repo id', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [LEGACY]: CANON, [CANON]: CANON });
+    const legacyDir = seedCard(tmp, LEGACY, 'rb-aaa111');
+
+    assert.equal(cardsDir(CANON), legacyDir, 'canonical id resolves to the populated legacy dir');
+    const c = readCard(CANON, 'rb-aaa111');
+    assert.ok(c, 'the orphaned card is now readable under the canonical id');
+    assert.equal(c.id, 'rb-aaa111');
+  });
+});
+
+test('cardsDir: canonical dir wins when both are populated (fresh data never loses to an alias)', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [LEGACY]: CANON, [CANON]: CANON });
+    seedCard(tmp, LEGACY, 'rb-aaa111');
+    const canonDir = seedCard(tmp, CANON, 'rb-bbb222');
+
+    assert.equal(cardsDir(CANON), canonDir);
+    assert.ok(readCard(CANON, 'rb-bbb222'), 'canonical card reads');
+    assert.equal(readCard(CANON, 'rb-aaa111'), null, 'the aliased dir is not consulted');
+  });
+});
+
+test('cardsDir: canonical repo dir being non-empty does not shadow an empty brain/cards (leaf emptiness)', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [LEGACY]: CANON, [CANON]: CANON });
+    const legacyDir = seedCard(tmp, LEGACY, 'rb-aaa111');
+    // The canonical REPO dir is populated (config.json + sessions/) while its
+    // brain/cards leaf is not - the real-world shape of the bug.
+    fs.mkdirSync(path.join(tmp, 'repos', CANON, 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'repos', CANON, 'config.json'), '{}', 'utf8');
+
+    assert.equal(cardsDir(CANON), legacyDir);
+  });
+});
+
+test('cardsDir: with neither dir populated a first write targets the canonical path', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [LEGACY]: CANON, [CANON]: CANON });
+    const canonDir = path.join(tmp, 'repos', CANON, 'brain', 'cards');
+
+    assert.equal(cardsDir(CANON), canonDir, 'nothing populated -> canonical, a stable create target');
+    const { file } = writeCard({ ...SAMPLE, date: '2026-07-01' }, { repo: CANON });
+    assert.equal(path.dirname(file), canonDir, 'first card lands in the canonical dir');
+    assert.ok(fs.existsSync(file));
+  });
+});
+
+test('cardsDir: self-mapping alone never redirects (the map maps canonical -> itself)', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [CANON]: CANON });
+    assert.equal(cardsDir(CANON), path.join(tmp, 'repos', CANON, 'brain', 'cards'));
+  });
+});
+
+test('cardsDir: a malformed alias map fails open to the canonical path', () => {
+  withData(tmp => {
+    fs.mkdirSync(path.join(tmp, 'repos'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'repos', '.aliases.json'), 'not json{', 'utf8');
+    assert.equal(cardsDir(CANON), path.join(tmp, 'repos', CANON, 'brain', 'cards'));
+  });
+});
+
+test('writeCard: an existing aliased dir is written to, not split against (mkdir and file agree)', () => {
+  withData(tmp => {
+    writeAliasMap(tmp, { [LEGACY]: CANON, [CANON]: CANON });
+    const legacyDir = seedCard(tmp, LEGACY, 'rb-aaa111');
+
+    const { id, file } = writeCard({ ...SAMPLE, date: '2026-07-01' }, { repo: CANON });
+
+    assert.equal(path.dirname(file), legacyDir, 'new card joins the existing cards instead of starting a second store');
+    assert.ok(fs.existsSync(file));
+    assert.ok(readCard(CANON, id), 'and reads back through the same resolution');
+    assert.ok(!fs.existsSync(path.join(tmp, 'repos', CANON, 'brain')), 'no empty canonical brain dir left behind');
   });
 });

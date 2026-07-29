@@ -1,6 +1,6 @@
 // Author: Subash Karki
 
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -77,6 +77,34 @@ export function repoIdentity(workspace) {
 
 export function dataRoot(workspace) {
   return codec.resolveDataRoot(workspace);
+}
+
+const ALIAS_ID_RE = /^[A-Za-z0-9._-]+$/;
+
+function isPopulated(dir) {
+  try {
+    return readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Mirrors scripts/lib/phantom-paths.js resolveRepoSubdir, which owns the
+// rationale: fresh canonical data ALWAYS wins, an aliased dir answers only when
+// the canonical one is absent or empty, and a missing or malformed alias map
+// degrades to the canonical path. Alias keys become path segments, so the shape
+// check is enforced here, where a key reaches join().
+export function resolveRepoSubdir(workspace, ...segments) {
+  const root = dataRoot(workspace);
+  const repo = repoIdentity(workspace).id;
+  const canonical = join(root, 'repos', repo, ...segments);
+  if (isPopulated(canonical)) return canonical;
+  for (const [id, target] of Object.entries(codec.readAliasMap(root))) {
+    if (target !== repo || id === repo || !ALIAS_ID_RE.test(id) || id === '.' || id === '..') continue;
+    const candidate = join(root, 'repos', id, ...segments);
+    if (isPopulated(candidate)) return candidate;
+  }
+  return canonical;
 }
 
 export function readJson(file, fallback = null) {

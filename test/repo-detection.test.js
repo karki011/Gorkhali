@@ -18,7 +18,7 @@ const path = require('path');
 const { execSync, execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
-const { detectRepo } = require('../scripts/lib/phantom-paths');
+const { detectRepo, learningsDir, resolveRepoSubdir } = require('../scripts/lib/phantom-paths');
 const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
 const SH_LIB = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
 const PORTABLE = path.resolve(__dirname, '..', 'skills', 'phantom', 'scripts', 'lib', 'portable.mjs');
@@ -451,6 +451,100 @@ test('detectRepo and the portable resolver PERSIST aliases as a side effect of r
     fs.rmSync(esmData, { recursive: true, force: true });
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+// Alias-aware learnings resolution. No git fixture: the repo id is supplied
+// explicitly, and only PHANTOM_DATA has to be scoped so the pure path fns read the
+// temp root. Env is saved/restored the same way jsDetect does.
+function withData(data, fn) {
+  const saved = { d: process.env.PHANTOM_DATA, r: process.env.PHANTOM_REPO };
+  try {
+    process.env.PHANTOM_DATA = data;
+    delete process.env.PHANTOM_REPO;
+    return fn();
+  } finally {
+    if (saved.d === undefined) delete process.env.PHANTOM_DATA; else process.env.PHANTOM_DATA = saved.d;
+    if (saved.r === undefined) delete process.env.PHANTOM_REPO; else process.env.PHANTOM_REPO = saved.r;
+  }
+}
+
+function seedLearnings(data, repoId) {
+  const dir = path.join(data, 'repos', repoId, 'learnings');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'INDEX.md'), '# learnings\n');
+  return dir;
+}
+
+test('alias-aware learningsDir: a legacy plain-named dir with learnings RESOLVES when the canonical dir is absent', () => {
+  const data = isolatedData();
+  const CANON = 'research-phantom-skills-490f3d276e';
+  const LEGACY = 'research-phantom-skills';
+  try {
+    const legacyLearnings = seedLearnings(data, LEGACY);
+    codec.recordAliases(data, { id: CANON, aliases: [LEGACY] });
+    assert.ok(!fs.existsSync(path.join(data, 'repos', CANON, 'learnings')), 'canonical dir is absent');
+
+    withData(data, () => {
+      assert.equal(learningsDir(CANON), legacyLearnings, 'resolves to the aliased dir that holds the learnings');
+      assert.equal(resolveRepoSubdir(CANON, 'learnings'), legacyLearnings, 'learningsDir is a thin wrapper');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('alias-aware learningsDir: the CANONICAL dir WINS when both are populated (never serve stale knowledge)', () => {
+  const data = isolatedData();
+  const CANON = 'research-phantom-skills-490f3d276e';
+  const LEGACY = 'research-phantom-skills';
+  try {
+    const canonicalLearnings = seedLearnings(data, CANON);
+    seedLearnings(data, LEGACY);
+    codec.recordAliases(data, { id: CANON, aliases: [LEGACY] });
+
+    withData(data, () => {
+      assert.equal(learningsDir(CANON), canonicalLearnings, 'fresh canonical data always wins over an alias');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('alias-aware learningsDir: an orphan id with NO alias-map entry does NOT resolve', () => {
+  const data = isolatedData();
+  // 0 references in the production alias map, so nothing maps this id to a legacy dir.
+  const CANON = 'research-phantom-skills-7be68ce7fa';
+  const LEGACY = 'research-phantom-skills';
+  try {
+    seedLearnings(data, LEGACY); // populated, but unclaimed by CANON
+    codec.recordAliases(data, { id: CANON, aliases: [] }); // no-op: no aliases recorded
+
+    withData(data, () => {
+      const resolved = learningsDir(CANON);
+      assert.equal(resolved, path.join(data, 'repos', CANON, 'learnings'), 'plain canonical join');
+      assert.ok(!resolved.split(path.sep).includes(LEGACY), 'an unmapped populated dir is never adopted');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('alias-aware learningsDir: a malformed .aliases.json does not throw and falls back to the canonical path', () => {
+  const data = isolatedData();
+  const CANON = 'research-phantom-skills-490f3d276e';
+  try {
+    seedLearnings(data, 'research-phantom-skills');
+    fs.mkdirSync(path.join(data, 'repos'), { recursive: true });
+    fs.writeFileSync(path.join(data, 'repos', '.aliases.json'), '{not json at all');
+
+    withData(data, () => {
+      let resolved;
+      assert.doesNotThrow(() => { resolved = learningsDir(CANON); });
+      assert.equal(resolved, path.join(data, 'repos', CANON, 'learnings'), 'degrades to the canonical path');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
   }
 });
 

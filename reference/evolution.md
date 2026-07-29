@@ -65,7 +65,53 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 - Remove entries absorbed into reference/ or skill files
 - Sharpen: remove session-specific context, keep the rule
 - Preserve `[validated:N]` counts (merge = sum counts)
-- Never delete `[failed]` entries unless explicitly overridden
+- Never delete `[failed]` entries unless explicitly overridden (the override is `--prune-failed`, below)
+
+## Retention Arithmetic
+
+Tier 1 retention is date arithmetic, not judgment.
+`scripts/evolution-runner.js` is the only implementation; the constants live in `scripts/lib/constants.js` (`LEARNING_STALE_DAYS` 30, `LEARNING_REMOVE_DAYS` 60, `PROMOTE_THRESHOLD` 5).
+
+| Class | Meaning | Expiry |
+|-------|---------|--------|
+| `[failed]` | A correction: something that already went wrong once | **Never** by date. Reported as PROTECTED past the window |
+| `[validated:N]` where N >= `PROMOTE_THRESHOLD` | Proven | Never by date |
+| `[validated:N]` where N < `PROMOTE_THRESHOLD` | Partially proven | Stale at 30d, removable at 60d |
+| `[proposed]` | Suggested, not yet applied | Stale at 30d, removable at 60d |
+| **untagged** | `validated:0` - recorded once, never re-confirmed, never contradicted | Stale at 30d, removable at 60d |
+
+An **untagged** entry carries no `[failed]`, no `[proposed]` and no `[validated:N]`.
+This is the majority class, not an edge case: 36 of the 54 entries on disk are untagged.
+It means `validated:0` and it is the lifecycle's **entry state**, not a separate limbo class - unproven, expirable by date, never promotable, and ranked below any entry carrying a real confirmation.
+Computed validation (below) is the one mechanism that moves an entry out of it.
+
+**Removal is report-only by default.** A bare run prints the candidate set and writes nothing.
+Two flags, both required, are the only path to a destructive pass:
+
+- `--prune` acts on the removable set. Without it the run reports and exits.
+- `--prune-failed` additionally releases the `[failed]` exemption. It has no effect without `--prune`, so no single flag can reach the anti-repetition corpus.
+
+Removal deletes an entry's full line range (`lineNum..endLine`), because entries wrap and a first-line-only delete orphans the continuation lines.
+Line offsets are computed at scan time, so before writing, each file is re-read and compared byte-for-byte against what was scanned; a file that changed is skipped, not written with stale offsets.
+
+## Computed Validation
+
+`[validated:N]` is **derived from artifacts, never from an agent's judgment**.
+
+N = the number of distinct sessions that both cited the entry and recorded an observed verification pass.
+It is a set size recomputed from disk on every run, so re-running cannot inflate a count and no ledger is needed for idempotence.
+A session counts as evidence only when `verification.json` has `verdict: "pass"` **and** `correctness.observations.tests` is not `not_observed` - an unobserved pass is a claim, not a measurement.
+
+The promotion tier reads this derived count (or the on-disk `[validated:N]` tag, whichever is higher; the tag is a manual floor).
+Nothing rewrites the tag in the markdown, so there is no second destructive write path and the tag cannot drift into a stale cache.
+
+**Missing input - the writer does not exist yet.**
+No artifact currently records *which* learning entries a session recalled.
+`context.json`'s `learningsRefs` is documented as "Paths to relevant learning files": file granularity, so it cannot attribute a validation to an entry.
+The minimal field needed is `learningsCited: string[]` on `context.json`, holding the `[keyword]` of each entry that was injected; all 54 entries on disk carry a keyword, so it is a sufficient identity.
+Its only possible writer is `hooks/memory-reader.js`, the component that selects the entries.
+Until that field is written, every computed count is 0 and the runner says so explicitly - which is why max `validationCount` on disk is 2 and nothing has ever reached the promote threshold of 5.
+The reader is built first, deliberately, so the field has a consumer the day it lands.
 
 ## Brain Card Decay
 

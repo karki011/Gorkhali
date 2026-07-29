@@ -8,7 +8,16 @@
 
 'use strict';
 
-const DOMAIN_NAMES = ['ui', 'data', 'auth', 'testing', 'tooling', 'migration', 'shadows', 'model-routing'];
+// 'infra' and 'workflow' are the two domains that actually accrete entries on disk;
+// they were absent from the taxonomy, so every real learnings file was reported as an
+// "Unknown domain file". 'model-routing' stays declared ahead of its first entry.
+const DOMAIN_NAMES = ['ui', 'data', 'auth', 'testing', 'tooling', 'migration', 'shadows', 'model-routing', 'infra', 'workflow'];
+
+// Domain files kept on disk for history but never read as live knowledge.
+// workflow.original.md is a stale strict subset of workflow.md that evolution-runner
+// used to load as a domain literally named "workflow.original", double-counting
+// entries against the distillation cap. Retired here, not deleted - a human owns that.
+const RETIRED_DOMAIN_FILES = ['workflow.original.md'];
 
 const FILE_DOMAIN_RULES = [
   { test: p => /(^|\/)(?:hooks|commands|agents)\//.test(p) || /shadows|skill|spawn|agent/i.test(p), domain: 'shadows' },
@@ -40,9 +49,13 @@ const DOMAIN_KEYWORDS = {
   migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
   tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
   'model-routing': ['model-routing', 'compute-profile', 'fallback', 'requested_profile', 'actual_profile', 'frontier'],
+  infra: ['infra', 'installer', 'plugin', 'marketplace', 'vendor', 'release', 'version', 'cache', 'regex', 'resolver'],
+  workflow: ['workflow', 'session', 'wrap', 'gate', 'marker', 'lock', 'commit', 'worktree', 'prompt', 'injection'],
 };
 
-// Expected learnings/{domain}.md files (check-learnings-index).
+// Expected learnings/{domain}.md files (check-learnings-index). Retired files are
+// deliberately absent: they must keep reporting as unknown so a human sees that a
+// stale snapshot is still on disk awaiting deletion.
 const KNOWN_DOMAIN_FILES = DOMAIN_NAMES.map(d => `${d}.md`);
 
 module.exports = {
@@ -51,4 +64,5 @@ module.exports = {
   fileDomain,
   DOMAIN_KEYWORDS,
   KNOWN_DOMAIN_FILES,
+  RETIRED_DOMAIN_FILES,
 };

@@ -47,6 +47,24 @@ module.exports = {
   LEARNING_REMOVE_DAYS: numFromEnv('PHANTOM_LEARNING_REMOVE_DAYS', 60),
   LEARNING_DISTILL_CAP: numFromEnv('PHANTOM_LEARNING_DISTILL_CAP', 50),
 
+  // Injection budget PARTITION (hooks/memory-reader.js). Slots are partitioned, not
+  // purely ranked, because a pure ranking cannot work on this corpus: it holds 14
+  // [failed] corrections against 4 [validated:N] patterns, so any ranking that puts
+  // corrections first fills every slot with corrections forever and no validated
+  // pattern is ever reachable (measured: 4 corrections dated 2026-07-02 returned for
+  // every prompt, 0 validated entries reachable at any prompt). The correction cap is
+  // what makes a validated slot reachable; the validated floor is what claims it.
+  // CORRECTION + VALIDATED must stay <= SLOTS or the floor cannot be honoured.
+  INJECTION_SLOTS: intFromEnv('PHANTOM_INJECTION_SLOTS', 5),
+  INJECTION_CORRECTION_SLOTS: intFromEnv('PHANTOM_INJECTION_CORRECTION_SLOTS', 3),
+  INJECTION_VALIDATED_SLOTS: intFromEnv('PHANTOM_INJECTION_VALIDATED_SLOTS', 1),
+
+  // context.json field naming the learning entries a session actually recalled, by
+  // `[keyword]`. Read by evolution-runner to DERIVE [validated:N] from artifacts
+  // instead of LLM judgment. No writer exists yet -- see reference/evolution.md
+  // "Computed validation" for the writer that has to be added and by whom.
+  LEARNING_CITATION_FIELD: 'learningsCited',
+
   // Per-hook timeout default, in SECONDS (parity with hooks.json `timeout`).
   DEFAULT_HOOK_TIMEOUT_SECONDS: 10,
 

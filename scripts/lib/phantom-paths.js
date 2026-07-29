@@ -1,10 +1,13 @@
 // Author: Subash Karki
 // phantom-paths.js — single source of truth for Phantom mutable-state paths.
-// Pure path computation: no side effects, no mkdir at import time.
-// Callers create directories as needed.
+// Path computation only: nothing here writes, and no mkdir happens at import
+// time. Callers create directories as needed. One resolver, resolveRepoSubdir,
+// READS the filesystem and the alias map to choose between a repo's canonical
+// and aliased state dirs -- it still never writes.
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const codec = require('../../skills/phantom/scripts/lib/shared-state.cjs');
 
@@ -63,6 +66,64 @@ function repoDir(repoName) {
   return path.join(phantomData(), 'repos', repoName);
 }
 
+// Alias ids become path segments, and the alias map is a JSON object keyed by
+// directory names written by other processes -- untrusted input. A key like
+// `../../etc` would escape <data>/repos, so the shape check is enforced at the one
+// place a key can reach path.join (aliasCandidates below), not merely declared.
+const ALIAS_ID_RE = /^[A-Za-z0-9._-]+$/;
+
+function isSafeAliasId(id) {
+  return ALIAS_ID_RE.test(id) && id !== '.' && id !== '..';
+}
+
+/** True when `dir` exists and holds at least one entry. Fail open: false on any read error. */
+function isPopulatedDir(dir) {
+  try {
+    return fs.readdirSync(dir).length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Ids OTHER than `repo` that the alias map points at `repo`: the earlier ids
+ * (legacy plain name, pre-normalization raw hash, pre-codec-upgrade) under which
+ * this repo's durable state may still live. Reverse lookup, because the map is
+ * stored alias -> canonical. Object.entries so only own enumerable keys are read
+ * and a `constructor`/`__proto__` key from JSON.parse cannot reach through to a
+ * prototype value.
+ */
+function aliasCandidates(repo) {
+  return Object.entries(codec.readAliasMap(phantomData()))
+    .filter(([id, canonical]) => canonical === repo && id !== repo && isSafeAliasId(id))
+    .map(([id]) => id);
+}
+
+/**
+ * Alias-aware resolution for a repo's durable state subdir. detectRepo() returns
+ * the CANONICAL id, but the state can still sit under an earlier id that
+ * <data>/repos/.aliases.json already maps to that canonical id -- a bare join then
+ * reads an empty dir and the knowledge layer silently returns nothing.
+ *
+ * Order is the safety property: FRESH CANONICAL DATA ALWAYS WINS. An aliased dir
+ * comes back only when the canonical one is absent or empty; reversing that would
+ * silently serve stale knowledge. With neither populated the canonical path is
+ * returned unchanged, so callers that CREATE the dir still get a stable target.
+ *
+ * Never throws: a missing or malformed alias map degrades to the canonical path
+ * (readAliasMap already returns {} on any read/parse failure), matching how
+ * detectRepo fails open above.
+ */
+function resolveRepoSubdir(repo, ...segments) {
+  const canonical = path.join(repoDir(repo), ...segments);
+  if (isPopulatedDir(canonical)) return canonical;
+  for (const alias of aliasCandidates(repo)) {
+    const candidate = path.join(repoDir(alias), ...segments);
+    if (isPopulatedDir(candidate)) return candidate;
+  }
+  return canonical;
+}
+
 /** Per-repo event log dir: <data>/events/<repo> */
 function eventsDir(repo) {
   return path.join(phantomData(), 'events', repo);
@@ -107,8 +168,11 @@ function sessionsDir(repo = detectRepo())  { return path.join(repoDir(repo), 'se
 /** Per-repo archived session dir: <data>/repos/<repo>/completed */
 function completedDir(repo = detectRepo()) { return path.join(repoDir(repo), 'completed'); }
 
-/** Per-repo learnings dir: <data>/repos/<repo>/learnings */
-function learningsDir(repo = detectRepo()) { return path.join(repoDir(repo), 'learnings'); }
+/**
+ * Per-repo learnings dir: <data>/repos/<repo>/learnings, or the aliased dir that
+ * actually holds the learnings (see resolveRepoSubdir).
+ */
+function learningsDir(repo = detectRepo()) { return resolveRepoSubdir(repo, 'learnings'); }
 
 /** Audit log dir: <data>/audit */
 function auditDir()     { return path.join(phantomData(), 'audit'); }
@@ -136,6 +200,7 @@ module.exports = {
   phantomData,
   detectRepo,
   repoDir,
+  resolveRepoSubdir,
   eventsDir,
   observationsDir,
   timingDir,

@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { repoDir } = require('./phantom-paths');
+const { resolveRepoSubdir } = require('./phantom-paths');
 
 // md-grammar lets a read-modify-write (supersede) rewrite ONLY the frontmatter while
 // the human-authored body prose (## What / ## Why / ## Gotchas) keeps its exact bytes
@@ -31,9 +31,14 @@ const TRACE_KEYS = ['session', 'transcript', 'pr', 'commit'];
 const CARD_TYPES = ['episode', 'decision', 'gotcha', 'pattern'];
 const ID_RE = /^rb-[0-9a-f]{6}$/;
 
-/** Cards dir for a repo: <data>/repos/{repo}/brain/cards */
+/**
+ * Cards dir for a repo: <data>/repos/{repo}/brain/cards, or the aliased dir that
+ * actually holds the cards. Alias-aware because detectRepo() returns the CANONICAL
+ * id while existing cards can still sit under an earlier id (see resolveRepoSubdir):
+ * a bare join greps an empty dir and recall silently reports no matches.
+ */
 function cardsDir(repo) {
-  return path.join(repoDir(repo), 'brain', 'cards');
+  return resolveRepoSubdir(repo, 'brain', 'cards');
 }
 
 /** Absolute path to a card file. Rejects any id that isn't rb-<6hex> — the
@@ -237,9 +242,10 @@ function writeCard(card, { repo } = {}) {
   if (!c.id || !ID_RE.test(c.id)) {
     c.id = makeCardId({ repo, ticket: c.ticket, date: c.date, title: c.title });
   }
-  const dir = cardsDir(repo);
-  fs.mkdirSync(dir, { recursive: true });
+  // One cardsDir() resolution, not two: it now reads the filesystem, so resolving
+  // separately for the mkdir and for the file could mkdir one dir and write in another.
   const file = cardPath(repo, c.id);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, renderCard(c), 'utf8');
   fs.renameSync(tmp, file);
