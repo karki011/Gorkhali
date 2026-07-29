@@ -44,10 +44,20 @@ Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on cha
 
 Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
 - Input: `git diff main...HEAD` + intent from session
-- Prompt: load from `reference/power-level.md` — "Review Agent Prompt" section
-- Output: JSON array of P0/P1 findings (P2/P3 dropped)
+- Prompt: load from `reference/temperature-review.md` — "Review Agent Prompt" section
+- Output: `{SESSION_DIR}/reviews/gaze.json`, whose `findings` key holds the P0/P1 array (P2/P3 dropped)
 
-If `[]` → state the empty result definitively, with its scope: `review: 0 P0/P1 findings (gaze against git diff main...HEAD)` — skip Step 3 and proceed to Step 4 (visual). A non-empty array is reported the same way — `review: N P0/P1 findings` — with each finding named below it, not just the count.
+Read the findings from `reviews/gaze.json`, not from Gaze's final message: the file is the deliverable and survives a truncated turn that destroys the message. If the file is absent, unreadable, or carries no `findings` key, give Gaze ONE `SendMessage` resume (by agent id or name, never a respawn) asking it to write the artifact, then compute from what is on disk. That is the same resume-then-proceed guard as the Empty-Result Guard in `reference/wrap/rpsl.md`, and for the same reason: recover a lost deliverable without becoming a second gate that can wedge the session.
+
+Three outcomes. They must not collapse into one another:
+
+| On disk | Means | Report |
+|---|---|---|
+| `findings: []` | reviewed, genuinely clean | `review: 0 P0/P1 findings (gaze against git diff main...HEAD)` - definitive, with its scope. Skip Step 3, proceed to Step 4 (visual). |
+| `findings` non-empty | N blockers | `review: N P0/P1 findings`, with each finding named below it, not just the count. Go to Step 3. |
+| still absent after the one resume | not reviewed. Unknown, NOT zero | `review: not_observed - reviews/gaze.json absent after one resume`, reusing the `not_observed` vocabulary `reference/schemas/verification.md` already defines for correctness observations. Do not write an empty `review.findings`, and never print `review: 0 P0/P1 findings`. |
+
+Only a written empty array earns the definitive empty-result line. Reporting an absent artifact as zero findings asserts a clean review nobody performed, which is precisely the lost-deliverable failure this artifact exists to prevent.
 
 ## Step 3: Auto-Address (only if P0/P1 exist)
 
@@ -75,5 +85,5 @@ Key fields: `_meta`, `correctness` (lint/build/tests/commands), `review` (temper
 
 ## Result
 
-- **PASS** → print the definitive verdict — `verdict: pass`, the Step 1 `count: N of M commands passed`, and `review: 0 P0/P1 findings` (or the resolved fix-loop count if Step 3 ran) — then proceed to `/phantom:wrap`. A self-contained pass needs no `help[N]:` block.
+- **PASS** → print the definitive verdict — `verdict: pass`, the Step 1 `count: N of M commands passed`, and `review: 0 P0/P1 findings` (or the resolved fix-loop count if Step 3 ran) — then proceed to `/phantom:wrap`. A self-contained pass needs no `help[N]:` block. Print the zero-findings line only for the Step 2 outcome that earns it, a `reviews/gaze.json` whose `findings` array was read and was empty; if Step 2 ended at `not_observed`, carry that label through and do not substitute a zero.
 - **FAIL** → name every failing command and finding explicitly (never a bare "failed"), then close with `help[1]:\n  Run /phantom:fix to repair the failures named above`. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")` (do not wait for the human). STANDALONE (token absent) → report + the help block above, and stop.**

@@ -26,7 +26,7 @@ turn-by-turn review for normal-sized diffs or when workflows are unavailable.
    - CRITICAL / WARNING / INFO findings
    - VERDICT: APPROVED or NEEDS WORK
    - Specific file:line references
-4. Record verdict in session state
+4. Record the verdict in session state by reading the `verdict` field of `{SESSION_DIR}/reviews/gaze.json`, not by transcribing Gaze's final message: the artifact survives a truncated turn that destroys the message. If the file is absent or carries no verdict, give Gaze ONE `SendMessage` resume (by agent id or name, never a respawn), then record what is on disk; if it is still absent, record the verdict as `not_observed` rather than assuming APPROVED.
 5. If NEEDS WORK: list specific items to address
 
 For high-risk work, run Gaze (gauntlet mode) instead (simplify -> Gaze review -> full verify).

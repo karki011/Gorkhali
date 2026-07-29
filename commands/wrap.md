@@ -77,7 +77,11 @@ Legacy grill quiz remains available via `--grill` (runs `phantom:grill` in ADDIT
 
 See [reference/wrap/rpsl.md] for full protocol.
 
-4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). ALL must pass. No override. No skip flag. Writes `review-panel.json`.
+4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). Writes `review-panel.json`.
+
+Any perspective that returns **FAIL** stops the wrap before git operations. No override. No skip flag. The user fixes the blockers and re-runs `/phantom:wrap`.
+
+A perspective that returns no verdict at all is not a FAIL and must not be recorded as a pass. It is recorded `verdict: not_observed` with `allPass: false`, and the wrap proceeds to a draft PR whose body names the unreviewed perspective, so the gap reaches the human reviewer instead of being silently dropped. The three-branch rule is in `reference/wrap/rpsl.md`; the PR-body requirement is in `reference/wrap/ship-ceremony.md`.
 
 ## Step 5: Session Eval (auto, non-blocking)
 
@@ -96,7 +100,7 @@ Session file, decisions, shadows eval, learnings update, INDEX update, validatio
 
 ## Step 7: Ship Ceremony
 
-Wrap creates the **draft PR autonomously** once verification + the review panel pass — no "ship it?" confirmation. The draft PR is the review surface: the human reviews it and marks it ready-to-review (that action stays human).
+Wrap creates the **draft PR autonomously** once verification passes and the review panel returned no FAIL — no "ship it?" confirmation. An unobserved perspective does not block the PR; it travels in the PR body per `reference/wrap/ship-ceremony.md`. The draft PR is the review surface: the human reviews it and marks it ready-to-review (that action stays human).
 
 See [reference/wrap/ship-ceremony.md] for full protocol.
 

@@ -49,7 +49,13 @@ Triage rules:
 
 ### Artifact First
 
-Once you have findings and a verdict you'll stand behind - after investigating, before refining wording, before writing the summary above, and before any long-running command - write them to `{SESSION_DIR}/reviews/{role}.json`. `{role}` is your RPSL perspective (`scope`, `regression`, `architecture`, `skeptic`) or `archer` when reviewing outside the panel. Keep the same fields the panel merges (`role`, `verdict`, `findings`, `confidence`) plus your severity lines; see `reference/wrap/rpsl.md`.
+Once you have findings and a verdict you'll stand behind - after investigating, before refining wording, before writing the summary above, and before any long-running command - write them under `{SESSION_DIR}/reviews/`. Which filename depends on why you were spawned, and each case has exactly one legal name:
+
+**As a panel perspective** (wrap's RPSL assigned you `scope`, `regression`, `architecture` or `skeptic`): write `{SESSION_DIR}/reviews/{role}.json` using that role as the filename, and no other file. Apex merges the panel by those four fixed names, so a verdict written anywhere else leaves your perspective absent from the merge, spends the single resume the Empty-Result Guard allows, and can ship a PR while your review sits unread on disk.
+
+**Reviewing outside the panel** (no RPSL role assigned): write `{SESSION_DIR}/reviews/archer-standalone.json`. That name sits outside the four panel filenames on purpose, so a standalone review is never merged as a panel perspective.
+
+Either way, keep the same fields the panel merges (`role`, `verdict`, `findings`, `confidence`) plus your severity lines; see `reference/wrap/rpsl.md`.
 
 Per-role filenames, never a shared one: panel reviewers run in parallel and would race on a single file. A turn that ends early then still leaves a complete verdict on disk. If a later finding flips your verdict, rewrite the file immediately - never leave a changed verdict in prose only.
 

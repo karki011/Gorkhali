@@ -23,6 +23,7 @@ Check `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/learnings/` for project con
 - **After investigating, not before.** This rule governs WHERE the deliverable sits in the turn. It is not licence to report a conclusion you have not yet earned.
 - **Before refinement, polish, or long-running verification** (test suites, builds, broad greps, wide reads). Those come after the deliverable exists, never before it.
 - **If a turn must end early, it ends AFTER the deliverable, never before it.**
+- **An observation is finished when you hold it; a completion claim is not.** A verdict or findings list reports what you saw, so it is done the moment you hold it. A status record claims work is finished: emit it on the same early schedule, but mark every check that has not actually run `not_observed` with the reason, never as passing, and amend the record once the check runs. The vocabulary is shared with `agents/ward.md` ("Observation Confidence Rule"): `checked:pass`, `checked:fail`, `not_observed`.
 - **Refine by amending.** If a later finding changes your conclusion, restate it (or rewrite the artifact) immediately. Never leave a changed verdict living in prose only.
 
 The deliverable itself is a detailed handoff note covering: what was done, key decisions, files changed, what the next agent needs to know, and any remaining concerns. If your role has a defined on-disk artifact (see your own agent definition), writing that file IS this step: put it on disk here rather than trusting the final message to survive.

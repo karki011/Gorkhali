@@ -35,8 +35,14 @@ Use this prompt when spawning the power level agent:
        account for the new element's width
     This is NOT optional. Missing state coverage is a P1 finding.
 
-    Output ONLY P0 and P1 findings as JSON array:
-    [
+    Write the review to {SESSION_DIR}/reviews/gaze.json BEFORE you
+    summarise anything in chat. That file is the deliverable; your final
+    message is commentary on it. It carries the gate results, dimension
+    scores, observation gaps, the VERDICT, and ONLY the P0 and P1
+    findings as a JSON array under "findings" (full shape in
+    agents/gaze.md):
+
+    "findings": [
       {
         "temperature": "P0",
         "file": "src/Example.tsx",
@@ -46,8 +52,13 @@ Use this prompt when spawning the power level agent:
       }
     ]
 
-    Empty array [] = clean code = SHIP IT.
+    Empty array [] = clean code = SHIP IT. Always write the key, even
+    when empty: a written [] is what tells commands/verify.md that you
+    reviewed and found nothing, as against never having landed a review
+    at all. Those are not the same result and must not report the same.
     Do NOT invent findings to justify your existence.
+
+    Then restate the same findings array in your final message.
 
 ## Fix-Loop Ceiling
 
