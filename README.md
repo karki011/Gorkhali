@@ -209,36 +209,37 @@ ${PHANTOM_DATA:-~/.phantom}/
 └── locks/
 ```
 
-## Legacy Plugin Repo Brain
+## Repo Brain
 
 **Per-session distilled knowledge cards.** After every session, Phantom writes a lightweight card to the Repo Brain - one card per ticket. Cards live in `${PHANTOM_DATA}/repos/{REPO_NAME}/brain/cards/` as markdown files and grow monotonically (never deleted, only superseded). On-demand grep retrieval retrieves relevant cards at task start (see `commands/_shared-brain.md` for the retrieval query, and `reference/brain.md` for the card schema).
 
 **Auto-migration on first run:** Branch-named repo dirs (leftover from old detection logic) are consolidated on first run via `scripts/migrate-repo-dirs.js` - idempotent and non-destructive.
 
-## Legacy Plugin Shadows
+## Shadows
 
-| Agent | Model | Effort | Role |
-|-------|-------|--------|------|
-| Apex | inherits session model | high | Orchestrator - plans, decomposes, coordinates, runs router, routes models |
-| Blade | sonnet (pinned); opus ceiling - never fable/session-inherit | high | Implementation - parallel execution with ROLE FOCUS directives |
-| Ward | haiku (pinned) | high | QA - lint, build, test verification |
-| Gaze | opus (pinned - review tier) | high | Quality gate - power level (scored, P0-P3) |
-| Sage | opus (pinned - top tier) | high | Advisory - guidance for stuck agents (<100 words) |
-| Lens | sonnet | high | Visual verification - screenshot + diff |
-| Archer | opus (pinned - review tier) | high | Cross-file review - pre-PR structural analysis |
-| Rival | sonnet (pinned) | high | Plan challenger - adversarial review (no tools, forced precision) |
-| Plan-checker | sonnet (pinned) | high | Pre-execution plan validator - learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
-| Hound | opus (pinned) | high | Forensic investigator - 7-step protocol, HTML reports |
-| Sweep | sonnet | high | Code clarity - simplify changed files post-verify |
-| Warden | sonnet | high | Mechanical session-lifecycle executor - ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
+| Agent | Role |
+|-------|------|
+| Apex | Orchestrator - plans, decomposes, coordinates, runs router, routes models |
+| Blade | Implementation - parallel execution with ROLE FOCUS directives |
+| Ward | QA - lint, build, test verification |
+| Gaze | Quality gate - power level (scored, P0-P3) |
+| Sage | Advisory - guidance for stuck agents (<100 words) |
+| Lens | Visual verification - screenshot + diff |
+| Archer | Cross-file review - pre-PR structural analysis |
+| Rival | Plan challenger - adversarial review (no tools, forced precision) |
+| Plan-checker | Pre-execution plan validator - learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
+| Hound | Forensic investigator - 7-step protocol, HTML reports |
+| Sweep | Code clarity - simplify changed files post-verify |
+| Warden | Mechanical session-lifecycle executor - ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
-Model discipline is split by role.
-Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap models - sonnet by default, haiku only for truly mechanical single-file edits - with an opus hard ceiling enforced by `hooks/blade-model-gate.js` (which still denies `fable` on implementers as a defensive guard).
-**Gaze** and **Archer** pin `opus` (review tier), and **Sage** pins `opus` (top-tier advisory, reachable even from a downshifted Blade).
-Opus 5 is the top tier and the recommended session model for the session and **Apex** (orchestration).
-Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus, and never run fable; the escalation ladder is re-decompose -> sonnet -> opus.
+Role-to-profile mapping lives in `skills/phantom/references/model-policy.json`, and profile-to-model per host lives in `skills/phantom/references/model-presets.json`.
+`scripts/gen-agent-frontmatter.js` generates each `agents/*.md` `model:` pin from that policy, and a drift test fails CI on a hand-edited pin.
+
+Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap profiles with an opus hard ceiling enforced by `hooks/blade-model-gate.js`, which also denies `fable` on implementers as a defensive guard.
+The escalation ladder is re-decompose -> sonnet -> opus.
 If a subtask can't be scoped to fit within opus, the scoping failed - Apex re-decomposes.
-Apex tunes per spawn only to downshift further (Sonnet for small, well-scoped subtasks), and **effort is uniform `high`**, inherited from the session - there is no per-spawn effort param.
+**Gaze** and **Archer** pin the review tier, and **Sage** pins the top tier so escalations from a downshifted Blade still reach it.
+Apex tunes per spawn only to downshift further for small, well-scoped subtasks, and **effort is uniform `high`**, inherited from the session - there is no per-spawn effort param.
 Use bare aliases only; never pin dated or prior-generation model IDs.
 
 ## Models & Effort
