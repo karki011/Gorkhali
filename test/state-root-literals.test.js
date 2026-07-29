@@ -11,7 +11,7 @@ const {
 const SELF = 'test/state-root-literals.test.js';
 
 const ALLOWLIST = new Map([
-  ['README.md', [
+  ['project-docs/install.md', [
     {
       kind: 'literal',
       context: '`~/.claude/phantom-data` directory, the optional',

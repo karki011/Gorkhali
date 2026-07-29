@@ -49,7 +49,7 @@ const DETECTORS = [
 ];
 
 const ALLOWLIST = new Map([
-  ['README.md', [
+  ['project-docs/install.md', [
     {
       kind: 'team-literal',
       context: 'you need data from an old',
