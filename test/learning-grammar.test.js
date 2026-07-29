@@ -250,6 +250,51 @@ test('a CORRECTION missing its bracket pair is still an entry, never dropped', (
   assert.equal(e.failed, true);
 });
 
+// --- check:`<cmd>` predicate (K5) -------------------------------------------------
+
+test('an entry with a check: predicate parses it out and strips it from the body', () => {
+  const src = "PATTERN [no-greptile-this-repo]: greptile is not installed on this repo [validated:1] check:`gh api repos/x/y/issues/comments --jq '.[].user.login' | grep -q greptile-apps`";
+  const [e] = G.parseLearningEntries(src, 'workflow.md');
+  assert.equal(e.predicate, "gh api repos/x/y/issues/comments --jq '.[].user.login' | grep -q greptile-apps");
+  assert.equal(e.text, 'PATTERN [no-greptile-this-repo]: greptile is not installed on this repo [validated:1]');
+  assert.doesNotMatch(e.text, /check:/);
+  assert.doesNotMatch(e.content, /check:/);
+  // Existing fields must be untouched by the addition.
+  assert.equal(e.keyword, 'no-greptile-this-repo');
+  assert.equal(e.validationCount, 1);
+});
+
+test('an entry with NO check: clause is unchanged - predicate absent, body identical', () => {
+  const withoutPredicate = 'PATTERN [x]: an ordinary entry with no predicate at all [validated:1] (2026-07-02)';
+  const [e] = G.parseLearningEntries(withoutPredicate, 'w.md');
+  assert.equal(e.predicate, null);
+  assert.equal(e.text, withoutPredicate);
+  assert.equal(e.content, 'an ordinary entry with no predicate at all [validated:1] (2026-07-02)');
+});
+
+test('a malformed unterminated check: clause yields NO predicate and leaves the body intact', () => {
+  const malformed = 'PATTERN [x]: body with an unterminated check:`gh api repos/x/y --jq .foo (2026-07-02)';
+  const [e] = G.parseLearningEntries(malformed, 'w.md');
+  assert.equal(e.predicate, null, 'an unterminated backtick must never half-parse into a predicate');
+  assert.equal(e.text, malformed, 'the malformed clause must survive verbatim in the body, not be dropped or half-stripped');
+});
+
+test('the check: predicate parses at column 0 (the PREFIX shape)', () => {
+  const [e] = G.parseLearningEntries('PATTERN [k]: body [validated:2] check:`true`', 'w.md');
+  assert.equal(e.predicate, 'true');
+});
+
+test('the check: predicate parses behind a leading bullet (the older-writer shape)', () => {
+  const [e] = G.parseLearningEntries('- prefer semantic tokens [validated:7] check:`true` q:0.9 u:2026-07-01', 'ui.md');
+  assert.equal(e.predicate, 'true');
+  assert.doesNotMatch(e.content, /check:/);
+});
+
+test('an empty check: command (no command text) is treated as no predicate', () => {
+  const [e] = G.parseLearningEntries('PATTERN [x]: body [validated:1] check:``', 'w.md');
+  assert.equal(e.predicate, null);
+});
+
 // --- INDEX.md: both shapes ------------------------------------------------------
 
 test('INDEX.md bullet-list form resolves domain files (the real shape)', () => {

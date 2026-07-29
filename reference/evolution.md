@@ -113,6 +113,45 @@ Its only possible writer is `hooks/memory-reader.js`, the component that selects
 Until that field is written, every computed count is 0 and the runner says so explicitly - which is why max `validationCount` on disk is 2 and nothing has ever reached the promote threshold of 5.
 The reader is built first, deliberately, so the field has a consumer the day it lands.
 
+## Entry Classes: Environmental vs Judgment
+
+Every learning entry falls into exactly one of two classes.
+The distinction is what tells a reader whether an entry can still be trusted without a human re-checking it.
+
+**Environmental** entries assert a fact about the current environment: a tool's absence, a config value, an API's behavior, a file's existence.
+These facts can rot silently as the environment changes underneath them, so an environmental entry SHOULD carry a `check:`\`<shell command>\`` predicate (see "Executable Predicates" below).
+An entry with a predicate is machine-checkable and self-invalidating: `scripts/evolution-runner.js --check-predicates` runs the command, and a non-zero exit is evidence the claim no longer holds.
+
+**Judgment** entries assert a preference, a heuristic, or a stylistic rule: "prefer X over Y", "watch out for Z".
+These are **advisory only**. Nothing executes them, and nothing in this codebase can verify them - they are not machine-checkable by construction, and describing them as enforced anywhere would overstate what the system does.
+A judgment entry's only path to increased trust is `[validated:N]` via Computed Validation above: repeated citation in sessions that recorded an observed verification pass.
+
+The two classes are not mutually exclusive of the existing lifecycle tags - `[proposed]`, `[validated:N]`, `[failed]`, `[stale]` apply to entries of either class.
+`check:` is what separates a fact that CAN be re-checked from one that can only ever be re-judged.
+
+## Executable Predicates
+
+An entry may carry one optional predicate, appended after the existing trailing tokens:
+
+```
+PATTERN [no-greptile-this-repo]: body here [validated:1] check:`gh api repos/org/repo/issues/comments --jq '.[].user.login' | grep -q greptile-apps`
+```
+
+The command is delimited by backticks so it cannot be confused with `[validated:N]`, `q:`, `u:`, a date, or a following entry head.
+`scripts/lib/learning-grammar.cjs` parses it into `entry.predicate` and strips it from the entry's body/text - the shared grammar owns recognition, exactly as it owns every other shape in this file's format.
+
+**Execution is opt-in and gated in `scripts/evolution-runner.js` only**, behind two flags:
+
+- `--check-predicates` runs every parsed predicate and reports pass/fail. Changes nothing on disk.
+- `--flag-stale` (only with `--check-predicates`) writes `[stale]` onto entries whose predicate exited non-zero.
+- A bare run parses and counts predicates but never executes one.
+
+**Nothing on a read path ever executes a predicate.**
+`hooks/memory-reader.js` runs on every prompt and must never shell out - it is the prompt-injection surface, not a place to run untrusted commands from a data file.
+Each predicate runs under a hard timeout through a non-interactive shell; a predicate that hangs counts as FAILED, never as passed.
+The command runs verbatim - there is no attempt to sanitize or allowlist shell metacharacters, because that would be false confidence rather than a real boundary.
+The actual boundary is the explicit flag plus execution being scoped to the local canonical learnings directory (resolved through `scripts/lib/phantom-paths.js`), so a file arriving via merge or sync cannot gain execution just by sitting somewhere else.
+
 ## Brain Card Decay
 
 Knowledge captured in Repo Brain cards decays via the `status=superseded` marker. When a newer card obsoletes an older one, the old card's `status` flips to `superseded` and gains `superseded_by: rb-<id>`, while the new card gets the `supersedes: rb-<id>` edge. Cards are **never deleted** — the full lineage remains queryable via these edges.

@@ -39,6 +39,13 @@ const prune = process.argv.includes('--prune');
 // exemption would be absolute and a wrong correction recorded once would be immortal.
 // Requires --prune too, so no single flag can reach the anti-repetition corpus.
 const pruneFailed = prune && process.argv.includes('--prune-failed');
+// check:`<cmd>` predicates (K5). Two-stage opt-in, same shape as --prune/--prune-failed:
+// --check-predicates runs them and REPORTS pass/fail, changing nothing on disk.
+// --flag-stale additionally writes [stale] onto entries whose predicate failed, and
+// only takes effect alongside --check-predicates - a bare --flag-stale would tag
+// entries based on a check that never ran.
+const checkPredicates = process.argv.includes('--check-predicates');
+const flagStale = checkPredicates && process.argv.includes('--flag-stale');
 const now = new Date();
 
 function daysSince(dateStr) {
@@ -230,6 +237,108 @@ function checkDistillation(domains) {
   return oversized;
 }
 
+// --- check:`<cmd>` predicates (K5) ------------------------------------------------
+//
+// SECURITY MODEL. A learnings file is DATA - it is written by an LLM, merged and
+// synced between repos, and read on the prompt-injection hot path. Running a shell
+// command that sits inside it is an RCE vector unless every one of the following
+// holds:
+//
+//  1. NEVER on any read path. hooks/memory-reader.js runs on every prompt and must
+//     never execute anything; test/predicate-execution.test.js pins its source has
+//     no child_process import. Only this file, and only behind flag (2), executes.
+//  2. EXPLICIT OPT-IN ONLY. Nothing below runs unless --check-predicates is literally
+//     on argv (checked once, at the top of this file, same as --prune above). A bare
+//     run parses and counts predicates but never executes one.
+//  3. LOCAL CANONICAL DIR ONLY. checkAllPredicates walks `domains`, which readDomainFiles
+//     built by fs.readdirSync(LEARNINGS_DIR) - LEARNINGS_DIR itself is
+//     learningsDir(REPO), resolved through phantom-paths' alias-aware resolver at
+//     module load (line 16). A file's `source` is therefore always a bare basename of
+//     that one directory; there is no code path here that reads a predicate from
+//     anywhere else, so a file arriving via merge/sync cannot buy execution by sitting
+//     in a different path.
+//  4. BOUNDED. Each predicate gets PREDICATE_TIMEOUT_MS via a non-interactive shell
+//     (stdin closed) with no stdin/stdout/stderr piped back into the process. A
+//     timeout is treated as FAILED - never as passed - so a hang can never read as
+//     healthy.
+//  5. NO SANITIZATION. The command runs verbatim through `/bin/sh -c`. This file does
+//     not attempt to allowlist or escape shell metacharacters - that produces false
+//     confidence, not a real boundary. The ONLY security boundary is (2) and (3): the
+//     explicit flag, and the fact that only entries from the local canonical dir are
+//     ever considered.
+const PREDICATE_TIMEOUT_MS = 5000;
+
+/** Run one predicate to completion or timeout. Never throws - every outcome is FAILED
+ *  except a clean exit 0. */
+function runPredicate(cmd) {
+  const { execFileSync } = require('child_process');
+  try {
+    execFileSync('/bin/sh', ['-c', cmd], {
+      timeout: PREDICATE_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
+      // Non-interactive: stdin closed so a predicate can never block waiting on input.
+      // Output is discarded - only the exit code is evidence.
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    return { ok: true, timedOut: false };
+  } catch (err) {
+    // Node's own timeout enforcement sets error.code = 'ETIMEDOUT' - the only reliable
+    // discriminator. A predicate that kills itself with SIGKILL (e.g. `kill -9 $$`)
+    // throws the SAME signal our own timeout uses but WITHOUT this code, so checking
+    // `err.signal` alone would misclassify a self-inflicted kill as a timeout.
+    return { ok: false, timedOut: !!(err && err.code === 'ETIMEDOUT') };
+  }
+}
+
+/** Execute every entry's predicate across all domains. Only ever called behind
+ *  --check-predicates (see gate 2 above). */
+function checkAllPredicates(domains) {
+  const results = [];
+  for (const [name, domain] of Object.entries(domains)) {
+    for (const entry of domain.entries) {
+      if (!entry.predicate) continue;
+      results.push({ domain: name, entry, ...runPredicate(entry.predicate) });
+    }
+  }
+  return results;
+}
+
+/**
+ * Write `[stale]` onto entries whose predicate failed. Only reachable behind
+ * --check-predicates --flag-stale (both required - see the flagStale definition
+ * above). Mirrors removeEntries' TOCTOU discipline: each target file is re-read and
+ * compared byte-for-byte against what was scanned before any write, and a file that
+ * changed since the scan is skipped rather than written against stale line numbers.
+ */
+function flagEntriesStale(domains, failedResults) {
+  const byDomain = {};
+  for (const r of failedResults) {
+    if (!byDomain[r.domain]) byDomain[r.domain] = [];
+    byDomain[r.domain].push(r.entry);
+  }
+  const skipped = [];
+  let flagged = 0;
+  for (const [name, entries] of Object.entries(byDomain)) {
+    const target = path.join(LEARNINGS_DIR, domains[name].file);
+    let onDisk;
+    try { onDisk = fs.readFileSync(target, 'utf8'); } catch (_) { onDisk = null; }
+    if (onDisk !== domains[name].content) {
+      skipped.push(name);
+      console.log(`  ! ${name}: changed on disk since scan - skipped (re-run to flag)`);
+      continue;
+    }
+    const lines = onDisk.split('\n');
+    for (const entry of entries) {
+      const last = Number.isInteger(entry.endLine) ? entry.endLine : entry.lineNum;
+      if (/\[stale\]/i.test(lines[last])) continue; // already flagged
+      lines[last] = `${lines[last]} [stale]`;
+      flagged++;
+    }
+    if (!dryRun) fs.writeFileSync(target, lines.join('\n'));
+  }
+  return { flagged, skipped };
+}
+
 /**
  * Remove entries from domain files, by line RANGE.
  *
@@ -352,6 +461,33 @@ function run() {
   console.log(`[Tier 3] Oversized domains: ${oversized.length}`);
   oversized.forEach(o => console.log(`  ! ${o.domain}: ${o.count} entries (cap: ${o.cap})`));
 
+  // Predicates (K5). Population is always counted - parsing and counting a
+  // check:`...` clause is free and safe. Execution is not: it happens ONLY behind
+  // --check-predicates (see the security model above runPredicate).
+  const withPredicate = allEntries.filter((e) => e.predicate);
+  console.log(`\n[Predicates] ${withPredicate.length} entries carry a check: predicate (population; parsed, not executed)`);
+  let predicateResults = [];
+  let predicatesPassed = 0;
+  let predicatesFailed = 0;
+  let staleFlagResult = { flagged: 0, skipped: [] };
+  if (checkPredicates) {
+    predicateResults = checkAllPredicates(domains);
+    predicatesPassed = predicateResults.filter((r) => r.ok).length;
+    predicatesFailed = predicateResults.length - predicatesPassed;
+    console.log(`[Predicates] Checked ${predicateResults.length}: ${predicatesPassed} pass, ${predicatesFailed} fail${flagStale ? '' : ' (report-only; pass --flag-stale to mark failing entries stale)'}`);
+    predicateResults.forEach((r) => {
+      const mark = r.ok ? 'v' : (r.timedOut ? 'x [TIMED OUT]' : 'x');
+      console.log(`  ${mark} ${describe(r.entry, r.domain)}`);
+    });
+    if (flagStale) {
+      const failing = predicateResults.filter((r) => !r.ok);
+      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
+      console.log(`[Predicates] Flagged stale: ${staleFlagResult.flagged}`);
+    }
+  } else if (withPredicate.length > 0) {
+    console.log(`  (pass --check-predicates to execute and report pass/fail)`);
+  }
+
   // Log
   const result = {
     date: now.toISOString(),
@@ -368,12 +504,18 @@ function run() {
     cited_session_validations: citedTotal,
     promoted: promoted.length,
     distill_needed: oversized.length,
+    predicates_population: withPredicate.length,
+    predicates_checked: checkPredicates,
+    predicates_passed: predicatesPassed,
+    predicates_failed: predicatesFailed,
+    predicates_flagged_stale: staleFlagResult.flagged,
+    flag_stale_enabled: flagStale,
     domains_processed: domainNames
   };
   writeLog(result);
 
   console.log(`\n--- Summary ---`);
-  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${prune ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length}`);
+  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${prune ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
   console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
 }
 
