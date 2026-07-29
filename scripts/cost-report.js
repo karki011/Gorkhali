@@ -24,6 +24,9 @@
 // Validation failures (bad --fields, unknown flags) exit 2; everything else
 // (missing ledger, no ticket) exits 0 - this is an advisory report and must
 // never break the skill that invoked it.
+//
+// Also exports spendForTicket() so scripts/run-guard.js can ENFORCE against the
+// same numbers this report prints, instead of forking the price table.
 
 'use strict';
 
@@ -169,6 +172,7 @@ async function buildResult(ticket, repo) {
       return {
         full: { ticket, note: `0 sessions found for ${ticket}: ${why}`, count: { count: 0 } },
         help: [`Run \`node scripts/cost-link.js open ${ticket}\` to start tracking cost for this ticket`],
+        spend: { usd: null, pricedSessions: 0, reason: why },
       };
     }
   }
@@ -201,6 +205,18 @@ async function buildResult(ticket, repo) {
       sessions: rows.join('\n  '),
       Total: `$${total.toFixed(2)} across ${bySession.size} session(s)`,
     },
+    // Machine-readable sibling of `Total`, for callers that must ACT on spend
+    // rather than print it (scripts/run-guard.js). usd is a number ONLY when at
+    // least one session was actually priced from a transcript; otherwise null +
+    // a reason. A $0.00 total with zero priced sessions is "unknown", NOT zero —
+    // conflating those two would let an unreadable ledger read as free.
+    spend: pricedSessions > 0
+      ? { usd: total, pricedSessions, reason: null }
+      : {
+        usd: null,
+        pricedSessions: 0,
+        reason: `no transcript activity priced for ${bySession.size} linked session(s)`,
+      },
     help: fallbackNote
       ? [`Total reflects the current session only (${fallbackNote}) - run \`node scripts/cost-link.js open ${ticket}\` to track full multi-session history.`]
       : [],
@@ -216,6 +232,19 @@ async function main(ticket, repo, resolvedFields) {
   if (help.length > 0) projected.help = help;
   process.stdout.write(render(projected) + '\n');
 }
+
+/**
+ * Spend for one ticket as { usd, pricedSessions, reason } — `usd` is null, never
+ * 0, when it cannot be determined. The one export of this file: scripts/run-guard.js
+ * needs spend as a NUMBER to compare against a ceiling, and re-deriving pricing
+ * there would fork the price table. Same reader, same prices, one source.
+ */
+async function spendForTicket(ticket, repo) {
+  const { spend } = await buildResult(ticket, repo);
+  return spend || { usd: null, pricedSessions: 0, reason: 'cost-report produced no spend block' };
+}
+
+module.exports = { spendForTicket };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

@@ -56,4 +56,16 @@ module.exports = {
   // Staleness window for the current-session collision marker (preflight's
   // checkSessionCollision). A marker older than this is treated as absent.
   MARKER_FRESHNESS_MS: numFromEnv('PHANTOM_MARKER_FRESHNESS_MS', 12 * 60 * 60 * 1000),
+
+  // UNATTENDED-RUN spend ceiling, USD. Binds ONLY unattended runs (scripts/run-guard.js
+  // --unattended / PHANTOM_UNATTENDED=1); an interactive session is never capped because
+  // the watching human IS the ceiling. Deliberately conservative: one autonomous ticket
+  // run to a draft PR, not a day of them. Fractional is legal here (unlike the loop
+  // ceilings above) — a $2.50 ceiling is still a meaningful ceiling.
+  SPEND_CEILING_USD: numFromEnv('PHANTOM_SPEND_CEILING_USD', 5),
+
+  // Unattended stuck detection: N occurrences of the SAME failure class halt the run.
+  // 2 matches the fix-loop rule it shares an authority with (hooks/loop-controller.js) —
+  // "fails twice with the same error class → the approach is wrong".
+  STUCK_REPEAT_LIMIT: intFromEnv('PHANTOM_STUCK_REPEAT_LIMIT', 2),
 };
