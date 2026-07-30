@@ -412,6 +412,42 @@ test('a domain that changes on disk mid-run is skipped, and the removed count/sk
   assert.deepEqual(last.prune_skipped_changed_on_disk, ['workflow'], 'the skipped domain must be surfaced explicitly, not merely implied by a mismatch');
 });
 
+// ── Honest reporting: a dry run must never claim a write it did not make ───────
+//
+// Review finding, confidence 4/5: removeEntries incremented `removedCount` even under
+// --dry-run, so the console summary printed "Removed: N" for entries that were never
+// touched on disk - the number was only ever 0 in practice because no fixture entry
+// happened to be old enough, not because the code was honest. This pins the real
+// distinction: a dry run must report a prospective figure under a label that cannot be
+// mistaken for a completed write, and a real run must report the actual count under
+// the unchanged "Removed:" label.
+test('a dry run reports removable entries as prospective, never as removed, and writes nothing', () => {
+  const { root, learnings } = makeWorkspace({
+    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
+  });
+  const target = path.join(learnings, 'workflow.md');
+  const before = fs.readFileSync(target);
+
+  const out = runRunner(root, ['--dry-run', '--prune']);
+
+  assert.doesNotMatch(out, /Removed: 1/, 'a dry run must never report a removal as if it happened');
+  assert.match(out, /Would remove: 1/, 'a dry run must label the prospective count unambiguously');
+  assert.deepEqual(fs.readFileSync(target), before, 'a dry run must write nothing - byte-identical file after');
+});
+
+test('the same removable entry in a REAL run reports the actual removed count', () => {
+  const { root, learnings } = makeWorkspace({
+    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
+  });
+  const target = path.join(learnings, 'workflow.md');
+
+  const out = runRunner(root, ['--prune']);
+
+  assert.match(out, /Removed: 1/, 'a real run must report the entry as actually removed');
+  assert.doesNotMatch(out, /Would remove:/, 'a real run must not print the dry-run-only prospective label');
+  assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'), 'the entry must actually be gone from disk');
+});
+
 // ── Fail-closed evidence: only an OBSERVED checked:pass counts ──────────────────
 //
 // sessionPassed used to be a BLACKLIST (only 'not_observed' was rejected), so it wrongly

@@ -386,7 +386,15 @@ function removeEntries(domains, removable) {
   // Count only entries actually removed - a domain skipped for TOCTOU still holds its
   // candidates on disk, and reporting removable.length regardless made the log and the
   // console claim entries were gone when they were not (P1 #4).
+  //
+  // `removedCount` means exactly one thing: entries a real write actually deleted from
+  // disk. In a dry run there is no write, so it stays 0. `prospectiveCount` is the
+  // dry-run-only preview - what WOULD be removed if this were a real run - kept in a
+  // separate field so a single number never has to mean two different things depending
+  // on which mode produced it (that overloading was itself the defect: a dry run used
+  // to increment `removedCount` even though nothing was written).
   let removedCount = 0;
+  let prospectiveCount = 0;
   for (const [name, entries] of Object.entries(byDomain)) {
     const target = path.join(LEARNINGS_DIR, domains[name].file);
     let onDisk;
@@ -410,10 +418,12 @@ function removeEntries(domains, removable) {
       // comment), so nothing downstream depends on this today, but a domain must never
       // be judged against a stale scan after this function has already rewritten it.
       domains[name].content = newContent;
+      removedCount += entries.length;
+    } else {
+      prospectiveCount += entries.length;
     }
-    removedCount += entries.length;
   }
-  return { skipped, removedCount };
+  return { skipped, removedCount, prospectiveCount };
 }
 
 // Write evolution log
@@ -516,7 +526,7 @@ async function run() {
   // guards against. --dry-run bypasses the lock entirely: every write inside
   // `mutate` is itself gated on `!dryRun`, so running it unlocked in dry-run mode
   // is safe and avoids contending for a lock only to write nothing.
-  let pruneResult = { skipped: [], removedCount: 0 };
+  let pruneResult = { skipped: [], removedCount: 0, prospectiveCount: 0 };
   const promoted = [];
   let staleFlagResult = { flagged: 0, skipped: [] };
   let lockUnavailable = false;
@@ -603,10 +613,23 @@ async function run() {
   writeLog(result);
 
   console.log(`\n--- Summary ---`);
+  // Real run: report what was actually written. Dry run: report the same shape of
+  // figure but under a label a reader cannot mistake for a completed write - it is
+  // the prospective count `removeEntries` tracked separately for exactly this display,
+  // never the `removedCount` field a real write is required to earn.
   const removedForSummary = (prune && !lockUnavailable) ? pruneResult.removedCount : 0;
+  const prospectiveForSummary = (prune && dryRun) ? pruneResult.prospectiveCount : 0;
+  const removedLabel = dryRun ? `Would remove: ${prospectiveForSummary}` : `Removed: ${removedForSummary}`;
   const skippedNote = (prune && pruneResult.skipped.length > 0) ? ` (${pruneResult.skipped.length} domain(s) skipped - changed on disk, re-run needed)` : '';
-  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${removedForSummary}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
-  console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
+  // "Stale identified" is stale.length: entries the age scan (Tier 1) FOUND, not entries
+  // any tag was written to - scanStaleness never writes. The number of entries actually
+  // marked `[stale]` on disk is staleFlagResult.flagged, written only by the predicate
+  // path under --check-predicates --flag-stale, and is surfaced as its own field so the
+  // two unrelated counts (identified-by-age vs written-by-predicate) are never read as
+  // one number under one label.
+  const flaggedNote = (checkPredicates && flagStale) ? ` | Stale flagged (predicate): ${staleFlagResult.flagged}` : '';
+  console.log(`Entries parsed: ${totalEntries} | Stale identified (${STALE_DAYS}+ days): ${stale.length} | ${removedLabel}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}${flaggedNote}`);
+  console.log(dryRun ? '(No changes written - dry run)\n' : 'Evolution logged.\n');
 }
 
 // Fail open: maintenance script must never crash a session. Log and exit 0.

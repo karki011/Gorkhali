@@ -142,6 +142,38 @@ test('--check-predicates alone does not write [stale]; --flag-stale does, and on
   assert.match(failLine, /\[stale\]/, 'a failing predicate must be flagged stale');
 });
 
+// ── Summary line: "identified" and "written" are different numbers, not one ─────
+//
+// Review finding, confidence 4/5: the console summary's stale count conflated two
+// unrelated things under one word. `stale.length` (Tier 1, age-based) is how many
+// entries the scan FOUND old enough to flag - it never writes anything. The number of
+// entries `--flag-stale` actually wrote `[stale]` onto is `staleFlagResult.flagged`,
+// a completely different count driven by predicate failures, not age. With one entry
+// that is old by age but has a PASSING predicate, and one that is fresh by age but has
+// a FAILING predicate, the two counts must diverge and the summary must report both.
+test('the summary reports entries identified by age and entries actually flagged by predicate as separate counts', () => {
+  // 40 days old: inside the [STALE_DAYS(30), REMOVE_DAYS(60)) window, so Tier 1's age
+  // scan identifies it as stale. It must NOT land in REMOVE_DAYS territory (that would
+  // make it "removable" instead, a different bucket entirely).
+  const staleWindowDate = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { root } = makeWorkspace({
+    'workflow.md': [
+      // Old enough for Tier 1 to "identify" as stale, but its predicate passes -
+      // must NOT be counted in the actual-write figure.
+      `PATTERN [p-old-passing]: 40 days old, predicate still holds (${staleWindowDate}) check:\`true\``,
+      // Fresh by age - Tier 1 will not identify it - but its predicate fails, so
+      // --flag-stale must write [stale] onto it.
+      'PATTERN [p-fresh-failing]: recent by age, predicate fails (2026-07-20) check:`false`',
+      '',
+    ].join('\n'),
+  });
+
+  const out = runRunner(root, ['--check-predicates', '--flag-stale']);
+
+  assert.match(out, /Stale identified \(\d+\+ days\): 1/, 'age-based identification must count only the 40-day-old entry');
+  assert.match(out, /Stale flagged \(predicate\): 1/, 'the predicate-write count must count only the failing entry, a different one than the age-identified entry');
+});
+
 // ── --prune and --flag-stale together: pruning must not blind the flagger ───────
 //
 // P1 #3: removeEntries ran before flagEntriesStale, and flagEntriesStale's own TOCTOU
