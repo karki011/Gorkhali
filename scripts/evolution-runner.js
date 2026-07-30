@@ -318,21 +318,26 @@ function checkAllPredicates(domains) {
  * above). Mirrors removeEntries' TOCTOU discipline: each target file is re-read and
  * compared byte-for-byte against what was scanned before any write, and a file that
  * changed since the scan is skipped rather than written against stale line numbers.
+ *
+ * `result` is MUTATED IN PLACE (`result.flagged`, `result.skipped`) rather than built
+ * locally and returned at the end. If a later domain in this same loop throws (e.g. an
+ * unwritable target), a plain return-at-the-end would lose every earlier domain's count,
+ * even though its write already reached disk - the caller would see the untouched
+ * initial value and have no way to tell "nothing ran" from "some of this ran". Mutating
+ * in place means whatever completed before a throw is exactly what the caller sees.
  */
-function flagEntriesStale(domains, failedResults) {
+function flagEntriesStale(domains, failedResults, result) {
   const byDomain = {};
   for (const r of failedResults) {
     if (!byDomain[r.domain]) byDomain[r.domain] = [];
     byDomain[r.domain].push(r.entry);
   }
-  const skipped = [];
-  let flagged = 0;
   for (const [name, entries] of Object.entries(byDomain)) {
     const target = path.join(LEARNINGS_DIR, domains[name].file);
     let onDisk;
     try { onDisk = fs.readFileSync(target, 'utf8'); } catch (_) { onDisk = null; }
     if (onDisk !== domains[name].content) {
-      skipped.push(name);
+      result.skipped.push(name);
       console.log(`  ! ${name}: changed on disk since scan - skipped (re-run to flag)`);
       continue;
     }
@@ -341,7 +346,7 @@ function flagEntriesStale(domains, failedResults) {
       const last = Number.isInteger(entry.endLine) ? entry.endLine : entry.lineNum;
       if (/\[stale\]/i.test(lines[last])) continue; // already flagged
       lines[last] = `${lines[last]} [stale]`;
-      flagged++;
+      result.flagged++;
     }
     const newContent = lines.join('\n');
     if (!dryRun) {
@@ -355,7 +360,7 @@ function flagEntriesStale(domains, failedResults) {
       domains[name].content = newContent;
     }
   }
-  return { flagged, skipped };
+  return result;
 }
 
 /**
@@ -375,32 +380,28 @@ function flagEntriesStale(domains, failedResults) {
  *
  * Content-addressed removal would retire hazard 2 outright; that is a grammar-level
  * change (entries need stable ids) and is not in this task's file set.
+ *
+ * `result` (`{ skipped, removedCount, prospectiveCount }`) is MUTATED IN PLACE, same
+ * reasoning as flagEntriesStale above: this loop writes one domain's file per
+ * iteration, and if a LATER domain throws (an unwritable target, disk full, whatever),
+ * every EARLIER domain in this same call already has its write on disk. Building the
+ * counts locally and returning them only at the end would lose that progress the
+ * instant the throw happens - the caller's `pruneResult` would still read its initial
+ * zero, indistinguishable from "nothing ran". Mutating the caller's object as we go
+ * means a partial failure leaves an accurate partial count, not a lost one.
  */
-function removeEntries(domains, removable) {
+function removeEntries(domains, removable, result) {
   const byDomain = {};
   for (const r of removable) {
     if (!byDomain[r.domain]) byDomain[r.domain] = [];
     byDomain[r.domain].push(r.entry);
   }
-  const skipped = [];
-  // Count only entries actually removed - a domain skipped for TOCTOU still holds its
-  // candidates on disk, and reporting removable.length regardless made the log and the
-  // console claim entries were gone when they were not (P1 #4).
-  //
-  // `removedCount` means exactly one thing: entries a real write actually deleted from
-  // disk. In a dry run there is no write, so it stays 0. `prospectiveCount` is the
-  // dry-run-only preview - what WOULD be removed if this were a real run - kept in a
-  // separate field so a single number never has to mean two different things depending
-  // on which mode produced it (that overloading was itself the defect: a dry run used
-  // to increment `removedCount` even though nothing was written).
-  let removedCount = 0;
-  let prospectiveCount = 0;
   for (const [name, entries] of Object.entries(byDomain)) {
     const target = path.join(LEARNINGS_DIR, domains[name].file);
     let onDisk;
     try { onDisk = fs.readFileSync(target, 'utf8'); } catch (_) { onDisk = null; }
     if (onDisk !== domains[name].content) {
-      skipped.push(name);
+      result.skipped.push(name);
       console.log(`  ! ${name}: changed on disk since scan - skipped (re-run to prune)`);
       continue;
     }
@@ -418,12 +419,12 @@ function removeEntries(domains, removable) {
       // comment), so nothing downstream depends on this today, but a domain must never
       // be judged against a stale scan after this function has already rewritten it.
       domains[name].content = newContent;
-      removedCount += entries.length;
+      result.removedCount += entries.length;
     } else {
-      prospectiveCount += entries.length;
+      result.prospectiveCount += entries.length;
     }
   }
-  return { skipped, removedCount, prospectiveCount };
+  return result;
 }
 
 // Write evolution log
@@ -526,12 +527,30 @@ async function run() {
   // guards against. --dry-run bypasses the lock entirely: every write inside
   // `mutate` is itself gated on `!dryRun`, so running it unlocked in dry-run mode
   // is safe and avoids contending for a lock only to write nothing.
+  //
+  // The catch below has to tell TWO distinct failures apart, not one:
+  //   - the lock was never acquired (acquireLock hit its deadline, or the dynamic
+  //     import() of phantom-learning.mjs itself failed) - mutate() never ran, so
+  //     "all writes skipped" is true, and today's message/counters are correct.
+  //   - mutate() STARTED (the lock was held) and threw partway through - some
+  //     writes may already be on disk. Reporting that as "lock unavailable" / "all
+  //     writes skipped" would be false: pruneResult/staleFlagResult are mutated IN
+  //     PLACE by removeEntries/flagEntriesStale (see their doc comments), so they
+  //     already hold whatever completed before the throw - they must never be
+  //     zeroed out just because the overall run did not finish cleanly.
+  // `mutationStarted` is the flag that tells the two apart: it is set as mutate()'s
+  // very first statement, so it is true iff the lock was actually held when the
+  // throw happened.
   let pruneResult = { skipped: [], removedCount: 0, prospectiveCount: 0 };
   const promoted = [];
   let staleFlagResult = { flagged: 0, skipped: [] };
   let lockUnavailable = false;
+  let mutationStarted = false;
+  let mutationFailed = false;
+  let mutationErrorMessage = null;
 
   const mutate = () => {
+    mutationStarted = true;
     // ORDER IS LOAD-BEARING (P1 #3). flagEntriesStale only ever appends ` [stale]` to an
     // existing line - it never adds or removes a line - so it is safe to run first,
     // against the line numbers the original scan computed. removeEntries deletes line
@@ -544,10 +563,10 @@ async function run() {
     // external change and skip a domain nothing external touched.
     if (checkPredicates && flagStale) {
       const failing = predicateResults.filter((r) => !r.ok);
-      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
+      if (failing.length > 0) flagEntriesStale(domains, failing, staleFlagResult);
     }
 
-    if (removable.length > 0 && prune) pruneResult = removeEntries(domains, removable);
+    if (removable.length > 0 && prune) removeEntries(domains, removable, pruneResult);
 
     for (const p of promotable) {
       const filename = promoteToGlobal(p.domain, p.entry, p.count);
@@ -566,8 +585,14 @@ async function run() {
       const { withLearningLock } = await import(pathToFileURL(LEARNING_API).href);
       withLearningLock(LEARNINGS_DIR, mutate);
     } catch (err) {
-      lockUnavailable = true;
-      console.log(`\n! learnings lock unavailable (${err && err.message ? err.message : err}) - all writes skipped this run\n`);
+      mutationErrorMessage = err && err.message ? err.message : String(err);
+      if (mutationStarted) {
+        mutationFailed = true;
+        console.log(`\n! mutation failed partway (${mutationErrorMessage}) - some writes may have persisted on disk; counts below reflect only what completed before the failure, verify learnings on disk\n`);
+      } else {
+        lockUnavailable = true;
+        console.log(`\n! learnings lock unavailable (${mutationErrorMessage}) - all writes skipped this run\n`);
+      }
     }
   }
 
@@ -587,7 +612,15 @@ async function run() {
     // ACTUAL count, not the candidate count: removeEntries can skip a domain whose file
     // changed on disk between scan and write, and reporting removable.length regardless
     // claimed entries were gone when they were still on disk (P1 #4).
-    stale_removed: (prune && !lockUnavailable) ? pruneResult.removedCount : 0,
+    //
+    // No `!lockUnavailable` gate here (unlike the old code): pruneResult is mutated IN
+    // PLACE by removeEntries as each domain's write actually lands, so it is already
+    // correct on its own - 0 when the lock was never acquired (removeEntries never ran),
+    // the true completed count when mutate() ran fully, and the true PARTIAL count when
+    // mutate() threw partway through. Gating on lockUnavailable would be harmless for the
+    // first case but wrong for the third: it would silently rewrite a true partial count
+    // back down to 0, i.e. exactly the defect this fix removes.
+    stale_removed: prune ? pruneResult.removedCount : 0,
     removable_reported: removable.length,
     protected_failed: protectedFailed.length,
     prune_enabled: prune,
@@ -608,6 +641,12 @@ async function run() {
     predicates_flagged_stale_skipped: staleFlagResult.skipped,
     flag_stale_enabled: flagStale,
     lock_unavailable: lockUnavailable,
+    // True iff mutate() had already started (the lock WAS held) when it threw - i.e. a
+    // real, if incomplete, write attempt, never to be confused with lock_unavailable
+    // (nothing ran at all). Downstream evolve tooling must treat this run's account as
+    // incomplete rather than inferring that from a zero.
+    mutation_failed: mutationFailed,
+    mutation_error: mutationErrorMessage,
     domains_processed: domainNames
   };
   writeLog(result);
@@ -617,7 +656,11 @@ async function run() {
   // figure but under a label a reader cannot mistake for a completed write - it is
   // the prospective count `removeEntries` tracked separately for exactly this display,
   // never the `removedCount` field a real write is required to earn.
-  const removedForSummary = (prune && !lockUnavailable) ? pruneResult.removedCount : 0;
+  //
+  // No `!lockUnavailable` gate here either, same reasoning as the JSON log's
+  // stale_removed above: pruneResult.removedCount is already 0 when nothing ran and
+  // already the true (possibly partial) count when mutate() ran or partially ran.
+  const removedForSummary = prune ? pruneResult.removedCount : 0;
   const prospectiveForSummary = (prune && dryRun) ? pruneResult.prospectiveCount : 0;
   const removedLabel = dryRun ? `Would remove: ${prospectiveForSummary}` : `Removed: ${removedForSummary}`;
   const skippedNote = (prune && pruneResult.skipped.length > 0) ? ` (${pruneResult.skipped.length} domain(s) skipped - changed on disk, re-run needed)` : '';
@@ -628,7 +671,10 @@ async function run() {
   // two unrelated counts (identified-by-age vs written-by-predicate) are never read as
   // one number under one label.
   const flaggedNote = (checkPredicates && flagStale) ? ` | Stale flagged (predicate): ${staleFlagResult.flagged}` : '';
-  console.log(`Entries parsed: ${totalEntries} | Stale identified (${STALE_DAYS}+ days): ${stale.length} | ${removedLabel}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}${flaggedNote}`);
+  // A partial mutation failure must never read like a clean run - flag it in the same
+  // line the rest of the counts live in, not just the earlier one-off console.log.
+  const mutationFailedNote = mutationFailed ? ' | MUTATION FAILED PARTWAY - counts above are only what completed, verify learnings on disk' : '';
+  console.log(`Entries parsed: ${totalEntries} | Stale identified (${STALE_DAYS}+ days): ${stale.length} | ${removedLabel}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}${flaggedNote}${mutationFailedNote}`);
   console.log(dryRun ? '(No changes written - dry run)\n' : 'Evolution logged.\n');
 }
 

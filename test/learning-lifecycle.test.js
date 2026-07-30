@@ -490,3 +490,59 @@ test('citation counting is a whitelist: only an observed checked:pass counts as 
   assert.match(out, /1 verified session citations/,
     'only the single observed checked:pass session may count; all five rejection cases must be excluded');
 });
+
+// ── Honest reporting: a mutation that fails partway must not read as "lock unavailable" ──
+//
+// P1: withLearningLock's action() (`mutate`) runs three write stages in a fixed order
+// (flagEntriesStale, then removeEntries, then promotion+index - see the ordering
+// comment in evolution-runner.js's mutate()). Before this fix, the single catch around
+// withLearningLock treated ANY thrown error identically - whether the lock was never
+// acquired, or `mutate()` itself threw after already rewriting a domain file - as
+// "learnings lock unavailable ... all writes skipped", and zeroed stale_removed even
+// when removeEntries had already committed a real write to disk.
+//
+// This drives that exact sequence deterministically, no monkey-patching: --prune
+// removes one real entry (removeEntries succeeds and writes to disk - no lock
+// contention, nothing to fake), then the later promotion stage for a second,
+// already-[validated:5] entry fails because its target directory can never be
+// created - PATTERNS_DIR's parent (`<PHANTOM_DATA>/global`) is made a plain FILE
+// beforehand, so `fs.mkdirSync(PATTERNS_DIR, { recursive: true })` throws ENOTDIR.
+// That is a real filesystem constraint, not an injected fault.
+test('a mutation that fails partway (after a real write) reports partial failure, not lock unavailability', () => {
+  const { root, learnings } = makeWorkspace({
+    'workflow.md': [
+      `PATTERN [p-remove]: ancient removable entry, no citations (${ANCIENT})`,
+      'PATTERN [p-promote]: already-proven pattern ready to graduate [validated:5] (2026-07-20)',
+      '',
+    ].join('\n'),
+  });
+  const target = path.join(learnings, 'workflow.md');
+
+  // Force the promotion stage to fail AFTER removeEntries has already returned:
+  // making `global` a file (rather than a directory) means the promotion stage's own
+  // mkdirSync throws ENOTDIR - deterministic, and it happens strictly later in
+  // mutate()'s fixed ordering than the remove this test is checking survived.
+  fs.writeFileSync(path.join(root, 'global'), 'not a directory');
+
+  const out = runRunner(root, ['--prune']);
+
+  assert.match(out, /mutation failed partway/,
+    'a throw after the lock was held must be reported as a partial mutation failure');
+  assert.doesNotMatch(out, /learnings lock unavailable/,
+    'the lock WAS held and writes DID start - this must never be reported as lock contention');
+  assert.match(out, /Removed: 1/,
+    'the entry removeEntries already deleted must be counted - not zeroed out because a later stage failed');
+  const after = fs.readFileSync(target, 'utf8');
+  assert.ok(!after.includes('p-remove'),
+    'the removed entry must actually be gone from disk - proves the "partial" claim is real, not merely asserted');
+  assert.ok(after.includes('p-promote'),
+    'the entry that was never a removal candidate must be untouched by the later failure');
+
+  const log = JSON.parse(fs.readFileSync(path.join(root, 'state', 'evolution-log.json'), 'utf8'));
+  const last = log.evolutions[log.evolutions.length - 1];
+  assert.equal(last.mutation_failed, true, 'the JSON log must flag this run as an incomplete mutation account');
+  assert.equal(last.lock_unavailable, false, 'lock_unavailable must stay false - the lock was genuinely held');
+  assert.equal(last.stale_removed, 1, 'the log must report the real removed count, not 0');
+  assert.ok(last.mutation_error && /ENOTDIR|not a directory/i.test(last.mutation_error),
+    'the underlying error must be surfaced, not swallowed');
+});
