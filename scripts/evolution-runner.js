@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const {
   globalPatternsDir, learningsDir, stateDir, detectRepo, sessionsDir, completedDir,
 } = require('./lib/phantom-paths');
@@ -16,6 +17,11 @@ const REPO = detectRepo();
 const LEARNINGS_DIR = learningsDir(REPO);
 const PATTERNS_DIR = globalPatternsDir();
 const STATE_FILE = path.join(stateDir(), 'evolution-log.json');
+// The ONE mutex the capture path uses (skills/phantom/scripts/phantom-learning.mjs
+// withLearningLock, held at <learningsDir>/.learning.lock). This file is CJS and that
+// module is ESM; crossing the boundary via dynamic import() is the same pattern
+// scripts/check-learnings-index.js already uses to reach the same module.
+const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 
 let STALE_DAYS = 30, REMOVE_DAYS = 60, PROMOTE_THRESHOLD = 5, DISTILL_CAP = 50;
 let CITATION_FIELD = 'learningsCited';
@@ -76,14 +82,17 @@ function readJson(file) {
 /**
  * A session counts as evidence only when its verification actually OBSERVED a pass.
  * `verdict` alone is not enough: verification.json can carry verdict 'pass' while
- * `observations.tests` is 'not_observed', which is a claim, not a measurement - the same
- * unverifiable judgment this whole conversion exists to remove.
+ * `observations.tests` is 'not_observed' (a claim, not a measurement) or even
+ * 'checked:fail' (an observed FAILURE misreported as verdict 'pass'). This is a
+ * WHITELIST, not a blacklist: the only accepted evidence is an explicit, observed
+ * 'checked:pass'. Anything else - missing verification, wrong verdict, absent
+ * `observations`, or any `tests` value other than 'checked:pass' - is rejected,
+ * fail-closed.
  */
 function sessionPassed(verification) {
   if (!verification || verification.verdict !== 'pass') return false;
   const observed = verification.correctness && verification.correctness.observations;
-  if (observed && observed.tests === 'not_observed') return false;
-  return true;
+  return !!observed && observed.tests === 'checked:pass';
 }
 
 /**
@@ -410,7 +419,7 @@ function describe(entry, domain) {
 }
 
 // Main
-function run() {
+async function run() {
   console.log(`\n=== Evolution Runner ${dryRun ? '(DRY RUN)' : ''} ===\n`);
 
   const domains = readDomainFiles();
@@ -435,41 +444,27 @@ function run() {
   removable.forEach(r => console.log(`  x ${describe(r.entry, r.domain)}`));
   console.log(`[Tier 1] Past the window but PROTECTED as [failed]: ${protectedFailed.length}${pruneFailed ? ' (override active: --prune-failed)' : ''}`);
   protectedFailed.forEach(p => console.log(`  = ${describe(p.entry, p.domain)}`));
-  let pruneSkipped = [];
-  if (removable.length > 0 && prune) pruneSkipped = removeEntries(domains, removable);
 
-  // Tier 2
+  // Tier 2 (read side; the write side runs inside `mutate` below)
   const citedTotal = [...cited.values()].reduce((n, s) => n + s.size, 0);
   console.log(`[Tier 2] Computed validations from artifacts: ${cited.size} entries cited, ${citedTotal} verified session citations`);
   if (cited.size === 0) {
     console.log(`  (no session records a '${CITATION_FIELD}' array; see reference/evolution.md "Computed validation")`);
   }
   const promotable = findPromotable(domains, cited);
-  const promoted = [];
-  for (const p of promotable) {
-    const filename = promoteToGlobal(p.domain, p.entry, p.count);
-    if (filename) {
-      promoted.push({ ...p, filename });
-      console.log(`[Tier 2] Promoted: ${p.domain}/${filename}`);
-    }
-  }
-  if (promoted.length > 0) updatePatternsIndex(promoted);
-  console.log(`[Tier 2] Promoted: ${promoted.length} patterns\n`);
 
   // Tier 3
   const oversized = checkDistillation(domains);
-  console.log(`[Tier 3] Oversized domains: ${oversized.length}`);
-  oversized.forEach(o => console.log(`  ! ${o.domain}: ${o.count} entries (cap: ${o.cap})`));
 
   // Predicates (K5). Population is always counted - parsing and counting a
   // check:`...` clause is free and safe. Execution is not: it happens ONLY behind
-  // --check-predicates (see the security model above runPredicate).
+  // --check-predicates (see the security model above runPredicate), and it never
+  // writes on its own - only --flag-stale does, inside `mutate` below.
   const withPredicate = allEntries.filter((e) => e.predicate);
   console.log(`\n[Predicates] ${withPredicate.length} entries carry a check: predicate (population; parsed, not executed)`);
   let predicateResults = [];
   let predicatesPassed = 0;
   let predicatesFailed = 0;
-  let staleFlagResult = { flagged: 0, skipped: [] };
   if (checkPredicates) {
     predicateResults = checkAllPredicates(domains);
     predicatesPassed = predicateResults.filter((r) => r.ok).length;
@@ -479,13 +474,65 @@ function run() {
       const mark = r.ok ? 'v' : (r.timedOut ? 'x [TIMED OUT]' : 'x');
       console.log(`  ${mark} ${describe(r.entry, r.domain)}`);
     });
-    if (flagStale) {
-      const failing = predicateResults.filter((r) => !r.ok);
-      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
-      console.log(`[Predicates] Flagged stale: ${staleFlagResult.flagged}`);
-    }
   } else if (withPredicate.length > 0) {
     console.log(`  (pass --check-predicates to execute and report pass/fail)`);
+  }
+
+  // --- Write phase --------------------------------------------------------
+  //
+  // Every rewrite of a shared domain file (removeEntries, promoteToGlobal +
+  // updatePatternsIndex, flagEntriesStale) runs inside `mutate`, and `mutate` runs
+  // ONLY while holding the exact per-repo learnings lock the capture path holds
+  // (phantom-learning.mjs withLearningLock, <learningsDir>/.learning.lock) - the same
+  // lock a Stop-hook capture takes to graduate an entry into these same files. That
+  // makes the two writers mutually exclusive instead of racing.
+  //
+  // Fail-closed: if the lock cannot be acquired within its budget, `mutate` never
+  // runs and NOTHING is written - the runner reports zero mutations rather than
+  // falling back to an unlocked write, which would restore the exact defect this
+  // guards against. --dry-run bypasses the lock entirely: every write inside
+  // `mutate` is itself gated on `!dryRun`, so running it unlocked in dry-run mode
+  // is safe and avoids contending for a lock only to write nothing.
+  let pruneSkipped = [];
+  const promoted = [];
+  let staleFlagResult = { flagged: 0, skipped: [] };
+  let lockUnavailable = false;
+
+  const mutate = () => {
+    if (removable.length > 0 && prune) pruneSkipped = removeEntries(domains, removable);
+
+    for (const p of promotable) {
+      const filename = promoteToGlobal(p.domain, p.entry, p.count);
+      if (filename) {
+        promoted.push({ ...p, filename });
+        console.log(`[Tier 2] Promoted: ${p.domain}/${filename}`);
+      }
+    }
+    if (promoted.length > 0) updatePatternsIndex(promoted);
+
+    if (checkPredicates && flagStale) {
+      const failing = predicateResults.filter((r) => !r.ok);
+      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
+    }
+  };
+
+  if (dryRun) {
+    mutate();
+  } else {
+    try {
+      const { withLearningLock } = await import(pathToFileURL(LEARNING_API).href);
+      withLearningLock(LEARNINGS_DIR, mutate);
+    } catch (err) {
+      lockUnavailable = true;
+      console.log(`\n! learnings lock unavailable (${err && err.message ? err.message : err}) - all writes skipped this run\n`);
+    }
+  }
+
+  console.log(`[Tier 2] Promoted: ${promoted.length} patterns\n`);
+  console.log(`[Tier 3] Oversized domains: ${oversized.length}`);
+  oversized.forEach(o => console.log(`  ! ${o.domain}: ${o.count} entries (cap: ${o.cap})`));
+  if (checkPredicates && flagStale) {
+    console.log(`[Predicates] Flagged stale: ${staleFlagResult.flagged}`);
   }
 
   // Log
@@ -494,7 +541,7 @@ function run() {
     entries_parsed: totalEntries,
     untagged: untagged.length,
     stale_flagged: stale.length,
-    stale_removed: prune ? removable.length : 0,
+    stale_removed: (prune && !lockUnavailable) ? removable.length : 0,
     removable_reported: removable.length,
     protected_failed: protectedFailed.length,
     prune_enabled: prune,
@@ -510,19 +557,18 @@ function run() {
     predicates_failed: predicatesFailed,
     predicates_flagged_stale: staleFlagResult.flagged,
     flag_stale_enabled: flagStale,
+    lock_unavailable: lockUnavailable,
     domains_processed: domainNames
   };
   writeLog(result);
 
   console.log(`\n--- Summary ---`);
-  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${prune ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
+  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${(prune && !lockUnavailable) ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
   console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
 }
 
 // Fail open: maintenance script must never crash a session. Log and exit 0.
-try {
-  run();
-} catch (err) {
+run().catch((err) => {
   console.error(`[evolution-runner] non-fatal: ${err && err.message ? err.message : err}`);
   process.exit(0);
-}
+});

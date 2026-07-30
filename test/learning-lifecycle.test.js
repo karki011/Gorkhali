@@ -320,3 +320,90 @@ test('reference/evolution.md and evolution-runner.js agree on the [failed] exemp
   );
   assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the missing citation field precisely');
 });
+
+// ── Concurrency: lifecycle writes must serialize against the capture-path lock ──
+//
+// hooks/memory-writer.js (via phantom-learning.mjs's withLearningLock) and
+// evolution-runner.js's prune/promote/flag-stale writes both rewrite the SAME domain
+// files. Before this fix, evolution-runner.js wrote with a bare fs.writeFileSync and
+// no lock at all, so a capture graduating an entry into a domain file mid-run could be
+// clobbered by a concurrent prune. This test proves REAL mutual exclusion: it holds
+// the exact lockfile the capture path holds (`<learnings>/.learning.lock`, same shape
+// phantom-learning.mjs's acquireLock writes - see test/repo-dirs-migration.test.js's
+// equivalent pattern), then asserts a prune run defers rather than clobbering, and
+// proceeds once the lock clears.
+test('a prune run defers while the capture-path learnings lock is held, and proceeds once it clears', () => {
+  const { root, learnings } = makeWorkspace({
+    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
+  });
+  const target = path.join(learnings, 'workflow.md');
+  const before = fs.readFileSync(target);
+  const lockFile = path.join(learnings, '.learning.lock');
+
+  // Simulate a concurrent capture mid-write: a live lock owned by THIS test process
+  // (so the runner's own stale-lock check can never judge it dead and take it over).
+  fs.writeFileSync(lockFile, JSON.stringify({
+    pid: process.pid, token: 'concurrent-capture', created_at: new Date().toISOString(),
+  }) + '\n');
+
+  let out;
+  try {
+    out = runRunner(root, ['--prune']);
+  } finally {
+    fs.unlinkSync(lockFile);
+  }
+
+  assert.deepEqual(fs.readFileSync(target), before,
+    'the domain file must be byte-identical - no unlocked write while the capture lock is held');
+  assert.match(out, /learnings lock unavailable/, 'contention must be reported, not silently swallowed');
+  assert.match(out, /Removed: 0/, 'nothing may be counted as removed while locked out');
+
+  // Lock cleared: the same prune now proceeds normally against the untouched file.
+  const out2 = runRunner(root, ['--prune']);
+  assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'),
+    'once the lock clears, the prune removes the entry as normal');
+  assert.match(out2, /Removed: 1/);
+});
+
+// ── Fail-closed evidence: only an OBSERVED checked:pass counts ──────────────────
+//
+// sessionPassed used to be a BLACKLIST (only 'not_observed' was rejected), so it wrongly
+// accepted a verification with no `observations` at all, or with `observations.tests`
+// set to anything else - including 'checked:fail', a FAILING test run miscounted as
+// validation evidence. It is now a WHITELIST: the only accepted value is an explicit,
+// observed 'checked:pass'. One black-box run pins all six cases through the real CLI.
+test('citation counting is a whitelist: only an observed checked:pass counts as evidence', () => {
+  const { root } = makeWorkspace({
+    'workflow.md': 'PATTERN [p-cited]: probe entry with no tag (2026-07-20)\n',
+  });
+  const sessionDir = (name) => path.join(root, 'repos', REPO, 'sessions', name);
+
+  // 1. No verification.json at all.
+  writeSession(root, 's-no-verification', { cited: ['p-cited'] });
+  fs.unlinkSync(path.join(sessionDir('s-no-verification'), 'verification.json'));
+
+  // 2. verdict !== 'pass'.
+  writeSession(root, 's-wrong-verdict', { cited: ['p-cited'], verdict: 'fail' });
+
+  // 3. observations absent entirely (verdict pass, but no correctness.observations field).
+  writeSession(root, 's-absent-observations', { cited: ['p-cited'] });
+  fs.writeFileSync(path.join(sessionDir('s-absent-observations'), 'verification.json'), JSON.stringify({
+    correctness: { lint: true, build: true, tests: true, commands: ['npm test'] },
+    review: { temperature: 0.7, findings: [], fixLoops: 0 },
+    simplifyRan: true, intentAlignment: 'aligned', verdict: 'pass',
+  }));
+
+  // 4. observations.tests === 'not_observed' (a claim, not a measurement).
+  writeSession(root, 's-not-observed', { cited: ['p-cited'], testsObservation: 'not_observed' });
+
+  // 5. observations.tests === 'checked:fail' (an observed FAILURE - the worst case
+  //    for the old blacklist, which accepted this as evidence).
+  writeSession(root, 's-checked-fail', { cited: ['p-cited'], testsObservation: 'checked:fail' });
+
+  // 6. The one acceptance case.
+  writeSession(root, 's-checked-pass', { cited: ['p-cited'], testsObservation: 'checked:pass' });
+
+  const out = runRunner(root);
+  assert.match(out, /1 verified session citations/,
+    'only the single observed checked:pass session may count; all five rejection cases must be excluded');
+});
