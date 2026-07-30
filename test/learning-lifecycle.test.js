@@ -21,7 +21,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -363,6 +363,53 @@ test('a prune run defers while the capture-path learnings lock is held, and proc
   assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'),
     'once the lock clears, the prune removes the entry as normal');
   assert.match(out2, /Removed: 1/);
+});
+
+// ── Honest reporting: a per-domain skip must not be counted as removed ──────────
+//
+// P1 #4: removeEntries already detects a domain that changed on disk between scan and
+// write (TOCTOU) and returns it as skipped, but the caller reported removable.length
+// regardless - claiming entries were gone when they were still on disk. This drives a
+// REAL race: a domain with a slow `check:` predicate delays the run long enough (before
+// the locked write phase starts) for a second write to land on a DIFFERENT domain's
+// file, so that domain's on-disk content no longer matches what was scanned by the time
+// removeEntries runs.
+test('a domain that changes on disk mid-run is skipped, and the removed count/skip are reported honestly', async () => {
+  const { root, learnings } = makeWorkspace({
+    // A slow predicate creates the race window: predicates are checked BEFORE the
+    // locked write phase, so this keeps the process busy while the concurrent write
+    // below lands on workflow.md.
+    'slow.md': 'PATTERN [p-slow]: entry with a slow predicate to create a race window (2026-07-20) check:`sleep 2`\n',
+    'workflow.md': `PATTERN [p-old]: ancient removable entry (${ANCIENT})\n`,
+  });
+  fs.writeFileSync(path.join(learnings, 'INDEX.md'),
+    '- [workflow](workflow.md) - fixture domain\n- [slow](slow.md) - fixture domain\n');
+  const target = path.join(learnings, 'workflow.md');
+
+  const child = spawn('node', [RUNNER, '--prune', '--check-predicates'], { env: env(root) });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  let stderr = '';
+  child.stderr.on('data', (d) => { stderr += d; });
+
+  // Land the concurrent write while the slow predicate is still sleeping, i.e. before
+  // removeEntries has run against its scanned snapshot.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  fs.appendFileSync(target, 'PATTERN [p-injected]: appended by a concurrent writer mid-run (2026-07-20)\n');
+
+  const exitCode = await new Promise((resolve) => child.on('exit', resolve));
+  assert.equal(exitCode, 0, `runner must exit 0 (stderr: ${stderr})`);
+
+  const after = fs.readFileSync(target, 'utf8');
+  assert.ok(after.includes('p-old'), 'the skipped domain must still hold its unremoved entry on disk - nothing may vanish silently');
+  assert.match(out, /changed on disk since scan - skipped/, 'the skip must be reported to the operator');
+  assert.match(out, /Removed: 0/, 'a skipped domain must not be counted as removed in the console summary');
+
+  const log = JSON.parse(fs.readFileSync(path.join(root, 'state', 'evolution-log.json'), 'utf8'));
+  const last = log.evolutions[log.evolutions.length - 1];
+  assert.equal(last.stale_removed, 0, 'the JSON log must report the ACTUAL removed count, not the candidate count');
+  assert.equal(last.removable_reported, 1, 'the candidate count is still reported separately');
+  assert.deepEqual(last.prune_skipped_changed_on_disk, ['workflow'], 'the skipped domain must be surfaced explicitly, not merely implied by a mismatch');
 });
 
 // ── Fail-closed evidence: only an OBSERVED checked:pass counts ──────────────────

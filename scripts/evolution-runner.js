@@ -343,7 +343,17 @@ function flagEntriesStale(domains, failedResults) {
       lines[last] = `${lines[last]} [stale]`;
       flagged++;
     }
-    if (!dryRun) fs.writeFileSync(target, lines.join('\n'));
+    const newContent = lines.join('\n');
+    if (!dryRun) {
+      fs.writeFileSync(target, newContent);
+      // Keep the scanned snapshot in sync with what was actually written. This runs
+      // BEFORE removeEntries (see the ordering comment in mutate()), and removeEntries'
+      // own TOCTOU guard compares onDisk against this same domains[name].content - if it
+      // stayed at the pre-flag scan, the flag write we just made would read as an
+      // external change and removeEntries would wrongly skip a domain nothing external
+      // touched.
+      domains[name].content = newContent;
+    }
   }
   return { flagged, skipped };
 }
@@ -373,6 +383,10 @@ function removeEntries(domains, removable) {
     byDomain[r.domain].push(r.entry);
   }
   const skipped = [];
+  // Count only entries actually removed - a domain skipped for TOCTOU still holds its
+  // candidates on disk, and reporting removable.length regardless made the log and the
+  // console claim entries were gone when they were not (P1 #4).
+  let removedCount = 0;
   for (const [name, entries] of Object.entries(byDomain)) {
     const target = path.join(LEARNINGS_DIR, domains[name].file);
     let onDisk;
@@ -388,9 +402,18 @@ function removeEntries(domains, removable) {
       for (let i = entry.lineNum; i <= last; i++) doomed.add(i);
     }
     const filtered = onDisk.split('\n').filter((_, i) => !doomed.has(i));
-    if (!dryRun) fs.writeFileSync(target, filtered.join('\n'));
+    const newContent = filtered.join('\n');
+    if (!dryRun) {
+      fs.writeFileSync(target, newContent);
+      // Keep the snapshot in sync with what was written, same discipline as
+      // flagEntriesStale - removeEntries currently runs last (see mutate()'s ordering
+      // comment), so nothing downstream depends on this today, but a domain must never
+      // be judged against a stale scan after this function has already rewritten it.
+      domains[name].content = newContent;
+    }
+    removedCount += entries.length;
   }
-  return skipped;
+  return { skipped, removedCount };
 }
 
 // Write evolution log
@@ -493,13 +516,28 @@ async function run() {
   // guards against. --dry-run bypasses the lock entirely: every write inside
   // `mutate` is itself gated on `!dryRun`, so running it unlocked in dry-run mode
   // is safe and avoids contending for a lock only to write nothing.
-  let pruneSkipped = [];
+  let pruneResult = { skipped: [], removedCount: 0 };
   const promoted = [];
   let staleFlagResult = { flagged: 0, skipped: [] };
   let lockUnavailable = false;
 
   const mutate = () => {
-    if (removable.length > 0 && prune) pruneSkipped = removeEntries(domains, removable);
+    // ORDER IS LOAD-BEARING (P1 #3). flagEntriesStale only ever appends ` [stale]` to an
+    // existing line - it never adds or removes a line - so it is safe to run first,
+    // against the line numbers the original scan computed. removeEntries deletes line
+    // RANGES, which shifts every entry below the deletion, so it must run LAST: nothing
+    // after it may rely on a line number removal would invalidate. Both functions also
+    // refresh domains[name].content immediately after a write, so each guard compares
+    // against what was actually just written rather than the pre-mutation scan -
+    // otherwise flagEntriesStale's own prune-order write would make removeEntries' (or,
+    // in the old order, the reverse) TOCTOU check misread its own prior write as an
+    // external change and skip a domain nothing external touched.
+    if (checkPredicates && flagStale) {
+      const failing = predicateResults.filter((r) => !r.ok);
+      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
+    }
+
+    if (removable.length > 0 && prune) pruneResult = removeEntries(domains, removable);
 
     for (const p of promotable) {
       const filename = promoteToGlobal(p.domain, p.entry, p.count);
@@ -509,11 +547,6 @@ async function run() {
       }
     }
     if (promoted.length > 0) updatePatternsIndex(promoted);
-
-    if (checkPredicates && flagStale) {
-      const failing = predicateResults.filter((r) => !r.ok);
-      if (failing.length > 0) staleFlagResult = flagEntriesStale(domains, failing);
-    }
   };
 
   if (dryRun) {
@@ -541,12 +574,15 @@ async function run() {
     entries_parsed: totalEntries,
     untagged: untagged.length,
     stale_flagged: stale.length,
-    stale_removed: (prune && !lockUnavailable) ? removable.length : 0,
+    // ACTUAL count, not the candidate count: removeEntries can skip a domain whose file
+    // changed on disk between scan and write, and reporting removable.length regardless
+    // claimed entries were gone when they were still on disk (P1 #4).
+    stale_removed: (prune && !lockUnavailable) ? pruneResult.removedCount : 0,
     removable_reported: removable.length,
     protected_failed: protectedFailed.length,
     prune_enabled: prune,
     prune_failed_override: pruneFailed,
-    prune_skipped_changed_on_disk: pruneSkipped,
+    prune_skipped_changed_on_disk: pruneResult.skipped,
     cited_entries: cited.size,
     cited_session_validations: citedTotal,
     promoted: promoted.length,
@@ -556,6 +592,10 @@ async function run() {
     predicates_passed: predicatesPassed,
     predicates_failed: predicatesFailed,
     predicates_flagged_stale: staleFlagResult.flagged,
+    // Same honesty applied to stale-flagging: a domain can be skipped here too (its file
+    // changed since the scan), so surface it explicitly rather than leaving `flagged`
+    // as the only number and letting a caller assume everything failing was flagged.
+    predicates_flagged_stale_skipped: staleFlagResult.skipped,
     flag_stale_enabled: flagStale,
     lock_unavailable: lockUnavailable,
     domains_processed: domainNames
@@ -563,7 +603,9 @@ async function run() {
   writeLog(result);
 
   console.log(`\n--- Summary ---`);
-  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${(prune && !lockUnavailable) ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
+  const removedForSummary = (prune && !lockUnavailable) ? pruneResult.removedCount : 0;
+  const skippedNote = (prune && pruneResult.skipped.length > 0) ? ` (${pruneResult.skipped.length} domain(s) skipped - changed on disk, re-run needed)` : '';
+  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${removedForSummary}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}`);
   console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
 }
 

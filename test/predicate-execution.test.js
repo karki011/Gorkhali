@@ -142,6 +142,39 @@ test('--check-predicates alone does not write [stale]; --flag-stale does, and on
   assert.match(failLine, /\[stale\]/, 'a failing predicate must be flagged stale');
 });
 
+// ── --prune and --flag-stale together: pruning must not blind the flagger ───────
+//
+// P1 #3: removeEntries ran before flagEntriesStale, and flagEntriesStale's own TOCTOU
+// guard compares onDisk against the PRE-prune snapshot, so the prune's own write made
+// the guard treat the run as a concurrent external writer and silently skip the domain
+// - a retained entry with a failing predicate never got [stale]. The fix must also not
+// write the flag onto the WRONG line: p-mid sits between the removable entry and the
+// retained failing one, so if a line-number shift from the prune were not accounted
+// for, the flag would land on p-mid instead of p-fail. Both effects are asserted here.
+test('--prune removes a candidate AND --flag-stale still tags the correct retained entry', () => {
+  const { root, learnings } = makeWorkspace({
+    'workflow.md': [
+      'PATTERN [p-old]: an ancient removable entry (2020-01-01)',
+      'PATTERN [p-mid]: a decoy entry that must never be touched (2026-07-20)',
+      'PATTERN [p-fail]: a retained entry whose predicate fails (2026-07-20) check:`false`',
+      '',
+    ].join('\n'),
+  });
+  const target = path.join(learnings, 'workflow.md');
+
+  const out = runRunner(root, ['--prune', '--check-predicates', '--flag-stale']);
+  const after = fs.readFileSync(target, 'utf8');
+
+  assert.doesNotMatch(out, /changed on disk since scan - skipped/, 'the prune must not blind the flagger to its own write');
+  assert.ok(!after.includes('p-old'), '--prune must still remove the expired candidate');
+  const midLine = after.split('\n').find((l) => l.includes('p-mid'));
+  const failLine = after.split('\n').find((l) => l.includes('p-fail'));
+  assert.ok(midLine, 'the decoy entry must survive');
+  assert.ok(failLine, 'the retained failing-predicate entry must survive');
+  assert.doesNotMatch(midLine, /\[stale\]/, 'a line-number shift must not tag the wrong (decoy) entry');
+  assert.match(failLine, /\[stale\]/, 'the entry whose predicate actually failed must be tagged, on its own line');
+});
+
 test('--flag-stale without --check-predicates is inert: no single flag executes or writes', () => {
   const { root, learnings } = makeWorkspace({
     'workflow.md': 'PATTERN [p-fail]: a predicate that exits non-zero (2026-07-20) check:`false`\n',
