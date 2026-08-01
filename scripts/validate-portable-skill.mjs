@@ -68,7 +68,7 @@ const selectionOrder = [
   'inherit-active-model',
 ];
 const requiredContractVersions = {
-  aggregation_result: 1,
+  aggregation_result: 2,
   authority_decision: 1,
   capability_ledger: 1,
   capability_probe: 1,
@@ -76,15 +76,18 @@ const requiredContractVersions = {
   decision_artifact: 3,
   defect_proof: 1,
   delegation: 2,
+  evaluation_result: 1,
+  host_adapter_execution: 2,
   impact_report: 1,
+  isolated_executor: 1,
   model_policy: 2,
   model_presets: 1,
   model_routing: 1,
-  state_envelope: 1,
-  evaluation_result: 1,
-  workflow_event: 1,
+  state_envelope: 2,
+  workflow_event: 2,
   workflow_output: 1,
-  workflow_plan: 1,
+  workflow_plan: 2,
+  workspace_manifest: 2,
 };
 const riskLevels = ['low', 'moderate', 'high', 'critical'];
 const criticalEligibleRoles = [
@@ -540,7 +543,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
 
   const lifecycleContract = {
     'references/state.md': [
-      'schema_version: 1',
+      'schema_version: 2',
       '--mode to-plan',
       '--gate direction',
       '--gate plan',

@@ -8,6 +8,7 @@
     "metadata:check": "node scripts/sync-readme-metadata.js --check",
     "metadata:write": "node scripts/sync-readme-metadata.js --write",
     "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom",
-    "version:check": "node scripts/release-version.js --check"
+    "version:check": "node scripts/release-version.js --check",
+    "version:check:base": "node scripts/release-version.js --check --base-ref origin/main"
   }
 }

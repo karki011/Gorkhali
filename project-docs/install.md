@@ -61,11 +61,11 @@ Hook installation is not a complete production adapter. Before consequential
 work in an active Phantom session, a trusted host must provision
 `authority-trust.json` and externally issue fresh signed
 `capability-probe.json` records. The package contains no signing secret or
-self-attestation mechanism. External Git, pull-request, and tracker effects
-also require separately registered executors; none is bundled in this release.
-There is no native command adapter. `process.exec` is denied until a separately
-versioned, signed sandbox attestation and enforcement contract exists;
-installing or registering an adapter alone cannot enable it.
+self-attestation mechanism. External process, Git, pull-request, and tracker
+effects require a registry-signed session registration plus nonce-bound result
+attestations; no backend, provider credential, signer, or private key is
+bundled. Native command tools remain denied, and registration text without the
+matching signed execution evidence cannot enable an effect.
 
 Use `node hooks/capability-gate.mjs doctor <workspace>` to inspect these
 requirements. A missing capability remains unavailable rather than falling

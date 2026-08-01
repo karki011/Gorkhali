@@ -91,7 +91,7 @@ collision.
 ## Pointer contract
 
 The durable task pointer at `state/current-session/<repo-id>.json` is the only
-authority on which task is current. It is a version-1 record
+authority on which task is current. It is a version-2 record
 (`{ schema_version, repo_id, task_id, session_dir, updated_at }`) written solely
 by the lifecycle helper on `start`, `record`, and `complete`.
 
@@ -103,11 +103,11 @@ pointer. A reader keeps the two apart by path, not by inspecting fields.
 
 ## Artifact envelope
 
-Every JSON artifact must include:
+Every persisted JSON artifact governed by `state_envelope` must include:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "artifact_type": "session",
   "repo_id": "project-0123456789",
   "task_id": "TASK-1",
@@ -122,19 +122,29 @@ Every JSON artifact must include:
 }
 ```
 
-Optional runtime diagnostics belong under `producer.runtime`; consumers must
-ignore unknown fields. `bundle_version` identifies the portable bundle that
-wrote an artifact. `model_routing.actual_profile` remains `null` unless the
-host reports it; never infer it from a requested profile or model name. Add
-non-negative `wall_time_ms` and integer `tool_turns` only when observable.
-Recorded workflow and run artifacts include `model_routing`; session and intent
-envelopes omit it because they do not represent a routed worker execution.
+The envelope and producer are closed contracts. `producer` contains exactly
+`role` and `compute_profile`; unknown fields, relabeled artifact types, and
+undeclared producer roles are rejected. Session, intent, context, capabilities,
+brainstorm, plan, and decisions are Apex-produced; execution is Blade-produced;
+wrap is Warden-produced. Delegation producers must match the delegated role and
+resolved profile recorded in their evidence. `bundle_version` identifies the
+portable bundle that wrote an artifact.
 
-The envelope `schema_version` remains `1`. Decision-first brainstorm and plan
-payloads declare `contract_version: 3` inside `evidence`; this separates the
-stable portable envelope from an evolvable workflow contract. Accepted v3
-payloads follow [brainstorming](brainstorming.md) or [planning](planning.md) in
-full.
+`model_routing.actual_profile` remains `null` unless the host reports it; never
+infer it from a requested profile or model name. Add non-negative
+`wall_time_ms` and integer `tool_turns` only when observable. Recorded workflow
+and run artifacts include `model_routing`; session and intent envelopes omit it
+because they do not represent a routed worker execution. Raw `evidence` may
+carry artifact-specific diagnostics, but it does not relax the outer envelope.
+
+State envelope version `2` is a hard cut. State-envelope readers accept only
+version `2`; they do not migrate, reinterpret, or fall back to version `1`.
+Start a fresh session when old state must be replaced. Offline data-root
+relocation may reconstruct only version-2 current-session pointers and does not
+upgrade version-1 state. Decision-first brainstorm and plan payloads continue
+to declare `contract_version: 3` inside `evidence`; the outer state envelope and
+the inner decision contract evolve independently. Accepted v3 payloads follow
+[brainstorming](brainstorming.md) or [planning](planning.md) in full.
 
 The envelope persists enriched fields unchanged;
 generated plan and brainstorm HTML are distinct projections of the same
@@ -183,8 +193,8 @@ continues to fail closed until Hound updates it with complete current evidence.
 
 ## Route-aware lifecycle state
 
-The session envelope carries a required `lifecycle` object while retaining
-`schema_version: 1`:
+The session envelope carries a required `lifecycle` object under
+`schema_version: 2`:
 
 ```json
 {
@@ -197,7 +207,8 @@ The session envelope carries a required `lifecycle` object while retaining
     },
     "authorizations": {
       "implementation": { "status": "pending", "decided_at": null },
-      "ship-draft-pr": { "status": "pending", "decided_at": null }
+      "ship-draft-pr": { "status": "pending", "decided_at": null },
+      "tracker-comment": { "status": "pending", "decided_at": null }
     },
     "actions": {
       "execute": { "status": "pending", "decided_at": null },

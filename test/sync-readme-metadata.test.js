@@ -42,8 +42,8 @@ function projectFixture() {
   fs.writeFileSync(path.join(root, 'skills', 'phantom', 'manifest.json'), JSON.stringify({
     bundle_version: '4.5.6',
     contracts: {
-      workflow_plan: { version: 1, resources: ['schemas/workflow-plan.schema.json'] },
-      workflow_event: { version: 1, resources: ['schemas/workflow-event.schema.json'] },
+      workflow_plan: { version: 2, resources: ['schemas/workflow-plan.schema.json'] },
+      workflow_event: { version: 2, resources: ['schemas/workflow-event.schema.json'] },
     },
   }));
   fs.writeFileSync(path.join(root, 'evals', 'evals.json'), JSON.stringify({

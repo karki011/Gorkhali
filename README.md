@@ -3,7 +3,7 @@
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
 <!-- generated:project-metadata:start -->
 [![version](https://img.shields.io/badge/version-0.3.0-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-705-brightgreen)](test/)
+[![tests](https://img.shields.io/badge/tests-785-brightgreen)](test/)
 [![declared evals](https://img.shields.io/badge/declared_evals-51-brightgreen)](evals/)
 <!-- generated:project-metadata:end -->
 [![distribution](https://img.shields.io/badge/distribution-Agent%20Skills-8A2BE2)](project-docs/install.md)
@@ -31,8 +31,9 @@ command or agent runtime.
 - **Explicit effect policy.** Workspace writes, process execution, commits,
   pushes, draft pull requests, and tracker comments use typed capability
   requests. Authorization, scope, freshness, budget, and idempotency are
-  checked before execution. `process.exec` is unconditionally denied in this
-  release; registration alone cannot enable it.
+  checked before execution. External execution additionally requires a
+  registry-signed short-lived adapter registration and a nonce-bound leaf-signed
+  result; native process tools remain denied as an alternate path.
 - **Risk-selected evidence.** The workflow declares the checks it needs. An
   independent evaluator is added only when risk, topology, or a measurable
   rubric requires one, and every supported finding remains in the record.
@@ -40,6 +41,7 @@ command or agent runtime.
   journals use a neutral data root and stable repository identity.
 - **Optional delegation.** Phantom chooses the smallest useful topology after
   dependency inspection. Native workers accelerate independent scopes; a
+  host-provisioned isolated executor can run signed parallel branches, while a
   sequential fallback preserves the same contracts and gates.
 
 ## Control Flow
@@ -108,26 +110,36 @@ and externally issue short-lived signed probes; Phantom contains no private
 key, signer, or self-attestation path.
 
 The bundled native adapter handles reservation-bound workspace writes only.
-Native shell and process tools are not command executors. `process.exec` stays
-denied until a separately versioned, signed sandbox-executor attestation and
-enforcement contract exists; merely registering an adapter or capability does
-not enable it. Only exact trusted Phantom control-plane commands are exempt.
+Native shell and process tools are not command executors. The portable bundle
+now verifies separate isolated-executor trust/probes/receipts and
+host-adapter registry/registration/execution attestations, but it contains no
+OS isolation backend, signer, private key, or provider credentials. A host must
+provision those boundaries; registration text or a reported capability alone
+cannot enable an effect. Only exact trusted Phantom control-plane commands are
+exempt from the native process denial.
 
-This distribution does not register executors for `git.commit`, `git.push`,
-`github.openDraftPr`, or `tracker.comment`. Those effects remain unavailable
-until a host supplies an explicit adapter to the typed execution API. An
-authorization record by itself never executes an external action.
+This distribution does not register effect adapters for `process.exec`,
+`git.commit`, `git.push`, `github.openDraftPr`, or `tracker.comment`. A host may
+supply an adapter only through the signed typed broker. One random reservation
+nonce is consumed once; an indeterminate remote result blocks retry until a
+signed reconciliation resolves that same reservation. An authorization record
+by itself never executes an external action.
 
 Inspect the current boundary without changing state:
 
 ```bash
 node hooks/capability-gate.mjs doctor /path/to/workspace
+node skills/phantom/scripts/phantom-doctor.mjs --workspace /path/to/workspace
 ```
 
-The doctor reports the session/workflow/probe state and the bundled versus
-unregistered executors. An active session with missing or corrupt compiled
-workflow evidence is blocked; a workspace with no Phantom session remains
-outside the boundary.
+The portable doctor discovers only the canonical active session and its pinned
+runtime files. Its version-2 report separates native, signed-host, and isolated
+execution readiness with `not_applicable`, `not_registered`, `ready`, or
+`blocked` status. It uses the broker verifiers and stable private-file reads,
+but emits only capability status and stable problem codes—never paths, key
+bodies, signatures, raw artifacts, provider references, secrets, or
+credentials. `verifier_bundled: true` does not imply an execution backend;
+`backend_bundled` remains `false`.
 
 ## Documentation
 

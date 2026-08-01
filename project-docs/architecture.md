@@ -43,8 +43,9 @@ artifact references, and worktree fingerprint. `workflow/state.json` is a
 replaceable view derived from that journal.
 
 Replay validates the plan and the entire digest chain, then applies every event
-through the same reducer used live. It performs no model or external calls.
-Corrupt, reordered, or illegal history fails closed.
+through the same reducer used live and verifies the immutable bytes of every
+referenced session artifact. It performs no model or external calls. Missing,
+rebound, linked, corrupt, reordered, or illegal history fails closed.
 
 ## Workflow Patterns
 
@@ -55,8 +56,11 @@ teams.
   exist and remain current. Replacing upstream evidence transitively invalidates
   dependents.
 - **Parallel:** fan-out is legal only for dependency-independent, non-overlapping
-  scopes. Aggregation rejects missing branches, stale baselines, ownership
-  overlap, conflicts, or absent branch evidence.
+  scopes. Aggregation separately proves the exact content and physical path
+  unions plus portable hardlink alias equivalence. The compiler pins the host
+  snapshot digest, content-manifest digest, and physical topology; every signed
+  receipt binds its baseline and current manifests to the claimed fingerprints.
+  Any main-worktree divergence requires a fresh compilation or chain fallback.
 - **Routing:** `direct`, `plan`, `brainstorm`, and `full` select gates and
   artifacts. They do not select a worker count.
 - **Orchestrator-workers:** approved work may be decomposed into bounded typed
@@ -77,6 +81,12 @@ request binds the active session, workflow, node, worktree fingerprint, allowed
 paths or commands, runtime capability, budget, user authorization, and
 idempotency key.
 
+Authorization reserves the request's full declared cost and duration; the first
+outcome moves that exact charge from reserved to consumed once. Any unresolved
+or indeterminate effect freezes every other workflow transition. Invalidating a
+completed external action preserves its exact successful effect evidence, so
+recovery never repeats the provider operation.
+
 The user authorization is a verified host decision, not a model claim or
 caller-provided identity. The broker binds its decision digest and a fresh
 signed host-interception probe digest into a durable reservation.
@@ -90,18 +100,19 @@ reconciliation and cannot be replayed.
 The trusted host adapter—not the plugin—issues and refreshes the probe for the
 current task and worktree fingerprint. Static hook registration is not runtime
 evidence, and the bundle contains no signer, private key, or self-attestation
-mechanism. The current distribution registers no sandboxed build/test, Git
-commit/push, pull-request, or tracker executor; those requests cannot execute
-without an explicit adapter.
+mechanism. The current distribution includes strict adapter registration,
+reservation, attestation, and reconciliation verification, but no sandbox,
+Git/GitHub/tracker backend, provider credential, signer, or private key. Those
+requests cannot execute without a matching externally provisioned adapter.
 
 Supported request types include workspace writes, process execution, commits,
-pushes, draft pull requests, and tracker comments. No process adapter is
-bundled. Git, builds, tests, interpreters, network access, and mutating commands
-remain denied until a separately versioned, signed sandbox-executor attestation
-and enforcement contract exists; registration alone is insufficient. External
-requests must also come from a matching external-action node. A successful
-outcome is immutable; an identical retry returns the recorded effect, while key
-reuse with different content is denied.
+pushes, draft pull requests, and tracker comments. Native process and Git paths
+remain denied. A signed host adapter may execute only its registered typed
+contract; process sandboxes deny network and provider credentials and protect
+repository control state, so stronger effects cannot tunnel through
+`process.exec`. External requests must also come from the matching
+external-action node. A successful outcome is immutable; an identical retry
+returns the recorded effect, while key reuse with different content is denied.
 
 See the canonical contracts in
 [`skills/phantom/references/policy.md`](../skills/phantom/references/policy.md),
@@ -111,20 +122,21 @@ See the canonical contracts in
 
 ## Host Adapter Status
 
-`node hooks/capability-gate.mjs doctor <workspace>` reports the boundary without
-changing state:
+`node skills/phantom/scripts/phantom-doctor.mjs --workspace <workspace>`
+discovers the canonical active session and reports the boundary without
+changing state. The native hook doctor projects the same readiness contract:
 
 | Surface | Bundled status |
 |---|---|
 | Native workspace executor | Hook contract registered; requires host-loaded hooks and a valid signed probe |
 | Native command executor | None; trusted control-plane invocations only |
-| Sandboxed build/test executor | Denied; signed enforcement contract unavailable |
-| Isolated branch executor | Disabled; no signed isolation attestation is bundled, so parallel writes lower to current-agent/chain |
-| Git commit executor | Not registered |
+| Sandboxed build/test executor | Signed contract verifier bundled; external sandbox, registration, and signer required |
+| Isolated branch executor | Trust/probe/receipt verifier bundled; external OS isolation backend and signer required |
+| Git commit executor | Signed typed contract verifier bundled; external adapter required |
 | Signed probe issuer | External and required; no signer or private key is bundled |
-| Git push executor | Not registered |
-| Draft pull-request executor | Not registered |
-| Tracker-comment executor | Not registered |
+| Git push executor | Signed typed contract verifier bundled; external adapter required |
+| Draft pull-request executor | Signed typed contract verifier bundled; external adapter required |
+| Tracker-comment executor | Signed typed contract verifier bundled; external adapter required |
 
 No-session workspaces are outside the interception boundary. Once a canonical
 active session exists, missing or corrupt compiled plans and journal evidence

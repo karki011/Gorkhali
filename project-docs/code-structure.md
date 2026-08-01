@@ -50,13 +50,17 @@ The control-plane implementation is split by responsibility:
   authorization, scope, budget, freshness, and idempotency.
 - `scripts/lib/authority-decision.mjs` verifies pinned Ed25519 host decisions
   and interception probes.
+- `scripts/phantom-doctor.mjs` stable-reads the canonical active runtime and
+  emits the sanitized version-2 native, signed-host, and isolated readiness
+  report. It bundles verifiers, not execution backends.
 - `scripts/phantom-state.mjs` owns session identity, approvals, evidence, and
   lifecycle gates without advancing workflow nodes.
 - `hooks/capability-gate.mjs` normalizes provider-native workspace writes,
   consumes one exact reservation before an effect, protects the append-only
   control-input channel, and exposes the read-only host-adapter doctor status.
-  Process execution is denied until a versioned signed sandbox enforcement
-  contract exists; adapter registration alone is insufficient.
+  Native process execution remains denied. Externally provisioned process and
+  Git/GitHub/tracker adapters use strict registry trust, short-lived session
+  registration, one-time reservations, and signed result attestations.
 
 ## Mutable State
 
@@ -65,6 +69,7 @@ Mutable state is outside the installed skills:
 ```text
 ${PHANTOM_DATA:-~/.phantom}/
 ├── config/authority-trust.json
+├── config/host-adapter-registry-trust.json
 ├── state/current-session/{repo-id}.json
 ├── state/session-telemetry/{repo-id}.json
 ├── repos/{repo-id}/
@@ -73,12 +78,14 @@ ${PHANTOM_DATA:-~/.phantom}/
 │   │   ├── intent.json
 │   │   ├── capabilities.json
 │   │   ├── capability-probe.json
+│   │   ├── host-adapter-registration.json
 │   │   ├── plan.json
 │   │   ├── workflow/
 │   │   │   ├── plan.json
 │   │   │   ├── events.jsonl
 │   │   │   └── state.json
-│   │   ├── capability/reservations/{pending,consuming,completed}/
+│   │   ├── capability/artifacts/{registry-trust,registrations,attestations,workspace-manifests}/
+│   │   ├── capability/reservations/{pending,consuming,indeterminate,completed}/
 │   │   └── runs/
 │   ├── completed/{task-path-segment}/
 │   └── learnings/

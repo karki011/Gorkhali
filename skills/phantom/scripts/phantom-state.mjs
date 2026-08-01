@@ -26,6 +26,7 @@ import {
   parseArgs,
   readJson,
   sessionPaths,
+  STATE_ENVELOPE_VERSION,
   workspacePath,
 } from './lib/portable.mjs';
 import {
@@ -50,6 +51,16 @@ import {
   defectProofErrors,
   resolveWorkKind,
 } from './lib/defect-proof.mjs';
+import {
+  canonicalLifecycle,
+  emptyDecision,
+  intentErrors,
+  newLifecycle,
+  pointerErrors,
+  sessionErrors,
+  stateEnvelopeErrors,
+  throwStateErrors,
+} from './lib/session-contracts.mjs';
 
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
@@ -79,8 +90,7 @@ const ARTIFACTS = {
 };
 const DECISION_ARTIFACTS = new Set(['brainstorm', 'plan', 'decisions']);
 const MODEL_PROFILES = new Set(['inherit', 'economy', 'balanced', 'deep', 'frontier']);
-const SESSION_STATUSES = new Set(['active', 'paused', 'completed']);
-const WORK_KINDS = new Set(['implementation', 'investigation']);
+const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;
@@ -124,220 +134,6 @@ function durableRename(from, to) {
   renameSync(from, to);
   fsyncDirectory(dirname(from));
   if (dirname(to) !== dirname(from)) fsyncDirectory(dirname(to));
-}
-
-function emptyDecision() {
-  return { status: 'pending', decided_at: null };
-}
-
-function newLifecycle(mode) {
-  return {
-    mode,
-    approvals: {
-      direction: emptyDecision(),
-      plan: emptyDecision(),
-      wiring: emptyDecision(),
-    },
-    authorizations: {
-      implementation: emptyDecision(),
-      'ship-draft-pr': emptyDecision(),
-      'tracker-comment': emptyDecision(),
-    },
-    actions: {
-      execute: emptyDecision(),
-      ship: emptyDecision(),
-    },
-  };
-}
-
-function isTimestamp(value) {
-  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value));
-}
-
-function decisionErrors(value, label, allowedStatuses) {
-  if (!isObject(value)) return [`${label} must be an object`];
-  const errors = [];
-  if (!allowedStatuses.includes(value.status)) {
-    errors.push(`${label}.status must be ${allowedStatuses.join('|')}`);
-  }
-  if (value.status === 'pending') {
-    if (value.decided_at !== null) errors.push(`${label}.decided_at must be null while pending`);
-  } else if (!isTimestamp(value.decided_at)) {
-    errors.push(`${label}.decided_at must be an ISO timestamp after a decision`);
-  }
-  return errors;
-}
-
-function lifecycleErrors(lifecycle) {
-  if (!isObject(lifecycle)) return ['session.lifecycle must be an object'];
-  const errors = [];
-  if (!['standard', 'to-plan'].includes(lifecycle.mode)) {
-    errors.push('session.lifecycle.mode must be standard|to-plan');
-  }
-  for (const [group, decisions] of [
-    ['approvals', {
-      direction: ['pending', 'approved'],
-      plan: ['pending', 'approved'],
-      wiring: ['pending', 'approved'],
-    }],
-    ['authorizations', {
-      implementation: ['pending', 'authorized'],
-      'ship-draft-pr': ['pending', 'authorized'],
-      'tracker-comment': ['pending', 'authorized'],
-    }],
-    ['actions', {
-      execute: ['pending', 'started'],
-      ship: ['pending', 'ready'],
-    }],
-  ]) {
-    if (!isObject(lifecycle[group])) {
-      errors.push(`session.lifecycle.${group} must be an object`);
-      continue;
-    }
-    const expectedNames = new Set(Object.keys(decisions));
-    for (const name of Object.keys(lifecycle[group])) {
-      if (!expectedNames.has(name)) errors.push(`session.lifecycle.${group}.${name} is unsupported`);
-    }
-    for (const [name, statuses] of Object.entries(decisions)) {
-      errors.push(...decisionErrors(
-        lifecycle[group][name],
-        `session.lifecycle.${group}.${name}`,
-        statuses,
-      ));
-    }
-  }
-  return errors;
-}
-
-function authorityTrustErrors(value) {
-  if (value === null) return [];
-  if (!isObject(value)) return ['session.authority_trust must be null or an object'];
-  const errors = [];
-  const fields = new Set(['schema_version', 'key_id', 'source', 'public_key_digest']);
-  if (value.schema_version !== 1) errors.push('session.authority_trust.schema_version must be 1');
-  for (const field of ['key_id', 'source']) {
-    if (typeof value[field] !== 'string' || !value[field].trim()) {
-      errors.push(`session.authority_trust.${field} must be a non-empty string`);
-    }
-  }
-  if (!/^sha256:[a-f0-9]{64}$/.test(value.public_key_digest || '')) {
-    errors.push('session.authority_trust.public_key_digest must be a SHA-256 digest');
-  }
-  for (const field of Object.keys(value)) {
-    if (!fields.has(field)) errors.push(`session.authority_trust.${field} is unsupported`);
-  }
-  return errors;
-}
-
-function authorityHistoryErrors(value) {
-  if (!Array.isArray(value)) return ['session.authority_decisions must be an array'];
-  const errors = [];
-  const replayIds = new Set();
-  const sourceEventIds = new Set();
-  value.forEach((entry, index) => {
-    const label = `session.authority_decisions[${index}]`;
-    if (!isObject(entry)) {
-      errors.push(`${label} must be an object`);
-      return;
-    }
-    for (const field of ['decision_digest', 'actor', 'source', 'source_event_id', 'replay_id', 'key_id']) {
-      if (typeof entry[field] !== 'string' || !entry[field].trim()) errors.push(`${label}.${field} is required`);
-    }
-    if (!/^sha256:[a-f0-9]{64}$/.test(entry.decision_digest || '')) {
-      errors.push(`${label}.decision_digest must be a SHA-256 digest`);
-    }
-    if (replayIds.has(entry.replay_id)) errors.push(`${label}.replay_id is duplicated`);
-    if (sourceEventIds.has(entry.source_event_id)) errors.push(`${label}.source_event_id is duplicated`);
-    replayIds.add(entry.replay_id);
-    sourceEventIds.add(entry.source_event_id);
-  });
-  return errors;
-}
-
-function canonicalLifecycle(lifecycle) {
-  throwStateErrors(lifecycleErrors(lifecycle));
-  return structuredClone(lifecycle);
-}
-
-function envelopeErrors(value, type, paths) {
-  if (!isObject(value)) return [`${type}.json must be an object`];
-  const errors = [];
-  if (value.schema_version !== 1) errors.push(`${type}.json schema_version must be 1`);
-  if (value.artifact_type !== type) errors.push(`${type}.json artifact_type must be ${type}`);
-  if (value.repo_id !== paths.repo.id) errors.push(`${type}.json repo_id must match the workspace`);
-  if (value.task_id !== paths.task) errors.push(`${type}.json task_id must match the pointer`);
-  if (!isTimestamp(value.created_at)) errors.push(`${type}.json created_at must be an ISO timestamp`);
-  if (!isTimestamp(value.updated_at)) errors.push(`${type}.json updated_at must be an ISO timestamp`);
-  if (!isObject(value.producer)) errors.push(`${type}.json producer must be an object`);
-  return errors;
-}
-
-function pointerErrors(pointer, paths) {
-  if (!isObject(pointer)) return ['current-session pointer must be an object'];
-  const errors = [];
-  if (pointer.schema_version !== 1) errors.push('current-session pointer schema_version must be 1');
-  if (pointer.repo_id !== paths.repo.id) errors.push('current-session pointer repo_id must match the workspace');
-  if (pointer.task_id !== paths.task) errors.push('current-session pointer task_id must be canonical');
-  if (pointer.status !== undefined && pointer.status !== 'completed') {
-    errors.push('current-session pointer status must be omitted or completed');
-  }
-  const expectedDirectory = pointer.status === 'completed' ? paths.completedDir : paths.sessionDir;
-  if (pointer.session_dir !== expectedDirectory) {
-    errors.push(`current-session pointer session_dir must be ${expectedDirectory}`);
-  }
-  if (!isTimestamp(pointer.updated_at)) errors.push('current-session pointer updated_at must be an ISO timestamp');
-  return errors;
-}
-
-function sessionErrors(session, paths, pointer) {
-  const errors = envelopeErrors(session, 'session', paths);
-  if (!isObject(session)) return errors;
-  if (session.bundle_version !== BUNDLE_VERSION) {
-    errors.push(`session.json bundle_version must be ${BUNDLE_VERSION}`);
-  }
-  if (session.workspace !== paths.repo.root) errors.push('session.json workspace must match the canonical workspace');
-  if (!SESSION_STATUSES.has(session.status)) errors.push('session.json status must be active|paused|completed');
-  if ((pointer.status === 'completed') !== (session.status === 'completed')) {
-    errors.push('session.json completion status must match the current-session pointer');
-  }
-  if (!ROUTES.has(session.route)) errors.push('session.json route must be direct|plan|brainstorm|full');
-  if (typeof session.intent_summary !== 'string' || !session.intent_summary.trim()) {
-    errors.push('session.json intent_summary must be a non-empty string');
-  }
-  if (!WORK_KINDS.has(session.work_kind)) {
-    errors.push('session.json work_kind must be implementation|investigation');
-  }
-  if (Object.hasOwn(session, 'mode')) errors.push('session.json top-level mode is unsupported; use lifecycle.mode');
-  if (Object.hasOwn(session, 'to_plan')) errors.push('session.json top-level to_plan is unsupported; use lifecycle.mode');
-  errors.push(...lifecycleErrors(session.lifecycle));
-  errors.push(...authorityTrustErrors(session.authority_trust));
-  errors.push(...authorityHistoryErrors(session.authority_decisions));
-  return errors;
-}
-
-function intentErrors(intent, paths, session) {
-  const errors = envelopeErrors(intent, 'intent', paths);
-  if (!isObject(intent)) return errors;
-  if (intent.bundle_version !== BUNDLE_VERSION) {
-    errors.push(`intent.json bundle_version must be ${BUNDLE_VERSION}`);
-  }
-  if (intent.status !== 'active') errors.push('intent.json status must be active');
-  if (typeof intent.summary !== 'string' || !intent.summary.trim()) {
-    errors.push('intent.json summary must be a non-empty string');
-  } else if (intent.summary.trim() !== session.intent_summary.trim()) {
-    errors.push('intent.json summary must match session intent_summary');
-  }
-  if (intent.route !== session.route) errors.push('intent.json route must match session route');
-  if (!WORK_KINDS.has(intent.work_kind)) {
-    errors.push('intent.json work_kind must be implementation|investigation');
-  } else if (intent.work_kind !== session.work_kind) {
-    errors.push('intent.json work_kind must match session work_kind');
-  }
-  return errors;
-}
-
-function throwStateErrors(errors) {
-  if (errors.length) throw new Error(`Noncanonical Phantom state: ${errors.join('; ')}.`);
 }
 
 function granted(decision) {
@@ -807,7 +603,7 @@ function start(workspace, args) {
     work_kind: session.work_kind,
   });
   const pointer = {
-    schema_version: 1,
+    schema_version: STATE_ENVELOPE_VERSION,
     repo_id: paths.repo.id,
     task_id: paths.task,
     session_dir: paths.sessionDir,
@@ -880,11 +676,7 @@ function artifactDigest(artifact) {
 
 function approvalArtifactErrors(type, artifact, current) {
   if (!isObject(artifact)) return [`current passed ${type} artifact is missing`];
-  const errors = [];
-  if (artifact.schema_version !== 1) errors.push(`${type} artifact has an unsupported schema version`);
-  if (artifact.artifact_type !== type) errors.push(`${type} artifact type does not match`);
-  if (artifact.repo_id !== current.paths.repo.id) errors.push(`${type} artifact belongs to another repository`);
-  if (artifact.task_id !== current.paths.task) errors.push(`${type} artifact belongs to another task`);
+  const errors = stateEnvelopeErrors(artifact, type, current.paths);
   if (artifact.status !== 'passed') errors.push(`${type} artifact is not passed`);
   if (!Number.isInteger(artifact.record_sequence) || artifact.record_sequence < 1) {
     errors.push(`${type} artifact has no stable record sequence`);
@@ -920,7 +712,7 @@ function currentApprovalBindings(current, gate, action) {
 function signedApprovalBindings(current, gates, action) {
   return gates.flatMap((gate) => currentApprovalBindings(current, gate, action)
     .map((binding) => ({ gate, ...binding })))
-    .sort((left, right) => canonicalJsonValue(left).localeCompare(canonicalJsonValue(right)));
+    .sort((left, right) => compareText(canonicalJsonValue(left), canonicalJsonValue(right)));
 }
 
 function authorityDecisionInput(args, action) {
@@ -1402,6 +1194,12 @@ function record(workspace, args) {
     : null;
   if (args.type === 'delegation-result' && !delegatedTask) {
     throw new Error('Delegation result requires a task recorded under the same run.');
+  }
+  if (args.type === 'delegation-result') {
+    const envelopeErrors = stateEnvelopeErrors(delegatedTask, 'delegation-task', current.paths);
+    if (envelopeErrors.length) {
+      throw new Error(`Invalid delegation-task state envelope: ${envelopeErrors.join('; ')}`);
+    }
   }
   const delegatedTaskPayload = delegatedTask?.evidence;
   let contractErrors;

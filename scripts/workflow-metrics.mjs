@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Derives conservative quality metrics from the fresh v1 workflow journal only.
+// Derives conservative quality metrics from the fresh v2 workflow journal only.
 
 import { resolve } from 'node:path';
 
@@ -125,7 +125,7 @@ export function summarizeRuns(runs) {
 
   return {
     schema_version: 1,
-    source_contract: 'workflow-event-v1',
+    source_contract: 'workflow-event-v2',
     observed: {
       workflows_attempted: attempted,
       workflows_replayable: replayable.length,
@@ -145,7 +145,7 @@ export function summarizeRuns(runs) {
         ...(durations.length ? {} : { reason: 'no verified workflow has a complete timestamp interval' }),
       },
       cost_per_verified_completion: unavailableMetric(
-        'workflow-event-v1 records evaluator cost units, not complete workflow cost',
+        'workflow-event-v2 records evaluator cost units, not complete workflow cost',
         'not derivable without whole-workflow cost events',
       ),
       human_interventions_per_task: unavailableMetric(

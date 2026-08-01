@@ -16,6 +16,14 @@ Models may recommend graphs, generate artifacts, implement bounded scopes, and e
 
 The compiler rejects unknown node kinds, missing dependencies, cycles, unbounded loops, invalid role assignments, unsafe parallel scopes, and policy-exceeding budgets. The reducer accepts only contract-valid events for the current state. Missing evidence never means success, and an older pass never overrides a newer failure.
 
-Host identity affects adapters and observable capabilities only. It cannot change graph meaning, gates, schemas, acceptance, or terminal states. When an isolated branch executor is unavailable, implementation compiles to current-agent/chain semantics; it never reuses parallel branch events against a shared workspace. Other unavailable optional capabilities record their declared fallback without weakening the contract.
+Host identity affects adapters and observable capabilities only. It cannot
+change graph meaning, gates, schemas, acceptance, or terminal states. Lifecycle
+authority, executor trust, host-adapter registry trust, and adapter leaf keys
+are separate roles; none may self-authorize another. A host-provisioned isolated
+executor is usable only through a current signed probe and receipt broker. When
+it is unavailable, the requested topology must be recompiled as current-agent
+chain semantics; parallel branch events are never reused against a shared
+workspace. Other unavailable capabilities fail closed or record their declared
+fallback without weakening the contract.
 
 Machine-learning recommendations remain advisory. A learned policy may select only among deterministic policy-approved options; low confidence, missing features, distribution shift, or disagreement falls back to recorded rules or human judgment.

@@ -85,7 +85,7 @@ const WORKFLOW_FINGERPRINT = 'sha256:9d77f840b3c4dd65a73bc4f63a0e08698f639ea02f6
 function workflowPlan(route, overrides = {}) {
   const fallbackRoute = { direct: 'plan', plan: 'brainstorm', brainstorm: 'full', full: null }[route];
   return {
-    schema_version: 1,
+    schema_version: 2,
     workflow_id: `eval-${route}`,
     route,
     risk: route === 'full' ? 'critical' : (route === 'direct' ? 'low' : 'moderate'),

@@ -709,7 +709,7 @@ function routeRecommendationPlan(recommendation, c, expectedFingerprint) {
   const route = recommendation.route;
   const fallbackRoute = { direct: 'plan', plan: 'brainstorm', brainstorm: 'full', full: null }[route];
   return {
-    schema_version: 1,
+    schema_version: 2,
     workflow_id: `eval-route-${c.id}`,
     route,
     risk: route === 'full' ? 'critical' : (route === 'direct' ? 'low' : 'moderate'),

@@ -11,27 +11,52 @@ Use a chain when a later node consumes validated artifacts from an earlier node.
 ## Parallel
 
 Use parallel fan-out only after dependency evidence proves scopes independent
-and a trusted host executor supplies signed isolation attestation. Each branch declares its
-baseline fingerprint, isolated workspace identity, allowed paths, digest-bound
-dependency inputs, expected artifacts, verification, retry limit, and budget.
-Aggregation derives the primary integrated snapshot, requires its changed paths
-and contents to equal the branch union, and binds aggregate verification to
-that snapshot. Branch boundaries reject hard-linked regular files, shared
-device/inode identities, every symbolic link, primary-baseline drift, and
-sibling-workspace drift as defense in depth. Snapshots cannot detect a transient
-link that mutates an external inode and is restored before completion, so they
-are never isolation proof. This bundle has no trusted isolated executor or
-attestation verifier: production compilation and advancement of parallel branch
-events therefore fail closed. Compile implementation as current-agent/chain
-work; never simulate parallel branches by writing a shared tree. The parallel
-schema and reducer remain available only to explicit offline contract tests.
+and a trusted host executor supplies a current signed isolation probe. The
+compiler snapshots the host workspace, proves the session fingerprint describes
+that same content, and injects a pinned executor/trust/profile/baseline binding;
+model-authored bindings are rejected. Each branch declares its isolated
+workspace identity, lease, run, allowed paths, dependency inputs, expected
+artifacts, verification, retry limit, and budget.
 
-Filesystem snapshots support at most 20,000 non-control files in this contract
-slice. They do not silently exclude dependency or cache directories such as
-`node_modules`; only repository control metadata is excluded by the snapshot
-contract. A larger checkout fails deterministically with remediation to reduce
-the checkout to 20,000 files or fewer before compiling, authorizing, advancing,
-or replaying a workflow.
+Only `execute-parallel.mjs` may ingest branch-start, branch-completion, retry,
+and integration receipts. It verifies the pinned Ed25519 signer, exact run and
+lease lineage, compact v2 manifests and deltas, full content-addressed
+changed-shard proofs, artifact bytes and schemas, process teardown, and the
+integrated content-plus-physical change evidence. Scope checks use the combined
+path set, while fan-in independently requires the exact authorized content-path
+union and physical-path union. It then compares portable hardlink alias
+equivalence classes, including each alias set and link count, so equal bytes or
+equal per-file link counts cannot substitute a different physical topology.
+Ordinary workflow advancement rejects these events. A retry receives a fresh
+run, lease, and workspace after signed teardown; successful sibling branches
+are retained only while their inputs remain current.
+
+The authoritative main worktree must still equal the compiled parallel
+baseline when the node starts, when any branch starts or retries, and immediately
+before fan-in. An upstream or late authorized mutation, or a later parallel
+stage after an earlier stage advances the tree, fails closed. The host must
+compile a fresh workflow for the new baseline or use current-agent chain work;
+an old branch envelope is never silently rebased. Receipt ingestion independently
+recomputes both live content and portable physical-topology evidence, so
+unjournaled byte or hardlink drift cannot cross the executor boundary.
+
+Filesystem evidence uses 256 deterministic content and physical shards. It
+includes tracked, untracked, and ignored files, excludes only repository control
+state, rejects special and non-portable paths, and has no file-count ceiling.
+An opaque generation cache can skip hashing unchanged bytes but cannot change
+the manifest result; all observed generations are revalidated before evidence
+is published. Raw physical roots expose local inode evidence, while portable
+topology roots commit the same alias memberships without embedding host device
+or inode numbers. Every physical shard and compact shard reference requires a
+portable `topology_digest`; the compact root is recomputed from those digests,
+and full-manifest verification derives them again from raw identity groups.
+There is no optional three-field physical reference or compatibility reader.
+
+The bundle verifies executor trust, probes, receipts, and aggregation but does
+not provide or claim an OS isolation backend or signing key. A host must
+provision that external boundary. Without it, a parallel graph fails before the
+plan or journal is written and the workflow must be compiled as current-agent
+chain work; parallel envelopes are never simulated against a shared tree.
 
 ## Routing
 

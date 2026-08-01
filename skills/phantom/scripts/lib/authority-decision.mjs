@@ -24,6 +24,7 @@ const MAX_CLOCK_SKEW_MS = 5 * 60_000;
 const MAX_SIGNED_EVIDENCE_LIFETIME_MS = 15 * 60_000;
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 const digestBytes = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 export const authorityTrustFile = (workspace) =>
@@ -108,7 +109,8 @@ function requirePinnedTrust(workspace, pinnedTrust, subject) {
 function requireBoundLifetime(subject, issuedAtValue, expiresAtValue, nowMs) {
   const issuedAt = Date.parse(issuedAtValue);
   const expiresAt = Date.parse(expiresAtValue);
-  if (!Number.isFinite(issuedAt)
+  if (!Number.isFinite(nowMs)
+    || !Number.isFinite(issuedAt)
     || !Number.isFinite(expiresAt)
     || new Date(issuedAt).toISOString() !== issuedAtValue
     || new Date(expiresAt).toISOString() !== expiresAtValue) {
@@ -126,14 +128,16 @@ function requireBoundLifetime(subject, issuedAtValue, expiresAtValue, nowMs) {
 
 function requireEd25519Signature(subject, payload, signatureValue, publicKey) {
   const signature = Buffer.from(signatureValue, 'base64');
-  if (signature.length !== 64 || !verifySignature(null, payload, publicKey, signature)) {
+  if (signature.length !== 64
+    || signature.toString('base64') !== signatureValue
+    || !verifySignature(null, payload, publicKey, signature)) {
     throw new Error(`${subject} denied: Ed25519 signature is invalid.`);
   }
 }
 
 const canonicalBindings = (bindings) => [...bindings]
   .map((binding) => structuredClone(binding))
-  .sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)));
+  .sort((left, right) => compareText(canonicalJson(left), canonicalJson(right)));
 
 export function verifyAuthorityDecision({
   workspace,

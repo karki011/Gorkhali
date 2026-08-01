@@ -64,6 +64,7 @@ const PRUNE_TARGET = 60; // count-prune target once over the cap
 const MAX_INDEX_AUTO_LINES = 100; // INDEX.md auto-line hard cap
 const STALE_DAYS = 3; // proposed-capture staleness window
 const MIN_CONFIDENCE = 0.15; // drop proposed entries below this confidence
+const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 
 // Advisory-lock tuning, matching phantom-state.mjs's proven pattern. The wait
 // budget is generous because concurrent learning writes are fast file ops; a
@@ -268,7 +269,7 @@ function pruneEntries(entries) {
   if (pruned.length > MAX_AUTO_ENTRIES) {
     const proposed = pruned.filter((entry) => entry.isProposed);
     const rest = pruned.filter((entry) => !entry.isProposed);
-    proposed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    proposed.sort((left, right) => compareText(left.date || '', right.date || ''));
     const toRemove = Math.min(pruned.length - PRUNE_TARGET, proposed.length);
     pruned = [...rest, ...proposed.slice(toRemove)];
   }
@@ -279,7 +280,7 @@ function capIndexAutoLines(autoLines) {
   if (autoLines.length <= MAX_INDEX_AUTO_LINES) return autoLines;
   const proposed = autoLines.filter((entry) => entry.isProposed);
   const rest = autoLines.filter((entry) => !entry.isProposed);
-  proposed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  proposed.sort((left, right) => compareText(left.date || '', right.date || ''));
   const toRemove = Math.min(autoLines.length - MAX_INDEX_AUTO_LINES, proposed.length);
   return [...rest, ...proposed.slice(toRemove)];
 }

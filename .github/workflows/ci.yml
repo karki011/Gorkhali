@@ -1,8 +1,7 @@
 # Author: Subash Karki
-# First CI workflow for this repo. Deliberately minimal: run the test suite and
-# generated project-metadata drift gate on every PR and on push to main. Plain push /
-# pull_request triggers only - no label/comment triggers, which can make a
-# workflow retrigger itself.
+# Deterministic release gates for tests, generated metadata, portable contracts,
+# evaluation definitions, and tracked source/data syntax. Plain push/pull_request
+# triggers only; no label or comment triggers can retrigger the workflow itself.
 name: CI
 
 on:
@@ -15,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
@@ -29,8 +30,26 @@ jobs:
           PHANTOM_TEST_TAP="$tap" npm run metadata:check
       - name: Verify synchronized release versions
         run: npm run version:check
+      - name: Verify feature version advances beyond the PR base
+        if: github.event_name == 'pull_request'
+        run: node scripts/release-version.js --check --base-ref "origin/${GITHUB_BASE_REF}"
       - name: Validate portable Agent Skill boundary
         run: npm run validate:skill
+      - name: Validate evaluation catalog without model calls
+        run: node scripts/run-evals.js --dry-run
+      - name: Validate tracked source and data syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(git ls-files -z '*.js' '*.mjs' '*.cjs')
+          while IFS= read -r -d '' file; do
+            node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$file"
+          done < <(git ls-files -z '*.json')
+          while IFS= read -r -d '' file; do
+            ruby -e 'require "yaml"; YAML.parse_file(ARGV.fetch(0))' "$file"
+          done < <(git ls-files -z '*.yml' '*.yaml')
       - name: Validate every bundled Agent Skill
         run: |
           python3 -m pip install 'git+https://github.com/agentskills/agentskills.git@38a2ff82958afee88dadf4831509e6f7e9d8ef4e#subdirectory=skills-ref'

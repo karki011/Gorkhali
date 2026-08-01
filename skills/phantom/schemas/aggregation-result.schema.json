@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://phantom.local/schemas/aggregation-result-v1.json",
-  "title": "Phantom parallel aggregation result v1",
+  "$id": "https://phantom.local/schemas/aggregation-result-v2.json",
+  "title": "Phantom parallel aggregation result v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,31 +11,51 @@
     "baseline_fingerprint",
     "worktree_fingerprint",
     "integrated_snapshot_digest",
-    "integrated_files",
+    "integrated_manifest",
+    "integration_delta",
+    "integration_changed_content_shards",
+    "integration_changed_physical_shards",
     "authorized_changed_paths",
     "branches",
     "conflicts",
     "aggregate_verification"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "node_id": { "type": "string", "minLength": 1 },
     "status": { "enum": ["accepted", "rejected", "missing_evidence"] },
     "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
     "worktree_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
     "integrated_snapshot_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "integrated_files": {
+    "integrated_manifest": { "type": "object" },
+    "integration_delta": { "type": "object" },
+    "integration_changed_content_shards": {
       "type": "array",
-      "maxItems": 20000,
+      "maxItems": 256,
+      "uniqueItems": true,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "kind", "mode", "digest"],
+        "required": ["bucket", "before", "after"],
         "properties": {
-          "path": { "type": "string", "minLength": 1 },
-          "kind": { "enum": ["file", "symlink"] },
-          "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
-          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+          "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+          "before": { "type": ["object", "null"] },
+          "after": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "integration_changed_physical_shards": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bucket", "before", "after"],
+        "properties": {
+          "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+          "before": { "type": ["object", "null"] },
+          "after": { "type": ["object", "null"] }
         }
       }
     },
@@ -52,86 +72,75 @@
         "required": [
           "branch_id",
           "status",
+          "run_id",
+          "lease_id",
+          "start_receipt_digest",
+          "completion_receipt_digest",
           "baseline_fingerprint",
           "workspace_identity",
-          "baseline_files",
-          "baseline_physical_files",
-          "current_files",
-          "current_physical_files",
+          "baseline_manifest",
+          "current_manifest",
+          "workspace_delta",
+          "changed_content_shards",
+          "changed_physical_shards",
           "changed_paths",
+          "changed_physical_paths",
           "artifact_refs",
           "artifact_digests",
           "verification",
           "failure_class",
           "cost_units",
-          "duration_ms"
+          "duration_ms",
+          "teardown"
         ],
         "properties": {
           "branch_id": { "type": "string", "minLength": 1 },
           "status": { "enum": ["passed", "failed"] },
+          "run_id": { "type": "string", "minLength": 1 },
+          "lease_id": { "type": "string", "minLength": 1 },
+          "start_receipt_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "completion_receipt_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
           "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
           "workspace_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-          "baseline_files": {
+          "baseline_manifest": { "type": "object" },
+          "current_manifest": { "type": "object" },
+          "workspace_delta": { "type": "object" },
+          "changed_content_shards": {
             "type": "array",
-            "maxItems": 20000,
+            "maxItems": 256,
+            "uniqueItems": true,
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["path", "kind", "mode", "digest"],
+              "required": ["bucket", "before", "after"],
               "properties": {
-                "path": { "type": "string", "minLength": 1 },
-                "kind": { "enum": ["file", "symlink"] },
-                "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
-                "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+                "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+                "before": { "type": ["object", "null"] },
+                "after": { "type": ["object", "null"] }
               }
             }
           },
-          "baseline_physical_files": {
+          "changed_physical_shards": {
             "type": "array",
-            "maxItems": 20000,
+            "maxItems": 256,
+            "uniqueItems": true,
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["path", "dev", "ino", "nlink"],
+              "required": ["bucket", "before", "after"],
               "properties": {
-                "path": { "type": "string", "minLength": 1 },
-                "dev": { "type": "string", "pattern": "^[0-9]+$" },
-                "ino": { "type": "string", "pattern": "^[0-9]+$" },
-                "nlink": { "const": 1 }
-              }
-            }
-          },
-          "current_files": {
-            "type": "array",
-            "maxItems": 20000,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["path", "kind", "mode", "digest"],
-              "properties": {
-                "path": { "type": "string", "minLength": 1 },
-                "kind": { "enum": ["file", "symlink"] },
-                "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
-                "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
-              }
-            }
-          },
-          "current_physical_files": {
-            "type": "array",
-            "maxItems": 20000,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["path", "dev", "ino", "nlink"],
-              "properties": {
-                "path": { "type": "string", "minLength": 1 },
-                "dev": { "type": "string", "pattern": "^[0-9]+$" },
-                "ino": { "type": "string", "pattern": "^[0-9]+$" },
-                "nlink": { "const": 1 }
+                "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+                "before": { "type": ["object", "null"] },
+                "after": { "type": ["object", "null"] }
               }
             }
           },
           "changed_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "changed_physical_paths": {
             "type": "array",
             "uniqueItems": true,
             "items": { "type": "string", "minLength": 1 }
@@ -168,7 +177,25 @@
           },
           "failure_class": { "type": ["string", "null"] },
           "cost_units": { "type": "number", "minimum": 0 },
-          "duration_ms": { "type": "integer", "minimum": 0 }
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "teardown": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool_lease_revoked",
+              "process_tree_reaped",
+              "descendants_remaining",
+              "mounts_removed",
+              "sandbox_destroyed"
+            ],
+            "properties": {
+              "tool_lease_revoked": { "const": true },
+              "process_tree_reaped": { "const": true },
+              "descendants_remaining": { "const": 0 },
+              "mounts_removed": { "const": true },
+              "sandbox_destroyed": { "const": true }
+            }
+          }
         }
       }
     },

@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/capability-reservation-v2.json",
+  "title": "Phantom capability reservation v2",
+  "description": "A fail-closed, nonce-bound capability reservation envelope. Author: Subash Karki.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "decision_digest",
+    "request_digest",
+    "request_id",
+    "workflow_id",
+    "node_id",
+    "capability_type",
+    "idempotency_key",
+    "execution_nonce",
+    "authorized_journal_tail_digest",
+    "workspace_evidence_digest_before",
+    "created_at",
+    "request",
+    "reserved_budget",
+    "hard_enforcement",
+    "reservation_kind",
+    "reservation_digest",
+    "reservation_binding"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "status": {
+      "enum": ["staged", "pending", "consuming", "succeeded", "failed", "indeterminate"]
+    },
+    "decision_digest": { "$ref": "#/$defs/digest" },
+    "request_digest": { "$ref": "#/$defs/digest" },
+    "request_id": { "$ref": "#/$defs/identifier" },
+    "workflow_id": { "$ref": "#/$defs/identifier" },
+    "node_id": { "$ref": "#/$defs/identifier" },
+    "capability_type": {
+      "enum": [
+        "workspace.write",
+        "process.exec",
+        "git.commit",
+        "git.push",
+        "github.openDraftPr",
+        "tracker.comment"
+      ]
+    },
+    "idempotency_key": { "$ref": "#/$defs/identifier" },
+    "execution_nonce": { "$ref": "#/$defs/nonce" },
+    "authorized_journal_tail_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "workspace_evidence_digest_before": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "created_at": { "$ref": "#/$defs/timestamp" },
+    "request": { "$ref": "capability-request.schema.json" },
+    "reserved_budget": { "$ref": "#/$defs/reservedBudget" },
+    "hard_enforcement": {
+      "oneOf": [
+        { "$ref": "#/$defs/nativeHardEnforcement" },
+        { "$ref": "#/$defs/hostHardEnforcement" }
+      ]
+    },
+    "reservation_kind": { "enum": ["native-tool-execution", "host-adapter-execution"] },
+    "reservation_digest": { "$ref": "#/$defs/digest" },
+    "reservation_binding": { "$ref": "#/$defs/immutableBinding" },
+    "consuming_at": { "$ref": "#/$defs/timestamp" },
+    "claim": { "$ref": "#/$defs/nativeClaim" },
+    "ingesting_attestation_digest": { "$ref": "#/$defs/digest" },
+    "ingesting_recorded_at": { "$ref": "#/$defs/timestamp" },
+    "ingesting_from": { "enum": ["pending", "indeterminate"] },
+    "ingesting_execution_evidence": { "$ref": "#/$defs/artifactBinding" },
+    "attestations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/attestationEvidence" }
+    },
+    "indeterminate_attestation_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "completed_at": { "$ref": "#/$defs/timestamp" },
+    "outcome_digest": { "$ref": "#/$defs/digest" },
+    "external_reference": { "type": ["string", "null"], "minLength": 1, "maxLength": 2048 },
+    "error": { "type": ["string", "null"], "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "reservedBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cost_units", "duration_ms"],
+      "properties": {
+        "cost_units": { "type": "number", "minimum": 0.000001 },
+        "duration_ms": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifactReference": {
+      "type": "string",
+      "pattern": "^capability/artifacts/[a-z-]+/[a-f0-9]{64}\\.json$"
+    },
+    "artifactBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "artifact_ref"],
+      "properties": {
+        "digest": { "$ref": "#/$defs/digest" },
+        "artifact_ref": { "$ref": "#/$defs/artifactReference" }
+      }
+    },
+    "nativeHardEnforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_binding",
+        "authority_decision_digest",
+        "binding_digest",
+        "body_digest",
+        "command",
+        "current_branch",
+        "cwd",
+        "head_sha",
+        "interception_probe_digest",
+        "paths",
+        "protected_branches",
+        "tree_digest",
+        "worktree_fingerprint"
+      ],
+      "properties": {
+        "adapter_binding": { "const": "native-tool-gate-v1" },
+        "authority_decision_digest": { "$ref": "#/$defs/digest" },
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "body_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+        "command": { "type": ["array", "null"], "items": { "type": "string" } },
+        "current_branch": { "type": ["string", "null"] },
+        "cwd": { "type": ["string", "null"] },
+        "head_sha": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+        "interception_probe_digest": { "$ref": "#/$defs/digest" },
+        "paths": { "type": ["array", "null"], "items": { "type": "string" } },
+        "protected_branches": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "tree_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+        "worktree_fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "hostHardEnforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_binding",
+        "authority_decision_digest",
+        "binding_digest",
+        "body_digest",
+        "command",
+        "current_branch",
+        "cwd",
+        "head_sha",
+        "interception_probe_digest",
+        "paths",
+        "policy_digest",
+        "protected_branches",
+        "registration_digest",
+        "registry_trust_digest",
+        "tree_digest",
+        "worktree_fingerprint"
+      ],
+      "properties": {
+        "adapter_binding": { "const": "signed-host-adapter-v1" },
+        "authority_decision_digest": { "$ref": "#/$defs/digest" },
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "body_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+        "command": { "type": ["array", "null"], "items": { "type": "string" } },
+        "current_branch": { "type": ["string", "null"] },
+        "cwd": { "type": ["string", "null"] },
+        "head_sha": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+        "interception_probe_digest": { "type": "null" },
+        "paths": { "type": ["array", "null"], "items": { "type": "string" } },
+        "policy_digest": { "$ref": "#/$defs/digest" },
+        "protected_branches": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "registration_digest": { "$ref": "#/$defs/digest" },
+        "registry_trust_digest": { "$ref": "#/$defs/digest" },
+        "tree_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+        "worktree_fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "hostAdapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry_trust", "registration", "policy", "baseline_snapshot", "adapter"],
+      "properties": {
+        "registry_trust": { "$ref": "#/$defs/artifactBinding" },
+        "registration": { "$ref": "#/$defs/artifactBinding" },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["digest", "value"],
+          "properties": {
+            "digest": { "$ref": "#/$defs/digest" },
+            "value": { "type": "object" }
+          }
+        },
+        "baseline_snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["digest", "evidence", "artifact_ref"],
+          "properties": {
+            "digest": { "$ref": "#/$defs/digest" },
+            "evidence": { "$ref": "workspace-manifest.schema.json" },
+            "artifact_ref": { "$ref": "#/$defs/artifactReference" }
+          }
+        },
+        "adapter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["adapter_id", "adapter_version", "host_instance_id", "attestation_key_id"],
+          "properties": {
+            "adapter_id": { "$ref": "#/$defs/identifier" },
+            "adapter_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "host_instance_id": { "$ref": "#/$defs/identifier" },
+            "attestation_key_id": { "$ref": "#/$defs/identifier" }
+          }
+        }
+      }
+    },
+    "immutableBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "reservation_kind",
+        "decision_digest",
+        "request_digest",
+        "request_id",
+        "workflow_id",
+        "node_id",
+        "capability_type",
+        "idempotency_key",
+        "execution_nonce",
+        "authorized_journal_tail_digest",
+        "workspace_evidence_digest_before",
+        "created_at",
+        "request",
+        "reserved_budget",
+        "hard_enforcement",
+        "host_adapter"
+      ],
+      "properties": {
+        "schema_version": { "const": 2 },
+        "reservation_kind": { "enum": ["native-tool-execution", "host-adapter-execution"] },
+        "decision_digest": { "$ref": "#/$defs/digest" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "request_id": { "$ref": "#/$defs/identifier" },
+        "workflow_id": { "$ref": "#/$defs/identifier" },
+        "node_id": { "$ref": "#/$defs/identifier" },
+        "capability_type": {
+          "enum": [
+            "workspace.write",
+            "process.exec",
+            "git.commit",
+            "git.push",
+            "github.openDraftPr",
+            "tracker.comment"
+          ]
+        },
+        "idempotency_key": { "$ref": "#/$defs/identifier" },
+        "execution_nonce": { "$ref": "#/$defs/nonce" },
+        "authorized_journal_tail_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "workspace_evidence_digest_before": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "request": { "$ref": "capability-request.schema.json" },
+        "reserved_budget": { "$ref": "#/$defs/reservedBudget" },
+        "hard_enforcement": {
+          "oneOf": [
+            { "$ref": "#/$defs/nativeHardEnforcement" },
+            { "$ref": "#/$defs/hostHardEnforcement" }
+          ]
+        },
+        "host_adapter": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/hostAdapter" }
+          ]
+        }
+      }
+    },
+    "nativeClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "tool_name",
+        "effect_digest",
+        "tool_call_id",
+        "host_session_id",
+        "write_preflight"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "tool_name": { "type": "string", "minLength": 1 },
+        "effect_digest": { "$ref": "#/$defs/digest" },
+        "tool_call_id": { "type": ["string", "null"] },
+        "host_session_id": { "type": ["string", "null"] },
+        "write_preflight": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nativeWritePreflightRecord" }
+        }
+      }
+    },
+    "nativeWritePreflightRecord": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "materialized"],
+          "properties": {
+            "path": { "$ref": "capability-request.schema.json#/$defs/portablePath" },
+            "materialized": { "const": false }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "materialized", "dev", "ino", "generation"],
+          "properties": {
+            "path": { "$ref": "capability-request.schema.json#/$defs/portablePath" },
+            "materialized": { "const": true },
+            "dev": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "ino": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "generation": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        }
+      ]
+    },
+    "attestationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "artifact_ref",
+        "recorded_at",
+        "status",
+        "workspace_after",
+        "execution_evidence"
+      ],
+      "properties": {
+        "digest": { "$ref": "#/$defs/digest" },
+        "artifact_ref": { "$ref": "#/$defs/artifactReference" },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "status": { "enum": ["succeeded", "failed", "indeterminate"] },
+        "workspace_after": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["digest", "artifact_ref", "evidence"],
+          "properties": {
+            "digest": { "$ref": "#/$defs/digest" },
+            "artifact_ref": { "$ref": "#/$defs/artifactReference" },
+            "evidence": { "$ref": "workspace-manifest.schema.json" }
+          }
+        },
+        "execution_evidence": { "$ref": "#/$defs/artifactBinding" }
+      }
+    }
+  }
+}

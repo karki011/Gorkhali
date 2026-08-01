@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// Fresh v1 contracts for Phantom's deterministic workflow control plane.
+// Fresh v2 contracts for Phantom's deterministic workflow control plane.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -15,6 +15,9 @@ export const workflowEventSchema = loadSchema('workflow-event.schema.json');
 export const aggregationResultSchema = loadSchema('aggregation-result.schema.json');
 export const evaluationResultSchema = loadSchema('evaluation-result.schema.json');
 
+export const WORKFLOW_PLAN_SCHEMA_VERSION = workflowPlanSchema.properties.schema_version.const;
+export const WORKFLOW_EVENT_SCHEMA_VERSION = workflowEventSchema.properties.schema_version.const;
+export const AGGREGATION_RESULT_SCHEMA_VERSION = aggregationResultSchema.properties.schema_version.const;
 export const WORKFLOW_EVENT_TYPES = Object.freeze(workflowEventSchema.properties.event_type.enum);
 export const EVALUATION_TERMINAL_STATES = Object.freeze([
   'accepted',
@@ -155,6 +158,13 @@ const exactObjectKeys = (value, required, path) => {
   return errors;
 };
 
+const unsupportedContractVersion = (value, expected, label) => {
+  if (!isObject(value) || !Object.hasOwn(value, 'schema_version') || value.schema_version === expected) return [];
+  return [
+    `$.schema_version: unsupported ${label} contract version ${JSON.stringify(value.schema_version)}; expected ${expected}`,
+  ];
+};
+
 const validateNodeContract = (node, index, plan) => {
   const errors = [];
   const path = `$.nodes[${index}]`;
@@ -193,8 +203,8 @@ const validateNodeContract = (node, index, plan) => {
     if (!node.expected_artifacts?.length) errors.push(`${path}.expected_artifacts: required for task`);
     if (!node.acceptance_criteria?.length) errors.push(`${path}.acceptance_criteria: required for task`);
   } else if (node.kind === 'parallel') {
-    if (node.output_schema !== 'aggregation-result-v1') {
-      errors.push(`${path}.output_schema: parallel nodes require aggregation-result-v1`);
+    if (node.output_schema !== 'aggregation-result-v2') {
+      errors.push(`${path}.output_schema: parallel nodes require aggregation-result-v2`);
     }
     if (node.dependency_evidence !== 'complete') {
       errors.push(`${path}.dependency_evidence: parallel execution requires complete dependency evidence`);
@@ -268,6 +278,8 @@ const validateNodeContract = (node, index, plan) => {
 };
 
 export function validateWorkflowPlan(value) {
+  const versionErrors = unsupportedContractVersion(value, WORKFLOW_PLAN_SCHEMA_VERSION, 'workflow plan');
+  if (versionErrors.length) return versionErrors;
   const errors = validateSchema(workflowPlanSchema, value);
   if (!isObject(value) || !Array.isArray(value.nodes)) return errors;
   errors.push(...uniqueFieldErrors(value.nodes, 'id', '$.nodes'));
@@ -310,6 +322,8 @@ export function validateWorkflowPlan(value) {
 }
 
 export function validateWorkflowEvent(value) {
+  const versionErrors = unsupportedContractVersion(value, WORKFLOW_EVENT_SCHEMA_VERSION, 'workflow event');
+  if (versionErrors.length) return versionErrors;
   const errors = validateSchema(workflowEventSchema, value);
   if (!isObject(value)) return errors;
   const workflowEvents = new Set(['workflow.started', 'worktree.changed']);
@@ -344,7 +358,7 @@ const requireExactFields = (payload, required, path) => {
 export function validateCapabilityDecisionPayload(payload) {
   const required = [
     'schema_version', 'request_id', 'idempotency_key', 'capability_type', 'request_digest',
-    'decision', 'decision_digest', 'reason',
+    'decision', 'decision_digest', 'reason', 'reserved_budget',
   ];
   const errors = requireExactFields(payload, required, '$.payload');
   if (!isObject(payload)) return errors;
@@ -358,26 +372,67 @@ export function validateCapabilityDecisionPayload(payload) {
   if (!['authorized', 'denied', 'duplicate'].includes(payload.decision)) {
     errors.push('$.payload.decision: must be authorized, denied, or duplicate');
   }
+  if (payload.decision === 'authorized') {
+    errors.push(...validateCapabilityBudget(payload.reserved_budget, '$.payload.reserved_budget'));
+  } else if (payload.reserved_budget !== null) {
+    errors.push('$.payload.reserved_budget: denied or duplicate decisions require null');
+  }
   return errors;
 }
 
+const validateCapabilityBudget = (value, path) => {
+  const errors = [];
+  if (!isObject(value)) return [`${path}: required object`];
+  const fields = Object.keys(value).sort();
+  if (canonicalJson(fields) !== canonicalJson(['cost_units', 'duration_ms'])) {
+    errors.push(`${path}: must contain exactly cost_units and duration_ms`);
+  }
+  if (typeof value.cost_units !== 'number'
+    || !Number.isFinite(value.cost_units)
+    || value.cost_units < 0.000001) {
+    errors.push(`${path}.cost_units: required positive finite number`);
+  }
+  if (!Number.isInteger(value.duration_ms) || value.duration_ms < 1) {
+    errors.push(`${path}.duration_ms: required positive integer`);
+  }
+  return errors;
+};
+
 export function validateCapabilityOutcomePayload(payload) {
-  const required = [
-    'schema_version', 'request_id', 'idempotency_key', 'capability_type', 'request_digest',
-    'decision_digest', 'status', 'outcome_digest', 'external_reference', 'error',
+  const commonFields = [
+    'schema_version', 'outcome_kind', 'request_id', 'idempotency_key', 'capability_type',
+    'request_digest', 'decision_digest', 'reservation_digest', 'execution_nonce', 'status',
+    'outcome_digest', 'external_reference', 'error', 'recorded_at', 'budget_charge',
   ];
+  const hostFields = [
+    'registry_trust_digest', 'registration_digest', 'policy_digest', 'attestation_digest',
+    'result_digest', 'reconciliation_of',
+  ];
+  const hostAttested = payload?.outcome_kind === 'signed-host-adapter-execution';
+  const required = hostAttested ? [...commonFields, ...hostFields] : commonFields;
   const errors = requireExactFields(payload, required, '$.payload');
   if (!isObject(payload)) return errors;
-  if (payload.schema_version !== 1) errors.push('$.payload.schema_version: must equal 1');
+  if (payload.schema_version !== 2) errors.push('$.payload.schema_version: must equal 2');
+  if (!['native-tool-execution', 'signed-host-adapter-execution'].includes(payload.outcome_kind)) {
+    errors.push('$.payload.outcome_kind: must identify native-tool-execution or signed-host-adapter-execution');
+  }
   for (const field of ['request_id', 'idempotency_key', 'capability_type']) {
     if (typeof payload[field] !== 'string' || payload[field].length === 0) errors.push(`$.payload.${field}: required string`);
   }
-  for (const field of ['request_digest', 'decision_digest', 'outcome_digest']) {
+  for (const field of ['request_digest', 'decision_digest', 'reservation_digest', 'outcome_digest']) {
     if (!digestPattern.test(payload[field] || '')) errors.push(`$.payload.${field}: required sha256 digest`);
   }
-  if (!['succeeded', 'failed', 'deduplicated'].includes(payload.status)) {
-    errors.push('$.payload.status: must be succeeded, failed, or deduplicated');
+  const nonce = typeof payload.execution_nonce === 'string'
+    ? Buffer.from(payload.execution_nonce, 'base64url')
+    : Buffer.alloc(0);
+  if (nonce.length !== 32 || nonce.toString('base64url') !== payload.execution_nonce) {
+    errors.push('$.payload.execution_nonce: must be canonical 32-byte base64url');
   }
+  const statuses = hostAttested ? ['succeeded', 'failed', 'indeterminate'] : ['succeeded', 'failed'];
+  if (!statuses.includes(payload.status)) {
+    errors.push(`$.payload.status: must be ${statuses.join(', ')}`);
+  }
+  errors.push(...validateCapabilityBudget(payload.budget_charge, '$.payload.budget_charge'));
   if (payload.external_reference !== null && (typeof payload.external_reference !== 'string'
     || payload.external_reference.length === 0)) {
     errors.push('$.payload.external_reference: must be null or non-empty string');
@@ -385,12 +440,45 @@ export function validateCapabilityOutcomePayload(payload) {
   if (payload.error !== null && (typeof payload.error !== 'string' || payload.error.length === 0)) {
     errors.push('$.payload.error: must be null or non-empty string');
   }
-  if (payload.status === 'failed' && payload.error === null) errors.push('$.payload.error: failed outcome requires an error');
-  if (payload.status !== 'failed' && payload.error !== null) errors.push('$.payload.error: non-failed outcome requires null');
+  if (['failed', 'indeterminate'].includes(payload.status) && payload.error === null) {
+    errors.push(`$.payload.error: ${payload.status} outcome requires an error`);
+  }
+  if (!['failed', 'indeterminate'].includes(payload.status) && payload.error !== null) {
+    errors.push('$.payload.error: successful outcome requires null');
+  }
+  if (payload.status === 'indeterminate' && payload.external_reference !== null) {
+    errors.push('$.payload.external_reference: indeterminate outcome requires null');
+  }
+  const recordedAt = Date.parse(payload.recorded_at);
+  if (typeof payload.recorded_at !== 'string' || !Number.isFinite(recordedAt)
+    || new Date(recordedAt).toISOString() !== payload.recorded_at) {
+    errors.push('$.payload.recorded_at: required canonical millisecond-Z timestamp');
+  }
+  if (hostAttested) {
+    for (const field of hostFields.filter((field) => field !== 'reconciliation_of')) {
+      if (!digestPattern.test(payload[field] || '')) errors.push(`$.payload.${field}: required sha256 digest`);
+    }
+    if (payload.reconciliation_of !== null && !digestPattern.test(payload.reconciliation_of || '')) {
+      errors.push('$.payload.reconciliation_of: must be null or a sha256 digest');
+    }
+    if (payload.status === 'indeterminate' && payload.reconciliation_of !== null) {
+      errors.push('$.payload.reconciliation_of: indeterminate outcome cannot reconcile another attestation');
+    }
+  }
+  const { outcome_digest: outcomeDigest, ...unsigned } = payload;
+  if (digestPattern.test(outcomeDigest || '') && outcomeDigest !== digestValue(unsigned)) {
+    errors.push('$.payload.outcome_digest: does not match the exact payload');
+  }
   return errors;
 }
 
 export function validateAggregationResult(value) {
+  const versionErrors = unsupportedContractVersion(
+    value,
+    AGGREGATION_RESULT_SCHEMA_VERSION,
+    'aggregation result',
+  );
+  if (versionErrors.length) return versionErrors;
   const errors = validateSchema(aggregationResultSchema, value);
   if (!isObject(value) || !Array.isArray(value.branches)) return errors;
   errors.push(...uniqueFieldErrors(value.branches, 'branch_id', '$.branches'));

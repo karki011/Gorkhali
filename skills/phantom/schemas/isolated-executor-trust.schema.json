@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/isolated-executor-trust-v1.json",
+  "title": "Phantom isolated executor trust root v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trust_kind",
+    "generation",
+    "key_id",
+    "source",
+    "public_key",
+    "activated_at",
+    "expires_at",
+    "replaces_key_id"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "trust_kind": { "const": "isolated-executor-trust" },
+    "generation": { "type": "integer", "minimum": 1 },
+    "key_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "source": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,191}$" },
+    "public_key": { "type": "string", "minLength": 1 },
+    "activated_at": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": "string", "minLength": 1 },
+    "replaces_key_id": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    }
+  }
+}

@@ -16,6 +16,7 @@ const HOOK = path.join(ROOT, 'hooks/capability-gate.mjs');
 const ADVANCE = path.join(ROOT, 'skills/phantom/scripts/advance-workflow.mjs');
 const AUTHORIZE = path.join(ROOT, 'skills/phantom/scripts/authorize-capability.mjs');
 const COMPILE = path.join(ROOT, 'skills/phantom/scripts/compile-workflow.mjs');
+const EXECUTE_PARALLEL = path.join(ROOT, 'skills/phantom/scripts/execute-parallel.mjs');
 const REPLAY = path.join(ROOT, 'skills/phantom/scripts/replay-workflow.mjs');
 const VALIDATE = path.join(ROOT, 'skills/phantom/scripts/validate-workflow.mjs');
 
@@ -23,7 +24,6 @@ let advanceWorkflowFile;
 let assertTrustedHostInterception;
 let capabilityRequestDigest;
 let compileWorkflowFile;
-let hostAdapterStatus;
 let nativeEffectEvidence;
 let normalizeToolEvent;
 let postToolUse;
@@ -54,7 +54,7 @@ before(async () => {
     path.join(ROOT, 'skills/phantom/scripts/authorize-capability.mjs'),
   ).href));
   ({ assertTrustedHostInterception, worktreeFingerprint } = await import(pathToFileURL(STATE).href));
-  ({ hostAdapterStatus, nativeEffectEvidence, normalizeToolEvent, postToolUse, preToolUse } = await import(
+  ({ nativeEffectEvidence, normalizeToolEvent, postToolUse, preToolUse } = await import(
     pathToFileURL(HOOK).href
   ));
 });
@@ -180,7 +180,7 @@ function writeInterceptionProbe(context, {
 
 function workflowPlan() {
   return {
-    schema_version: 1,
+    schema_version: 2,
     workflow_id: 'wf-capability-hook',
     route: 'direct',
     risk: 'low',
@@ -305,8 +305,6 @@ test('effectful hooks allow no session and fail closed for active missing or cor
     for (const handler of [preToolUse, postToolUse]) {
       assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
     }
-    assert.equal(hostAdapterStatus(context.workspace).session.state, 'absent');
-
     runState([
       'start', '--workspace', context.workspace, '--task', context.task,
       '--intent', 'Keep active sessions fail closed', '--route', 'direct',
@@ -314,8 +312,6 @@ test('effectful hooks allow no session and fail closed for active missing or cor
     for (const handler of [preToolUse, postToolUse]) {
       assert.throws(() => handler(event), /compiled workflow plan is missing/);
     }
-    assert.equal(hostAdapterStatus(context.workspace).session.workflow, 'blocked');
-
     const paths = sessionPaths(context.workspace, context.task);
     writeJson(workflowPaths(paths.sessionDir).planFile, { corrupt: true });
     for (const handler of [preToolUse, postToolUse]) {
@@ -324,6 +320,106 @@ test('effectful hooks allow no session and fail closed for active missing or cor
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
     else process.env.PHANTOM_DATA = previousData;
+    fs.rmSync(context.root, { recursive: true, force: true });
+  }
+});
+
+test('governed capability policy is invariant to a mutable hook cwd', () => {
+  const context = hookFixture();
+  const previousData = process.env.PHANTOM_DATA;
+  const previousProject = process.env.CLAUDE_PROJECT_DIR;
+  process.env.PHANTOM_DATA = context.data;
+  delete process.env.CLAUDE_PROJECT_DIR;
+  const sibling = path.join(context.root, 'sibling');
+  const outsideTarget = path.join(sibling, 'outside.txt');
+  const workspaceAlias = path.join(sibling, 'workspace-alias');
+  fs.mkdirSync(sibling);
+  fs.writeFileSync(outsideTarget, 'outside sentinel\n');
+  fs.symlinkSync(context.workspace, workspaceAlias, 'dir');
+  const governedTarget = path.join(context.workspace, 'app.js');
+  const outsideWrite = {
+    tool_name: 'Write', cwd: sibling,
+    tool_input: { file_path: outsideTarget, content: 'outside update\n' },
+  };
+  const outsideExec = {
+    tool_name: 'Bash', cwd: sibling, project_dir: sibling,
+    tool_input: { command: 'pwd', workdir: sibling },
+  };
+  try {
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.deepEqual(handler(outsideWrite), { allowed: true, reason: 'no_active_session' });
+      assert.deepEqual(handler(outsideExec), { allowed: true, reason: 'no_active_session' });
+    }
+
+    runState([
+      'start', '--workspace', context.workspace, '--task', context.task,
+      '--intent', 'Bind native effects independently of mutable cwd', '--route', 'direct',
+    ], context.env);
+
+    const writeFrom = (cwd, target = governedTarget) => ({
+      tool_name: 'Write',
+      cwd,
+      tool_input: { file_path: target, content: 'forged\n' },
+    });
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.throws(() => handler(writeFrom(context.workspace)), /compiled workflow plan is missing/);
+      assert.throws(() => handler(writeFrom(sibling)), /compiled workflow plan is missing/);
+      assert.throws(
+        () => handler(writeFrom(sibling, path.join(workspaceAlias, 'new-file.js'))),
+        /compiled workflow plan is missing/,
+      );
+    }
+
+    for (const event of [
+      {
+        tool_name: 'Bash', cwd: sibling,
+        tool_input: { command: 'node --test', workdir: context.workspace },
+      },
+      {
+        tool_name: 'Bash', cwd: sibling, project_dir: context.workspace,
+        tool_input: { command: 'node --test', workdir: sibling },
+      },
+    ]) {
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.throws(() => handler(event), /compiled workflow plan is missing/);
+      }
+    }
+
+    process.env.CLAUDE_PROJECT_DIR = context.workspace;
+    try {
+      const conflictingProjectEvent = {
+        tool_name: 'Bash', cwd: sibling, project_dir: sibling,
+        tool_input: { command: 'node --test', workdir: sibling },
+      };
+      assert.equal(normalizeToolEvent(conflictingProjectEvent).workspace, context.workspace);
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.throws(() => handler(conflictingProjectEvent), /compiled workflow plan is missing/);
+      }
+    } finally {
+      delete process.env.CLAUDE_PROJECT_DIR;
+    }
+
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.deepEqual(handler(outsideWrite), { allowed: true, reason: 'no_active_session' });
+      assert.throws(
+        () => handler(outsideExec),
+        /cannot prove its target is outside active governed Phantom workspaces/,
+      );
+      assert.throws(
+        () => handler({
+          tool_name: 'Bash', cwd: sibling,
+          tool_input: { command: `node ${governedTarget}` },
+        }),
+        /cannot prove its target is outside active governed Phantom workspaces/,
+      );
+    }
+    assert.equal(fs.readFileSync(governedTarget, 'utf8'), 'export const value = 1;\n');
+    assert.equal(fs.readFileSync(outsideTarget, 'utf8'), 'outside sentinel\n');
+  } finally {
+    if (previousData === undefined) delete process.env.PHANTOM_DATA;
+    else process.env.PHANTOM_DATA = previousData;
+    if (previousProject === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = previousProject;
     fs.rmSync(context.root, { recursive: true, force: true });
   }
 });
@@ -393,6 +489,47 @@ test('native Write staging and exact literal-node control commands complete a bo
       '--workspace', context.workspace, '--task', context.task, '--input', planFile,
     ]);
     assert.equal(compiled.plan.workflow_id, 'wf-capability-hook');
+    const signedReceipt = stage('parallel-receipt.json', { signed: 'host-verifies-content' });
+    const parallelCommand = [
+      'node', EXECUTE_PARALLEL,
+      '--workspace', context.workspace,
+      '--task', context.task,
+      '--receipt', signedReceipt,
+    ].map(quote).join(' ');
+    const parallelEvent = {
+      tool_name: 'Bash', cwd: context.workspace, tool_input: { command: parallelCommand },
+    };
+    assert.equal(preToolUse(parallelEvent).reason, 'phantom_control_plane');
+    assert.equal(postToolUse(parallelEvent).reason, 'phantom_control_plane');
+    assert.throws(() => preToolUse({
+      tool_name: 'Bash', cwd: context.workspace,
+      tool_input: { command: `${parallelCommand} --offline-test true` },
+    }), /signed sandbox enforcement contract/);
+    const outsideReceipt = path.join(context.root, 'outside-receipt.json');
+    writeJson(outsideReceipt, { signed: 'outside-session' });
+    assert.throws(() => preToolUse({
+      tool_name: 'Bash', cwd: context.workspace,
+      tool_input: {
+        command: [
+          'node', EXECUTE_PARALLEL,
+          '--workspace', context.workspace,
+          '--task', context.task,
+          '--receipt', outsideReceipt,
+        ].map(quote).join(' '),
+      },
+    }), /signed sandbox enforcement contract/);
+    const signedAttestation = stage('capability-attestation.json', { signed: 'adapter-result' });
+    const attestationCommand = [
+      'node', AUTHORIZE, 'attest',
+      '--workspace', context.workspace,
+      '--task', context.task,
+      '--input', signedAttestation,
+    ].map(quote).join(' ');
+    const attestationEvent = {
+      tool_name: 'Bash', cwd: context.workspace, tool_input: { command: attestationCommand },
+    };
+    assert.equal(preToolUse(attestationEvent).reason, 'phantom_control_plane');
+    assert.equal(postToolUse(attestationEvent).reason, 'phantom_control_plane');
     fs.writeFileSync(workflowPaths(paths.sessionDir).journalFile, '{corrupt journal}\n');
     const corruptCompletion = spawnSync(process.execPath, [STATE, 'complete', '--workspace', context.workspace], {
       encoding: 'utf8', env: { ...process.env, ...context.env },
@@ -546,6 +683,7 @@ test('native Write staging and exact literal-node control commands complete a bo
       workflow_id: compiled.plan.workflow_id,
       node_id: 'implement',
       worktreeFingerprint: fingerprint,
+      budget: { maxCostUnits: 1, maxDurationMs: 4_000 },
       type: 'workspace.write',
       paths: ['app.js'],
       patchDigest: sha256('export const value = 2;\n'),
@@ -557,6 +695,20 @@ test('native Write staging and exact literal-node control commands complete a bo
     assert.equal(decision.status, 'authorized');
     const replay = control(REPLAY, ['--workspace', context.workspace, '--task', context.task]);
     assert.equal(replay.state.nodes.implement.status, 'running');
+    const writeContent = 'export const value = 2;\n';
+    const writeEvent = {
+      tool_name: 'Write',
+      tool_use_id: 'bootstrap-tool-call',
+      session_id: 'bootstrap-host-session',
+      cwd: context.workspace,
+      tool_input: {
+        file_path: path.join(context.workspace, 'app.js'),
+        content: writeContent,
+      },
+    };
+    preToolUse(writeEvent);
+    fs.writeFileSync(path.join(context.workspace, 'app.js'), writeContent);
+    postToolUse({ ...writeEvent, tool_response: { success: true } });
     for (const action of ['ship', 'complete']) {
       const args = [action, '--workspace', context.workspace];
       const command = ['node', STATE, ...args].map(quote).join(' ');
@@ -724,6 +876,7 @@ test('native hook claims one signed reservation, records its outcome, and blocks
       workflow_id: compiled.plan.workflow_id,
       node_id: 'implement',
       worktreeFingerprint: fingerprint,
+      budget: { maxCostUnits: 1, maxDurationMs: 5_000 },
       type: 'workspace.write',
       paths: ['app.js'],
       patchDigest: sha256(content),
@@ -735,6 +888,10 @@ test('native hook claims one signed reservation, records its outcome, and blocks
     ]);
     assert.equal(decision.status, 'authorized');
     assert.match(capabilityRequestDigest(request), /^sha256:/);
+    const reservations = path.join(paths.sessionDir, 'capability', 'reservations');
+    const pendingName = fs.readdirSync(path.join(reservations, 'pending'))[0];
+    const pendingFile = path.join(reservations, 'pending', pendingName);
+    const pendingBytes = fs.readFileSync(pendingFile);
 
     const event = {
       tool_name: 'Write',
@@ -745,6 +902,14 @@ test('native hook claims one signed reservation, records its outcome, and blocks
     };
     const claimed = preToolUse(event);
     assert.equal(claimed.decision_digest, decision.decision_digest);
+    fs.writeFileSync(pendingFile, pendingBytes, { flag: 'wx', mode: 0o600 });
+    assert.throws(() => preToolUse(event), /already consuming and requires reconciliation/);
+    assert.deepEqual(fs.readdirSync(path.join(reservations, 'pending')), []);
+    const consumingFile = path.join(reservations, 'consuming', pendingName);
+    assert.equal(fs.statSync(consumingFile).nlink, 1);
+    const beforeOutcome = fs.readFileSync(workflowPaths(paths.sessionDir).journalFile, 'utf8')
+      .trim().split('\n').map(JSON.parse);
+    assert.equal(beforeOutcome.at(-1).event_type, 'capability.decision');
     assert.throws(() => preToolUse(event), /consuming without an outcome/);
 
     fs.writeFileSync(path.join(context.workspace, 'app.js'), content);
@@ -755,7 +920,6 @@ test('native hook claims one signed reservation, records its outcome, and blocks
     writeInterceptionProbe(context, { fingerprint: replayFingerprint });
     assert.throws(() => preToolUse(event), /already consumed/);
 
-    const reservations = path.join(paths.sessionDir, 'capability', 'reservations');
     assert.deepEqual(fs.readdirSync(path.join(reservations, 'pending')), []);
     assert.deepEqual(fs.readdirSync(path.join(reservations, 'consuming')), []);
     assert.equal(fs.readdirSync(path.join(reservations, 'completed')).length, 1);
@@ -876,24 +1040,20 @@ test('hook registration covers provider-neutral pre/post enforcement', () => {
 
   const previousData = process.env.PHANTOM_DATA;
   process.env.PHANTOM_DATA = isolatedData;
-  const status = hostAdapterStatus(isolatedWorkspace);
-  assert.equal(status.contract.signed_probe_issuer.bundled, false);
-  assert.deepEqual(status.contract.native_effect_executor.capabilities, ['workspace.write']);
-  assert.equal(status.contract.isolated_branch_executor.bundled, false);
-  assert.equal(
-    status.contract.isolated_branch_executor.status,
-    'disabled_without_signed_isolation_attestation',
-  );
-  assert.equal(status.contract.sandboxed_command_executor.status, 'denied_without_signed_enforcement_contract');
-  for (const capability of ['git.commit', 'git.push', 'github.openDraftPr', 'tracker.comment']) {
-    assert.equal(status.contract.external_executors[capability].status, 'not_registered');
-  }
   const doctor = spawnSync(process.execPath, [HOOK, 'doctor', isolatedWorkspace], {
     encoding: 'utf8',
     env: { ...process.env, PHANTOM_DATA: isolatedData },
   });
   assert.equal(doctor.status, 0, doctor.stderr);
-  assert.equal(JSON.parse(doctor.stdout).contract.signed_probe_issuer.status, 'external_required');
+  const report = JSON.parse(doctor.stdout);
+  assert.equal(report.schema_version, 2);
+  assert.equal(report.status, 'not_applicable');
+  assert.equal(report.verifier_bundled, true);
+  assert.equal(report.backend_bundled, false);
+  assert.deepEqual(
+    [report.native.status, report.host.status, report.isolated.status],
+    ['not_applicable', 'not_applicable', 'not_applicable'],
+  );
 
   const malformed = spawnSync(process.execPath, [HOOK, 'pre'], {
     cwd: ROOT,

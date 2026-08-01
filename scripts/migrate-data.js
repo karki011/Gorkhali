@@ -52,6 +52,8 @@ const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.
 
 const MIGRATION_VERSION = 3;
 const MANIFEST_SCHEMA = 1;
+const STATE_ENVELOPE_VERSION = require('../skills/phantom/manifest.json')
+  .contracts.state_envelope.version;
 
 // Top-level artifact-class dirs scanned in every source root. Repo-scoped state
 // lives under `repos/<id>/...` (mapped through the codec); everything else maps
@@ -500,7 +502,7 @@ function inventory(context) {
 // --------------------------------------------------------------------------
 // Current-session pointer reconstruction
 //
-// A pointer is only reconstructed when it is a portable-v1 record whose backing
+// A pointer is only reconstructed when it is a portable-v2 record whose backing
 // session is genuinely active/paused and whose workspace still resolves to the
 // pointer's repo id through the codec. The reconstructed pointer is remapped to
 // the codec-canonical repo id and the destination session dir; the destination
@@ -508,6 +510,10 @@ function inventory(context) {
 // --------------------------------------------------------------------------
 
 function classifyPointerSchema(pointer) {
+  if (pointer && pointer.schema_version === STATE_ENVELOPE_VERSION
+    && typeof pointer.repo_id === 'string' && typeof pointer.task_id === 'string') {
+    return 'portable-v2';
+  }
   if (pointer && pointer.schema_version === 1
     && typeof pointer.repo_id === 'string' && typeof pointer.task_id === 'string') {
     return 'portable-v1';
@@ -526,7 +532,9 @@ function isSafeSegment(value) {
 }
 
 function validateSourceSession(session, pointer) {
-  if (!session || session.schema_version !== 1 || session.artifact_type !== 'session') {
+  if (!session
+    || session.schema_version !== STATE_ENVELOPE_VERSION
+    || session.artifact_type !== 'session') {
     return 'invalid-session-envelope';
   }
   if (session.repo_id !== pointer.repo_id || session.task_id !== pointer.task_id) {
@@ -555,7 +563,7 @@ function describePointer(source, file, context) {
     digest: sha256File(file),
   };
   const schema = classifyPointerSchema(pointer);
-  if (schema !== 'portable-v1') {
+  if (schema !== 'portable-v2') {
     return { ...base, class: 'skipped-live-state', reason: `unsupported-${schema}-pointer` };
   }
   if (!isSafeSegment(pointer.repo_id) || !isSafeSegment(pointer.task_id)) {
@@ -572,7 +580,7 @@ function describePointer(source, file, context) {
   const destSessionDir = path.join(context.dest, 'repos', canonicalRepoId, 'sessions', pointer.task_id);
   const destPointer = path.join(context.dest, 'state', 'current-session', `${canonicalRepoId}.json`);
   const reconstructed = {
-    schema_version: 1,
+    schema_version: STATE_ENVELOPE_VERSION,
     repo_id: canonicalRepoId,
     task_id: pointer.task_id,
     session_dir: destSessionDir,

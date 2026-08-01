@@ -60,6 +60,7 @@ Choose the smallest useful topology:
 | One clear objective; sequential or tightly coupled work; shared-write hotspot; coordination costs more than it saves. | `current-agent` |
 | Two or more bounded passes benefit from isolated context but must run in order. | `native-serial` |
 | Two or more independent read-heavy investigations or adversarial reviews that do not require isolated branch writes. | `native-parallel` |
+| Two or more independent write scopes with proven path separation and a compiler-pinned, currently attested host isolation backend. | `isolated-parallel` workflow node |
 
 Specialized or noisy work can justify one delegate even when it is not
 parallel. Do not delegate work the active agent can finish in a handful of
@@ -77,11 +78,17 @@ or rejected at an approval boundary, apply the labeled sequential fallback
 without changing role contracts or quality gates. Record the selected topology,
 rationale, requested profiles, and any fallback in session state.
 
-This bundle has no trusted isolated branch executor or signed isolation
-attestation verifier. A production workflow containing a `parallel` node is
-rejected before the compiled plan or journal is written. Lower every
-write-bearing parallel topology to current-agent or sequential chain nodes;
-filesystem snapshots are evidence, not proof of continuous isolation.
+The bundle verifies isolated-executor trust, current probes, branch receipts,
+workspace manifests, and deterministic aggregation. It does not ship an OS
+isolation backend, signer, or private key. A host-provisioned executor may run a
+write-bearing `parallel` node only through the compiler-pinned trust binding and
+`execute-parallel.mjs`; otherwise compilation must lower the work to
+current-agent or sequential chain nodes. The binding includes the exact host
+snapshot, content-manifest, and physical-topology digests; signed receipts must
+bind both baseline and current compact manifests to their claimed worktree
+fingerprints. Filesystem snapshots remain evidence, not proof of continuous
+isolation, so a valid signed lease and immutable branch workspace are required
+for every run and retry.
 
 ## Start and plan
 
@@ -97,8 +104,9 @@ filesystem snapshots are evidence, not proof of continuous isolation.
    partial coverage and supplement it with references, tests, and history.
 6. Classify the route.
 7. Select required role passes and automatically choose `current-agent`,
-   `native-serial`, or `native-parallel` using the policy above. Resolve each
-   delegated profile only after the topology and bounded assignment are known.
+   `native-serial`, `native-parallel`, or an attested `isolated-parallel`
+   workflow node using the policy above. Resolve each delegated profile only
+   after the topology and bounded assignment are known.
 8. For a defect, use Hound after starting with `--work-kind investigation` (or
    preserving the conservative detected classification). Hound writes
    `defect-proof.json`: reproduce, collect evidence, trace the exact path, form

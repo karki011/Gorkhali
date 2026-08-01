@@ -12,6 +12,8 @@ const {
 // a separator or a leading list dash that the real files do not use, so every tier
 // scanned 0 of 54 real entries. Never re-add a private entry regex here.
 const { parseLearningEntries, isLiveDomainFile } = require('./lib/learning-grammar.cjs');
+const STATE_ENVELOPE_VERSION = require('../skills/phantom/manifest.json')
+  .contracts.state_envelope.version;
 
 const REPO = detectRepo();
 const LEARNINGS_DIR = learningsDir(REPO);
@@ -80,6 +82,16 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }
 }
 
+function stateEvidence(envelope, artifactType) {
+  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) return null;
+  if (envelope.schema_version !== STATE_ENVELOPE_VERSION
+    || envelope.artifact_type !== artifactType
+    || !envelope.evidence
+    || typeof envelope.evidence !== 'object'
+    || Array.isArray(envelope.evidence)) return null;
+  return envelope.evidence;
+}
+
 /**
  * A session counts as evidence only when its verification actually OBSERVED a pass.
  * `verdict` alone is not enough: verification.json can carry verdict 'pass' while
@@ -127,7 +139,7 @@ function computeCitedValidations() {
       if (!dirent.isDirectory()) continue;
       const dir = path.join(root, dirent.name);
       if (!sessionPassed(readJson(path.join(dir, 'verification.json')))) continue;
-      const context = readJson(path.join(dir, 'context.json'));
+      const context = stateEvidence(readJson(path.join(dir, 'context.json')), 'context');
       const cited = context && context[CITATION_FIELD];
       if (!Array.isArray(cited)) continue;
       for (const raw of cited) {

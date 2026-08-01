@@ -46,7 +46,7 @@ const evaluation = (overrides = {}) => ({
 });
 
 const planContract = (node) => ({
-  schema_version: 1,
+  schema_version: 2,
   workflow_id: 'wf-evaluator-1',
   route: 'plan',
   risk: 'high',
@@ -80,7 +80,11 @@ async function runEvaluations(node, results, artifactRefs = ['evaluation.json'])
       workflow_id: compiled.plan.workflow_id,
       event_id: `evt-evaluator-${sequence}`,
       recorded_at: `2026-07-31T12:02:${String(sequence).padStart(2, '0')}.000Z`,
-      producer: { role: 'ward' },
+      producer: {
+        role: input.event_type === 'evaluation.recorded'
+          ? node.evaluator_role
+          : (input.event_type === 'node.started' ? node.generator_role : 'apex'),
+      },
       worktree_fingerprint: FINGERPRINT,
       ...input,
     });
@@ -122,6 +126,54 @@ test('loop stops immediately on evidence-backed independent acceptance', async (
     { artifact_ref: 'evaluation.json', digest: FINGERPRINT },
   ]);
   assert.equal(state.remaining_budget.cost, 99);
+});
+
+test('evaluate-optimize binds generator actions and evaluation evidence to independent roles', async () => {
+  const { compileWorkflow, createInitialState, reduceWorkflowEvent } =
+    await import('../skills/phantom/scripts/lib/workflow-kernel.mjs');
+  const { buildWorkflowEvent } = await import('../skills/phantom/scripts/lib/workflow-journal.mjs');
+  const node = evaluatorNode();
+  const compiled = compileWorkflow(planContract(node));
+  let state = createInitialState(compiled);
+  let previous = null;
+  const build = (input) => buildWorkflowEvent(previous, {
+    workflow_id: compiled.plan.workflow_id,
+    event_id: `evt-evaluator-role-${state.sequence + 1}-${input.event_type}`,
+    recorded_at: `2026-07-31T12:01:${String(state.sequence + 1).padStart(2, '0')}.000Z`,
+    worktree_fingerprint: FINGERPRINT,
+    ...input,
+  });
+  const apply = (input) => {
+    const event = build(input);
+    state = reduceWorkflowEvent(compiled, state, event);
+    previous = event;
+  };
+
+  apply({ event_type: 'workflow.started', producer: { role: 'apex' } });
+  assert.throws(() => reduceWorkflowEvent(compiled, state, build({
+    event_type: 'node.started', node_id: 'quality', producer: { role: 'ward' },
+    payload: { input_refs: [] },
+  })), /producer role blade/);
+  apply({
+    event_type: 'node.started', node_id: 'quality', producer: { role: 'blade' },
+    payload: { input_refs: [] },
+  });
+  assert.throws(() => reduceWorkflowEvent(compiled, state, build({
+    event_type: 'node.failed', node_id: 'quality', producer: { role: 'ward' },
+    payload: { failure_class: 'generation_failed', cost_units: 1, duration_ms: 100 },
+  })), /producer role blade/);
+  const accepted = evaluation({
+    verdict: 'pass',
+    evidence: [{ name: 'unit', result: 'passed' }],
+    failure_class: null,
+    feedback: [],
+    retryable: false,
+    artifact_digests: [{ artifact_ref: 'evaluation.json', digest: FINGERPRINT }],
+  });
+  assert.throws(() => reduceWorkflowEvent(compiled, state, build({
+    event_type: 'evaluation.recorded', node_id: 'quality', producer: { role: 'blade' },
+    artifact_refs: ['evaluation.json'], payload: accepted,
+  })), /producer role ward/);
 });
 
 test('missing evidence and human decisions block rather than accept', async () => {
@@ -166,6 +218,38 @@ test('iteration and repeated-failure limits stop bounded retries', async () => {
   );
   assert.equal(stuck.state.nodes.quality.terminal_state, 'stuck_same_failure');
   assert.equal(stuck.state.nodes.quality.evaluation.failure_counts.test_failure, 2);
+});
+
+test('prototype-named failure classes cannot bypass the repeated-failure limit', async () => {
+  for (const failureClass of ['__proto__', 'constructor', 'toString']) {
+    const stuck = await runEvaluations(
+      evaluatorNode({ max_iterations: 5, stuck_failure_limit: 2 }),
+      [evaluation({ failure_class: failureClass }), evaluation({ failure_class: failureClass })],
+    );
+    const counts = stuck.state.nodes.quality.evaluation.failure_counts;
+    assert.equal(stuck.state.nodes.quality.terminal_state, 'stuck_same_failure');
+    assert.equal(Object.getPrototypeOf(counts), null);
+    assert.equal(Object.hasOwn(counts, failureClass), true);
+    assert.equal(counts[failureClass], 2);
+    if (failureClass === '__proto__') {
+      const { buildWorkflowEvent } = await import('../skills/phantom/scripts/lib/workflow-journal.mjs');
+      const { reduceWorkflowEvent } = await import('../skills/phantom/scripts/lib/workflow-kernel.mjs');
+      const invalidation = buildWorkflowEvent(stuck.previous, {
+        workflow_id: stuck.compiled.plan.workflow_id,
+        event_id: 'evt-evaluator-prototype-invalidation',
+        event_type: 'node.invalidated',
+        node_id: 'quality',
+        recorded_at: '2026-07-31T12:03:00.000Z',
+        producer: { role: 'apex' },
+        worktree_fingerprint: FINGERPRINT,
+        payload: { reason: 'upstream artifact changed' },
+      });
+      const invalidated = reduceWorkflowEvent(stuck.compiled, stuck.state, invalidation);
+      const preserved = invalidated.nodes.quality.evaluation.failure_counts;
+      assert.equal(Object.getPrototypeOf(preserved), null);
+      assert.equal(preserved.__proto__, 2);
+    }
+  }
 });
 
 test('new worktree fingerprint invalidates an accepted evaluation', async () => {
@@ -230,9 +314,9 @@ test('advance records evaluation artifacts from canonical files and actual bytes
   execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: workspace });
   process.env.PHANTOM_DATA = data;
   try {
-    const { advanceWorkflowFile } = await import('../skills/phantom/scripts/advance-workflow.mjs');
+    const { canonicalEventInput } = await import('../skills/phantom/scripts/advance-workflow.mjs');
     const { compileWorkflow } = await import('../skills/phantom/scripts/lib/workflow-kernel.mjs');
-    const { readWorkflowJournal, writeCompiledWorkflow } =
+    const { appendWorkflowEvent, readWorkflowJournal, writeCompiledWorkflow } =
       await import('../skills/phantom/scripts/lib/workflow-journal.mjs');
     const { sessionPaths } = await import('../skills/phantom/scripts/lib/portable.mjs');
     const { worktreeFingerprint } = await import('../skills/phantom/scripts/phantom-state.mjs');
@@ -249,12 +333,16 @@ test('advance records evaluation artifacts from canonical files and actual bytes
     });
     const sessionDir = sessionPaths(workspace, task).sessionDir;
     writeCompiledWorkflow(sessionDir, compiled);
-    let inputSequence = 0;
     const advance = (value) => {
-      inputSequence += 1;
-      const file = path.join(root, `input-${inputSequence}.json`);
-      fs.writeFileSync(file, JSON.stringify(value));
-      return advanceWorkflowFile({ workspace: canonicalWorkspace, task, input: file, offlineTest: true });
+      const snapshot = readWorkflowJournal(sessionDir, compiled);
+      const canonical = canonicalEventInput({
+        input: value,
+        compiled,
+        snapshot,
+        sessionDir,
+        fingerprint,
+      });
+      return appendWorkflowEvent({ sessionDir, compiled, input: canonical });
     };
     advance({ event_id: 'evaluation-start', event_type: 'workflow.started', payload: {} });
     advance({

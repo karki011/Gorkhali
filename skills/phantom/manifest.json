@@ -1,10 +1,10 @@
 {
   "name": "phantom",
   "bundle_version": "3.0.0",
-  "contract_resource_digest": "sha256:9145163f1cc5507a4de512a6243ba580e436e69569b5fd80c39c22d847989788",
+  "contract_resource_digest": "sha256:56e6355cea32d680bf352ca38f6fc613457e30a91e1fc6c4a514f762938afba8",
   "contracts": {
     "aggregation_result": {
-      "version": 1,
+      "version": 2,
       "resources": ["schemas/aggregation-result.schema.json"]
     },
     "authority_decision": {
@@ -33,6 +33,19 @@
         "scripts/lib/git-metadata.mjs"
       ]
     },
+    "host_adapter_execution": {
+      "version": 2,
+      "resources": [
+        "references/capability-broker.md",
+        "schemas/capability-execution-attestation.schema.json",
+        "schemas/capability-reservation.schema.json",
+        "schemas/host-adapter-registration.schema.json",
+        "schemas/host-adapter-registry-trust.schema.json",
+        "scripts/authorize-capability.mjs",
+        "scripts/lib/host-adapter-contracts.mjs",
+        "scripts/phantom-doctor.mjs"
+      ]
+    },
     "decision_artifact": {
       "version": 3,
       "resources": [
@@ -56,11 +69,26 @@
     },
     "evaluation_result": {
       "version": 1,
-      "resources": ["schemas/evaluation-result.schema.json"]
+      "resources": [
+        "references/verification.md",
+        "schemas/evaluation-result.schema.json"
+      ]
     },
     "impact_report": {
       "version": 1,
       "resources": ["scripts/inspect-impact.mjs"]
+    },
+    "isolated_executor": {
+      "version": 1,
+      "resources": [
+        "references/workflow-patterns.md",
+        "schemas/isolated-execution-receipt.schema.json",
+        "schemas/isolated-executor-probe.schema.json",
+        "schemas/isolated-executor-trust.schema.json",
+        "scripts/compile-workflow.mjs",
+        "scripts/execute-parallel.mjs",
+        "scripts/lib/isolated-executor-attestation.mjs"
+      ]
     },
     "model_policy": {
       "version": 2,
@@ -78,19 +106,23 @@
       ]
     },
     "state_envelope": {
-      "version": 1,
+      "version": 2,
       "resources": [
         "references/evolution.md",
         "references/state.md",
         "scripts/lib/filesystem-snapshot.mjs",
         "scripts/lib/git-metadata.mjs",
+        "scripts/lib/learning-grammar.cjs",
         "scripts/lib/portable.mjs",
+        "scripts/lib/session-contracts.mjs",
         "scripts/lib/shared-state.cjs",
-        "scripts/phantom-state.mjs"
+        "scripts/phantom-learning.mjs",
+        "scripts/phantom-state.mjs",
+        "scripts/validate-review-html.mjs"
       ]
     },
     "workflow_event": {
-      "version": 1,
+      "version": 2,
       "resources": [
         "references/replay.md",
         "schemas/workflow-event.schema.json",
@@ -102,8 +134,17 @@
       "version": 1,
       "resources": ["schemas/workflow-output.schema.json"]
     },
+    "workspace_manifest": {
+      "version": 2,
+      "resources": [
+        "schemas/workspace-delta.schema.json",
+        "schemas/workspace-manifest.schema.json",
+        "scripts/lib/filesystem-snapshot.mjs",
+        "scripts/lib/workspace-manifest.mjs"
+      ]
+    },
     "workflow_plan": {
-      "version": 1,
+      "version": 2,
       "resources": [
         "SKILL.md",
         "references/policy.md",

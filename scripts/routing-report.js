@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { routedEnvelopeErrors } = require('./lib/state-envelope-contract');
 
 // Label used when a routing field is absent, so distributions stay countable
 // instead of dropping records with an undefined key.
@@ -56,11 +57,9 @@ function walkJson(dir, out) {
   }
 }
 
-function isRoutingObject(value) {
-  return value != null && typeof value === 'object' && !Array.isArray(value);
-}
-
-// Parse each file and keep only those with a top-level model_routing object.
+// Parse each file and keep only v2 state envelopes with a top-level
+// model_routing object. Retired v1 envelopes are ignored rather than treated as
+// current routing evidence.
 // Unparseable files are skipped silently - a half-written artifact must not sink
 // the whole report.
 function extractRecords(files) {
@@ -72,16 +71,16 @@ function extractRecords(files) {
     } catch (_) {
       continue;
     }
-    if (!isRoutingObject(doc) || !isRoutingObject(doc.model_routing)) continue;
+    const expectedType = path.basename(file, '.json');
+    if (routedEnvelopeErrors(doc, expectedType).length) continue;
 
     const routing = doc.model_routing;
-    const producer = isRoutingObject(doc.producer) ? doc.producer : {};
     records.push({
-      role: typeof producer.role === 'string' && producer.role ? producer.role : 'unknown',
-      requested: routing.requested_profile == null ? null : String(routing.requested_profile),
-      actual: routing.actual_profile == null ? null : String(routing.actual_profile),
-      fallback: routing.fallback_reason == null ? null : String(routing.fallback_reason),
-      outcome: routing.outcome == null ? null : String(routing.outcome),
+      role: doc.producer.role.trim().toLowerCase(),
+      requested: routing.requested_profile,
+      actual: routing.actual_profile,
+      fallback: routing.fallback_reason,
+      outcome: routing.outcome,
     });
   }
   return records;

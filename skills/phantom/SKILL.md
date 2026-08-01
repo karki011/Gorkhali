@@ -65,8 +65,10 @@ Maintained by Subash Karki.
    execution using the route, dependency evidence, capability ledger, and
    [workflow policy](references/workflows.md). The user supplies the goal; do
    not ask them to choose workers, worker count, or models during the normal
-   path. `native-parallel` is eligible only when an observed host capability
-   supplies isolated branch workspaces. Honor explicit delegation constraints.
+   path. Read-only `native-parallel` requires observable native workers but no
+   write isolation. A write-bearing parallel workflow node additionally
+   requires compiler-pinned, signed isolated-executor evidence. Honor explicit
+   delegation constraints.
 7. For `direct` and `plan`, select a solution rung from the gathered evidence;
    for `brainstorm` and `full`, defer selection until convergence. Record
    material choices in existing rationale, evidence, or session decisions.
@@ -84,7 +86,7 @@ When command execution is available, use the bundled state helper:
 node <skill-directory>/scripts/phantom-state.mjs start --workspace <path> --task <id> --intent <text> --route <route>
 ```
 
-After the route-specific decision artifact is valid, persist a fresh v1
+After the route-specific decision artifact is valid, persist a fresh v2
 workflow plan and let the compiler bind it to the session:
 
 ```text
@@ -106,6 +108,27 @@ Advance nodes only with typed event inputs and replay through the same reducer:
 node <skill-directory>/scripts/advance-workflow.mjs --workspace <path> --task <id> --input <event.json>
 node <skill-directory>/scripts/replay-workflow.mjs --workspace <path> --task <id>
 ```
+
+Ordinary advancement rejects parallel receipts. When the compiler has pinned a
+current host-provisioned isolated executor, pass each signed receipt through the
+dedicated broker:
+
+```text
+node <skill-directory>/scripts/execute-parallel.mjs --workspace <path> --task <id> --receipt <signed-receipt.json>
+```
+
+The bundle verifies isolation evidence but does not provide an OS isolation
+backend, executor key, or adapter key. Inspect the canonical active session
+without executing anything:
+
+```text
+node <skill-directory>/scripts/phantom-doctor.mjs --workspace <path>
+```
+
+The version-2 report discovers pinned runtime files itself and exposes only
+native, signed-host, and isolated readiness status plus stable problem codes.
+Do not pass copied artifacts, credentials, private keys, or provider results to
+the doctor.
 
 Resolve `<skill-directory>` from this `SKILL.md`; do not assume an installation
 location. File tools may draft candidate plan, event, or request inputs, but

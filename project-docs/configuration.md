@@ -92,12 +92,23 @@ Run the read-only status command for the current workspace:
 
 ```bash
 node hooks/capability-gate.mjs doctor /path/to/workspace
+node skills/phantom/scripts/phantom-doctor.mjs --workspace /path/to/workspace
 ```
 
-The bundled native executor covers `workspace.write` only. It does not run
-Git, builds, tests, interpreters, network commands, or other processes; those
-are unconditionally denied until a separately versioned, signed sandbox
-attestation and enforcement contract exists. Registration and capability
-reporting are insufficient. Executors for `git.commit`, `git.push`,
-`github.openDraftPr`, and `tracker.comment` remain unregistered and fail closed.
-No environment flag converts an unavailable executor or probe into authority.
+The portable command reads the version-2 current-session pointer and active
+session, then verifies any canonical native probe, signed host registration,
+and isolated-executor probe in place. Runtime inputs must be private,
+single-link, stable regular files. The report is schema version 2 and uses only
+`not_applicable`, `not_registered`, `ready`, or `blocked`; problems are stable
+codes with no paths, keys, signatures, artifacts, or raw verifier errors.
+`verifier_bundled: true` and `backend_bundled: false` distinguish contract
+verification from an externally provisioned executor.
+
+The bundled native executor covers `workspace.write` only. Native Git, shell,
+build, test, interpreter, and network tools are not alternate execution paths.
+The portable broker can verify externally provisioned signed adapters for
+sandboxed processes and typed Git/GitHub/tracker effects; each effect requires
+the exact registered policy, reservation nonce, current evidence, and signed
+result. Phantom bundles no backend, provider credentials, signer, or private
+key. No environment flag converts an unavailable executor or probe into
+authority.

@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const codec = require('./shared-state.cjs');
 
+export const STATE_ENVELOPE_VERSION = 2;
+
 export function isMainModule(moduleUrl, argvPath = process.argv[1]) {
   if (!argvPath) return false;
   const modulePath = fileURLToPath(moduleUrl);
@@ -133,7 +135,7 @@ export function now() {
 export function envelope(type, paths, status, extra = {}) {
   const timestamp = now();
   return {
-    schema_version: 1,
+    schema_version: STATE_ENVELOPE_VERSION,
     artifact_type: type,
     repo_id: paths.repo.id,
     task_id: paths.task,

@@ -641,7 +641,7 @@ test('enriched v3 artifacts survive state persistence without renderer-specific 
       'record', ...common, '--type', type, '--status', 'pending', '--input', input,
     ], context.env));
     const envelope = JSON.parse(fs.readFileSync(recorded.file, 'utf8'));
-    assert.equal(envelope.schema_version, 1);
+    assert.equal(envelope.schema_version, 2);
     assert.deepEqual(envelope.evidence, expected);
 
     assert.match(JSON.stringify(envelope.evidence), new RegExp(expected.title));
@@ -903,11 +903,14 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
   const legacyRun = path.join(sessionDirectory, 'runs', 'LEGACY');
   fs.mkdirSync(legacyRun, { recursive: true });
   fs.writeFileSync(path.join(legacyRun, 'delegation-task.json'), JSON.stringify({
-    schema_version: 1,
+    schema_version: 2,
     artifact_type: 'delegation-task',
     repo_id: started.repo_id,
     task_id: started.task_id,
     status: 'pending',
+    created_at: started.created_at,
+    updated_at: started.updated_at,
+    bundle_version: started.bundle_version,
     producer: { role: 'blade', compute_profile: 'balanced' },
     model_routing: { requested_profile: 'balanced' },
     evidence: legacyTask,
@@ -928,7 +931,10 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     '--input', resultFile,
   ], context.env);
   assert.equal(legacyResult.code, 1);
-  assert.match(legacyResult.stderr, /contract_version: unsupported version "1"; expected 2/);
+  assert.match(
+    legacyResult.stderr,
+    /Invalid delegation-task state envelope:.*record_sequence is required/,
+  );
 });
 
 test('delegation v2 rejects unsafe references, stale hashes, and oversized envelopes', async () => {
@@ -1205,7 +1211,7 @@ test('accepted workflows reject post-compile decisions and stale approved-plan b
   )).href);
   const workflowInput = path.join(context.root, 'bound-workflow.json');
   fs.writeFileSync(workflowInput, JSON.stringify({
-    schema_version: 1,
+    schema_version: 2,
     workflow_id: 'wf-bound-approved-plan',
     route: 'plan',
     risk: 'low',
@@ -1291,9 +1297,12 @@ test('accepted workflows reject post-compile decisions and stale approved-plan b
 
 test('current state rejects missing canonical pointer, session, intent, and lifecycle fields', async () => {
   for (const [label, mutate, expected] of [
+    ['pointer v1', ({ pointer }) => { pointer.schema_version = 1; }, /pointer schema_version must be 2/],
     ['pointer session_dir', ({ pointer }) => { delete pointer.session_dir; }, /pointer session_dir must be/],
+    ['session v1', ({ session }) => { session.schema_version = 1; }, /session\.json schema_version must be 2/],
     ['session route', ({ session }) => { delete session.route; }, /session\.json route must be/],
     ['session lifecycle', ({ session }) => { delete session.lifecycle; }, /session\.lifecycle must be an object/],
+    ['intent v1', ({ intent }) => { intent.schema_version = 1; }, /intent\.json schema_version must be 2/],
     ['intent work_kind', ({ intent }) => { delete intent.work_kind; }, /intent\.json work_kind must be/],
   ]) {
     const context = fixture();
@@ -1393,6 +1402,15 @@ test('approvals require and remain bound to current passed decision artifacts', 
   assert.match(missing.stderr, /current passed plan artifact is missing.*fresh passed plan artifact/s);
 
   const plan = await recordArtifact(context, 'plan', portablePlan());
+  const retiredPlan = JSON.parse(fs.readFileSync(plan.file, 'utf8'));
+  retiredPlan.schema_version = 1;
+  fs.writeFileSync(plan.file, JSON.stringify(retiredPlan));
+  const retired = await run(['approve', ...common, '--gate', 'plan'], context.env);
+  assert.equal(retired.code, 1);
+  assert.match(retired.stderr, /plan\.json schema_version must be 2/);
+
+  retiredPlan.schema_version = 2;
+  fs.writeFileSync(plan.file, JSON.stringify(retiredPlan));
   const approved = parse(await run(['approve', ...common, '--gate', 'plan'], context.env));
   assert.deepEqual(approved.lifecycle.approvals.plan.artifact_bindings, [{
     artifact_type: 'plan',

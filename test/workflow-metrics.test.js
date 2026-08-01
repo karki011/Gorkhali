@@ -58,6 +58,7 @@ test('summarizeRuns calculates replay, verified completion, duration, and covera
     { session_dir: '/tmp/corrupt', replay_ok: false, error: 'digest mismatch' },
   ];
   const report = summarizeRuns(runs);
+  assert.equal(report.source_contract, 'workflow-event-v2');
   assert.deepEqual(report.observed, {
     workflows_attempted: 4,
     workflows_replayable: 3,

@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/capability-execution-attestation-v1.json",
+  "title": "Phantom capability execution attestation",
+  "description": "A nonce-bound adapter-leaf-signed record of one broker-authorized execution or reconciliation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attestation_kind",
+    "attestation_id",
+    "registration_digest",
+    "adapter_id",
+    "adapter_version",
+    "attestation_key_id",
+    "capability_type",
+    "workflow_id",
+    "node_id",
+    "request_id",
+    "request_digest",
+    "decision_digest",
+    "reservation_digest",
+    "idempotency_key",
+    "execution_nonce",
+    "authorized_journal_tail_digest",
+    "policy_digest",
+    "worktree_fingerprint_before",
+    "worktree_fingerprint_after",
+    "workspace_evidence_digest_before",
+    "workspace_evidence_digest_after",
+    "started_at",
+    "completed_at",
+    "issued_at",
+    "expires_at",
+    "status",
+    "resolution",
+    "reconciles_attestation_digest",
+    "result",
+    "source_event_id",
+    "replay_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "attestation_kind": { "const": "capability-execution" },
+    "attestation_id": { "$ref": "#/$defs/identifier" },
+    "registration_digest": { "$ref": "#/$defs/digest" },
+    "adapter_id": { "$ref": "#/$defs/identifier" },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$",
+      "maxLength": 128
+    },
+    "attestation_key_id": { "$ref": "#/$defs/identifier" },
+    "capability_type": {
+      "enum": [
+        "process.exec",
+        "git.commit",
+        "git.push",
+        "github.openDraftPr",
+        "tracker.comment"
+      ]
+    },
+    "workflow_id": { "$ref": "#/$defs/identifier" },
+    "node_id": { "$ref": "#/$defs/identifier" },
+    "request_id": { "$ref": "#/$defs/identifier" },
+    "request_digest": { "$ref": "#/$defs/digest" },
+    "decision_digest": { "$ref": "#/$defs/digest" },
+    "reservation_digest": { "$ref": "#/$defs/digest" },
+    "idempotency_key": { "$ref": "#/$defs/identifier" },
+    "execution_nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{32,256}$"
+    },
+    "authorized_journal_tail_digest": { "$ref": "#/$defs/digest" },
+    "policy_digest": { "$ref": "#/$defs/digest" },
+    "worktree_fingerprint_before": { "$ref": "#/$defs/digest" },
+    "worktree_fingerprint_after": { "$ref": "#/$defs/digest" },
+    "workspace_evidence_digest_before": { "$ref": "#/$defs/digest" },
+    "workspace_evidence_digest_after": { "$ref": "#/$defs/digest" },
+    "started_at": { "$ref": "#/$defs/timestamp" },
+    "completed_at": { "$ref": "#/$defs/timestamp" },
+    "issued_at": { "$ref": "#/$defs/timestamp" },
+    "expires_at": { "$ref": "#/$defs/timestamp" },
+    "status": { "enum": ["succeeded", "failed", "indeterminate", "reconciled"] },
+    "resolution": { "enum": [null, "succeeded", "failed"] },
+    "reconciles_attestation_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/$defs/processResult" },
+        { "$ref": "#/$defs/gitCommitResult" },
+        { "$ref": "#/$defs/gitPushResult" },
+        { "$ref": "#/$defs/githubResult" },
+        { "$ref": "#/$defs/trackerResult" }
+      ]
+    },
+    "source_event_id": { "$ref": "#/$defs/identifier" },
+    "replay_id": { "$ref": "#/$defs/identifier" },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!\\.{1,2}(?:/|$))(?!.*\\/\\.{1,2}(?:/|$))(?!.*\\u0000)[^\\r\\n]+$",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "processResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "exit_code",
+        "signal",
+        "duration_ms",
+        "stdout_digest",
+        "stderr_digest",
+        "output_truncated",
+        "changed_paths",
+        "external_reference",
+        "error"
+      ],
+      "properties": {
+        "type": { "const": "process.exec" },
+        "exit_code": { "type": ["integer", "null"] },
+        "signal": { "type": ["string", "null"], "maxLength": 64 },
+        "duration_ms": { "type": "integer", "minimum": 0, "maximum": 900000 },
+        "stdout_digest": { "$ref": "#/$defs/digest" },
+        "stderr_digest": { "$ref": "#/$defs/digest" },
+        "output_truncated": { "type": "boolean" },
+        "changed_paths": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "digest"],
+            "properties": {
+              "path": { "$ref": "#/$defs/portablePath" },
+              "digest": { "$ref": "#/$defs/digest" }
+            }
+          }
+        },
+        "external_reference": { "type": "null" },
+        "error": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    },
+    "gitCommitResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "branch",
+        "parent_sha",
+        "commit_sha",
+        "tree_digest",
+        "message_digest",
+        "external_reference",
+        "error"
+      ],
+      "properties": {
+        "type": { "const": "git.commit" },
+        "branch": { "$ref": "#/$defs/identifier" },
+        "parent_sha": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+        "commit_sha": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+        "tree_digest": { "$ref": "#/$defs/digest" },
+        "message_digest": { "$ref": "#/$defs/digest" },
+        "external_reference": { "type": "null" },
+        "error": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    },
+    "gitPushResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "remote",
+        "repository_id",
+        "branch",
+        "head_sha",
+        "forced",
+        "deleted",
+        "external_reference",
+        "error"
+      ],
+      "properties": {
+        "type": { "const": "git.push" },
+        "remote": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "repository_id": { "$ref": "#/$defs/identifier" },
+        "branch": { "$ref": "#/$defs/identifier" },
+        "head_sha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "forced": { "const": false },
+        "deleted": { "const": false },
+        "external_reference": { "type": ["string", "null"], "maxLength": 2048 },
+        "error": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    },
+    "githubResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "host",
+        "repository_id",
+        "base_ref",
+        "head_ref",
+        "head_sha",
+        "draft",
+        "title_digest",
+        "body_digest",
+        "pull_request_id",
+        "external_reference",
+        "error"
+      ],
+      "properties": {
+        "type": { "const": "github.openDraftPr" },
+        "host": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 253 },
+        "repository_id": { "$ref": "#/$defs/identifier" },
+        "base_ref": { "$ref": "#/$defs/identifier" },
+        "head_ref": { "$ref": "#/$defs/identifier" },
+        "head_sha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "draft": { "const": true },
+        "title_digest": { "$ref": "#/$defs/digest" },
+        "body_digest": { "$ref": "#/$defs/digest" },
+        "pull_request_id": { "type": ["string", "null"], "maxLength": 256 },
+        "external_reference": { "type": ["string", "null"], "maxLength": 2048 },
+        "error": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    },
+    "trackerResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "provider",
+        "tenant_id",
+        "project_id",
+        "issue_id",
+        "body_digest",
+        "comment_id",
+        "external_reference",
+        "error"
+      ],
+      "properties": {
+        "type": { "const": "tracker.comment" },
+        "provider": { "enum": ["jira", "linear", "github"] },
+        "tenant_id": { "$ref": "#/$defs/identifier" },
+        "project_id": { "$ref": "#/$defs/identifier" },
+        "issue_id": { "$ref": "#/$defs/identifier" },
+        "body_digest": { "$ref": "#/$defs/digest" },
+        "comment_id": { "type": ["string", "null"], "maxLength": 256 },
+        "external_reference": { "type": ["string", "null"], "maxLength": 2048 },
+        "error": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    }
+  }
+}

@@ -65,11 +65,18 @@ function runRunner(root, args = [], extra = {}) {
 }
 
 /** Write a session whose artifacts make it count (or not) as validation evidence. */
-function writeSession(root, name, { cited, verdict = 'pass', testsObservation = 'checked:pass' }) {
+function writeSession(root, name, {
+  cited,
+  verdict = 'pass',
+  testsObservation = 'checked:pass',
+  schemaVersion = 2,
+}) {
   const dir = path.join(root, 'repos', REPO, 'sessions', name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'context.json'), JSON.stringify({
-    ticket: name, summary: 'fixture', source: 'args', learningsCited: cited,
+    schema_version: schemaVersion,
+    artifact_type: 'context',
+    evidence: { ticket: name, summary: 'fixture', source: 'args', learningsCited: cited },
   }));
   fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({
     correctness: { lint: true, build: true, tests: true, commands: ['npm test'], observations: { lint: 'checked:pass', build: 'checked:pass', tests: testsObservation } },
@@ -250,6 +257,18 @@ test('a citation from a failed session is not evidence', () => {
   const out = runRunner(root);
   assert.match(out, /4 verified session citations/, 'a failed session must not be counted');
   assert.match(out, /\[Tier 2\] Promoted: 0 patterns/, 'four is below the promote threshold');
+});
+
+test('a citation inside a retired v1 context envelope is not evidence', () => {
+  const { root } = makeWorkspace({
+    'workflow.md': 'PATTERN [p-cited]: a pattern with no tag at all on disk (2026-07-20)\n',
+  });
+  for (let i = 0; i < 4; i++) writeSession(root, `s-${i}`, { cited: ['p-cited'] });
+  writeSession(root, 's-retired', { cited: ['p-cited'], schemaVersion: 1 });
+
+  const out = runRunner(root);
+  assert.match(out, /4 verified session citations/, 'a v1 context envelope must be skipped');
+  assert.match(out, /\[Tier 2\] Promoted: 0 patterns/, 'retired state cannot reach the threshold');
 });
 
 test('a pass that was never observed is a claim, not evidence', () => {

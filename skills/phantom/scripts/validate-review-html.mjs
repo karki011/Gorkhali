@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, dirname, resolve } from 'node:path';
 import { TextDecoder } from 'node:util';
 import { isMainModule } from './lib/portable.mjs';
+import { stateEnvelopeErrors } from './lib/session-contracts.mjs';
 
 const MAX_BYTES = 512 * 1024;
 const SUPPORTED_TYPES = new Set(['plan', 'brainstorm']);
@@ -23,7 +24,26 @@ const RAW_TEXT_TAGS = new Set(['style', 'title', 'textarea', 'script']);
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
 
-const normalizedArtifact = (artifact) => isObject(artifact?.evidence) ? artifact.evidence : artifact;
+const normalizedArtifact = (type, artifact) => {
+  if (!isObject(artifact)) return { data: artifact, errors: [] };
+  const isEnvelope = Object.hasOwn(artifact, 'schema_version')
+    || Object.hasOwn(artifact, 'artifact_type');
+  if (!isEnvelope) return { data: artifact, errors: [] };
+
+  const paths = {
+    repo: { id: artifact.repo_id },
+    task: artifact.task_id,
+  };
+  const errors = stateEnvelopeErrors(artifact, type, paths)
+    .map((error) => `canonical source envelope ${error}`);
+  if (!isText(artifact.repo_id)) {
+    errors.push('canonical source envelope repo_id must be a non-empty string');
+  }
+  if (!isText(artifact.task_id)) {
+    errors.push('canonical source envelope task_id must be a non-empty string');
+  }
+  return { data: artifact.evidence, errors };
+};
 
 const normalizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
@@ -182,9 +202,12 @@ const decodedAttribute = (tag, name) => {
 };
 
 const requiredStrings = (type, artifact) => {
-  const data = normalizedArtifact(artifact);
-  const errors = [];
-  if (!isObject(data)) return { errors: ['canonical source must contain an object'], values: [] };
+  const normalized = normalizedArtifact(type, artifact);
+  const data = normalized.data;
+  const errors = [...normalized.errors];
+  if (!isObject(data)) {
+    return { errors: [...errors, 'canonical source must contain an object'], values: [] };
+  }
 
   const required = (value, label) => {
     if (!isText(value)) errors.push(`canonical ${label}: required non-empty string`);

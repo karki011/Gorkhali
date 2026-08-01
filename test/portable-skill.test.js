@@ -211,7 +211,7 @@ test('portable bundle manifest versions every public contract', async () => {
   assert.deepEqual(
     Object.fromEntries(Object.entries(manifest.contracts).map(([name, entry]) => [name, entry.version])),
     {
-      aggregation_result: 1,
+      aggregation_result: 2,
       authority_decision: 1,
       capability_ledger: 1,
       capability_probe: 1,
@@ -220,14 +220,17 @@ test('portable bundle manifest versions every public contract', async () => {
       defect_proof: 1,
       delegation: 2,
       evaluation_result: 1,
+      host_adapter_execution: 2,
       impact_report: 1,
+      isolated_executor: 1,
       model_policy: 2,
       model_presets: 1,
       model_routing: 1,
-      state_envelope: 1,
-      workflow_event: 1,
+      state_envelope: 2,
+      workflow_event: 2,
       workflow_output: 1,
-      workflow_plan: 1,
+      workflow_plan: 2,
+      workspace_manifest: 2,
     },
   );
   const registered = new Set(Object.values(manifest.contracts).flatMap((entry) => entry.resources));
@@ -735,7 +738,8 @@ test('portable workflow makes delegation an automatic, native Apex decision', ()
   assert.match(skill, /user supplies the goal; do not ask them to choose workers, worker count, or models/i);
   assert.match(workflows, /One clear objective; sequential or tightly coupled work; shared-write hotspot/i);
   assert.match(workflows, /Two or more independent read-heavy investigations or adversarial reviews that do not require isolated branch writes/i);
-  assert.match(workflows, /production workflow containing a `parallel` node is rejected before the compiled plan or journal is written/i);
+  assert.match(workflows, /host-provisioned executor may run a\s+write-bearing `parallel` node only through the compiler-pinned trust binding and\s+`execute-parallel\.mjs`/i);
+  assert.match(workflows, /otherwise compilation must lower the work to\s+current-agent or sequential chain nodes/i);
   assert.match(workflows, /Do not delegate work the active agent can finish in a handful of tool calls/i);
   assert.match(workflows, /File count alone never justifies fan-out/i);
   assert.match(roles, /explicit user instruction to require, limit, or disable delegation within repository safety/i);
@@ -822,7 +826,7 @@ test('portable lifecycle authority is explicit and validated', () => {
   assert.match(start, /Portable action: `start`/i);
   assert.match(start, /implementation authorization before execution/i);
   assert.match(start, /never grants shipping\s+authority/i);
-  assert.match(state, /schema_version: 1/i);
+  assert.match(state, /schema_version: 2/i);
   assert.match(state, /required `lifecycle` object/i);
   assert.match(state, /A missing\s+route is invalid/i);
   assert.match(state, /worktree_fingerprint/i);

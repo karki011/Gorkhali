@@ -253,11 +253,11 @@ const portableBrainstorm = () => ({
 });
 
 // Envelopes are readable by a plain-JSON (Claude-side) reader; assert the shared
-// version-1 contract and that the workflow payload unwraps from `evidence`.
+// version-2 contract and that the workflow payload unwraps from `evidence`.
 function assertEnvelope(file, type, ctx, taskId) {
   const raw = fs.readFileSync(file, 'utf8');
   const envelope = JSON.parse(raw);
-  assert.equal(envelope.schema_version, 1, `${type} schema_version`);
+  assert.equal(envelope.schema_version, 2, `${type} schema_version`);
   assert.equal(envelope.artifact_type, type, `${type} artifact_type`);
   assert.equal(envelope.task_id, taskId, `${type} task_id`);
   assert.ok(typeof envelope.repo_id === 'string' && envelope.repo_id, `${type} repo_id`);
@@ -284,7 +284,7 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
 
   // durable task pointer (portable pointer, not telemetry)
   const pointer = JSON.parse(fs.readFileSync(path.join(ctx.data, 'state', 'current-session', `${repoId}.json`), 'utf8'));
-  assert.equal(pointer.schema_version, 1);
+  assert.equal(pointer.schema_version, 2);
   assert.equal(pointer.task_id, taskId);
   assert.equal(pointer.repo_id, repoId);
   assert.equal(pointer.session_dir, sessionDir);

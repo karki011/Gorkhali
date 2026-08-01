@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/isolated-execution-receipt-v1.json",
+  "title": "Phantom isolated execution receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_kind",
+    "executor_id",
+    "contract_version",
+    "profile_digest",
+    "source",
+    "repo_id",
+    "task_id",
+    "workflow_id",
+    "plan_digest",
+    "node_id",
+    "branch_id",
+    "attempt",
+    "run_id",
+    "lease_id",
+    "start_receipt_digest",
+    "baseline_fingerprint",
+    "worktree_fingerprint",
+    "input_refs",
+    "workspace_identity",
+    "status",
+    "changed_paths",
+    "changed_physical_paths",
+    "artifact_refs",
+    "artifact_digests",
+    "verification",
+    "cost_units",
+    "duration_ms",
+    "failure_class",
+    "baseline_manifest",
+    "current_manifest",
+    "workspace_delta",
+    "changed_content_shards",
+    "changed_physical_shards",
+    "branch_receipts",
+    "teardown",
+    "issued_at",
+    "expires_at",
+    "source_event_id",
+    "replay_id",
+    "key_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "receipt_kind": { "enum": ["branch-started", "branch-completed", "integration-completed"] },
+    "executor_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "contract_version": { "const": "isolated-branch-executor-v1" },
+    "profile_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "source": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,191}$" },
+    "repo_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "plan_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "node_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "branch_id": { "type": ["string", "null"] },
+    "attempt": { "type": ["integer", "null"], "minimum": 1 },
+    "run_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$" },
+    "lease_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$" },
+    "start_receipt_digest": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "worktree_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "input_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_node", "artifact_ref", "digest"],
+        "properties": {
+          "source_node": { "type": "string", "minLength": 1 },
+          "artifact_ref": { "type": "string", "minLength": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "workspace_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "status": { "enum": ["started", "passed", "failed", "accepted", "rejected"] },
+    "changed_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "changed_physical_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "artifact_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "artifact_digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_ref", "digest"],
+        "properties": {
+          "artifact_ref": { "type": "string", "minLength": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "result": { "enum": ["passed", "failed"] },
+          "snapshot_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "cost_units": { "type": "number", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "failure_class": { "type": ["string", "null"] },
+    "baseline_manifest": { "type": "object" },
+    "current_manifest": { "type": "object" },
+    "workspace_delta": { "type": "object" },
+    "changed_content_shards": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bucket", "before", "after"],
+        "properties": {
+          "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+          "before": { "type": ["object", "null"] },
+          "after": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "changed_physical_shards": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bucket", "before", "after"],
+        "properties": {
+          "bucket": { "type": "string", "pattern": "^[a-f0-9]{2}$" },
+          "before": { "type": ["object", "null"] },
+          "after": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "branch_receipts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["branch_id", "completion_receipt_digest"],
+        "properties": {
+          "branch_id": { "type": "string", "minLength": 1 },
+          "completion_receipt_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "teardown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_lease_revoked",
+        "process_tree_reaped",
+        "descendants_remaining",
+        "mounts_removed",
+        "sandbox_destroyed"
+      ],
+      "properties": {
+        "tool_lease_revoked": { "type": "boolean" },
+        "process_tree_reaped": { "type": "boolean" },
+        "descendants_remaining": { "type": "integer", "minimum": 0 },
+        "mounts_removed": { "type": "boolean" },
+        "sandbox_destroyed": { "type": "boolean" }
+      }
+    },
+    "issued_at": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": "string", "minLength": 1 },
+    "source_event_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,185}$" },
+    "replay_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$" },
+    "key_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "signature": {
+      "type": "string",
+      "minLength": 88,
+      "maxLength": 88,
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  }
+}

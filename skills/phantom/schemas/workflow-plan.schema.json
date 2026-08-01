@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://phantom.local/schemas/workflow-plan-v1.json",
-  "title": "Phantom workflow plan v1",
+  "$id": "https://phantom.local/schemas/workflow-plan-v2.json",
+  "title": "Phantom workflow plan v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,11 +18,81 @@
     "nodes"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "workflow_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "route": { "enum": ["direct", "plan", "brainstorm", "full"] },
     "risk": { "enum": ["low", "moderate", "high", "critical"] },
     "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "executor_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_content_manifest_digest",
+        "baseline_fingerprint",
+        "baseline_physical_topology_root",
+        "contract_version",
+        "executor_id",
+        "isolation_profile",
+        "key_id",
+        "probe_digest",
+        "profile_digest",
+        "public_key",
+        "public_key_digest",
+        "source",
+        "trust_activated_at",
+        "trust_digest",
+        "trust_expires_at",
+        "trust_generation",
+        "trust_replaces_key_id"
+      ],
+      "properties": {
+        "baseline_content_manifest_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "baseline_physical_topology_root": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "contract_version": { "const": "isolated-branch-executor-v1" },
+        "executor_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "isolation_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile_id",
+            "platform",
+            "backend",
+            "backend_digest",
+            "filesystem",
+            "process",
+            "tool_plane",
+            "artifact_egress",
+            "network"
+          ],
+          "properties": {
+            "profile_id": { "const": "continuous-isolation-v1" },
+            "platform": { "enum": ["linux", "darwin"] },
+            "backend": { "type": "string", "minLength": 1 },
+            "backend_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+            "filesystem": { "const": "private-root-no-host-writes" },
+            "process": { "const": "contained-and-reaped" },
+            "tool_plane": { "const": "lease-scoped" },
+            "artifact_egress": { "const": "digest-bound" },
+            "network": { "enum": ["denied", "mediated-model-proxy"] }
+          }
+        },
+        "key_id": { "type": "string", "minLength": 1 },
+        "probe_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "profile_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "public_key": { "type": "string", "minLength": 1 },
+        "public_key_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "source": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,191}$" },
+        "trust_activated_at": { "type": "string", "minLength": 1 },
+        "trust_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "trust_expires_at": { "type": "string", "minLength": 1 },
+        "trust_generation": { "type": "integer", "minimum": 1 },
+        "trust_replaces_key_id": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        }
+      }
+    },
     "session_binding": {
       "type": "object",
       "additionalProperties": false,
@@ -99,7 +169,7 @@
           },
           "role": { "enum": ["apex", "blade", "ward", "sweep", "gaze", "hound", "rival", "plan-checker"] },
           "output_schema": {
-            "enum": ["workflow-output-v1", "aggregation-result-v1", "evaluation-result-v1"]
+            "enum": ["workflow-output-v1", "aggregation-result-v2", "evaluation-result-v1"]
           },
           "acceptance_criteria": {
             "type": "array",

@@ -30,7 +30,17 @@
         "type": "string",
         "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
       },
-      "worktreeFingerprint": { "$ref": "#/$defs/digest" }
+      "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+      "budget": { "$ref": "#/$defs/effectBudget" }
+    },
+    "effectBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxCostUnits", "maxDurationMs"],
+      "properties": {
+        "maxCostUnits": { "type": "number", "minimum": 0.000001 },
+        "maxDurationMs": { "type": "integer", "minimum": 1 }
+      }
     },
     "portablePath": {
       "type": "string",
@@ -46,13 +56,14 @@
     "workspaceWrite": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "paths", "patchDigest"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "paths", "patchDigest"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "workspace.write" },
         "paths": {
           "type": "array",
@@ -66,13 +77,14 @@
     "processExec": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "command", "cwd"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "command", "cwd"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "process.exec" },
         "command": {
           "type": "array",
@@ -92,13 +104,14 @@
     "gitCommit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "treeDigest", "message"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "treeDigest", "message"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "git.commit" },
         "treeDigest": { "$ref": "#/$defs/digest" },
         "message": { "type": "string", "minLength": 1, "maxLength": 4096 }
@@ -107,13 +120,14 @@
     "gitPush": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "headSha", "remote", "branch", "idempotencyKey"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "headSha", "remote", "branch", "idempotencyKey"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "git.push" },
         "headSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
         "remote": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
@@ -124,28 +138,33 @@
     "githubDraftPr": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "headSha", "idempotencyKey"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "baseRef", "headSha", "titleDigest", "bodyDigest", "idempotencyKey"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "github.openDraftPr" },
+        "baseRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$" },
         "headSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "titleDigest": { "$ref": "#/$defs/digest" },
+        "bodyDigest": { "$ref": "#/$defs/digest" },
         "idempotencyKey": { "$ref": "#/$defs/idempotencyKey" }
       }
     },
     "trackerComment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "issueId", "bodyDigest", "idempotencyKey"],
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "budget", "type", "issueId", "bodyDigest", "idempotencyKey"],
       "properties": {
         "schema_version": { "const": 1 },
         "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
         "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
         "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
         "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "budget": { "$ref": "#/$defs/effectBudget" },
         "type": { "const": "tracker.comment" },
         "issueId": { "type": "string", "minLength": 1, "maxLength": 256 },
         "bodyDigest": { "$ref": "#/$defs/digest" },

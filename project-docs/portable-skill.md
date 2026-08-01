@@ -38,6 +38,11 @@ capability, authorization, scope, freshness, budget, or idempotency evidence
 denies the request. A public action, role, or host adapter cannot create an
 alternate side-effect path.
 
+The broker reserves each request's complete declared budget and charges it once
+on the first outcome. An unresolved or indeterminate effect freezes all other
+transitions, and external-action invalidation reuses exact successful evidence
+instead of dispatching the provider operation again.
+
 Approvals and lifecycle authorizations accept only short-lived, Ed25519-signed
 host decisions bound to the canonical repository, exact task, current
 fingerprint, gate/scope, and approval artifacts. Caller-supplied identity and
@@ -52,27 +57,32 @@ shell-string commands fail closed during an active compiled workflow. A crash
 after claim leaves an explicit reconciliation record rather than reusable
 authority.
 
-No command adapter is active. `process.exec` is unconditionally denied until a
-separately versioned, signed sandbox attestation and enforcement contract
-exists; registration alone cannot enable it. Exact trusted Phantom
-control-plane invocations are the only exception.
+The portable broker verifies short-lived registry-signed host registrations and
+nonce-bound execution attestations. A `process.exec` request runs only through
+the registered sandbox contract, exact workflow argv/cwd, request-scoped
+filesystem policy, protected repository control state, denied network, and a
+positive environment allowlist. Generic native process tools remain denied;
+exact trusted Phantom control-plane invocations are the only native exception.
 
 The trusted host adapter must issue and refresh a short-lived, signed
 `capability-probe.json` bound to the current fingerprint and enforced pre/post
 hooks. Static hook registration is not runtime evidence. The bundle contains
 no private key, signer, or self-attestation path.
 
-No sandboxed command, external Git, pull-request, or tracker executor is
-bundled. Those capabilities require an explicitly supplied adapter and
-otherwise remain unavailable even when policy authorization succeeds. The
-read-only `hooks/capability-gate.mjs doctor <workspace>` status distinguishes
-registered native hook support, external probe issuance, and unregistered
-executors.
+No sandbox backend, external Git/GitHub/tracker client, provider credential,
+signer, or private key is bundled. Those effects require a matching signed host
+registration and result attestation and otherwise remain unavailable even when
+policy authorization succeeds. The read-only native and portable doctor
+commands distinguish hook readiness from externally provisioned adapters.
 
-No isolated branch executor or signed isolation attestation verifier is
-bundled. Production compilation rejects parallel workflow nodes before writing
-the compiled plan or journal; hosts must lower write-bearing fan-out to
-current-agent or sequential chain execution.
+The isolated-executor verifier, receipt broker, workspace manifests, and
+deterministic aggregator are bundled. The OS isolation backend and signing key
+are not. Production compilation accepts a write-bearing parallel node only
+when it can pin a current host-signed isolation probe; otherwise the host must
+compile current-agent or sequential chain execution. Branch start, retry, and
+fan-in require the authoritative main tree to remain at the compiled baseline;
+fan-in proves separate content/physical unions and portable hardlink alias
+equivalence.
 
 ## Capability Adaptation
 

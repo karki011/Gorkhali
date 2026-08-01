@@ -9,7 +9,6 @@ import {
   constants,
   existsSync,
   fsyncSync,
-  linkSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -35,14 +34,19 @@ import { fileURLToPath } from 'node:url';
 
 import { finalizeClaimedCapability } from '../skills/phantom/scripts/authorize-capability.mjs';
 import {
+  assertCapabilityReservation,
+  assertCapabilityReservationTransition,
   canonicalJson,
   capabilityRequestDigest,
   sha256,
-  validateCapabilityRequest,
+  validateCapabilityReservation,
 } from '../skills/phantom/scripts/lib/capability-contracts.mjs';
+import { buildPhantomDoctorReport } from '../skills/phantom/scripts/phantom-doctor.mjs';
 import {
   currentSessionFile,
   readJson,
+  repoIdentity,
+  STATE_ENVELOPE_VERSION,
   workspacePath,
 } from '../skills/phantom/scripts/lib/portable.mjs';
 import {
@@ -68,6 +72,7 @@ const TRUSTED_SCRIPTS = Object.freeze(Object.fromEntries([
   'advance-workflow.mjs',
   'authorize-capability.mjs',
   'compile-workflow.mjs',
+  'execute-parallel.mjs',
   'phantom-state.mjs',
   'replay-workflow.mjs',
   'validate-workflow.mjs',
@@ -87,38 +92,6 @@ const EXTERNAL_TOOLS = new Map([
 ]);
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 
-export const HOST_ADAPTER_CONTRACT = Object.freeze({
-  schema_version: 1,
-  signed_probe_issuer: Object.freeze({
-    required: true,
-    bundled: false,
-    status: 'external_required',
-  }),
-  native_effect_executor: Object.freeze({
-    capabilities: Object.freeze(['workspace.write']),
-    bundled: true,
-    registration: 'plugin-hooks',
-    requires_signed_probe: true,
-  }),
-  sandboxed_command_executor: Object.freeze({
-    required_for: Object.freeze(['build', 'test', 'interpreter', 'network', 'mutation']),
-    bundled: false,
-    status: 'denied_without_signed_enforcement_contract',
-  }),
-  isolated_branch_executor: Object.freeze({
-    required_for: Object.freeze(['parallel.branch.started', 'parallel.branch.completed']),
-    bundled: false,
-    status: 'disabled_without_signed_isolation_attestation',
-    fallback: 'current-agent-or-sequential-chain',
-  }),
-  external_executors: Object.freeze(Object.fromEntries(
-    ['git.commit', 'git.push', 'github.openDraftPr', 'tracker.comment'].map((capability) => [
-      capability,
-      Object.freeze({ required: true, bundled: false, status: 'not_registered' }),
-    ]),
-  )),
-});
-
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
 
@@ -130,21 +103,6 @@ function fsyncDirectory(directory) {
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
   }
-}
-
-function durableWriteJson(file, value) {
-  mkdirSync(dirname(file), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}-${randomUUID()}`;
-  let descriptor;
-  try {
-    descriptor = openSync(temporary, 'wx', 0o600);
-    writeFileSync(descriptor, `${canonicalJson(value)}\n`, 'utf8');
-    fsyncSync(descriptor);
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-  }
-  renameSync(temporary, file);
-  fsyncDirectory(dirname(file));
 }
 
 function exclusiveWriteJson(file, value) {
@@ -193,6 +151,17 @@ function repositoryRoot(candidate) {
   return realpathSync(workspacePath(candidate));
 }
 
+function policyRoot(candidate) {
+  const canonical = repositoryRoot(candidate);
+  const identityRoot = repoIdentity(canonical).root;
+  if (typeof identityRoot !== 'string' || !existsSync(identityRoot)) return canonical;
+  return repositoryRoot(identityRoot);
+}
+
+function pathCandidate(...values) {
+  return values.find((value) => typeof value === 'string' && value.trim()) ?? null;
+}
+
 export function normalizeToolEvent(eventInput) {
   if (!isObject(eventInput)) throw new Error('Tool hook input must be a JSON object.');
   const rawName = eventInput.tool_name
@@ -207,21 +176,27 @@ export function normalizeToolEvent(eventInput) {
       ?? eventInput.params
       ?? eventInput.function?.arguments,
   );
-  const workspace = repositoryRoot(
-    eventInput.cwd
-      ?? eventInput.project_dir
-      ?? eventInput.projectDir
-      ?? input.workdir
-      ?? input.cwd
-      ?? process.env.CLAUDE_PROJECT_DIR
-      ?? process.cwd(),
+  const trustedCandidate = pathCandidate(
+    process.env.CLAUDE_PROJECT_DIR,
+    eventInput.project_dir,
+    eventInput.projectDir,
   );
+  const invocationCandidate = pathCandidate(eventInput.cwd, process.cwd());
+  const executionCandidate = pathCandidate(input.workdir, input.cwd);
+  const trustedWorkspace = trustedCandidate ? policyRoot(trustedCandidate) : null;
+  const invocationWorkspace = repositoryRoot(invocationCandidate);
+  const invocationPolicyWorkspace = policyRoot(invocationWorkspace);
+  const executionWorkspace = executionCandidate ? policyRoot(executionCandidate) : null;
   return {
     raw: eventInput,
     name: String(rawName),
     key: toolKey(rawName),
     input,
-    workspace,
+    workspace: trustedWorkspace ?? invocationPolicyWorkspace,
+    trusted_workspace: trustedWorkspace,
+    invocation_workspace: invocationWorkspace,
+    invocation_policy_workspace: invocationPolicyWorkspace,
+    execution_workspace: executionWorkspace,
     correlation_id: String(
       eventInput.tool_use_id
         ?? eventInput.tool_call_id
@@ -260,11 +235,11 @@ function existingAncestor(candidate) {
   return current;
 }
 
-function portableEffectPath(workspace, inputPath) {
+function portableEffectPath(workspace, inputPath, pathBase = workspace) {
   if (typeof inputPath !== 'string' || !inputPath.trim() || inputPath.includes('\0')) {
     throw new Error('Native write tool supplied an invalid path.');
   }
-  const lexicalCandidate = resolve(workspace, inputPath);
+  const lexicalCandidate = resolve(pathBase, inputPath);
   const ancestor = existingAncestor(lexicalCandidate);
   if (!ancestor) throw new Error(`Native write path has no resolvable workspace ancestor: ${inputPath}`);
   const canonicalWorkspace = realpathSync(workspace);
@@ -349,9 +324,93 @@ function writeMutation(event) {
   return { rawPaths, body };
 }
 
+function writeTargetPolicyRoots(event) {
+  const pathBase = event.invocation_workspace ?? event.workspace;
+  return writeMutation(event).rawPaths.map((inputPath) => {
+    const lexical = resolve(pathBase, inputPath);
+    const ancestor = existingAncestor(lexical);
+    if (!ancestor) {
+      throw new Error(`Native write path has no resolvable workspace ancestor: ${inputPath}`);
+    }
+    const materialized = realpathSync(ancestor);
+    const directory = statSync(materialized).isDirectory() ? materialized : dirname(materialized);
+    return policyRoot(directory);
+  });
+}
+
+function governedSessionRoots(workspace) {
+  const pointerDirectory = dirname(currentSessionFile(workspace));
+  if (!existsSync(pointerDirectory)) return [];
+  const root = dirname(dirname(realpathSync(pointerDirectory)));
+  const governed = new Set();
+  for (const entry of readdirSync(pointerDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+    const pointerFile = join(pointerDirectory, entry.name);
+    try {
+      const pointer = readStableJsonFile(pointerFile).value;
+      if (!isObject(pointer)
+        || pointer.schema_version !== STATE_ENVELOPE_VERSION
+        || pointer.status !== undefined
+        || typeof pointer.repo_id !== 'string'
+        || typeof pointer.task_id !== 'string'
+        || typeof pointer.session_dir !== 'string'
+        || entry.name !== `${pointer.repo_id}.json`) continue;
+      const sessionDirectory = resolve(pointer.session_dir);
+      if (!existsSync(sessionDirectory)) continue;
+      const canonicalSessionDirectory = realpathSync(sessionDirectory);
+      if (!within(root, canonicalSessionDirectory)) continue;
+      const session = readStableJsonFile(join(canonicalSessionDirectory, 'session.json')).value;
+      if (!isObject(session)
+        || session.schema_version !== STATE_ENVELOPE_VERSION
+        || session.artifact_type !== 'session'
+        || !['active', 'paused'].includes(session.status)
+        || session.repo_id !== pointer.repo_id
+        || session.task_id !== pointer.task_id
+        || typeof session.workspace !== 'string') continue;
+      const candidate = policyRoot(session.workspace);
+      if (resolve(currentSessionFile(candidate)) === resolve(pointerFile)) governed.add(candidate);
+    } catch {
+      // Unrelated legacy or malformed state cannot claim a governed workspace.
+    }
+  }
+  return [...governed];
+}
+
+function bindPolicyWorkspace(event, classification) {
+  const candidates = new Set([
+    event.trusted_workspace,
+    event.invocation_policy_workspace,
+    event.execution_workspace,
+  ].filter(Boolean));
+  if (classification.kind === 'workspace.write') {
+    for (const targetRoot of writeTargetPolicyRoots(event)) candidates.add(targetRoot);
+  }
+  let governed = [...candidates].filter((candidate) => existsSync(currentSessionFile(candidate)));
+  if (classification.kind === 'process.exec') {
+    const activeRoots = governedSessionRoots(event.workspace);
+    const activeCandidates = governed.filter((candidate) => activeRoots.includes(candidate));
+    if (activeCandidates.length === 0 && activeRoots.length > 0) {
+      throw new Error(
+        'Native process effect cannot prove its target is outside active governed Phantom workspaces.',
+      );
+    }
+    if (activeCandidates.length > 0) governed = activeCandidates;
+  }
+  if (governed.length > 1) {
+    throw new Error('Native effect resolves to multiple governed Phantom workspaces.');
+  }
+  const workspace = governed[0]
+    ?? event.trusted_workspace
+    ?? event.invocation_policy_workspace
+    ?? event.workspace;
+  return workspace === event.workspace ? event : { ...event, workspace };
+}
+
 function writeEvidence(event) {
   const { rawPaths, body } = writeMutation(event);
-  const paths = [...new Set(rawPaths.map((item) => portableEffectPath(event.workspace, item)))].sort();
+  const pathBase = event.invocation_workspace ?? event.workspace;
+  const paths = [...new Set(rawPaths.map((item) =>
+    portableEffectPath(event.workspace, item, pathBase)))].sort();
   if (paths.length === 0) throw new Error('Native write tool did not identify any affected workspace path.');
   return {
     capability_type: 'workspace.write',
@@ -363,9 +422,10 @@ function writeEvidence(event) {
 function nativeWriteTargetState(event, requireMaterialized) {
   const { rawPaths } = writeMutation(event);
   const root = realpathSync(event.workspace);
+  const pathBase = event.invocation_workspace ?? root;
   return rawPaths.map((inputPath) => {
-    const path = portableEffectPath(root, inputPath);
-    const lexical = resolve(root, inputPath);
+    const path = portableEffectPath(root, inputPath, pathBase);
+    const lexical = resolve(pathBase, inputPath);
     if (!existsSync(lexical)) {
       if (requireMaterialized && event.key !== 'applypatch') {
         throw new Error(`Native write target did not materialize at its exact path: ${inputPath}`);
@@ -384,15 +444,16 @@ function nativeWriteTargetState(event, requireMaterialized) {
       ino: file.physical.ino,
       generation: file.generation,
     };
-  }).sort((left, right) => left.path.localeCompare(right.path));
+  }).sort((left, right) => (left.path < right.path ? -1 : (left.path > right.path ? 1 : 0)));
 }
 
 function assertNotControlPlaneWrite(event, active) {
   if (event.key !== 'write' && !WRITE_TOOLS.has(event.key)) return;
   const roots = [active.dataRoot, active.sessionDir, join(active.sessionDir, 'control-inputs')]
     .map((root) => resolve(realpathSync(root)));
+  const pathBase = event.invocation_workspace ?? event.workspace;
   for (const inputPath of writeMutation(event).rawPaths) {
-    const lexical = resolve(event.workspace, inputPath);
+    const lexical = resolve(pathBase, inputPath);
     const ancestor = existingAncestor(lexical);
     if (!ancestor) throw new Error(`Native write path has no resolvable workspace ancestor: ${inputPath}`);
     const candidate = resolve(realpathSync(ancestor), relative(ancestor, lexical));
@@ -705,7 +766,7 @@ function stateControlInvocation(args, active) {
 
 function capabilityControlInvocation(args, active) {
   const action = args[0];
-  if (action === 'authorize') {
+  if (action === 'authorize' || action === 'attest') {
     const values = exactInvocation(args, [action], ['--workspace', '--task', '--input']);
     return boundWorkspace(values, active) && canonicalSessionInput(values['--input'], active);
   }
@@ -750,6 +811,10 @@ function controlPlaneCommand(event, active) {
     || script === TRUSTED_SCRIPTS['advance-workflow.mjs']) {
     const values = exactInvocation(args, [], ['--workspace', '--task', '--input']);
     return boundWorkspace(values, active) && canonicalSessionInput(values['--input'], active);
+  }
+  if (script === TRUSTED_SCRIPTS['execute-parallel.mjs']) {
+    const values = exactInvocation(args, [], ['--workspace', '--task', '--receipt']);
+    return boundWorkspace(values, active) && canonicalSessionInput(values['--receipt'], active);
   }
   if (script === TRUSTED_SCRIPTS['replay-workflow.mjs']) {
     return boundWorkspace(exactInvocation(args, [], ['--workspace', '--task']), active);
@@ -804,51 +869,6 @@ function loadActiveWorkflow(workspace) {
   };
 }
 
-export function hostAdapterStatus(workspaceInput = process.cwd()) {
-  const workspace = repositoryRoot(workspaceInput);
-  const pointerPresent = existsSync(currentSessionFile(workspace));
-  let active = null;
-  let sessionState = pointerPresent ? 'present' : 'absent';
-  let workflow = 'not_applicable';
-  let workflowProblem = null;
-  if (pointerPresent) {
-    try {
-      active = loadActiveWorkflow(workspace);
-      if (active) {
-        sessionState = active.session.status;
-        workflow = 'ready';
-      } else {
-        sessionState = 'completed';
-      }
-    } catch (error) {
-      workflow = 'blocked';
-      workflowProblem = error.message || String(error);
-    }
-  }
-
-  let probe = { status: active ? 'unavailable' : 'not_applicable', problem: null };
-  if (active) {
-    try {
-      const verified = assertTrustedHostInterception(workspace, {
-        task: active.task,
-        fingerprint: active.fingerprint,
-        action: 'report host adapter status',
-      });
-      probe = { status: 'available', problem: null, digest: verified.probe_digest };
-    } catch (error) {
-      probe.problem = error.message || String(error);
-    }
-  }
-
-  return {
-    schema_version: 1,
-    workspace,
-    contract: structuredClone(HOST_ADAPTER_CONTRACT),
-    session: { state: sessionState, workflow, problem: workflowProblem },
-    signed_probe: probe,
-  };
-}
-
 function capabilityScope(type) {
   if (['workspace.write', 'process.exec', 'git.commit'].includes(type)) return 'implementation';
   if (['git.push', 'github.openDraftPr'].includes(type)) return 'ship-draft-pr';
@@ -869,14 +889,21 @@ function reservationFiles(sessionDir, lane) {
     .map((entry) => join(directory, entry));
 }
 
-function readReservation(file) {
-  const raw = readFileSync(file, 'utf8');
+function readReservation(file, sessionDir) {
+  const snapshot = readRegularFileOnce(file, sessionDir);
+  if (snapshot.physical.nlink !== 1 || (snapshot.mode & 0o077) !== 0) {
+    throw new Error(`Capability reservation must be a private single-link file: ${file}`);
+  }
+  const raw = snapshot.bytes.toString('utf8');
   if (!raw.endsWith('\n')) throw new Error(`Capability reservation is partially written: ${file}`);
   let reservation;
   try {
     reservation = JSON.parse(raw);
   } catch {
     throw new Error(`Capability reservation is malformed: ${file}`);
+  }
+  if (raw !== `${canonicalJson(reservation)}\n`) {
+    throw new Error(`Capability reservation is not canonical JSON: ${file}`);
   }
   return { raw, reservation };
 }
@@ -890,42 +917,32 @@ function decisionDigest(payload) {
     request_digest: payload.request_digest,
     decision: payload.decision,
     reason: payload.reason,
+    reserved_budget: payload.reserved_budget,
   };
   return sha256(canonicalJson(unsigned));
 }
 
-function reservationStaticErrors(active, file, reservation) {
-  const errors = [];
-  if (!isObject(reservation) || reservation.schema_version !== 1) errors.push('unsupported reservation envelope');
-  if (!DIGEST.test(reservation?.decision_digest || '')) errors.push('invalid decision digest');
-  if (!DIGEST.test(reservation?.request_digest || '')) errors.push('invalid request digest');
-  const requestErrors = validateCapabilityRequest(reservation?.request);
-  if (requestErrors.length) errors.push(`invalid request: ${requestErrors.join('; ')}`);
-  if (requestErrors.length === 0) {
-    const request = reservation.request;
-    if (reservation.request_digest !== capabilityRequestDigest(request)
-      || reservation.request_id !== request.request_id
-      || reservation.workflow_id !== request.workflow_id
-      || reservation.node_id !== request.node_id
-      || reservation.capability_type !== request.type
-      || request.workflow_id !== active.compiled.plan.workflow_id) {
-      errors.push('request metadata or digest binding mismatch');
-    }
-    const expectedName = `${reservation.decision_digest.replace(/^sha256:/, '')}.json`;
-    if (basename(file) !== expectedName) errors.push('reservation filename does not match decision digest');
-    const decision = active.snapshot.events.find((event) =>
-      event.event_type === 'capability.decision'
-      && event.node_id === request.node_id
-      && event.payload?.decision === 'authorized'
-      && event.payload?.decision_digest === reservation.decision_digest);
-    if (!decision
-      || decision.payload.request_id !== request.request_id
-      || decision.payload.request_digest !== reservation.request_digest
-      || decision.payload.capability_type !== request.type
-      || decision.payload.idempotency_key !== reservation.idempotency_key
-      || decisionDigest(decision.payload) !== reservation.decision_digest) {
-      errors.push('authorized journal decision binding mismatch');
-    }
+function reservationStaticErrors(active, file, reservation, lane) {
+  const errors = validateCapabilityReservation(reservation, { lane });
+  if (errors.length) return errors;
+  const request = reservation.request;
+  if (request.workflow_id !== active.compiled.plan.workflow_id) {
+    errors.push('request workflow binding mismatch');
+  }
+  const expectedName = `${reservation.decision_digest.replace(/^sha256:/, '')}.json`;
+  if (basename(file) !== expectedName) errors.push('reservation filename does not match decision digest');
+  const decision = active.snapshot.events.find((event) =>
+    event.event_type === 'capability.decision'
+    && event.node_id === request.node_id
+    && event.payload?.decision === 'authorized'
+    && event.payload?.decision_digest === reservation.decision_digest);
+  if (!decision
+    || decision.payload.request_id !== request.request_id
+    || decision.payload.request_digest !== reservation.request_digest
+    || decision.payload.capability_type !== request.type
+    || decision.payload.idempotency_key !== reservation.idempotency_key
+    || decisionDigest(decision.payload) !== reservation.decision_digest) {
+    errors.push('authorized journal decision binding mismatch');
   }
   return errors;
 }
@@ -970,7 +987,7 @@ function correlation(event, evidence) {
   };
 }
 
-function exactGenerationUnlink(file, raw, purpose) {
+function exactGenerationUnlink(file, raw, purpose, sessionDir) {
   const relocated = `${file}.${purpose}.${process.pid}.${randomUUID()}`;
   try {
     renameSync(file, relocated);
@@ -979,14 +996,12 @@ function exactGenerationUnlink(file, raw, purpose) {
     if (error.code === 'ENOENT') return false;
     throw error;
   }
-  if (readFileSync(relocated, 'utf8') !== raw) {
-    try {
-      linkSync(relocated, file);
-      fsyncDirectory(dirname(file));
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
+  const moved = readRegularFileOnce(relocated, sessionDir);
+  if (moved.physical.nlink !== 1 || moved.bytes.toString('utf8') !== raw) {
+    if (existsSync(file)) {
+      throw new Error(`Capability reservation changed while ${purpose}; preserved conflicting generation at ${relocated}.`);
     }
-    unlinkSync(relocated);
+    renameSync(relocated, file);
     fsyncDirectory(dirname(file));
     return false;
   }
@@ -1000,38 +1015,67 @@ function claimReservation(candidate, claim) {
   mkdirSync(consumingDirectory, { recursive: true });
   fsyncDirectory(dirname(consumingDirectory));
   const consuming = join(consumingDirectory, basename(candidate.file));
-  try {
-    linkSync(candidate.file, consuming);
-    fsyncDirectory(consumingDirectory);
-  } catch (error) {
-    if (error.code === 'EEXIST') throw new Error('Capability reservation is already consuming and requires reconciliation.');
-    throw error;
-  }
-  const linkedRaw = readFileSync(consuming, 'utf8');
-  if (linkedRaw !== candidate.raw) {
-    unlinkSync(consuming);
-    fsyncDirectory(consumingDirectory);
-    throw new Error('Capability reservation changed during one-shot claim.');
-  }
-  if (!exactGenerationUnlink(candidate.file, candidate.raw, 'claim')) {
-    if (readFileSync(consuming, 'utf8') === candidate.raw) unlinkSync(consuming);
-    fsyncDirectory(consumingDirectory);
-    throw new Error('Capability reservation generation changed during one-shot claim.');
-  }
-  durableWriteJson(consuming, {
+  const claimedReservation = {
     ...candidate.reservation,
     status: 'consuming',
     consuming_at: new Date().toISOString(),
     claim,
+  };
+  assertCapabilityReservationTransition({
+    fromLane: 'pending',
+    toLane: 'consuming',
+    before: candidate.reservation,
+    after: claimedReservation,
   });
+  try {
+    exclusiveWriteJson(consuming, claimedReservation);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      const existing = readReservation(consuming, candidate.active.sessionDir).reservation;
+      assertCapabilityReservation(existing, { lane: 'consuming' });
+      if (existing.reservation_digest === candidate.reservation.reservation_digest
+        && existing.status === 'consuming') {
+        assertCapabilityReservationTransition({
+          fromLane: 'pending',
+          toLane: 'consuming',
+          before: candidate.reservation,
+          after: existing,
+        });
+        if (!exactGenerationUnlink(
+          candidate.file,
+          candidate.raw,
+          'duplicate-claim',
+          candidate.active.sessionDir,
+        )) {
+          throw new Error('Capability reservation generation changed during duplicate-claim recovery.');
+        }
+        throw new Error('Capability reservation is already consuming and requires reconciliation.');
+      }
+      throw new Error('Capability reservation consuming lane conflicts with a different reservation.');
+    }
+    throw error;
+  }
+  const created = readReservation(consuming, candidate.active.sessionDir);
+  assertCapabilityReservationTransition({
+    fromLane: 'pending',
+    toLane: 'consuming',
+    before: candidate.reservation,
+    after: created.reservation,
+  });
+  if (!exactGenerationUnlink(candidate.file, candidate.raw, 'claim', candidate.active.sessionDir)) {
+    if (!exactGenerationUnlink(consuming, created.raw, 'rollback', candidate.active.sessionDir)) {
+      throw new Error('Capability reservation rollback found a conflicting consuming generation.');
+    }
+    throw new Error('Capability reservation generation changed during one-shot claim.');
+  }
   return { ...candidate, consuming, claim };
 }
 
 function matchingLane(active, lane, evidence, eventCorrelation) {
   const matches = [];
   for (const file of reservationFiles(active.sessionDir, lane)) {
-    const { raw, reservation } = readReservation(file);
-    const staticErrors = reservationStaticErrors(active, file, reservation);
+    const { raw, reservation } = readReservation(file, active.sessionDir);
+    const staticErrors = reservationStaticErrors(active, file, reservation, lane);
     if (staticErrors.length) throw new Error(`Invalid ${lane} capability reservation: ${staticErrors.join(', ')}.`);
     if (!evidenceMatches(reservation.request, evidence)) continue;
     if (lane === 'consuming' && isObject(reservation.claim)) {
@@ -1103,8 +1147,9 @@ function failureDetails(event) {
 }
 
 export function preToolUse(eventInput) {
-  const event = normalizeToolEvent(eventInput);
-  const classification = classifyTool(event);
+  const normalized = normalizeToolEvent(eventInput);
+  const classification = classifyTool(normalized);
+  const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && reserveControlInput(event, control);
   if (controlInput) {
@@ -1132,8 +1177,9 @@ export function preToolUse(eventInput) {
 }
 
 export function postToolUse(eventInput) {
-  const event = normalizeToolEvent(eventInput);
-  const classification = classifyTool(event);
+  const normalized = normalizeToolEvent(eventInput);
+  const classification = classifyTool(normalized);
+  const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && finalizeControlInput(event, control);
   if (controlInput) {
@@ -1201,7 +1247,8 @@ function deny(phase, error) {
 async function main() {
   const phase = process.argv[2];
   if (phase === 'doctor') {
-    process.stdout.write(`${JSON.stringify(hostAdapterStatus(process.argv[3] ?? process.cwd()), null, 2)}\n`);
+    const report = buildPhantomDoctorReport({ workspace: process.argv[3] ?? process.cwd() });
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return;
   }
   if (!['pre', 'post'].includes(phase)) throw new Error('Capability hook phase must be pre, post, or doctor.');

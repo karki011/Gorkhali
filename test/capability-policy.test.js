@@ -3,7 +3,7 @@
 
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { generateKeyPairSync, sign } = require('node:crypto');
+const { createHash, generateKeyPairSync, sign } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -17,21 +17,28 @@ let authorizeCapability;
 let appendWorkflowEvent;
 let capabilityRequestDigest;
 let compileWorkflow;
-let executeAuthorizedCapability;
 let finalizeClaimedCapability;
 let runCapabilityBroker;
 let sessionPaths;
 let validateCapabilityRequest;
+let validateCapabilityReservation;
+let validateCapabilityReservationTransition;
 let protectedBranches;
 let worktreeFingerprint;
 let workflowPaths;
 let writeCompiledWorkflow;
 
 before(async () => {
-  ({ authorizeCapability, capabilityRequestDigest, validateCapabilityRequest } = await import(
+  ({
+    authorizeCapability,
+    capabilityRequestDigest,
+    validateCapabilityRequest,
+    validateCapabilityReservation,
+    validateCapabilityReservationTransition,
+  } = await import(
     pathToFileURL(path.join(ROOT, 'skills/phantom/scripts/lib/capability-contracts.mjs')).href
   ));
-  ({ executeAuthorizedCapability, finalizeClaimedCapability, runCapabilityBroker } = await import(
+  ({ finalizeClaimedCapability, runCapabilityBroker } = await import(
     pathToFileURL(path.join(ROOT, 'skills/phantom/scripts/authorize-capability.mjs')).href
   ));
   ({ atomicWriteJson, sessionPaths } = await import(
@@ -59,6 +66,10 @@ function canonicalJson(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+function sha256(value) {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
 function writeInterceptionProbe({ paths, fingerprint, privateKey }) {
@@ -153,10 +164,11 @@ function request(type, extra = {}) {
     workflow_id: 'wf-1',
     node_id: 'implement',
     worktreeFingerprint: DIGEST_A,
+    budget: { maxCostUnits: 1, maxDurationMs: 1_000 },
     type,
   };
   if (type === 'workspace.write') return { ...base, paths: ['src/app.js'], patchDigest: DIGEST_B, ...extra };
-  if (type === 'process.exec') return { ...base, command: ['git', 'status', '--short'], cwd: '.', ...extra };
+  if (type === 'process.exec') return { ...base, command: ['node', '--test'], cwd: '.', ...extra };
   if (type === 'git.commit') return { ...base, treeDigest: DIGEST_B, message: 'feat: deterministic workflow', ...extra };
   if (type === 'git.push') {
     return {
@@ -169,7 +181,15 @@ function request(type, extra = {}) {
     };
   }
   if (type === 'github.openDraftPr') {
-    return { ...base, headSha: 'a'.repeat(40), idempotencyKey: 'draft-pr:wf-1', ...extra };
+    return {
+      ...base,
+      baseRef: 'main',
+      headSha: 'a'.repeat(40),
+      titleDigest: DIGEST_A,
+      bodyDigest: DIGEST_B,
+      idempotencyKey: 'draft-pr:wf-1',
+      ...extra,
+    };
   }
   return { ...base, issueId: 'CP-1', bodyDigest: DIGEST_B, idempotencyKey: 'tracker:wf-1', ...extra };
 }
@@ -191,11 +211,16 @@ function context(extra = {}) {
       nodes: [{
         id: 'implement',
         allowed_paths: ['src'],
-        allowed_commands: [['git', 'status', '--short']],
+        allowed_commands: [['node', '--test']],
         allowed_cwds: ['.'],
+        budget: { max_cost_units: 10, max_duration_ms: 10_000 },
       }],
     },
-    workflowState: { nodes: { implement: { status: 'running' } } },
+    workflowState: { nodes: { implement: {
+      status: 'running',
+      consumed_budget: { cost_units: 0, duration_ms: 0 },
+      reserved_budget: { cost_units: 0, duration_ms: 0 },
+    } } },
     currentWorktreeFingerprint: DIGEST_A,
     currentTreeDigest: DIGEST_B,
     headSha: 'a'.repeat(40),
@@ -204,15 +229,25 @@ function context(extra = {}) {
     trusted_interception: true,
     hard_enforcement: true,
     remotes: ['origin'],
-    runtimeCapabilities: [
-      'workspace.write',
-      'process.exec',
-      'version_control',
-      'review.publish',
-      'issue.tracker',
-    ],
+    runtimeCapabilities: {
+      'workspace.write': 'available',
+      'process.exec': 'available',
+      'version_control': 'available',
+      'review.publish': 'available',
+      'issue.tracker': 'available',
+    },
     remainingBudget: { cost: 10, duration_ms: 10_000 },
     externalAuthorizations: ['tracker.comment'],
+    hostAdapter: {
+      status: 'ready',
+      capabilities: {
+        'process.exec': { status: 'ready', policy_digest: DIGEST_A },
+        'git.commit': { status: 'ready', policy_digest: DIGEST_A },
+        'git.push': { status: 'ready', policy_digest: DIGEST_A },
+        'github.openDraftPr': { status: 'ready', policy_digest: DIGEST_A },
+        'tracker.comment': { status: 'ready', policy_digest: DIGEST_A },
+      },
+    },
     priorDecisions: [],
     ...extra,
   };
@@ -256,39 +291,49 @@ test('capability request validation is typed, exact, and traversal-safe', () => 
   assert.deepEqual(validateCapabilityRequest(request('github.openDraftPr')), []);
   assert.deepEqual(validateCapabilityRequest(request('tracker.comment')), []);
 
+  const missingBudget = request('workspace.write');
+  delete missingBudget.budget;
+  assert.match(validateCapabilityRequest(missingBudget).join('\n'), /budget: required/);
+  assert.match(validateCapabilityRequest(request('workspace.write', {
+    budget: { maxCostUnits: 0, maxDurationMs: 1_000 },
+  })).join('\n'), /maxCostUnits: must be >= 0.000001/);
+  assert.match(validateCapabilityRequest(request('workspace.write', {
+    budget: { maxCostUnits: 1, maxDurationMs: 0 },
+  })).join('\n'), /maxDurationMs: must be >= 1/);
+
   const legacy = request('workspace.write', { patch_digest: DIGEST_B });
   assert.match(validateCapabilityRequest(legacy).join('\n'), /patch_digest: unsupported property/);
   const traversal = request('workspace.write', { paths: ['../outside'] });
   assert.match(validateCapabilityRequest(traversal).join('\n'), /workspace-relative path/);
   const unnormalized = request('workspace.write', { paths: ['./src/app.js'] });
   assert.match(validateCapabilityRequest(unnormalized).join('\n'), /workspace-relative path/);
+  for (const field of ['baseRef', 'titleDigest', 'bodyDigest']) {
+    const incomplete = request('github.openDraftPr');
+    delete incomplete[field];
+    assert.match(validateCapabilityRequest(incomplete).join('\n'), new RegExp(`${field}.*required`));
+  }
 });
 
 test('broker authorizes valid scoped requests and fails closed on policy drift', () => {
-  assert.equal(authorizeCapability(request('workspace.write'), context()).status, 'authorized');
-  assert.deepEqual(
-    authorizeCapability(request('process.exec'), context()).reason_codes,
-    ['sandbox_executor_attestation_unavailable'],
-  );
+  const authorizedWrite = authorizeCapability(request('workspace.write'), context());
+  assert.equal(authorizedWrite.status, 'authorized');
+  assert.deepEqual(authorizedWrite.reserved_budget, { cost_units: 1, duration_ms: 1_000 });
+  assert.equal(authorizeCapability(request('process.exec'), context()).status, 'authorized');
   assert.deepEqual(
     authorizeCapability(request('process.exec', { command: ['node', '--test', 'extra'] }), context()).reason_codes,
-    ['command_not_allowed', 'sandbox_executor_attestation_unavailable'],
+    ['command_not_allowed'],
   );
   assert.equal(authorizeCapability(request('git.commit'), context()).status, 'authorized');
   assert.equal(authorizeCapability(request('tracker.comment'), trackerContext()).status, 'authorized');
 
   const stale = authorizeCapability(request('workspace.write'), context({ currentWorktreeFingerprint: DIGEST_B }));
   assert.deepEqual(stale.reason_codes, ['stale_worktree']);
+  const frozen = authorizeCapability(request('workspace.write'), context({ workflowEffectUnresolved: true }));
+  assert.deepEqual(frozen.reason_codes, ['workflow_effect_reconciliation_required']);
   const outside = authorizeCapability(request('workspace.write', { paths: ['README.md'] }), context());
   assert.deepEqual(outside.reason_codes, ['path_outside_node_scope']);
   const command = authorizeCapability(request('process.exec', { command: ['bash', '-lc', 'true'] }), context());
-  assert.deepEqual(command.reason_codes, ['command_not_allowed', 'sandbox_executor_attestation_unavailable']);
-  const processBypass = context();
-  processBypass.workflow.nodes[0].allowed_commands = [['git', 'push']];
-  assert.deepEqual(
-    authorizeCapability(request('process.exec', { command: ['git', 'push'] }), processBypass).reason_codes,
-    ['sandbox_executor_attestation_unavailable'],
-  );
+  assert.deepEqual(command.reason_codes, ['command_not_allowed', 'reserved_effect_command']);
   for (const sandboxCommand of [
     ['git', '-c', 'credential.helper=!false', 'push'],
     ['env', 'git', 'status'],
@@ -305,10 +350,34 @@ test('broker authorizes valid scoped requests and fails closed on policy drift',
   ]) {
     const declared = context();
     declared.workflow.nodes[0].allowed_commands = [sandboxCommand];
+    declared.hostAdapter = null;
     const decision = authorizeCapability(request('process.exec', { command: sandboxCommand }), declared);
     assert.equal(decision.status, 'denied');
-    assert.ok(decision.reason_codes.includes('sandbox_executor_attestation_unavailable'));
+    assert.ok(decision.reason_codes.includes('host_adapter_unavailable'));
   }
+  for (const reservedCommand of [
+    ['/usr/bin/git', 'push', 'origin', 'HEAD'],
+    ['C:\\Program Files\\Git\\bin\\git.exe', 'push'],
+    ['gh', 'pr', 'create'],
+    ['env', 'git', 'push'],
+    ['nice', 'git', 'commit'],
+    ['node', '--eval', 'process.exit(0)'],
+    ['find', '.', '-exec', 'git', 'status', ';'],
+  ]) {
+    const declared = context();
+    declared.workflow.nodes[0].allowed_commands = [reservedCommand];
+    const denied = authorizeCapability(
+      request('process.exec', { command: reservedCommand }),
+      declared,
+    );
+    assert.equal(denied.status, 'denied');
+    assert.deepEqual(denied.reason_codes, ['reserved_effect_command']);
+  }
+  const ordinaryInterpreter = context();
+  ordinaryInterpreter.workflow.nodes[0].allowed_commands = [['python', '-m', 'pytest']];
+  assert.equal(authorizeCapability(request('process.exec', {
+    command: ['python', '-m', 'pytest'],
+  }), ordinaryInterpreter).status, 'authorized');
   const protectedWrite = context();
   protectedWrite.workflow.nodes[0].allowed_paths = ['.'];
   for (const protectedPath of [
@@ -343,8 +412,25 @@ test('broker authorizes valid scoped requests and fails closed on policy drift',
     })).reason_codes,
     ['control_plane_path_protected', 'path_outside_node_scope'],
   );
-  const exhausted = authorizeCapability(request('workspace.write'), context({ remainingBudget: { cost: 0 } }));
+  const exhausted = authorizeCapability(request('workspace.write'), context({
+    remainingBudget: { cost: 0, duration_ms: 10_000 },
+  }));
   assert.deepEqual(exhausted.reason_codes, ['cost_budget_exhausted']);
+  assert.deepEqual(authorizeCapability(request('workspace.write'), context({
+    remainingBudget: { cost: 0.5, duration_ms: 10_000 },
+  })).reason_codes, ['cost_budget_exhausted']);
+  assert.deepEqual(authorizeCapability(request('workspace.write'), context({
+    remainingBudget: { cost: 10, duration_ms: 999 },
+  })).reason_codes, ['time_budget_exhausted']);
+  const locallyReserved = context();
+  locallyReserved.workflowState.nodes.implement.reserved_budget.cost_units = 9.5;
+  assert.deepEqual(
+    authorizeCapability(request('workspace.write'), locallyReserved).reason_codes,
+    ['node_cost_budget_exhausted'],
+  );
+  assert.deepEqual(authorizeCapability(request('workspace.write'), context({
+    remainingBudget: { cost: 10 },
+  })).reason_codes, ['budget_state_unavailable']);
   const criticalDirect = context();
   criticalDirect.session.route = 'direct';
   criticalDirect.workflow.nodes[0].risk = 'critical';
@@ -364,10 +450,17 @@ test('broker authorizes valid scoped requests and fails closed on policy drift',
     ['github.openDraftPr', draftContext],
     ['tracker.comment', trackerContext],
   ]) {
+    const unavailable = buildContext({ trusted_interception: false });
+    const hostAttested = [
+      'process.exec', 'git.commit', 'git.push', 'github.openDraftPr', 'tracker.comment',
+    ].includes(type);
+    if (hostAttested) {
+      unavailable.hostAdapter = null;
+    }
     assert.deepEqual(
-      authorizeCapability(request(type), buildContext({ trusted_interception: false })).reason_codes,
-      type === 'process.exec'
-        ? ['host_interception_unavailable', 'sandbox_executor_attestation_unavailable']
+      authorizeCapability(request(type), unavailable).reason_codes,
+      hostAttested
+        ? ['host_adapter_unavailable']
         : ['host_interception_unavailable'],
     );
   }
@@ -424,12 +517,31 @@ test('idempotency replays the same request once and rejects key reuse for differ
   assert.equal(repeated.status, 'duplicate');
   assert.deepEqual(repeated.reason_codes, ['idempotent_replay']);
 
+  const uncertain = {
+    ...original,
+    execution_status: 'indeterminate',
+    indeterminate_outcome: { attestation_digest: DIGEST_B },
+  };
+  const blockedRetry = authorizeCapability(originalRequest, draftContext({ priorDecisions: [uncertain] }));
+  assert.equal(blockedRetry.status, 'denied');
+  assert.deepEqual(blockedRetry.reason_codes, ['idempotency_reconciliation_required']);
+
   const conflictingRequest = request('github.openDraftPr', { headSha: 'b'.repeat(40) });
   const conflictContext = draftContext({ headSha: 'b'.repeat(40), priorDecisions: [original] });
   const conflict = authorizeCapability(conflictingRequest, conflictContext);
   assert.equal(conflict.status, 'denied');
   assert.deepEqual(conflict.reason_codes, ['idempotency_key_conflict']);
   assert.notEqual(capabilityRequestDigest(originalRequest), capabilityRequestDigest(conflictingRequest));
+  for (const mutation of [
+    { baseRef: 'develop' },
+    { titleDigest: DIGEST_B },
+    { bodyDigest: DIGEST_A },
+  ]) {
+    assert.notEqual(
+      capabilityRequestDigest(originalRequest),
+      capabilityRequestDigest(request('github.openDraftPr', mutation)),
+    );
+  }
 
   const denied = authorizeCapability(conflictingRequest, draftContext());
   assert.equal(denied.status, 'denied');
@@ -462,7 +574,7 @@ test('CLI resolves the active session and writes an append-only decision ledger'
     const canonicalWorkspace = fs.realpathSync(workspace);
     const inputFile = path.join(root, 'request.json');
     const compiled = compileWorkflow({
-      schema_version: 1,
+      schema_version: 2,
       workflow_id: 'wf-1',
       route: 'direct',
       risk: 'low',
@@ -508,7 +620,7 @@ test('CLI resolves the active session and writes an append-only decision ledger'
         event_type: 'node.started',
         node_id: 'implement',
         worktree_fingerprint: fingerprint,
-        producer: { role: 'apex' },
+        producer: { role: 'blade' },
         payload: { input_refs: [] },
       },
     });
@@ -530,37 +642,97 @@ test('CLI resolves the active session and writes an append-only decision ledger'
       'workflow.started',
       'node.started',
     ]);
-    const pendingDirectory = path.join(paths.sessionDir, 'capability', 'reservations', 'pending');
-    const pendingFiles = fs.readdirSync(pendingDirectory);
-    assert.equal(pendingFiles.length, 1);
-    const crashReservation = JSON.parse(fs.readFileSync(path.join(pendingDirectory, pendingFiles[0]), 'utf8'));
+    const reservationRoot = path.join(paths.sessionDir, 'capability', 'reservations');
+    const pendingDirectory = path.join(reservationRoot, 'pending');
+    const stagedDirectory = path.join(reservationRoot, 'staged');
+    assert.equal(fs.readdirSync(pendingDirectory).length, 0);
+    const stagedFiles = fs.readdirSync(stagedDirectory);
+    assert.equal(stagedFiles.length, 1);
+    const stagedFile = path.join(stagedDirectory, stagedFiles[0]);
+    const crashRaw = fs.readFileSync(stagedFile, 'utf8');
+    const crashReservation = JSON.parse(crashRaw);
     assert.deepEqual(
       crashReservation.hard_enforcement.protected_branches,
       protectedBranches(canonicalWorkspace),
     );
+    assert.deepEqual(crashReservation.reserved_budget, { cost_units: 1, duration_ms: 1_000 });
+    const budgetTamper = structuredClone(crashReservation);
+    budgetTamper.reserved_budget.cost_units = 0.5;
+    assert.match(
+      validateCapabilityReservation(budgetTamper).join('\n'),
+      /reserved_budget.*does not match reservation_binding|reserved_budget.*does not match request budget/,
+    );
+    const crossVariant = structuredClone(crashReservation);
+    const { binding_digest: ignoredBindingDigest, ...nativeBinding } = crossVariant.hard_enforcement;
+    void ignoredBindingDigest;
+    Object.assign(nativeBinding, {
+      registry_trust_digest: DIGEST_A,
+      registration_digest: DIGEST_A,
+      policy_digest: DIGEST_A,
+    });
+    crossVariant.hard_enforcement = {
+      ...nativeBinding,
+      binding_digest: sha256(canonicalJson({ request: crossVariant.request, binding: nativeBinding })),
+    };
+    crossVariant.reservation_binding.hard_enforcement = structuredClone(crossVariant.hard_enforcement);
+    crossVariant.reservation_digest = sha256(canonicalJson(crossVariant.reservation_binding));
+    fs.writeFileSync(stagedFile, `${canonicalJson(crossVariant)}\n`);
+    assert.throws(() => runCapabilityBroker(args), /hard_enforcement.*variant shape/i);
+    fs.writeFileSync(stagedFile, crashRaw);
     const first = runCapabilityBroker(args);
     const second = runCapabilityBroker(args);
     assert.equal(first.status, 'authorized', JSON.stringify(first));
+    assert.deepEqual(first.reservation.reserved_budget, { cost_units: 1, duration_ms: 1_000 });
     assert.equal(second.status, 'denied');
     assert.deepEqual(second.reason_codes, ['idempotency_reservation_pending']);
     const ledgerFile = workflowPaths(paths.sessionDir).journalFile;
     const ledger = fs.readFileSync(ledgerFile, 'utf8')
       .trim().split('\n').map(JSON.parse);
-    assert.equal(ledger.length, 4);
+    assert.equal(ledger.length, 3);
     assert.deepEqual(ledger.map((event) => event.event_type), [
       'workflow.started',
       'node.started',
       'capability.decision',
-      'capability.decision',
     ]);
-    assert.deepEqual(ledger.map((event) => event.sequence), [1, 2, 3, 4]);
-    assert.equal(ledger[3].previous_event_digest, ledger[2].event_digest);
+    assert.deepEqual(ledger.map((event) => event.sequence), [1, 2, 3]);
 
-    const reservationRoot = path.join(paths.sessionDir, 'capability', 'reservations');
     const reservationName = `${first.decision_digest.replace('sha256:', '')}.json`;
     const pending = path.join(reservationRoot, 'pending', reservationName);
     const consuming = path.join(reservationRoot, 'consuming', reservationName);
-    fs.linkSync(pending, consuming);
+    const pendingReservation = JSON.parse(fs.readFileSync(pending, 'utf8'));
+    const consumingReservation = {
+      ...pendingReservation,
+      status: 'consuming',
+      consuming_at: new Date().toISOString(),
+      claim: {
+        schema_version: 1,
+        tool_name: 'Write',
+        effect_digest: DIGEST_A,
+        tool_call_id: 'test-tool-call',
+        host_session_id: 'test-host-session',
+        write_preflight: [{
+          path: 'app.js',
+          materialized: true,
+          dev: '1',
+          ino: '2',
+          generation: '1:2:33188:1:24:1:1',
+        }],
+      },
+    };
+    assert.deepEqual(validateCapabilityReservationTransition({
+      fromLane: 'pending',
+      toLane: 'consuming',
+      before: pendingReservation,
+      after: consumingReservation,
+    }), []);
+    const duplicatePreflight = structuredClone(consumingReservation);
+    duplicatePreflight.claim.write_preflight.push({
+      path: 'app.js',
+      materialized: false,
+    });
+    assert.match(validateCapabilityReservation(duplicatePreflight).join('\n'),
+      /write_preflight.*unique and sorted|write_preflight.*authorized request/);
+    fs.writeFileSync(consuming, `${canonicalJson(consumingReservation)}\n`, { mode: 0o600, flag: 'wx' });
     fs.unlinkSync(pending);
     const finalized = finalizeClaimedCapability({
       workspace,
@@ -569,7 +741,23 @@ test('CLI resolves the active session and writes an append-only decision ledger'
       status: 'succeeded',
     });
     assert.equal(finalized.status, 'succeeded');
-    assert.equal(fs.existsSync(path.join(reservationRoot, 'completed', reservationName)), true);
+    const completedFile = path.join(reservationRoot, 'completed', reservationName);
+    assert.equal(fs.existsSync(completedFile), true);
+    const completedReservation = JSON.parse(fs.readFileSync(completedFile, 'utf8'));
+    assert.deepEqual(validateCapabilityReservationTransition({
+      fromLane: 'consuming',
+      toLane: 'completed',
+      before: consumingReservation,
+      after: completedReservation,
+    }), []);
+    const changedPreflight = structuredClone(completedReservation);
+    changedPreflight.claim.write_preflight[0].generation = 'changed-generation';
+    assert.match(validateCapabilityReservationTransition({
+      fromLane: 'consuming',
+      toLane: 'completed',
+      before: consumingReservation,
+      after: changedPreflight,
+    }).join('\n'), /changed native claim|changed write_preflight/);
 
     ledger[0].payload = { tampered: true };
     fs.writeFileSync(ledgerFile, `${ledger.map(JSON.stringify).join('\n')}\n`);
@@ -578,197 +766,5 @@ test('CLI resolves the active session and writes an append-only decision ledger'
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
     else process.env.PHANTOM_DATA = previousData;
     fs.rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test('authorized adapter execution journals one external effect and replays by prior decision linkage', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-capability-execute-'));
-  const workspace = path.join(root, 'workspace');
-  const data = path.join(root, 'data');
-  fs.mkdirSync(workspace);
-  execFileSync('git', ['init', '-q'], { cwd: workspace });
-  execFileSync('git', ['config', 'user.email', 'phantom@example.com'], { cwd: workspace });
-  execFileSync('git', ['config', 'user.name', 'Phantom'], { cwd: workspace });
-  fs.writeFileSync(path.join(workspace, 'app.js'), 'export const value = 1;\n');
-  execFileSync('git', ['add', 'app.js'], { cwd: workspace });
-  execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: workspace });
-  execFileSync('git', ['switch', '-qc', 'feat/workflow'], { cwd: workspace });
-  const previousData = process.env.PHANTOM_DATA;
-  process.env.PHANTOM_DATA = data;
-  try {
-    const task = 'external-execute';
-    const { paths, fingerprint, interception } = initializeAuthorizedSession({
-      workspace,
-      data,
-      task,
-      scopes: ['implementation', 'ship-draft-pr'],
-    });
-    assert.throws(() => execFileSync(process.execPath, [STATE, 'ship', '--workspace', workspace], {
-      encoding: 'utf8', env: { ...process.env, PHANTOM_DATA: data },
-    }), /authoritative workflow replay failed/);
-    atomicWriteJson(path.join(paths.sessionDir, 'capabilities.json'), {
-      evidence: { capabilities: { 'github.openDraftPr': 'available' } },
-    });
-    const canonicalWorkspace = fs.realpathSync(workspace);
-    const headSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8' }).trim();
-    const compiled = compileWorkflow({
-      schema_version: 1,
-      workflow_id: 'wf-1',
-      route: 'direct',
-      risk: 'low',
-      baseline_fingerprint: fingerprint,
-      session_binding: {
-        repo_id: paths.repo.id, task_id: task, route: 'direct', approved_plan: null,
-      },
-      routing: {
-        recommended_route: 'direct', confidence: 0.95, fallback_route: null, signals: {},
-      },
-      execution_mode: 'attended',
-      acceptance_criteria: ['draft PR is created exactly once'],
-      budget: { max_cost_units: 10, max_duration_ms: 10_000, max_attempts: 3 },
-      nodes: [
-        {
-          id: 'gate', kind: 'task', depends_on: [], retry_limit: 0,
-          budget: { max_cost_units: 2, max_duration_ms: 2_000 },
-          role: 'apex', output_schema: 'workflow-output-v1', expected_artifacts: ['gate.json'],
-          acceptance_criteria: ['shipping gate is ready'],
-        },
-        {
-          id: 'ship', kind: 'external-action', depends_on: ['gate'], retry_limit: 0,
-          budget: { max_cost_units: 2, max_duration_ms: 2_000 },
-          action: 'draft-pr', idempotency_key: 'draft-pr:e2e',
-          output_schema: 'workflow-output-v1', expected_artifacts: ['draft-pr.json'],
-        },
-      ],
-    });
-    writeCompiledWorkflow(paths.sessionDir, compiled);
-    const append = (input) => appendWorkflowEvent({ sessionDir: paths.sessionDir, compiled, input });
-    append({
-      event_type: 'workflow.started', node_id: null, producer: { role: 'apex' }, payload: {},
-      worktree_fingerprint: fingerprint,
-    });
-    append({
-      event_type: 'node.started', node_id: 'gate', producer: { role: 'apex' },
-      payload: { input_refs: [] },
-    });
-    append({
-      event_type: 'node.completed', node_id: 'gate', producer: { role: 'apex' },
-      worktree_fingerprint: fingerprint, artifact_refs: ['gate.json'],
-      payload: {
-        output_schema: 'workflow-output-v1',
-        artifact_digests: [{ artifact_ref: 'gate.json', digest: DIGEST_A }],
-        cost_units: 1,
-        duration_ms: 10,
-      },
-    });
-    const shipLifecycle = JSON.parse(execFileSync(
-      process.execPath,
-      [STATE, 'ship', '--workspace', workspace],
-      { encoding: 'utf8', env: { ...process.env, PHANTOM_DATA: data } },
-    ));
-    assert.equal(shipLifecycle.lifecycle.actions.ship.status, 'ready');
-    append({
-      event_type: 'node.started', node_id: 'ship', producer: { role: 'apex' },
-      payload: {
-        input_refs: [{ source_node: 'gate', artifact_ref: 'gate.json', digest: DIGEST_A }],
-      },
-    });
-    const capabilityRequest = request('github.openDraftPr', {
-      request_id: 'req-draft-pr-e2e',
-      node_id: 'ship',
-      headSha,
-      idempotencyKey: 'draft-pr:e2e',
-      worktreeFingerprint: fingerprint,
-    });
-    let adapterCalls = 0;
-    const adapter = (boundRequest) => {
-      adapterCalls += 1;
-      return {
-        status: 'succeeded',
-        request_digest: capabilityRequestDigest(boundRequest),
-        worktree_fingerprint: boundRequest.worktreeFingerprint,
-        head_sha: boundRequest.headSha,
-        external_reference: 'https://example.invalid/pr/1',
-      };
-    };
-    const sessionFile = path.join(paths.sessionDir, 'session.json');
-    const authorizedSession = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-    fs.unlinkSync(interception.file);
-    const absentProbe = executeAuthorizedCapability({
-      workspace: canonicalWorkspace,
-      task,
-      sessionDir: paths.sessionDir,
-      compiled,
-      request: { ...capabilityRequest, request_id: 'req-draft-pr-absent-probe' },
-      adapter,
-    });
-    assert.deepEqual(absentProbe.decision.reason_codes, ['host_interception_unavailable']);
-    assert.equal(adapterCalls, 0);
-    const forgedProbe = { ...interception.probe, host: 'forged-untrusted-host' };
-    atomicWriteJson(interception.file, forgedProbe);
-    const forged = executeAuthorizedCapability({
-      workspace: canonicalWorkspace,
-      task,
-      sessionDir: paths.sessionDir,
-      compiled,
-      request: { ...capabilityRequest, request_id: 'req-draft-pr-forged-probe' },
-      adapter,
-    });
-    assert.deepEqual(forged.decision.reason_codes, ['host_interception_unavailable']);
-    assert.equal(adapterCalls, 0);
-    atomicWriteJson(interception.file, interception.probe);
-    const replacedSession = structuredClone(authorizedSession);
-    replacedSession.lifecycle.authorizations['ship-draft-pr'].authority.decision_digest = DIGEST_A;
-    atomicWriteJson(sessionFile, replacedSession);
-    assert.throws(() => executeAuthorizedCapability({
-      workspace: canonicalWorkspace,
-      task,
-      sessionDir: paths.sessionDir,
-      compiled,
-      request: capabilityRequest,
-      adapter,
-    }), /replaced or its authority record is inconsistent/);
-    assert.equal(adapterCalls, 0);
-    atomicWriteJson(sessionFile, authorizedSession);
-    const first = executeAuthorizedCapability({
-      workspace: canonicalWorkspace,
-      task,
-      sessionDir: paths.sessionDir,
-      compiled,
-      request: capabilityRequest,
-      adapter,
-    });
-    assert.equal(first.decision.status, 'authorized');
-    assert.equal(first.outcome.status, 'succeeded');
-    const replay = executeAuthorizedCapability({
-      workspace: canonicalWorkspace,
-      task,
-      sessionDir: paths.sessionDir,
-      compiled,
-      request: capabilityRequest,
-      adapter,
-    });
-    assert.equal(replay.decision.status, 'duplicate');
-    assert.equal(adapterCalls, 1);
-    const completed = append({
-      event_type: 'node.completed', node_id: 'ship', producer: { role: 'apex' },
-      worktree_fingerprint: fingerprint, artifact_refs: ['draft-pr.json'],
-      payload: {
-        output_schema: 'workflow-output-v1',
-        artifact_digests: [{ artifact_ref: 'draft-pr.json', digest: DIGEST_B }],
-        cost_units: 1,
-        duration_ms: 10,
-      },
-    });
-    assert.equal(completed.state.status, 'accepted');
-    const ledger = fs.readFileSync(workflowPaths(paths.sessionDir).journalFile, 'utf8')
-      .trim().split('\n').map(JSON.parse);
-    assert.deepEqual(ledger.slice(-4).map((event) => event.event_type), [
-      'capability.decision', 'capability.outcome', 'capability.outcome', 'node.completed',
-    ]);
-    assert.equal(ledger.at(-2).payload.decision_digest, ledger.at(-3).payload.decision_digest);
-  } finally {
-    if (previousData === undefined) delete process.env.PHANTOM_DATA;
-    else process.env.PHANTOM_DATA = previousData;
   }
 });

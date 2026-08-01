@@ -726,12 +726,15 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     ]);
     const legacyPointer = path.join(w.phantomData, 'state', 'current-session', `${started.repo_id}.json`);
     // Invalid pointers that must each be classified skipped-live-state, never copied:
-    // a legacy-hook schema, an unknown schema, and an unsafe-segment portable-v1.
+    // a legacy-hook schema, a retired portable-v1 schema, an unknown schema,
+    // and an unsafe-segment portable-v2.
     writeJson(path.join(w.phantom, 'state', 'current-session', 'legacy.json'),
       { session_id: 'old-session', cwd: w.root, ticket: 'OLD-1' });
+    writeJson(path.join(w.phantom, 'state', 'current-session', 'portable-v1.json'),
+      { schema_version: 1, repo_id: 'portable-v1', task_id: 'OLD-1' });
     writeJson(path.join(w.phantom, 'state', 'current-session', 'unknown.json'), { arbitrary: 'marker' });
     writeJson(path.join(w.team, 'state', 'current-session', 'repo.json'),
-      { schema_version: 1, repo_id: 'repo', task_id: '..' });
+      { schema_version: 2, repo_id: 'repo', task_id: '..' });
 
     const res = apply(w.env, saveManifest(w.root, dryRun(w.env)));
     assert.equal(res.status, 0, res.stderr);
@@ -739,6 +742,7 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     // Reconstructed pointer lands at the canonical root, remapped to the dest dir.
     const destPointer = path.join(w.DEST, 'state', 'current-session', `${started.repo_id}.json`);
     const pointer = JSON.parse(fs.readFileSync(destPointer, 'utf8'));
+    assert.equal(pointer.schema_version, 2);
     assert.equal(pointer.task_id, 'MIG-1');
     assert.equal(pointer.session_dir, path.join(w.DEST, 'repos', started.repo_id, 'sessions', 'MIG-1'));
 
@@ -749,10 +753,12 @@ test('valid current-session pointers are reconstructed to the canonical root; in
 
     // Every invalid pointer is classified skipped-live-state and never copied.
     assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'legacy.json')));
+    assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'portable-v1.json')));
     assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'unknown.json')));
     const report = reportOf(res);
     const pointerReasons = report.items.filter((i) => i.kind === 'pointer').map((i) => i.reason || '');
     assert.ok(pointerReasons.some((r) => /unsupported-legacy-hook/.test(r)), 'legacy-hook pointer classified');
+    assert.ok(pointerReasons.some((r) => /unsupported-portable-v1/.test(r)), 'portable-v1 pointer classified');
     assert.ok(pointerReasons.some((r) => /unsupported-unknown/.test(r)), 'unknown-schema pointer classified');
     assert.ok(pointerReasons.some((r) => /unsafe-pointer-segment/.test(r)), 'unsafe-segment pointer classified');
     // The source pointer is preserved byte-for-byte.

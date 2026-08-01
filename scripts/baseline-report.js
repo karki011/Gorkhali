@@ -25,6 +25,7 @@ const { spawnSync } = require('child_process');
 const { phantomData, timingDir } = require('./lib/phantom-paths');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
 const historicalAliases = require('./lib/historical-repo-aliases');
+const { sessionEnvelopeError } = require('./lib/state-envelope-contract');
 
 const USAGE =
   'usage: node scripts/baseline-report.js [--no-gh] [--gh-limit <N>] [--json]\n';
@@ -126,6 +127,7 @@ function readCorpus(dataRoot) {
 
     const verification = loadJson(path.join(s.dir, 'verification.json'));
     const session = loadJson(path.join(s.dir, 'session.json'));
+    const sessionError = sessionEnvelopeError(session);
     // outcome.json's pr_url is the schema'd field; wrap.json's is the legacy one.
     const rawUrl =
       (outcome && typeof outcome.pr_url === 'string' && outcome.pr_url) ||
@@ -158,7 +160,8 @@ function readCorpus(dataRoot) {
       hasVerificationFixLoops: !!(
         verification && verification.review && typeof verification.review.fixLoops === 'number'
       ),
-      wallTimeMs: sessionWallTimeMs(session),
+      wallTimeMs: sessionError ? null : sessionWallTimeMs(session),
+      sessionEnvelopeError: sessionError,
       outcome,
     });
   }
@@ -589,14 +592,22 @@ function runBaseline(opts) {
   // reported as absent with coverage - never reconstructed from file mtimes.
   const wallTimes = records.map((r) => r.wallTimeMs).filter((n) => typeof n === 'number');
   if (wallTimes.length < records.length) {
+    const rejectedSessions = records
+      .map((record) => record.sessionEnvelopeError)
+      .filter((error) => typeof error === 'string');
+    const rejectedSummary = rejectedSessions.length
+      ? '; rejected ' + rejectedSessions.length + ' non-v2 session envelope(s): '
+        + [...new Set(rejectedSessions)].join('; ')
+      : '';
     unresolved.push({
       field: 'wall_time_ms',
       reason:
-        'session.json created_at/completed_at present for ' +
+        'state_envelope v2 session.json created_at/completed_at present for ' +
         wallTimes.length +
         '/' +
         records.length +
-        ' wrapped tickets; the rest have no start/end timestamps to measure',
+        ' wrapped tickets; the rest have no supported start/end timestamps to measure' +
+        rejectedSummary,
     });
   }
 
