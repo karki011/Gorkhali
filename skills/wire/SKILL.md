@@ -2,6 +2,10 @@
 name: wire
 description: Map dependency topology from an approved Phantom plan, including execution waves, integration points, ordering, shared files, and risks; use after plan approval or when asked to wire tasks or show implementation dependencies.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `wire` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/wire.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `wire`.
+
+Treat invocation text as action input. Derive dependencies, shared-write risks,
+producer-consumer edges, integration ownership, and legal execution waves from
+observed evidence. Partial dependency coverage cannot authorize parallel work.

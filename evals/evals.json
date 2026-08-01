@@ -1,6 +1,7 @@
 {
+  "schema_version": 2,
   "skill_name": "phantom",
-  "version": "2.1",
+  "version": "3.0",
   "created": "2026-05-23",
   "evals": [
     {
@@ -228,80 +229,93 @@
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "ENG-123: there's a typo in the empty state on the settings page — 'Recieve notifications' should be 'Receive notifications', it's in EmptyState.tsx",
-      "expected_route": "DIRECT",
-      "expected_behavior": "Parse ENG-123 as the ticket via the generic [A-Z][A-Z0-9]+-\\d+ match (no hardcoded project prefix), classify DIRECT (single known file, known pattern, confidence >=0.9), report '[DIRECT] {rationale}' with zero human gates, spawn a Blade immediately"
+      "fixture": {
+        "files": {
+          "src/components/EmptyState.tsx": "export function EmptyState() { return <p>Recieve notifications</p>; }\n"
+        }
+      },
+      "expected_behavior": "Parse ENG-123 via the generic ticket pattern, classify the bounded low-risk change as direct, and persist that route in a fresh valid v1 workflow plan bound to the fixture baseline."
     },
     {
       "id": 32,
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "rename the formatTotal helper to formatInvoiceTotal in src/utils/invoice.ts — all call sites are in that same file",
-      "expected_route": "DIRECT",
-      "expected_behavior": "Single-file mechanical rename with clear scope and a known pattern → DIRECT. Transcript shows the '[DIRECT] {rationale}' route report and a Blade spawn with no plan-approval gate"
+      "fixture": {
+        "files": {
+          "src/utils/invoice.ts": "export const formatTotal = (value: number) => `$${value.toFixed(2)}`;\nexport const invoiceLabel = (value: number) => `Total: ${formatTotal(value)}`;\n"
+        }
+      },
+      "expected_behavior": "Classify the single-file mechanical rename as direct and persist that route in a fresh valid v1 workflow plan with no unnecessary approval node."
     },
     {
       "id": 33,
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "PLAT-4567: add a CSV export button to the cost report table. AC: button sits in the table toolbar, export respects the active filters, file downloads as UTF-8 CSV. It mirrors the existing PDF export — touches the toolbar, the table container, a new export util, and the download hook.",
-      "expected_route": "PLAN",
-      "expected_behavior": "Parse PLAT-4567 via the generic ticket regex. Clear scope, ~4 files, known approach (mirrors existing PDF export), confidence >=0.7 → PLAN. Transcript shows '[PLAN] {rationale}', Planner↔Challenger deliberation, and exactly one human gate (plan approval) before execution"
+      "fixture": {
+        "files": {
+          "src/reports/CostReportToolbar.tsx": "export function CostReportToolbar() { return <button>Export PDF</button>; }\n",
+          "src/reports/CostReportTable.tsx": "export function CostReportTable({ filters }: { filters: string[] }) { return <div data-filters={filters.join(',')} />; }\n",
+          "src/reports/exportPdf.ts": "export function exportPdf(rows: unknown[]) { return rows.length; }\n",
+          "src/reports/useDownload.ts": "export function useDownload() { return (name: string, body: string) => ({ name, body }); }\n"
+        }
+      },
+      "expected_behavior": "Parse PLAT-4567 via the generic ticket pattern, classify the known coordinated multi-file change as plan, and persist that route in a fresh valid v1 workflow plan whose dependencies preserve the plan approval boundary."
     },
     {
       "id": 34,
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "the analytics dashboard feels slow and clunky — improve the loading experience somehow. not sure if we want skeletons, prefetching, streaming, or caching. open to ideas",
-      "expected_route": "BRAINSTORM",
-      "expected_behavior": "Ambiguous scope ('somehow'), competing patterns (skeletons vs prefetch vs streaming vs caching), confidence <0.7 → BRAINSTORM. Transcript shows '[BRAINSTORM] {rationale}', invokes Skill(skill=\"phantom:brainstorm\"), and presents a direction gate before any plan gate (2 gates total)"
+      "fixture": {
+        "files": {
+          "src/analytics/Dashboard.tsx": "export function Dashboard() { return <section>Analytics</section>; }\n",
+          "src/analytics/loadDashboard.ts": "export async function loadDashboard() { return fetch('/api/analytics'); }\n"
+        }
+      },
+      "expected_behavior": "Classify the ambiguous request with competing solution directions as brainstorm and persist that route in a fresh valid v1 workflow plan whose graph keeps direction selection ahead of planning."
     },
     {
       "id": 35,
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "ACME-89: migrate authentication from session cookies to OAuth2 with PKCE across the gateway, web app, and CLI — auth middleware, token storage, the login UI, and the public token endpoints all change",
-      "expected_route": "FULL",
-      "expected_behavior": "Parse ACME-89 via the generic ticket regex. 10+ files across 3+ packages, cross-layer, security + public-API surface → FULL. Transcript shows '[FULL] {rationale}' and three human gates in order: direction (brainstorm), plan, and wiring via Skill(skill=\"phantom:wire\")"
+      "fixture": {
+        "files": {
+          "packages/gateway/src/auth.ts": "export const authenticate = (cookie: string) => Boolean(cookie);\n",
+          "packages/gateway/src/tokens.ts": "export const publicTokenEndpoint = '/tokens';\n",
+          "packages/web/src/Login.tsx": "export function Login() { return <form>Session login</form>; }\n",
+          "packages/web/src/session.ts": "export const sessionCookie = 'session';\n",
+          "packages/cli/src/auth.ts": "export const tokenFile = '.session-token';\n"
+        }
+      },
+      "expected_behavior": "Parse ACME-89 via the generic ticket pattern, classify the cross-layer security and public-API migration as full, and persist that route in a fresh valid v1 workflow plan with the required decision and dependency gates."
     },
     {
       "id": 36,
       "kind": "route",
       "skill": "phantom:start",
       "prompt": "a teammate logged abc-123 in our internal tracker — it's just a typo: 'occured' should be 'occurred' in the error toast in Toast.tsx",
-      "expected_route": "DIRECT",
-      "expected_behavior": "Lowercase abc-123 must NOT match the ticket pattern [A-Z][A-Z0-9]+-\\d+ — no Jira fetch is attempted for abc-123; ticket resolution falls back to the current branch or the no-ticket flow. The single-file typo still classifies DIRECT with a '[DIRECT] {rationale}' report"
+      "fixture": {
+        "files": {
+          "src/components/Toast.tsx": "export function Toast() { return <p>An error occured</p>; }\n"
+        }
+      },
+      "expected_behavior": "Do not treat lowercase abc-123 as a ticket identifier; independently classify the concrete one-file typo as direct and persist that route in a fresh valid v1 workflow plan."
     },
 
-    {
-      "id": 37,
-      "kind": "convention",
-      "skill": "phantom:start",
-      "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
-      "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  sage: opus\nThe Blade hits a hard decision (2+ viable approaches) mid-task and escalates to Sage.",
-      "expected_check": {
-        "type": "regex",
-        "pattern": "subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?model[\"':\\s]*\"?opus\"?"
-      },
-      "expected_behavior": "Blade reads config.yaml before spawning Sage; the Agent-tool spawn params in the transcript show subagent_type sage WITH model opus passed as the override"
-    },
-    {
-      "id": 38,
-      "kind": "convention",
-      "skill": "phantom:start",
-      "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
-      "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Blade escalates to Sage mid-task.",
-      "expected_check": {
-        "type": "regex",
-        "pattern": "^(?![\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?\"?\\bmodel\\b\"?\\s*:)[\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?"
-      },
-      "expected_behavior": "The Sage spawn in the transcript omits the model param entirely, so sage.md's front-matter pin (model: opus) applies — no model: line appears in the spawn params"
-    },
     {
       "id": 39,
       "kind": "convention",
       "skill": "phantom:verify",
       "prompt": "does it pass? run the full verification suite before I push",
-      "setup": "Repo root contains yarn.lock (no pnpm-lock.yaml, no bun.lockb, no package-lock.json). Neither CLAUDE.md nor package.json scripts define explicit test/lint/build commands, so tier-3 stack defaults apply.",
+      "fixture": {
+        "files": {
+          "package.json": "{\n  \"private\": true\n}\n",
+          "yarn.lock": "# yarn lockfile v1\n"
+        }
+      },
       "expected_check": {
         "type": "regex",
         "pattern": "^(?![\\s\\S]*\\bpnpm\\b)[\\s\\S]*\\byarn (test|lint|build)\\b"
@@ -313,7 +327,12 @@
       "kind": "convention",
       "skill": "phantom:visual",
       "prompt": "visual check the new pricing card — does it look right across viewports?",
-      "setup": "vite.config.ts sets server: { port: 5173 }. The dev server is running on 5173. No other port configuration exists.",
+      "fixture": {
+        "files": {
+          "vite.config.ts": "import { defineConfig } from 'vite';\nexport default defineConfig({ server: { port: 5173 } });\n",
+          "src/PricingCard.tsx": "export function PricingCard() { return <article>Pro</article>; }\n"
+        }
+      },
       "expected_check": {
         "type": "regex",
         "pattern": "^(?![\\s\\S]*localhost:3000)[\\s\\S]*localhost:5173"
@@ -321,23 +340,18 @@
       "expected_behavior": "The visual flow resolves {DEV_PORT} from the dev-server config (vite.config.ts) and Lens navigates to localhost:5173; it never assumes or mentions the fixed default localhost:3000"
     },
     {
-      "id": 41,
-      "kind": "convention",
-      "skill": "phantom:start",
-      "prompt": "quick fix: update the copyright year in src/components/Footer.tsx",
-      "setup": "Repo's origin/HEAD points at trunk (the default branch is named trunk). No git.protected_branches in config.yaml and PHANTOM_PROTECTED_BRANCHES is unset. Current branch is trunk; an Edit is attempted on src/components/Footer.tsx.",
-      "expected_check": {
-        "type": "regex",
-        "pattern": "BLOCKED: Cannot edit source files on trunk branch"
-      },
-      "expected_behavior": "feature-branch-gate auto-detects trunk via origin/HEAD (even though the configured fallback list is only main/master/develop) and blocks the Edit, printing the BLOCKED message plus the 'git checkout -b {ticket}/{slug}' instruction"
-    },
-    {
       "id": 42,
       "kind": "convention",
       "skill": "phantom:greploop",
       "prompt": "wrap it up and create the PR",
-      "setup": "config.yaml has no integrations: section — integrations.greptile is absent. A draft PR was just created by wrap, which auto-invokes greploop.",
+      "fixture": {
+        "data_files": {
+          "config.yaml": "gates: 3\n"
+        },
+        "files": {
+          "EVAL_CONTEXT.md": "A draft pull request exists for this isolated evaluation. Do not contact external services.\n"
+        }
+      },
       "expected_check": {
         "type": "regex",
         "pattern": "greploop skipped \\(integrations\\.greptile not enabled in config\\.yaml\\)"
@@ -349,7 +363,14 @@
       "kind": "convention",
       "skill": "phantom:greploop",
       "prompt": "greploop this PR until it's clean",
-      "setup": "config.yaml has integrations.greptile: true but no greptile.reply_tone key. Greptile left one actionable inline comment; greploop fixes it, pushes, and drafts an in-thread reply.",
+      "fixture": {
+        "data_files": {
+          "config.yaml": "integrations:\n  greptile: true\n"
+        },
+        "files": {
+          "EVAL_CONTEXT.md": "Greptile left one actionable inline comment. Draft the in-thread reply without contacting external services.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "Every drafted Greptile reply uses the neutral default tone: factual acknowledgment with a fix reference (commit hash or what changed) and ends with @greptileai. No roast, self-deprecating humor, snark, or jokes — roast styling requires an explicit greptile.reply_tone: roast in config.yaml."
@@ -357,35 +378,31 @@
       "expected_behavior": "With reply_tone absent, greploop defaults to neutral: replies read like 'Fixed in `abc1234` — take another look @greptileai' with no CZ-style roast humor"
     },
     {
-      "id": 44,
-      "kind": "convention",
-      "skill": "phantom:learn",
-      "prompt": "record what we learned from this session",
-      "setup": "python3 is not on PATH (command -v python3 fails). A learnings file exceeds the compress threshold during the learn flow.",
-      "expected_check": {
-        "type": "regex",
-        "pattern": "Skipping caveman compress: python3 or scripts/compress not available"
-      },
-      "expected_behavior": "The learn flow prints the exact skip note and completes successfully — learnings are still recorded, with no error, stack trace, or nonzero exit from the compress step"
-    },
-    {
       "id": 45,
       "kind": "convention",
       "skill": "phantom:start",
-      "prompt": "where do the phantom coding principles and base agent protocol live? print the paths",
-      "setup": "Plugin installed natively at ~/.claude/plugins/cache/phantom/phantom/<version>/. CLAUDE_PLUGIN_ROOT is NOT relied on by skills/agents (it is reserved for hooks/hooks.json only). The flow does not touch the learn/compress path.",
+      "prompt": "where do the portable Phantom workflow and role contracts live? print the repository-relative paths",
+      "fixture": {},
       "expected_check": {
         "type": "regex",
-        "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)(?![\\s\\S]*CLAUDE_PLUGIN_ROOT)[\\s\\S]*plugins/cache/phantom/phantom/\\*?/"
+        "pattern": "^(?![\\s\\S]*(?:~/\\.claude/phantom|CLAUDE_PLUGIN_ROOT|plugins/cache/phantom))[\\s\\S]*skills/phantom/references/workflows\\.md[\\s\\S]*skills/phantom/references/roles\\.md"
       },
-      "expected_behavior": "The response resolves the plugin dir env-free by globbing ~/.claude/plugins/cache/phantom/phantom/*/ (e.g. `ls -dt ...plugins/cache/phantom/phantom/*/ | head -1`) and prints {PLUGIN_ROOT}/reference/coding-principles.md and {PLUGIN_ROOT}/reference/_base-agent.md from it. It must NOT depend on the CLAUDE_PLUGIN_ROOT env var (that string never appears) and must NOT use the legacy ~/.claude/phantom literal"
+      "expected_behavior": "The response names the portable workflow and role contracts without relying on a provider cache path or legacy plugin-root environment variable."
     },
     {
       "id": 46,
       "kind": "convention",
       "skill": "phantom:start",
       "prompt": "plan a cross-cutting authentication migration and show me the plan before editing",
-      "setup": "The task affects multiple services, has two viable migration strategies, and includes a reliable integration-test command.",
+      "fixture": {
+        "files": {
+          "services/gateway/auth.ts": "export const authMode = 'session';\n",
+          "services/web/auth.ts": "export const loginPath = '/session/login';\n",
+          "services/cli/auth.ts": "export const credentialType = 'cookie';\n",
+          "package.json": "{\n  \"scripts\": {\n    \"test:integration\": \"node --test test/integration.test.js\"\n  }\n}\n",
+          "EVAL_CONTEXT.md": "Compare an incremental compatibility migration with a coordinated cutover. Do not implement.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The review result leads with an approval question, recommendation, evidence-backed rationale, scope, architecture, alternatives, risks, and validation. Tasks/files/waves appear only after those decision sections, as an execution appendix."
@@ -397,7 +414,14 @@
       "kind": "convention",
       "skill": "phantom:brainstorm",
       "prompt": "brainstorm how we should redesign our plugin configuration without implementing anything",
-      "setup": "There are several plausible approaches and enough repository evidence to compare them.",
+      "fixture": {
+        "files": {
+          "config/defaults.yaml": "gates: 3\nmodels: {}\n",
+          "src/config/load.ts": "export function loadConfig() { return { gates: 3 }; }\n",
+          "docs/configuration.md": "Configuration currently merges defaults and repository values.\n",
+          "EVAL_CONTEXT.md": "Compare schema-first, layered-file, and environment-first configuration designs. Do not implement.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The result leads with one concrete recommendation and a clear decision frame, preserves 2-3 genuinely different approaches, cites evidence, records unresolved questions, and includes the cheapest useful experiment or an explicit not-applicable reason."
@@ -409,7 +433,13 @@
       "kind": "convention",
       "skill": "phantom:start",
       "prompt": "plan the one-line rename of a clearly identified constant; do not implement",
-      "setup": "The target file, replacement, pattern, and deterministic test are already known; the change is reversible and low risk.",
+      "fixture": {
+        "files": {
+          "src/constants.ts": "export const OLD_LABEL = 'ready';\n",
+          "test/constants.test.js": "import { OLD_LABEL } from '../src/constants.ts';\nif (OLD_LABEL !== 'ready') throw new Error('unexpected label');\n",
+          "EVAL_CONTEXT.md": "Rename OLD_LABEL to READY_LABEL in src/constants.ts and its one test call site. Do not implement.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The plan selects quick depth, remains concise, and does not invent architecture, fake alternatives, a council, or unnecessary research. It still states the recommendation, evidence, scope, validation, and concrete task."
@@ -420,8 +450,12 @@
       "id": 49,
       "kind": "convention",
       "skill": "phantom",
-      "prompt": "render this saved v3 Phantom plan for review in an agent runtime with no browser plugin or MCP server",
-      "setup": "Command execution and local file viewing are available. The installed portable skill contains references/review-html.md and scripts/validate-review-html.mjs; the input is a valid portable state envelope.",
+      "prompt": "render plan.json for review in this runtime with no browser plugin or MCP server",
+      "fixture": {
+        "files": {
+          "plan.json": "{\n  \"schema_version\": 3,\n  \"decision\": {\n    \"recommendation\": \"Reuse the existing renderer contract\",\n    \"rationale\": [\"The portable skill owns validation\"]\n  },\n  \"scope\": {\n    \"included\": [\"plan review\"],\n    \"excluded\": [\"implementation\"]\n  },\n  \"alternatives\": [],\n  \"risks\": [],\n  \"validation\": [\"validate generated HTML\"],\n  \"tasks\": []\n}\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The skill validates the saved v3 JSON first, has the active agent create a self-contained decision-first plan.html using the bundled review HTML guidance, validates the generated page, and keeps JSON as the source of truth. It must not invoke a bundled renderer, browser plugin, MCP server, npm install, or parse HTML back into the plan. If a page cannot be written or viewed, it gives the same decision-first review in chat and reports the fallback."
@@ -433,7 +467,16 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide and describe the minimum implementation for currency formatting in the new invoice summary. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already exports a tested formatCurrency helper used by three invoice callers. The new summary needs identical behavior and no new API.",
+      "fixture": {
+        "files": {
+          "src/money.ts": "export const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;\n",
+          "src/invoice-list.ts": "import { formatCurrency } from './money';\nexport const invoiceTotal = formatCurrency;\n",
+          "src/invoice-detail.ts": "import { formatCurrency } from './money';\nexport const invoiceBalance = formatCurrency;\n",
+          "src/invoice-email.ts": "import { formatCurrency } from './money';\nexport const emailTotal = formatCurrency;\n",
+          "src/invoice-summary.ts": "export function invoiceSummary(amount: number) { return String(amount); }\n",
+          "test/money.test.js": "import { formatCurrency } from '../src/money.ts';\nif (formatCurrency(2) !== '$2.00') throw new Error('format');\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects repository reuse, names the existing formatCurrency helper as the implementation basis, and avoids proposing a duplicate helper, new utility file, abstraction, or dependency. Existing relevant tests are reused or extended only if coverage is missing."
@@ -445,7 +488,13 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide and describe the minimum implementation for parsing filters in this request URL. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The runtime provides the standard URL and URLSearchParams APIs. The repository has no special query grammar and no existing helper or dependency that should override those APIs.",
+      "fixture": {
+        "files": {
+          "src/request.ts": "export function filtersFromRequest(requestUrl: string) { return requestUrl; }\n",
+          "package.json": "{\n  \"private\": true,\n  \"dependencies\": {}\n}\n",
+          "EVAL_CONTEXT.md": "Filters use ordinary repeated URL query parameters; there is no custom grammar.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the standard library URL/URLSearchParams capability and rejects a custom parser, regex parser, new helper file, or new package. It retains required input/error handling and proposes focused verification."
@@ -457,7 +506,12 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide and describe the minimum implementation for a date selector in the account settings form. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The product only needs a single calendar date with browser-native constraints. The existing form has a visible label, keyboard flow, error association, and no design requirement for a custom calendar.",
+      "fixture": {
+        "files": {
+          "src/AccountSettings.tsx": "export function AccountSettings() { return <label>Renewal date<input aria-describedby=\"renewal-error\" /></label>; }\n",
+          "EVAL_CONTEXT.md": "The product accepts one calendar date with browser-native min/max constraints and has no custom-calendar design requirement.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the native date input, adds no date-picker package or custom calendar component, and explicitly preserves the visible label, keyboard use, error association, and required validation."
@@ -469,7 +523,13 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide and describe the minimum implementation for validating whether this release string satisfies the configured version range. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already depends on semver and uses it elsewhere. There is no local wrapper, and the language standard library has no equivalent version-range parser.",
+      "fixture": {
+        "files": {
+          "package.json": "{\n  \"dependencies\": {\n    \"semver\": \"^7.6.0\"\n  }\n}\n",
+          "src/release-policy.ts": "import semver from 'semver';\nexport const normalizeRelease = semver.clean;\n",
+          "src/release-validation.ts": "export function acceptsRelease(release: string, range: string) { return false; }\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the already-installed semver dependency, follows the repository's existing usage, and avoids a custom range parser, new wrapper, or additional package. It includes boundary-case verification."
@@ -481,7 +541,13 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide whether any implementation is needed to keep archived reports hidden. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. Archived reports are already excluded by the shared repository query, covered by an integration test, and no caller can opt into them. A new flag would duplicate the existing guarantee.",
+      "fixture": {
+        "files": {
+          "src/report-repository.ts": "export const visibleReports = (reports: { archived: boolean }[]) => reports.filter((report) => !report.archived);\n",
+          "test/report-repository.test.js": "import { visibleReports } from '../src/report-repository.ts';\nif (visibleReports([{ archived: true }]).length !== 0) throw new Error('archived report escaped');\n",
+          "src/report-service.ts": "import { visibleReports } from './report-repository';\nexport const listReports = visibleReports;\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response returns an evidence-backed no-change/YAGNI decision because the requested outcome already holds. It does not propose a flag, config field, migration, file, dependency, or speculative abstraction, and it identifies the existing query and test as evidence."
@@ -493,7 +559,12 @@
       "kind": "convention",
       "skill": "phantom",
       "prompt": "Use the Phantom skill to decide and describe the minimum safe simplification for upload destination path handling. Do not implement it.",
-      "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The current shared function normalizes the path and rejects absolute paths, parent traversal, and destinations outside the upload root before any write. Those checks protect a trust boundary and are covered by security tests.",
+      "fixture": {
+        "files": {
+          "src/upload-path.ts": "import path from 'node:path';\nexport function uploadDestination(root: string, input: string) {\n  if (path.isAbsolute(input)) throw new Error('absolute');\n  const normalized = path.normalize(input);\n  if (normalized === '..' || normalized.startsWith(`..${path.sep}`)) throw new Error('traversal');\n  const destination = path.resolve(root, normalized);\n  if (!destination.startsWith(`${path.resolve(root)}${path.sep}`)) throw new Error('outside root');\n  return destination;\n}\n",
+          "test/upload-path.test.js": "// Security coverage: absolute paths, parent traversal, root containment, and pre-write rejection.\n"
+        }
+      },
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response may simplify duplication but preserves normalization, absolute-path rejection, parent-traversal rejection, root containment, pre-write ordering, and the security tests. It explicitly refuses a shorter implementation that weakens those guards; raw line-count reduction is not treated as success."

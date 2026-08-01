@@ -2,6 +2,10 @@
 name: sessions
 description: List and inspect past Phantom sessions, statuses, dates, tickets, contracts, and history to find work that may be resumed.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `sessions` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/sessions.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `sessions`.
+
+Treat invocation text as action input. Read portable session indexes and
+materialized state, then list matching sessions with status, task, timestamps,
+and the next legal action. This action is read-only.

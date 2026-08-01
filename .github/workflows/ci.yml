@@ -1,6 +1,6 @@
 # Author: Subash Karki
 # First CI workflow for this repo. Deliberately minimal: run the test suite and
-# the schema-doc drift gate on every PR and on push to main. Plain push /
+# generated project-metadata drift gate on every PR and on push to main. Plain push /
 # pull_request triggers only - no label/comment triggers, which can make a
 # workflow retrigger itself.
 name: CI
@@ -20,7 +20,15 @@ jobs:
           node-version: lts/*
       - name: Install ripgrep (T4 recipe dependency)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-      - run: npm test
+      - name: Test and verify generated project metadata
+        shell: bash
+        run: |
+          set -o pipefail
+          tap="$RUNNER_TEMP/phantom-tests.tap"
+          node --test --test-reporter=tap "test/*.test.js" | tee "$tap"
+          PHANTOM_TEST_TAP="$tap" npm run metadata:check
+      - name: Verify synchronized release versions
+        run: npm run version:check
       - name: Validate portable Agent Skill boundary
         run: npm run validate:skill
       - name: Validate every bundled Agent Skill
@@ -29,5 +37,3 @@ jobs:
           for skill_dir in skills/*; do
             skills-ref validate "$skill_dir" || exit 1
           done
-      - name: Schema docs are in sync
-        run: node scripts/gen-schema-docs.js --check

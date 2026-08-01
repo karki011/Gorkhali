@@ -15,7 +15,8 @@
 //     BASELINE (not an immutable source): before a merge modifies a pre-existing
 //     canonical file, its original bytes are copied to a content-addressed
 //     rollback backup and both hashes are recorded in the manifest.
-//   * Repository ids are mapped through the T1 identity codec + persisted aliases.
+//   * Repository ids are mapped through the canonical identity codec plus the
+//     migrator's offline historical-alias map.
 //     An id with zero/ambiguous mapping stays 'unresolved' and requires an
 //     explicit --map <srcId>=<canonicalId>; it is NEVER guessed.
 //   * Fingerprinting drives the per-item class: identical bytes at the canonical
@@ -46,6 +47,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { phantomData } = require('./lib/phantom-paths');
 const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const historicalAliases = require('./lib/historical-repo-aliases');
 const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
 
 const MIGRATION_VERSION = 3;
@@ -236,7 +238,7 @@ function buildSources(dest, env) {
 }
 
 // --------------------------------------------------------------------------
-// Repository id mapping (codec + aliases + --map; ambiguous -> unresolved)
+// Repository id mapping (codec + offline historical aliases + --map; ambiguous -> unresolved)
 // --------------------------------------------------------------------------
 
 function stripMigratedSuffixes(id) {
@@ -255,7 +257,7 @@ function stripMigratedSuffixes(id) {
 }
 
 // Resolve a source `repos/<id>` segment to its canonical destination id.
-// Precedence: explicit --map (raw or base) > codec alias > self-canonical.
+// Precedence: explicit --map (raw or base) > historical alias > self-canonical.
 //
 // The default is PRESERVE: a safe id is kept as-is (never merged onto another repo
 // by guesswork). Duplicate hashed ids therefore migrate as DISTINCT dirs unless an
@@ -283,7 +285,7 @@ function mapRepoId(rawId, context) {
   // be auto-attributed -- resolveCanonical passes it through unchanged, so without
   // this it would fall to the self-preserve below and cross-mix distinct repos'
   // state. Route it to unresolved; an explicit --map is the only safe resolution.
-  if (codec.isAmbiguousAlias(dest, base)) {
+  if (historicalAliases.isAmbiguousAlias(dest, base)) {
     return {
       status: 'unresolved',
       id: base,
@@ -291,7 +293,7 @@ function mapRepoId(rawId, context) {
     };
   }
 
-  const canonical = codec.resolveCanonical(dest, base);
+  const canonical = historicalAliases.resolveCanonical(dest, base);
   if (canonical && canonical !== base) return { status: 'resolved', id: canonical, via: 'alias' };
 
   // Preserve the id verbatim; the data-root migrator never guesses a cross-repo
@@ -566,7 +568,7 @@ function describePointer(source, file, context) {
   const sessionReason = validateSourceSession(sourceSession, pointer);
   if (sessionReason) return { ...base, class: 'skipped-live-state', reason: `source-${sessionReason}` };
 
-  const canonicalRepoId = codec.resolveCanonical(context.dest, pointer.repo_id);
+  const canonicalRepoId = historicalAliases.resolveCanonical(context.dest, pointer.repo_id);
   const destSessionDir = path.join(context.dest, 'repos', canonicalRepoId, 'sessions', pointer.task_id);
   const destPointer = path.join(context.dest, 'state', 'current-session', `${canonicalRepoId}.json`);
   const reconstructed = {
@@ -915,13 +917,11 @@ async function apply(context, options) {
       return { status: 'already-migrated' };
     }
 
-    // Belt-and-suspenders: seed the alias map from the live workspace identity so a
-    // machine where no session hook ran after the codec upgrade still collapses
-    // this repo's legacy/plain/raw-hash source dirs onto the canonical id when
-    // mapRepoId -> resolveCanonical runs during inventory below. Guarded and
-    // merge-only; a seeding failure must never abort the migration.
+    // This explicit offline migrator seeds its own historical aliases from the
+    // live workspace identity before inventory. Normal runtime never records
+    // aliases. Seeding remains best-effort and must never abort migration.
     try {
-      codec.recordAliases(dest, codec.repoIdentity(process.cwd(), {
+      historicalAliases.recordAliases(dest, codec.repoIdentity(process.cwd(), {
         dataRoot: dest,
         phantomRepo: process.env.PHANTOM_REPO,
       }));

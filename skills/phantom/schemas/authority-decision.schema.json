@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/authority-decision-v1.json",
+  "title": "Phantom trusted authority decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repo_id",
+    "task_id",
+    "decision_kind",
+    "gate",
+    "scope",
+    "decision",
+    "worktree_fingerprint",
+    "approval_artifact_bindings",
+    "issued_at",
+    "expires_at",
+    "actor",
+    "source",
+    "source_event_id",
+    "replay_id",
+    "key_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "repo_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "decision_kind": { "enum": ["approval", "authorization"] },
+    "gate": { "type": ["string", "null"] },
+    "scope": { "type": ["string", "null"] },
+    "decision": { "enum": ["approved", "authorized"] },
+    "worktree_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "approval_artifact_bindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "artifact_type", "record_sequence", "digest"],
+        "properties": {
+          "gate": { "enum": ["direction", "plan", "wiring"] },
+          "artifact_type": { "enum": ["brainstorm", "plan", "decisions"] },
+          "record_sequence": { "type": "integer", "minimum": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "issued_at": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "source_event_id": { "type": "string", "minLength": 1 },
+    "replay_id": { "type": "string", "minLength": 1 },
+    "key_id": { "type": "string", "minLength": 1 },
+    "signature": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
+  }
+}

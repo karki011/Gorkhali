@@ -3,7 +3,7 @@
 // auto-captures. Dep-free apart from the domain taxonomy (scripts/lib/domains.js).
 //
 // WHY THIS MODULE EXISTS
-// The writers are prose (commands/learn.md) and the readers were private regexes
+// Portable learning writers emit prose and the readers were private regexes
 // (scripts/evolution-runner.js, hooks/memory-reader.js). The writer spec said the
 // separator inside a CORRECTION was an em dash; a standing no-em-dash convention then
 // rewrote every entry on disk to a plain ' - '. Both readers required the em dash, so

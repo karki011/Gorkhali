@@ -51,7 +51,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { phantomData, detectRepo, repoDir, auditDir } = require('./lib/phantom-paths');
 const { collectSessionIds } = require('./lib/session-trace');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const historicalAliases = require('./lib/historical-repo-aliases');
 const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
 const { isDataMigrationInProgress, atomicWriteText, loadLearningApi } = require('./migrate-data');
 
@@ -471,13 +471,10 @@ function mergeOrphan(srcDir, srcName, target, apply, report, learningApi) {
 // ---------------------------------------------------------------------------
 function sweepRoot(root, opts, report) {
   const { apply, dataReposRoot, mapOverrides, projectsDir, dataRoot, learningApi } = opts;
-  // Canonicalize a resolved target through the T1 codec's alias map so an orphan
-  // consolidates into the SAME canonical dir every writer (and the data-root
-  // migrator) uses -- a legacy id that has an alias lands on its canonical repo.
-  // The map is seeded before this runs: candidates() detects each real checkout
-  // through detectRepo(), which persists that repo's aliases (belt-and-suspenders
-  // even on a machine where no session hook ran after the codec upgrade).
-  const canon = (target) => codec.resolveCanonical(dataRoot, target);
+  // Canonicalize a resolved target through the explicit offline migration map so
+  // a historical id lands on its canonical repository shard. Normal runtime does
+  // not consult or populate this map.
+  const canon = (target) => historicalAliases.resolveCanonical(dataRoot, target);
   let entries;
   try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch (_) { return; }
 
@@ -545,13 +542,12 @@ function parseArgs(argv) {
 }
 
 /**
- * Exclusive claim on a mutating (--apply) run. session-marker.js spawns `--apply`
- * detached on every prompt until the marker exists, so concurrent runs could
- * otherwise double-append learnings lines. Returns:
+ * Exclusive claim on a mutating (--apply) run. Concurrent explicit invocations
+ * could otherwise double-append learnings lines. Returns:
  *   number     -> fd we own; caller MUST close + unlink in a finally.
  *   null       -> another live run holds it -> skip.
- *   undefined  -> lock unusable (non-EEXIST error); proceed best-effort, never
- *                 crash the detached hook path (per [guards]).
+ *   undefined  -> lock unusable (non-EEXIST error); proceed best-effort without
+ *                 crashing the explicit migration command (per [guards]).
  * A lock older than LOCK_STALE_MS is treated as a crashed run and reclaimed.
  */
 function acquireMigrationLock(lockPath) {
@@ -576,9 +572,8 @@ async function run(argv = process.argv.slice(2)) {
   // The migrator resolves canonical names for MANY candidate repos, not "the
   // current one" — honoring a per-spawn PHANTOM_REPO override here would
   // collapse every candidate onto one name and silently cross-merge orphans
-  // (session-marker.js spawns this inheriting process.env, so a stray
-  // override reaches production). Testing env overrides (PHANTOM_MIGRATE_*)
-  // are unaffected.
+  // A stray inherited override could otherwise affect an explicit invocation.
+  // Testing env overrides (PHANTOM_MIGRATE_*) are unaffected.
   delete process.env.PHANTOM_REPO;
   const { apply, force, mapOverrides } = parseArgs(argv);
   const DATA = phantomData();
@@ -596,8 +591,8 @@ async function run(argv = process.argv.slice(2)) {
 
   // Observe the data-root migration-wide lock: while a data migration holds it,
   // this sweep must NOT mutate the same tree. Fail closed (skip) rather than race
-  // the migration -- a per-prompt hook mutating a source/destination mid-migration
-  // is the plan's named risk. Dry-run reads only, so it is never gated.
+  // the migration -- another explicit migration mutating a source or destination
+  // mid-run is the named risk. Dry-run reads only, so it is never gated.
   if (apply && isDataMigrationInProgress(DATA)) {
     return { skipped: true, reason: 'data-root migration in progress' };
   }

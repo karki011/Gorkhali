@@ -1,50 +1,113 @@
 # Portable Agent Skill
 
-What the provider-neutral skill bundle contains, how it negotiates host capabilities at runtime, and why it has no external plugin dependencies.
+`skills/phantom/` is the canonical provider-neutral control plane. The sibling
+directories under `skills/` are direct public actions that apply that contract
+without introducing a second policy layer.
 
-## Portable Agent Skill
+## Contract Bundle
 
-The canonical product is one provider-neutral Agent Skill at
-`skills/phantom/`. Copy that directory unchanged into any Agent
-Skills-compatible discovery path. It contains no provider paths, proprietary
-tool calls, or plugin manifests. Host-specific model identifiers are isolated
-in one data-only preset registry; the workflow remains provider-neutral.
+The canonical directory contains:
 
-The skill negotiates capabilities at runtime. Delegation, parallel execution,
-native dependency graphs, visual tools, hooks, issue trackers, and review
-publishing are optional accelerators with explicit fallbacks. When no native
-graph is exposed, the skill runs its bundled, read-only impact analyzer through
-ordinary command execution. It builds a bounded import graph for that invocation,
-returns JSON, and exits; it installs no server, daemon, hook, or host registration.
-The workflow and artifact contracts remain the same when optional capabilities
-are missing.
+- `SKILL.md` for invariants, routing, lifecycle, delegation, and verification;
+- `manifest.json` for the authoritative contract registry, with each contract's
+  version, owned resources, and the registry-derived resource digest;
+- `references/` for workflow, policy, replay, capability, role, model, state,
+  planning, and verification contracts;
+- `schemas/` for workflow plans, events, aggregation, evaluation, capability
+  requests, signed authority decisions, and signed interception probes; and
+- `scripts/` for compilation, transition, replay, capability authorization,
+  session state, profile resolution, and bounded impact inspection.
 
-Apex makes the delegation decision automatically after routing and dependency
-inspection. Users provide the goal; they do not need to request subagents,
-choose a worker count, or maintain per-worker model settings. Phantom uses the
-smallest useful topology, delegates only through native host capabilities, and
-falls back to labeled sequential role passes when spawning is unavailable or
-not worthwhile. It never recursively launches the current runtime through
-command execution to imitate a native worker.
+The bundle has zero external plugin dependencies. Its enforcement helpers use
+Node.js and the standard library.
 
-Phantom also applies a minimum-sufficient-solution ladder after it understands
-the real code path: omit what is unnecessary, then prefer repository reuse,
-the standard library, native platform capabilities, installed dependencies,
-and direct expressions before writing the smallest custom implementation. The
-same constraint is included in every delegated assignment and checked again by
-Sweep. This policy is adapted from the ideas in
-[Ponytail](https://github.com/dietrichgebert/ponytail); Phantom does not bundle
-Ponytail's hooks, modes, adapters, or runtime dependency.
+The validator derives the resource digest from that registry. A missing
+registered file, unregistered public schema, duplicate schema owner, malformed
+registry entry, or stale digest fails validation.
 
-Phantom asks for semantic profiles - `inherit`, `economy`, `balanced`, `deep`,
-or `frontier` - and ships maintained defaults for Claude Code and Codex. Users
-do not need a `models.json`. An explicit user choice or optional external map
-can override the defaults; unknown hosts inherit the active model. See
-`skills/phantom/references/models.md`.
+## Deterministic Control Plane
 
-## Independence
+Models may recommend a route, propose a graph, implement a bounded scope, or
+evaluate recorded evidence. They do not own transitions. The compiler validates
+the graph, the kernel reduces typed events, the journal records the digest
+chain, and replay reconstructs the same state without asking a model to recreate
+history.
 
-**Zero external plugin dependencies.** Previously depended on superpowers (14 skills), feature-dev, and code-sweep plugins. All have been:
-- Superpowers: disabled, all 6 references replaced with own implementations
-- Feature-dev: disabled, reference removed from gaze.md
-- Code-sweep: absorbed into `agents/sweep.md` (plugin still enabled as backup, can be disabled)
+Consequential operations use one typed capability boundary. Missing runtime
+capability, authorization, scope, freshness, budget, or idempotency evidence
+denies the request. A public action, role, or host adapter cannot create an
+alternate side-effect path.
+
+Approvals and lifecycle authorizations accept only short-lived, Ed25519-signed
+host decisions bound to the canonical repository, exact task, current
+fingerprint, gate/scope, and approval artifacts. Caller-supplied identity and
+bare approve/authorize commands are rejected.
+
+When the host loads them, provider-neutral PreToolUse/PostToolUse adapters turn
+authorized native workspace writes into one-shot durable reservations. They
+normalize common file mutation shapes, enforce the protected-branch union and exact request
+binding, and journal an outcome.
+Unknown consequential tools and
+shell-string commands fail closed during an active compiled workflow. A crash
+after claim leaves an explicit reconciliation record rather than reusable
+authority.
+
+No command adapter is active. `process.exec` is unconditionally denied until a
+separately versioned, signed sandbox attestation and enforcement contract
+exists; registration alone cannot enable it. Exact trusted Phantom
+control-plane invocations are the only exception.
+
+The trusted host adapter must issue and refresh a short-lived, signed
+`capability-probe.json` bound to the current fingerprint and enforced pre/post
+hooks. Static hook registration is not runtime evidence. The bundle contains
+no private key, signer, or self-attestation path.
+
+No sandboxed command, external Git, pull-request, or tracker executor is
+bundled. Those capabilities require an explicitly supplied adapter and
+otherwise remain unavailable even when policy authorization succeeds. The
+read-only `hooks/capability-gate.mjs doctor <workspace>` status distinguishes
+registered native hook support, external probe issuance, and unregistered
+executors.
+
+No isolated branch executor or signed isolation attestation verifier is
+bundled. Production compilation rejects parallel workflow nodes before writing
+the compiled plan or journal; hosts must lower write-bearing fan-out to
+current-agent or sequential chain execution.
+
+## Capability Adaptation
+
+At task start, Phantom records capabilities as `available`, `unavailable`, or
+`unknown`. Optional capabilities change scheduling or evidence quality, never
+artifact meaning or safety:
+
+| Capability | Portable fallback |
+|---|---|
+| Native delegation | Current-context or labeled sequential execution of required nodes |
+| Native parallelism | Compile implementation as current-agent/chain work; do not materialize shared-tree parallel branches |
+| Per-worker model selection | Inherit the active model |
+| Native dependency graph | Run the bundled one-shot impact analyzer and supplement partial coverage with references and history |
+| Visual inspection | Run static checks and record missing visual evidence |
+| Issue or review integration | Prepare the bounded request and leave the external effect unperformed |
+
+Unknown optional capabilities behave as unavailable until safely discovered.
+Missing evidence never becomes a pass.
+
+## Direct Actions
+
+Every `skills/<action>/SKILL.md` contains a portable action declaration and
+action-specific constraints. For example, `start` can plan and implement but
+cannot grant shipping authority; `verify` records checks but cannot repair;
+`review` reports findings but cannot edit; and `wrap` can request a draft pull
+request only through separately authorized capability policy.
+
+The complete registry is documented in [Actions](actions.md) and checked by
+`scripts/validate-portable-skill.mjs` so a published entrypoint cannot drift
+back to another runtime authority.
+
+## Compute Policy
+
+Phantom requests semantic profiles (`inherit`, `economy`, `balanced`, `deep`,
+or `frontier`) after topology is known. Concrete host mappings are confined to
+the data-only preset registry. Effort is profile-specific and should be changed
+from isolated evaluation evidence, not imposed universally. If selection is
+unavailable, Phantom inherits the active model without weakening the workflow.

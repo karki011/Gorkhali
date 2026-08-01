@@ -2,6 +2,10 @@
 name: contract
 description: Define scope, interfaces, acceptance criteria, and structured feature, API, testing, UI, or fix contracts before implementation. Use when requirements or boundaries need to be made explicit.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `contract` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/contract.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `contract`.
+
+Treat invocation text as action input. Define scope, exclusions, interfaces,
+acceptance criteria, and unresolved decisions in a versioned artifact. Validate
+and present the artifact without entering implementation.

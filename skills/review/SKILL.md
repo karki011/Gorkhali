@@ -2,6 +2,11 @@
 name: review
 description: Review current code changes for quality, simplicity, duplication, architecture, and actionable diff findings; not for test execution or requirements validation.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `review` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/review.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `review`.
+
+Treat invocation text as action input. Independently inspect the requested diff
+and report every evidence-backed finding with severity, location, impact, and
+smallest remediation. Keep the complete finding record separate from the
+deterministic gate decision; do not repair or ship.

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloudzero.com/phantom/schemas/capability-request-v1.json",
+  "title": "Phantom capability request",
+  "description": "Provider-neutral request for a consequential operation. Author: Subash Karki.",
+  "oneOf": [
+    { "$ref": "#/$defs/workspaceWrite" },
+    { "$ref": "#/$defs/processExec" },
+    { "$ref": "#/$defs/gitCommit" },
+    { "$ref": "#/$defs/gitPush" },
+    { "$ref": "#/$defs/githubDraftPr" },
+    { "$ref": "#/$defs/trackerComment" }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "baseProperties": {
+      "schema_version": { "const": 1 },
+      "request_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "workflow_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "node_id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      },
+      "worktreeFingerprint": { "$ref": "#/$defs/digest" }
+    },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\u0000).+$",
+      "x-portablePath": true
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,255}$"
+    },
+    "workspaceWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "paths", "patchDigest"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "workspace.write" },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/portablePath" }
+        },
+        "patchDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "processExec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "command", "cwd"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "process.exec" },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "x-maxUtf8Bytes": 32768,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192,
+            "pattern": "^[^\\u0000]+$"
+          }
+        },
+        "cwd": { "$ref": "#/$defs/portablePath" }
+      }
+    },
+    "gitCommit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "treeDigest", "message"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "git.commit" },
+        "treeDigest": { "$ref": "#/$defs/digest" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      }
+    },
+    "gitPush": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "headSha", "remote", "branch", "idempotencyKey"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "git.push" },
+        "headSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "remote": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "branch": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$" },
+        "idempotencyKey": { "$ref": "#/$defs/idempotencyKey" }
+      }
+    },
+    "githubDraftPr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "headSha", "idempotencyKey"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "github.openDraftPr" },
+        "headSha": { "type": "string", "pattern": "^[a-f0-9]{7,64}$" },
+        "idempotencyKey": { "$ref": "#/$defs/idempotencyKey" }
+      }
+    },
+    "trackerComment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "workflow_id", "node_id", "worktreeFingerprint", "type", "issueId", "bodyDigest", "idempotencyKey"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/baseProperties/request_id" },
+        "workflow_id": { "$ref": "#/$defs/baseProperties/workflow_id" },
+        "node_id": { "$ref": "#/$defs/baseProperties/node_id" },
+        "worktreeFingerprint": { "$ref": "#/$defs/digest" },
+        "type": { "const": "tracker.comment" },
+        "issueId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "bodyDigest": { "$ref": "#/$defs/digest" },
+        "idempotencyKey": { "$ref": "#/$defs/idempotencyKey" }
+      }
+    }
+  }
+}

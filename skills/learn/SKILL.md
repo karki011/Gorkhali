@@ -2,6 +2,10 @@
 name: learn
 description: Record corrections, reusable patterns, habits, gotchas, or anything the user asks Phantom to remember for future sessions.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `learn` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/learn.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `learn`.
+
+Treat invocation text as action input. Record the requested correction or
+reusable pattern through the portable learning helper with source, confidence,
+status, and repository scope. Never promote an entry merely because it exists.

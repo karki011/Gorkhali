@@ -40,7 +40,8 @@ const dryRun = process.argv.includes('--dry-run');
 // to the removal window at once, which would turn a first correct run into a mass
 // delete. Removal stays report-only behind --prune; expiry policy is owned elsewhere.
 const prune = process.argv.includes('--prune');
-// The "explicitly overridden" escape hatch that reference/evolution.md's [failed]
+// The "explicitly overridden" escape hatch that
+// skills/phantom/references/evolution.md's [failed]
 // exemption promises. It exists so the prose's clause has a reader: without it the
 // exemption would be absolute and a wrong correction recorded once would be immortal.
 // Requires --prune too, so no single flag can reach the anti-repetition corpus.
@@ -164,7 +165,7 @@ function scanStaleness(domains, cited) {
       // that state. Untagged is the lifecycle's ENTRY state, not a limbo class.
       const proven = effectiveValidation(entry, cited) >= PROMOTE_THRESHOLD;
       if (age >= REMOVE_DAYS && !proven) {
-        // reference/evolution.md "Distillation Rules": never delete a [failed] entry
+        // skills/phantom/references/evolution.md "Retention classes": never delete a [failed] entry
         // unless explicitly overridden. A [failed] correction is the most load-bearing
         // kind of entry - it records something that already went wrong once - and it is
         // the corpus prompt injection leans on hardest. --prune-failed is the override.
@@ -261,7 +262,7 @@ function checkDistillation(domains) {
 //     run parses and counts predicates but never executes one.
 //  3. LOCAL CANONICAL DIR ONLY. checkAllPredicates walks `domains`, which readDomainFiles
 //     built by fs.readdirSync(LEARNINGS_DIR) - LEARNINGS_DIR itself is
-//     learningsDir(REPO), resolved through phantom-paths' alias-aware resolver at
+//     learningsDir(REPO), resolved directly under the canonical repository shard at
 //     module load (line 16). A file's `source` is therefore always a bare basename of
 //     that one directory; there is no code path here that reads a predicate from
 //     anywhere else, so a file arriving via merge/sync cannot buy execution by sitting
@@ -371,8 +372,8 @@ function flagEntriesStale(domains, failedResults, result) {
  * 1. An entry spans lineNum..endLine - the grammar absorbs wrapped continuation lines,
  *    and real entries do wrap. Deleting only `lineNum` left the continuation lines behind
  *    as orphaned prose that no longer parses as anything. Both bounds are required.
- * 2. TOCTOU. Line numbers were computed when readDomainFiles ran; commands/learn.md
- *    appends to these same files, so an append between scan and write shifts nothing
+ * 2. TOCTOU. Line numbers were computed when readDomainFiles ran; the portable
+ *    learn action appends to these same files, so an append between scan and write shifts nothing
  *    (appends land at the end) but a concurrent distillation rewrite shifts everything,
  *    and stale offsets would delete unrelated entries. So the file is re-read and
  *    compared byte-for-byte against what was scanned, and a changed file is SKIPPED
@@ -483,7 +484,7 @@ async function run() {
   const citedTotal = [...cited.values()].reduce((n, s) => n + s.size, 0);
   console.log(`[Tier 2] Computed validations from artifacts: ${cited.size} entries cited, ${citedTotal} verified session citations`);
   if (cited.size === 0) {
-    console.log(`  (no session records a '${CITATION_FIELD}' array; see reference/evolution.md "Computed validation")`);
+    console.log(`  (no session records a '${CITATION_FIELD}' array; see skills/phantom/references/evolution.md "Computed validation")`);
   }
   const promotable = findPromotable(domains, cited);
 

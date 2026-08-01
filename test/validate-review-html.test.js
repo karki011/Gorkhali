@@ -9,7 +9,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const SCRIPT = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'validate-review-html.mjs');
-const BRAINSTORM_COMMAND = path.join(__dirname, '..', 'commands', 'brainstorm.md');
+const BRAINSTORM_SKILL = path.join(__dirname, '..', 'skills', 'brainstorm', 'SKILL.md');
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
 
@@ -112,11 +112,11 @@ test('rejects canonical decision text hidden inside a quoted main attribute', ()
   assert.match(result.stderr, /missing canonical review text/);
 });
 
-test('keeps brainstorm candidate and accepted HTML inside the ticket session directory', () => {
-  const command = fs.readFileSync(BRAINSTORM_COMMAND, 'utf8');
-  assert.match(command, /--candidate \{TEAM_DIR\}\/sessions\/\{TICKET\}\/brainstorm\.candidate\.html/);
-  assert.match(command, /--out \{TEAM_DIR\}\/sessions\/\{TICKET\}\/brainstorm\.html/);
-  assert.doesNotMatch(command, /<(?:brainstorm\.candidate|brainstorm)\.html>/);
+test('brainstorm entrypoint delegates artifact placement to the portable contract', () => {
+  const skill = fs.readFileSync(BRAINSTORM_SKILL, 'utf8');
+  assert.match(skill, /Portable action: `brainstorm`/);
+  assert.match(skill, /canonical brainstorming decision artifact/);
+  assert.doesNotMatch(skill, /commands\/|codex-support|TEAM_DIR/);
 });
 
 test('requires static document structure and canonical review text', () => {

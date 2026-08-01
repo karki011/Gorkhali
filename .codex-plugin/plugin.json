@@ -1,7 +1,7 @@
 {
   "name": "phantom",
-  "version": "0.2.11",
-  "description": "Provider-adaptive multi-agent development workflows for Codex and Claude Code.",
+  "version": "0.3.0",
+  "description": "Deterministic, replayable software-delivery workflows with explicit capability authorization.",
   "author": {
     "name": "Subash Karki"
   },
@@ -14,11 +14,12 @@
     "workflow",
     "learning"
   ],
+  "hooks": "./hooks/hooks.json",
   "skills": "./skills/",
   "interface": {
     "displayName": "Phantom",
-    "shortDescription": "Provider-adaptive software delivery workflows",
-    "longDescription": "Plan, implement, investigate, review, verify, pause, resume, and ship software work through capability-adaptive workflows.",
+    "shortDescription": "Deterministic software-delivery workflows",
+    "longDescription": "Compile, execute, verify, replay, and preserve software-delivery workflows through one portable policy and typed capability boundary.",
     "developerName": "Subash Karki",
     "category": "Productivity",
     "capabilities": [

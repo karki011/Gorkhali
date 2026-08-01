@@ -7,10 +7,10 @@ impact, reversibility, and confidence.
 
 | Route | Typical signals | Required flow |
 |---|---|---|
-| `direct` | Clear pattern, low risk, small blast radius, confidence at least 0.90. | Context, implement, verify, simplify, review. |
-| `plan` | Clear outcome with multiple files or dependencies, confidence at least 0.70. | Context, plan, challenge, required approval, execute, verify. |
+| `direct` | Clear pattern, low risk, small blast radius, confidence at least 0.90. | Context, implement, required checks. |
+| `plan` | Clear outcome with multiple files or dependencies, confidence at least 0.70. | Context, plan, required approval, execute, required checks. |
 | `brainstorm` | Ambiguous outcome, novel domain, or confidence below 0.70. | Research, diverge, compare, user decision, then plan. |
-| `full` | Cross-layer, broad, security-sensitive, irreversible, or high-risk. | Brainstorm, plan, dependency wiring, required approval, staged execute, full verification. |
+| `full` | Cross-layer, broad, security-sensitive, irreversible, or high-risk. | Brainstorm, plan, dependency wiring, required approval, staged execute, risk-selected checks and evaluation. |
 
 Explain the selected route and signals in the session. The user may override it.
 
@@ -27,8 +27,8 @@ Lifecycle authority is explicit and cumulative:
 Starting work never grants draft-PR shipping authority. The
 `ship-draft-pr` authorization is separate from implementation authorization.
 For the same active task, route and material intent do not change after the
-initial start. Only a missing legacy route may be backfilled; changed direction
-must be recorded as a revision or restarted under a new task id.
+initial start. A missing route fails closed; changed direction must be recorded
+as a revision or restarted under a new task id.
 
 Approval applies to reviewed content, not merely to a gate name. Direction
 approval binds the current passed brainstorm, plan approval binds the current
@@ -36,6 +36,13 @@ passed plan, and wiring approval binds the current passed plan plus decisions
 artifact. Each binding records the artifact `record_sequence` and digest and is
 revalidated at `execute`; changed or recovered unbound artifacts require fresh
 approval.
+
+Gate approval and implementation/shipping authorization are recorded only from
+short-lived signed host decisions. Each decision binds the canonical
+repository and exact task, the current worktree fingerprint and artifact
+bindings, its gate or scope, pinned key/source, actor, source event, replay id,
+and expiry. Bare approval, caller-controlled identity, replay, stale bindings,
+or a replaced decision is denied.
 
 ## Automatic delegation decision
 
@@ -52,10 +59,12 @@ Choose the smallest useful topology:
 |---|---|
 | One clear objective; sequential or tightly coupled work; shared-write hotspot; coordination costs more than it saves. | `current-agent` |
 | Two or more bounded passes benefit from isolated context but must run in order. | `native-serial` |
-| Two or more independent read-heavy investigations, adversarial reviews, or implementation scopes with proven non-overlapping writes and no unresolved producer-consumer edge. | `native-parallel` |
+| Two or more independent read-heavy investigations or adversarial reviews that do not require isolated branch writes. | `native-parallel` |
 
 Specialized or noisy work can justify one delegate even when it is not
-parallel. File count alone never justifies fan-out. Prefer a star topology:
+parallel. Do not delegate work the active agent can finish in a handful of
+tool calls, and never create a delegate solely to double-check completed work.
+File count alone never justifies fan-out. Prefer a star topology:
 Apex creates bounded assignments, workers return their declared output, and
 Apex waits for all required results, validates them, resolves disagreement, and
 synthesizes once. Do not let workers recursively delegate unless the plan
@@ -67,6 +76,12 @@ bypass its nesting protections. If spawning is unknown, unavailable, denied,
 or rejected at an approval boundary, apply the labeled sequential fallback
 without changing role contracts or quality gates. Record the selected topology,
 rationale, requested profiles, and any fallback in session state.
+
+This bundle has no trusted isolated branch executor or signed isolation
+attestation verifier. A production workflow containing a `parallel` node is
+rejected before the compiled plan or journal is written. Lower every
+write-bearing parallel topology to current-agent or sequential chain nodes;
+filesystem snapshots are evidence, not proof of continuous isolation.
 
 ## Start and plan
 
@@ -103,8 +118,9 @@ rationale, requested profiles, and any fallback in session state.
    canonical decision-first JSON payload whose plain-language summary states the
    problem, chosen direction, expected changes, and outcome before execution
    details.
-13. Have Plan-checker inspect coverage and ordering. Have Rival challenge
-   assumptions. Resolve disagreement or ask the user.
+13. When material ambiguity or risk warrants independent challenge, select one
+    bounded Plan-checker or Rival pass. Do not run both by default and do not
+    create a challenge pass merely to repeat the active agent's inspection.
 14. Validate the JSON, then author review HTML for the specific decision using
     [review HTML guidance](review-html.md). Validate it with
     `<skill-directory>/scripts/validate-review-html.mjs`, promote the validated artifact, and
@@ -123,11 +139,11 @@ rationale, requested profiles, and any fallback in session state.
    approval prerequisites, branch, plan, contracts, and allowed scope.
 2. Build execution waves from observed dependency evidence. Do not parallelize
    shared writes, and do not treat partial graph coverage as proof of isolation.
-3. Apply the recorded topology. Delegate bounded Blade assignments through the
-   runtime's native spawn capability when delegation adds value; otherwise run
-   each Blade contract directly as a labeled pass. Parallelize only tasks in a
-   proven-independent wave.
-4. Give each Blade assignment a single objective, the minimum-sufficient-
+3. Apply the recorded topology. Delegate bounded implementation-role
+   assignments through the runtime's native capability when delegation adds
+   value; otherwise execute the contract in the current context. Parallelize
+   only tasks in a proven-independent wave.
+4. Give each delegated assignment a single objective, the minimum-sufficient-
    solution constraint, and an output contract. Require the worker to select
    the first sufficient rung rather than assuming the parent's reasoning was
    inherited.
@@ -153,14 +169,23 @@ does not permit execute until Hound records complete current proof.
 
 ## Verify and finish
 
-Pass the portable `verify` gate after execution starts. Run Ward, Sweep,
-conditional Ward, and Gaze in that order. Add Lens for visual
-changes and Archer for cross-file or architectural changes. Fix blocking
-findings within scope and repeat affected checks. Record verification and review
-against the current worktree fingerprint. Review may be recorded only after the
-current passed verification and must have a later record sequence. A later
-verification makes the earlier review stale. `ship` additionally requires
-separate draft-PR authorization and the latest passed, current-fingerprint
-verification and review. `complete` requires execution plus those same current
-quality gates, but does not implicitly ship. Capture reusable learnings, then
-complete or pause the session.
+The compiled workflow declares deterministic checks, any applicable complexity
+check, whether an independent evaluator is required, its rubric, and its
+iteration limit. Persist declared result artifacts, append their typed
+completion/evaluation events through `advance-workflow`, and use replay as the
+only acceptance authority. The state helper has no separate verify transition.
+Select evaluation because risk or acceptance criteria justify it, never merely to
+double-check the active agent. Visual or structural evaluation is
+conditional on the changed behavior, not a fixed role stack.
+
+Record checks, complete findings, and the separate acceptance decision against
+the current worktree fingerprint. A newer fingerprint makes earlier evidence
+stale. A bounded repair iteration repeats only the affected checks and stops on
+acceptance, budget or iteration limit, repeated failure class, missing
+evidence, or human-decision requirement.
+
+`ship` additionally requires separate draft-PR authorization plus replayed
+graph readiness at the current fingerprint. `complete` requires replay to reach
+`accepted`, current route approvals, and the exact current approved-plan
+binding; it does not implicitly ship. Capture reusable learnings, then complete
+or pause the session.

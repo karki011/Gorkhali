@@ -4,7 +4,7 @@
 // gate on tasks[].acceptance_criteria + tasks[].verify, the optional
 // intent.problem field, and the two new artifact types (brainstorm, decisions).
 // Also covers the execution artifact's tasks[].testResult three-state contract
-// (reference/schemas/execution.md lines 17-20): legacy `{ passed, summary }`,
+// in the historical execution envelope: `{ passed, summary }`,
 // a plain string for a check that ran, and the `not_observed` object form for a
 // check that did not run, where `passed` must be omitted and `summary` required.
 // These tests spawn the REAL validator CLI, same pattern as execution-schema.test.js.
@@ -234,7 +234,7 @@ test('brainstorm: omitting optional visualType and mutualExclusivity still passe
 });
 
 // --- execution: tasks[].testResult three-state contract ---
-// reference/schemas/execution.md lines 17-20: testResult is an object or a
+// The historical execution envelope allows testResult as an object or a
 // string; the string form is only for a check that ran. observation is
 // checked:pass | checked:fail | not_observed. passed is required unless
 // observation is not_observed, must agree with observation when both are

@@ -8,12 +8,47 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const defaultSkillDirectory = join(repositoryRoot, 'skills', 'phantom');
-const commandsDirectory = join(repositoryRoot, 'commands');
 const skillsDirectory = join(repositoryRoot, 'skills');
 const codexManifestFile = join(repositoryRoot, '.codex-plugin', 'plugin.json');
 const claudeManifestFile = join(repositoryRoot, '.claude-plugin', 'plugin.json');
 const marketplaceFile = join(repositoryRoot, '.claude-plugin', 'marketplace.json');
-const codexCompatibilityReference = '../../codex-support/codex-compatibility.md';
+const publicActions = [
+  'brainstorm',
+  'close',
+  'contract',
+  'eval',
+  'evolve',
+  'execute',
+  'fix',
+  'greploop',
+  'grill',
+  'health',
+  'hound',
+  'learn',
+  'loop',
+  'pause',
+  'recruit',
+  'resume',
+  'review',
+  'scout',
+  'sessions',
+  'start',
+  'status',
+  'validate',
+  'verify',
+  'visual',
+  'visualflow',
+  'wire',
+  'wrap',
+];
+const retiredRuntimeRoots = ['agents', 'codex-support', 'commands'];
+const forbiddenEntrypointPatterns = [
+  ['alternate runtime command', /\.\.\/\.\.\/commands\//],
+  ['compatibility layer', /codex-support|compatibility (?:contract|layer)/i],
+  ['delegated command', /delegated command|canonical preamble/i],
+  ['deprecated alias', /\balias\b/i],
+  ['provider-specific prompt', /provider-specific|Claude-specific|Codex-specific/i],
+];
 
 const forbiddenPatterns = [
   ['provider directory', /\.(?:claude|codex|gemini)(?:\/|\\)/i],
@@ -33,7 +68,11 @@ const selectionOrder = [
   'inherit-active-model',
 ];
 const requiredContractVersions = {
+  aggregation_result: 1,
+  authority_decision: 1,
   capability_ledger: 1,
+  capability_probe: 1,
+  capability_request: 1,
   decision_artifact: 3,
   defect_proof: 1,
   delegation: 2,
@@ -42,13 +81,11 @@ const requiredContractVersions = {
   model_presets: 1,
   model_routing: 1,
   state_envelope: 1,
+  evaluation_result: 1,
+  workflow_event: 1,
+  workflow_output: 1,
+  workflow_plan: 1,
 };
-const lifecycleContractResources = [
-  'references/state.md',
-  'references/workflows.md',
-  'scripts/lib/defect-proof.mjs',
-  'scripts/phantom-state.mjs',
-];
 const riskLevels = ['low', 'moderate', 'high', 'critical'];
 const criticalEligibleRoles = [
   'blade',
@@ -141,11 +178,67 @@ function validatePresets(presets, policy, errors) {
   }
 }
 
-function lifecycleContractDigest(skillDirectory) {
+function contractRegistryResources(skillDirectory, contracts, errors = null) {
+  const issues = errors || [];
+  if (!isObject(contracts)) {
+    issues.push('Manifest contracts must be an object.');
+    if (!errors) throw new Error(issues.join(' '));
+    return [];
+  }
+
+  const resources = [];
+  for (const contract of Object.keys(contracts).sort()) {
+    const entry = contracts[contract];
+    if (!checkKeys(entry, ['version', 'resources'], `Manifest contract ${contract}`, issues)) continue;
+    if (!Number.isInteger(entry.version) || entry.version < 1) {
+      issues.push(`Manifest contract ${contract}.version must be a positive integer.`);
+      continue;
+    }
+    if (!Array.isArray(entry.resources) || entry.resources.length === 0) {
+      issues.push(`Manifest contract ${contract}.resources must be a non-empty array.`);
+      continue;
+    }
+    const sorted = [...entry.resources].sort();
+    if (new Set(entry.resources).size !== entry.resources.length
+      || JSON.stringify(sorted) !== JSON.stringify(entry.resources)) {
+      issues.push(`Manifest contract ${contract}.resources must be unique and sorted.`);
+      continue;
+    }
+    for (const resource of entry.resources) {
+      if (typeof resource !== 'string' || !resource || resource.startsWith('/') || resource.includes('\\')) {
+        issues.push(`Manifest contract ${contract} has an invalid resource path.`);
+        continue;
+      }
+      const file = resolve(skillDirectory, resource);
+      const local = relative(skillDirectory, file);
+      if (local.startsWith('..') || resolve(skillDirectory, local) !== file) {
+        issues.push(`Manifest contract ${contract} resource escapes the skill: ${resource}.`);
+        continue;
+      }
+      if (!existsSync(file) || !statSync(file).isFile()) {
+        issues.push(`Manifest contract ${contract} resource is missing: ${resource}.`);
+        continue;
+      }
+      resources.push({ contract, version: entry.version, resource, file });
+    }
+  }
+  if (!errors && issues.length > 0) throw new Error(issues.join(' '));
+  return resources;
+}
+
+export function lifecycleContractDigest(skillDirectory, contracts) {
+  let registry = contracts;
+  if (registry === undefined) {
+    const manifest = JSON.parse(readFileSync(join(skillDirectory, 'manifest.json'), 'utf8'));
+    registry = manifest.contracts;
+  }
+  const resources = contractRegistryResources(skillDirectory, registry);
   const hash = createHash('sha256');
-  for (const resource of lifecycleContractResources) {
-    const file = join(skillDirectory, resource);
-    if (!existsSync(file)) continue;
+  for (const { contract, version, resource, file } of resources) {
+    hash.update(contract);
+    hash.update('\0');
+    hash.update(String(version));
+    hash.update('\0');
     hash.update(resource);
     hash.update('\0');
     hash.update(readFileSync(file));
@@ -157,7 +250,7 @@ function lifecycleContractDigest(skillDirectory) {
 function validateManifest(manifest, errors, skillDirectory) {
   if (!checkKeys(
     manifest,
-    ['name', 'bundle_version', 'contract_resource_digest', 'contract_versions'],
+    ['name', 'bundle_version', 'contract_resource_digest', 'contracts'],
     'Manifest',
     errors,
   )) return;
@@ -167,26 +260,52 @@ function validateManifest(manifest, errors, skillDirectory) {
     errors.push('Manifest bundle_version must be a semantic version.');
   } else {
     const [major, minor] = manifest.bundle_version.split('.').map(Number);
-    if (major < 2 || (major === 2 && minor < 2)) {
-      errors.push('Manifest bundle_version must be at least 2.2.0 for the defect-proof lifecycle contract.');
+    if (major < 3) {
+      errors.push('Manifest bundle_version must be at least 3.0.0 for the deterministic workflow contract.');
     }
   }
-  if (manifest.contract_resource_digest !== lifecycleContractDigest(skillDirectory)) {
-    errors.push(
-      'Manifest contract_resource_digest is stale for lifecycle contract resources; '
-      + 'bump bundle_version and refresh the digest.',
-    );
-  }
+  const resources = contractRegistryResources(skillDirectory, manifest.contracts, errors);
   if (!checkKeys(
-    manifest.contract_versions,
+    manifest.contracts,
     Object.keys(requiredContractVersions),
-    'Manifest contract_versions',
+    'Manifest contracts',
     errors,
   )) return;
   for (const [contract, version] of Object.entries(requiredContractVersions)) {
-    if (manifest.contract_versions[contract] !== version) {
+    if (manifest.contracts[contract]?.version !== version) {
       errors.push(`Manifest contract version ${contract} must be ${version}.`);
     }
+  }
+
+  const registeredSchemaCounts = new Map();
+  for (const { resource } of resources) {
+    if (!resource.startsWith('schemas/') || !resource.endsWith('.schema.json')) continue;
+    registeredSchemaCounts.set(resource, (registeredSchemaCounts.get(resource) || 0) + 1);
+  }
+  const schemaDirectory = join(skillDirectory, 'schemas');
+  const publicSchemas = existsSync(schemaDirectory)
+    ? filesUnder(schemaDirectory)
+      .map((file) => relative(skillDirectory, file))
+      .filter((file) => file.endsWith('.schema.json'))
+    : [];
+  for (const schema of publicSchemas) {
+    const count = registeredSchemaCounts.get(schema) || 0;
+    if (count === 0) {
+      errors.push(`Public contract schema is not registered in the manifest: ${schema}.`);
+    } else if (count !== 1) {
+      errors.push(`Public contract schema must have exactly one manifest owner: ${schema}.`);
+    }
+  }
+
+  try {
+    if (manifest.contract_resource_digest !== lifecycleContractDigest(skillDirectory, manifest.contracts)) {
+      errors.push(
+        'Manifest contract_resource_digest is stale for registered contract resources; '
+        + 'bump bundle_version and refresh the digest.',
+      );
+    }
+  } catch (error) {
+    errors.push(`Manifest contract registry cannot be digested: ${error.message}`);
   }
 }
 
@@ -251,50 +370,20 @@ function parseFrontmatter(content) {
   return fields;
 }
 
-export function validateCommandAdapters(commandRoot = commandsDirectory, skillRoot = skillsDirectory) {
+export function validateActionEntrypoints(skillRoot = skillsDirectory) {
   const errors = [];
-  const supportRoot = join(resolve(skillRoot, '..'), 'codex-support');
-  const compatibilityFile = join(supportRoot, 'codex-compatibility.md');
-  const resolverFile = join(supportRoot, 'resolve-codex-runtime.mjs');
-  if (!existsSync(compatibilityFile)) {
-    errors.push('Codex compatibility contract is missing at codex-support/codex-compatibility.md.');
-  }
-  if (!existsSync(resolverFile)) {
-    errors.push('Codex runtime resolver is missing at codex-support/resolve-codex-runtime.mjs.');
-  }
-  if (existsSync(compatibilityFile)) {
-    const compatibility = readFileSync(compatibilityFile, 'utf8');
-    for (const requirement of [
-      'resolve-codex-runtime.mjs',
-      '--command <workflow-name>',
-      '<preamble_files>',
-      '<conditional_preamble_files>',
-      '<portable_skill_root>/SKILL.md',
-      '<compatibility_scripts_root>',
-      'PHANTOM_DATA=<data_root>',
-      '~/.phantom',
-      'never write Codex workflow state under `.claude`',
-      'User instructions, repository instructions, and runtime safety',
-      'The portable skill and its references',
-      'Compatible legacy command intent',
-      'Legacy or provider-specific mechanics',
-      'may not add or override delegation, approval,',
-      'phase, state-path, or lifecycle authority',
-    ]) {
-      if (!compatibility.includes(requirement)) {
-        errors.push(`Codex compatibility contract must define ${requirement}.`);
-      }
+  const root = resolve(skillRoot, '..');
+  for (const retired of retiredRuntimeRoots) {
+    const retiredRoot = join(root, retired);
+    if (existsSync(retiredRoot) && filesUnder(retiredRoot).length > 0) {
+      errors.push(`Retired runtime surface must be absent: ${retired}/.`);
     }
   }
-  const commands = readdirSync(commandRoot)
-    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
-    .map((entry) => entry.slice(0, -3))
-    .sort();
 
-  for (const command of commands) {
-    const skillFile = join(skillRoot, command, 'SKILL.md');
+  for (const action of publicActions) {
+    const skillFile = join(skillRoot, action, 'SKILL.md');
     if (!existsSync(skillFile)) {
-      errors.push(`Codex adapter is missing for commands/${command}.md.`);
+      errors.push(`Public action skill is missing: skills/${action}/SKILL.md.`);
       continue;
     }
 
@@ -303,55 +392,44 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       const fields = parseFrontmatter(content);
       const keys = Object.keys(fields).sort();
       if (keys.join(',') !== 'description,name') {
-        errors.push(`skills/${command}/SKILL.md frontmatter must contain exactly name and description.`);
+        errors.push(`skills/${action}/SKILL.md frontmatter must contain exactly name and description.`);
       }
-      if (fields.name !== command) {
-        errors.push(`skills/${command}/SKILL.md must declare name: ${command}.`);
+      if (fields.name !== action) {
+        errors.push(`skills/${action}/SKILL.md must declare name: ${action}.`);
       }
       if (!/^[a-z0-9-]{1,64}$/.test(fields.name || '')) {
-        errors.push(`skills/${command}/SKILL.md name must be lowercase hyphen-case.`);
+        errors.push(`skills/${action}/SKILL.md name must be lowercase hyphen-case.`);
       }
       if (!fields.description || fields.description.length > 1024) {
-        errors.push(`skills/${command}/SKILL.md description must contain 1-1024 characters.`);
+        errors.push(`skills/${action}/SKILL.md description must contain 1-1024 characters.`);
       }
     } catch (error) {
-      errors.push(`skills/${command}/SKILL.md: ${error.message}`);
+      errors.push(`skills/${action}/SKILL.md: ${error.message}`);
     }
 
-    if (!content.includes(`../../commands/${command}.md`)) {
-      errors.push(`skills/${command}/SKILL.md must reference ../../commands/${command}.md.`);
+    if (!content.includes('Read `../phantom/SKILL.md` completely')) {
+      errors.push(`skills/${action}/SKILL.md must load the portable skill directly.`);
     }
-    if (!content.includes(codexCompatibilityReference)) {
-      errors.push(`skills/${command}/SKILL.md must apply ${codexCompatibilityReference}.`);
+    if (!content.includes(`Portable action: \`${action}\`.`)) {
+      errors.push(`skills/${action}/SKILL.md must declare portable action ${action}.`);
     }
-    if (content.indexOf(codexCompatibilityReference) > content.indexOf(`../../commands/${command}.md`)) {
-      errors.push(`skills/${command}/SKILL.md must apply Codex compatibility before reading its command.`);
+    if (content.split('\n').length > 80) {
+      errors.push(`skills/${action}/SKILL.md exceeds 80 lines.`);
     }
-    if (!content.includes(`workflow \`${command}\``)) {
-      errors.push(`skills/${command}/SKILL.md must identify workflow \`${command}\`.`);
-    }
-    if (command === 'start') {
-      const normalizedContent = content.replace(/\s+/g, ' ');
-      for (const requirement of [
-        'local planning and implementation only',
-        'implementation authorization',
-        'no implicit PR lifecycle',
-        'separate, explicit authorization',
-      ]) {
-        if (!normalizedContent.includes(requirement)) {
-          errors.push(`skills/start/SKILL.md must define ${requirement}.`);
-        }
+    for (const [label, pattern] of forbiddenEntrypointPatterns) {
+      if (pattern.test(content)) {
+        errors.push(`skills/${action}/SKILL.md contains forbidden ${label}.`);
       }
     }
   }
 
-  const commandSet = new Set(commands);
-  const orphanedAdapters = readdirSync(skillRoot)
+  const declared = new Set(publicActions);
+  const unexpectedActions = readdirSync(skillRoot)
     .filter((entry) => entry !== 'phantom' && existsSync(join(skillRoot, entry, 'SKILL.md')))
-    .filter((entry) => !commandSet.has(entry))
+    .filter((entry) => !declared.has(entry))
     .sort();
-  for (const adapter of orphanedAdapters) {
-    errors.push(`Codex adapter skills/${adapter}/SKILL.md has no matching public command.`);
+  for (const action of unexpectedActions) {
+    errors.push(`Unexpected or deprecated public action: skills/${action}/SKILL.md.`);
   }
 
   return errors;
@@ -407,7 +485,7 @@ export function validatePluginManifests(root = repositoryRoot) {
     for (const entry of readdirSync(discoveredSkillRoot)) {
       const child = join(discoveredSkillRoot, entry);
       if (entry.startsWith('.') || !statSync(child).isDirectory()) continue;
-      if (!existsSync(join(child, 'SKILL.md'))) {
+      if (filesUnder(child).length > 0 && !existsSync(join(child, 'SKILL.md'))) {
         errors.push(`Codex skill directory ${entry} is missing SKILL.md.`);
       }
     }
@@ -472,7 +550,8 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       'worktree_fingerprint',
       'record_sequence',
       'SHA-256 digest',
-      'The authoritative review must have a later',
+      'advance-workflow.mjs',
+      'Verification and review run artifacts are unsupported',
     ],
     'references/workflows.md': [
       '`direct`',
@@ -485,7 +564,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       '`ship-draft-pr` authorization is separate',
       'route and material intent do not change',
       'wiring approval binds the current passed plan plus decisions',
-      'A later verification makes the earlier review stale',
+      'A newer fingerprint makes earlier evidence stale',
     ],
     'scripts/phantom-state.mjs': [
       "const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full'])",
@@ -494,10 +573,11 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       'APPROVAL_ARTIFACTS',
       'artifact_bindings',
       'latestRecordSequence',
+      'DECISION_ARTIFACTS',
+      'replayCurrentWorkflow',
       "command === 'approve'",
       "command === 'authorize'",
       "command === 'execute'",
-      "command === 'verify'",
       "command === 'ship'",
       "command === 'complete'",
     ],
@@ -566,7 +646,7 @@ function main() {
   const skillDirectory = process.argv[2] ? resolve(process.argv[2]) : defaultSkillDirectory;
   const errors = [
     ...validateSkill(skillDirectory),
-    ...(skillDirectory === defaultSkillDirectory ? validateCommandAdapters() : []),
+    ...(skillDirectory === defaultSkillDirectory ? validateActionEntrypoints() : []),
     ...(skillDirectory === defaultSkillDirectory ? validatePluginManifests() : []),
   ];
   if (errors.length) {

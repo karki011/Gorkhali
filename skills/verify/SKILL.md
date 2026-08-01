@@ -2,6 +2,11 @@
 name: verify
 description: Run correctness checks for a Phantom workflow, including tests, builds, and lint; use when asked to verify changes, run tests, check the build, lint, or confirm the build is green, not to repair known failures.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `verify` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/verify.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `verify`.
+
+Treat invocation text as action input. Run the deterministic checks required by
+the compiled node against the current fingerprint and record exact evidence.
+Report every observed finding and missing capability. Do not repair failures or
+perform lifecycle actions.

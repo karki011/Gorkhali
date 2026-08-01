@@ -49,35 +49,11 @@ const DETECTORS = [
 ];
 
 const ALLOWLIST = new Map([
-  ['project-docs/install.md', [
-    {
-      kind: 'team-literal',
-      context: 'you need data from an old',
-      reason: 'documents the source accepted by the legacy data migration',
-    },
-    {
-      kind: 'phantom-bare-literal',
-      context: 'you need data from an old',
-      reason: 'documents the source accepted by the legacy data migration',
-    },
-  ]],
-  ['commands/_shared.md', [
-    {
-      kind: 'phantom-bare-literal',
-      context: 'NEVER process.env.CLAUDE_PLUGIN_ROOT',
-      reason: 'names an anti-pattern for PLUGIN_ROOT resolution (code location), not a state-data-root default',
-    },
-  ]],
   ['evals/evals.json', [
     {
       kind: 'phantom-bare-literal',
       context: '"pattern": "^(?![',
-      reason: 'regex asserts the legacy literal is ABSENT from the response; not itself a default',
-    },
-    {
-      kind: 'phantom-bare-literal',
-      context: 'must NOT use the legacy',
-      reason: 'expected_behavior prose describing the same absence assertion',
+      reason: 'regex asserts the retired path is absent from generated output',
     },
   ]],
   ['scripts/migrate-data.js', [

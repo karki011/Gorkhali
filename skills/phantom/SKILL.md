@@ -1,12 +1,12 @@
 ---
 name: phantom
-description: Plan, execute, review, verify, pause, resume, and preserve software-development work through capability-adaptive role passes. Use for features, fixes, refactors, investigations, planning, implementation, code review, verification, session recovery, and progress checks.
+description: Compile, execute, replay, review, verify, pause, resume, and preserve software-delivery workflows through a deterministic control plane and capability-adaptive workers. Use for features, fixes, refactors, investigations, planning, implementation, code review, verification, session recovery, and progress checks.
 ---
 
 # Phantom
 
-Operate as the user's software-delivery shadow army. Preserve one workflow and
-one artifact contract across every compatible agent runtime.
+Operate as a deterministic software-delivery harness. Preserve one workflow
+and one artifact contract across every compatible agent runtime.
 
 Maintained by Subash Karki.
 
@@ -17,25 +17,35 @@ Maintained by Subash Karki.
 2. Make only requested changes. Preserve unrelated user work.
 3. For a defect, reproduce it, trace the exact code path, and confirm the root
    cause with the user before editing a fix.
-4. Establish contracts and acceptance criteria before delegated implementation.
+4. Establish contracts and acceptance criteria, then compile accepted work into
+   a versioned workflow graph before implementation.
 5. Inspect dependency impact before refactoring. Prefer a native dependency
    graph, otherwise run the bundled analyzer, and supplement partial results
    with local reference, test, and history tracing.
 6. Choose the first minimum-sufficient solution after understanding the real
    code path. Prefer omission, reuse, standard or native capabilities, and
    installed dependencies before adding custom machinery.
-7. Verify in proportion to risk. Never claim a check that did not run.
-8. After correctness checks, run Sweep on every changed file. If Sweep changes
-   files, repeat the affected checks before independent review.
+7. Let deterministic policy select correctness checks in proportion to risk.
+   Never claim a check that did not run, and never add a verifier merely to
+   double-check work that already has sufficient evidence.
+8. After correctness checks, simplify every changed file once. If
+   simplification changes files, repeat affected checks. Run an independent
+   evaluator only when risk, topology, or a measurable rubric requires it.
 9. Record durable state in the neutral Phantom data root. Do not make behavior
    depend on the runtime's brand, installation directory, or private metadata.
-10. Ask before destructive, irreversible, externally visible, or materially
-   scope-expanding actions unless the user already authorized them.
+10. Send every consequential operation through the typed capability broker.
+   Destructive, irreversible, externally visible, or materially scope-expanding
+   actions require explicit user authorization even when implementation is
+   already authorized.
 11. End with a clear `done`, `done-with-caveat`, or `blocked` status.
-12. Keep user-facing progress commentary sparse. By default, send no more than
-    two non-blocking updates per task, each no longer than two short lines.
-    Exceed either limit only for a blocker, safety issue, explicit request for
-    detail, or host-required update cadence. The final answer is not an update.
+12. Before the first tool call, give one concise sentence about the immediate
+    action. Later, update only for a material finding, direction change,
+    blocker, safety issue, explicit request, or host-required cadence. Lead the
+    final response with the outcome.
+13. Match written artifacts to the task. Do not pad them with boilerplate,
+    repeated summaries, empty sections, or a full dossier for a direct change.
+14. Narrate a correction only when it changes the user's code, conclusion, or
+    decision. Fix inconsequential slips without adding correction commentary.
 
 ## Start every task
 
@@ -55,12 +65,16 @@ Maintained by Subash Karki.
    execution using the route, dependency evidence, capability ledger, and
    [workflow policy](references/workflows.md). The user supplies the goal; do
    not ask them to choose workers, worker count, or models during the normal
-   path. Honor explicit delegation constraints.
+   path. `native-parallel` is eligible only when an observed host capability
+   supplies isolated branch workspaces. Honor explicit delegation constraints.
 7. For `direct` and `plan`, select a solution rung from the gathered evidence;
    for `brainstorm` and `full`, defer selection until convergence. Record
    material choices in existing rationale, evidence, or session decisions.
 8. Resolve compute using [model policy](references/models.md) after topology.
-9. After route, topology, solution timing, and compute resolution are known,
+9. Compile the route, required artifacts, dependencies, scopes, budgets, and
+   terminal conditions into the versioned workflow contract. Code validates
+   the graph; a model recommendation never advances state by itself.
+10. After route, topology, solution timing, and compute resolution are known,
    create a session when none was resumed; otherwise update the resumed
    [state](references/state.md). Record every fallback used.
 
@@ -70,10 +84,37 @@ When command execution is available, use the bundled state helper:
 node <skill-directory>/scripts/phantom-state.mjs start --workspace <path> --task <id> --intent <text> --route <route>
 ```
 
+After the route-specific decision artifact is valid, persist a fresh v1
+workflow plan and let the compiler bind it to the session:
+
+```text
+node <skill-directory>/scripts/validate-workflow.mjs --input <workflow-plan.json>
+node <skill-directory>/scripts/compile-workflow.mjs --workspace <path> --task <id> --input <workflow-plan.json>
+```
+
+During an active session, stage every plan, event, request, or signed decision
+with native Write as a new bounded JSON object under the canonical session
+`control-inputs/` directory. Names must be safe unique `.json` names; PreToolUse
+atomically reserves each name once and PostToolUse binds the exact staged file
+generation. Existing names and byte-identical replays are denied. Pass that
+canonical staged path to the trusted command. Do not use a workspace file or
+an arbitrary session path as control input.
+
+Advance nodes only with typed event inputs and replay through the same reducer:
+
+```text
+node <skill-directory>/scripts/advance-workflow.mjs --workspace <path> --task <id> --input <event.json>
+node <skill-directory>/scripts/replay-workflow.mjs --workspace <path> --task <id>
+```
+
 Resolve `<skill-directory>` from this `SKILL.md`; do not assume an installation
-location. If command execution is unavailable, maintain the same artifact shape
-with the runtime's file tools. If writing is unavailable, report a read-only
-plan and do not pretend a session was persisted.
+location. File tools may draft candidate plan, event, or request inputs, but
+they cannot replace the control plane: never use them to compile a workflow,
+append or replay its journal, advance a node, approve or authorize a lifecycle
+gate, or claim/finalize a capability reservation. If command execution is
+unavailable, preserve any draft outside canonical state, report the control
+plane as blocked, and do not claim that a session or transition was persisted.
+If writing is unavailable, report a read-only plan.
 
 When a native dependency graph is unavailable and command execution exists,
 run the bundled read-only analyzer before planning shared-file changes or a
@@ -110,6 +151,11 @@ Follow the complete ledger and fallback contract in
 [capabilities](references/capabilities.md). A missing capability may block only
 the affected stage; it never changes artifact meaning, removes a gate, or turns
 missing evidence into a pass.
+
+Consequential operations use the one typed boundary in
+[capability broker](references/capability-broker.md). Missing authorization,
+scope, freshness, budget, runtime capability, or idempotency evidence denies
+the request. No host adapter or role may provide an alternate side-effect path.
 
 ## Route the work
 
@@ -149,6 +195,11 @@ another copy of the runtime or bypass nesting protections. Fall back to fresh,
 labeled sequential role passes without removing gates. Honor explicit user
 constraints and every runtime approval boundary.
 
+Delegate only work that is sizeable, genuinely independent, and parallelizable.
+Do not delegate work the current agent can finish in a handful of tool calls,
+do not spawn an agent solely to re-check another agent, and prefer one delegate
+when one can own the complete bounded scope.
+
 When delegation is available, persist a versioned `delegation-task` before the
 pass and a matching `delegation-result` after it. Carry typed context
 references instead of copied conversation, identify whether judgment is
@@ -168,10 +219,13 @@ model. When command execution is available:
 node <skill-directory>/scripts/resolve-profile.mjs --role <role> --profile <profile> --host <host-key>
 ```
 
-The core sequence is Apex; Plan-checker and Rival when planning is required;
-Blade; Ward; Sweep; Ward again if Sweep changes files; then Gaze. Add specialist
-passes only when relevant. Apex validates and synthesizes all outputs. Every
-assignment carries the minimum-sufficient-solution ladder and reports the
+The compiled graph selects only the role passes needed for its route, risk, and
+dependency topology. Deterministic checks run before any independent evaluator.
+An evaluator records every evidence-backed severity; acceptance policy filters
+blocking findings separately. Evaluator retries are bounded and stop on
+acceptance, repeated failure, missing evidence, budget, duration, iteration
+limit, or required human judgment. Apex validates and synthesizes all outputs.
+Every assignment carries the minimum-sufficient-solution ladder and reports the
 selected rung with brief evidence when it materially affects implementation.
 Record the requested compute profile and only observable actual profile,
 fallback reason, outcome, wall time, and tool turns. Never infer an actual
@@ -188,30 +242,45 @@ Useful helper operations:
 node <skill-directory>/scripts/phantom-state.mjs status --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs pause --workspace <path> --reason <text>
 node <skill-directory>/scripts/phantom-state.mjs resume --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type verification --status passed --input <json-file>
+node <skill-directory>/scripts/advance-workflow.mjs --workspace <path> --task <id> --input <event.json>
+node <skill-directory>/scripts/replay-workflow.mjs --workspace <path> --task <id>
 node <skill-directory>/scripts/phantom-state.mjs complete --workspace <path>
 ```
 
 Pause before context loss. Resume from artifacts rather than conversational
-memory. Record decisions, incomplete work, verification evidence, and the next
-safe action.
+memory. Record decision artifacts before compilation. After compilation, route
+work, verification, evaluation, and acceptance evidence only through declared
+workflow artifacts and `advance-workflow`; the replayed journal is authoritative.
+
+The session helper owns task discovery, approvals, and authorization. The
+workflow kernel is the only component allowed to advance graph nodes. It writes
+an append-only digest-chained journal and derives materialized state from that
+journal. Replay validates order and continuity and never calls a model to
+recreate historical output. Do not dual-write node state through the session
+helper or infer a transition from a missing event.
 
 ## Complete the gate
 
 Follow [verification](references/verification.md): inspect scope; run narrow and
-repository-required correctness checks; run Sweep; repeat affected checks when
-Sweep changes files; then run independent review. Record evidence and missing
-capabilities, perform external lifecycle actions only when authorized, capture
-reusable learnings, and complete or pause durable state.
+repository-required correctness checks; simplify changed files; repeat affected
+checks when simplification changes files; and run an independent evaluator only
+when selected by deterministic risk policy. Record complete findings, evidence,
+and missing capabilities. Perform external actions only through an authorized,
+idempotent capability request, then complete or pause durable state.
 
 ## Reference map
 
 - [Capabilities](references/capabilities.md): negotiation and degradation.
+- [Capability broker](references/capability-broker.md): typed side-effect policy and idempotency.
+- [Evolution](references/evolution.md): learning retention, promotion, and evidence rules.
 - [Manifest](manifest.json): bundle and portable contract versions.
 - [Models](references/models.md): semantic compute profiles and resolution.
 - [Roles](references/roles.md): provider-neutral shadow contracts.
 - [State](references/state.md): paths, artifacts, locking, and resume behavior.
 - [Workflows](references/workflows.md): routing and lifecycle procedures.
+- [Workflow patterns](references/workflow-patterns.md): chain, parallel, routing, delegation, and bounded evaluation.
+- [Policy](references/policy.md): deterministic authority and host parity.
+- [Replay](references/replay.md): journal integrity and model-free reconstruction.
 - [Planning](references/planning.md): decision-first plan contract and review surface.
 - [Brainstorming](references/brainstorming.md): evidence-led divergence and convergence.
 - [Verification](references/verification.md): evidence and quality gates.

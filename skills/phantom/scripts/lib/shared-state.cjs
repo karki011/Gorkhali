@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // shared-state.cjs -- the single, dependency-free codec that owns Phantom's
 // mutable-state root resolution and repository identity. Every layer routes
-// through it so the CommonJS compatibility scripts, the portable ESM skill, the
+// through it so the CommonJS scripts, the portable ESM skill, the
 // shell resolver (via a small `node -e` call), and the runtime resolver adapter
 // all agree on ONE data root and ONE repository id for the same workspace.
 //
@@ -13,8 +13,10 @@
 //   1. Data root      -- PHANTOM_DATA else $HOME/.phantom else <workspace>/.phantom.
 //   2. Repository id  -- a versioned, collision-resistant identity derived from
 //                        the normalized origin remote (or the Git common root
-//                        when there is no remote), with persisted aliases so a
-//                        repo's earlier ids remain discoverable.
+//                        when there is no remote).
+//
+// Runtime identity is canonical-only. Historical aliases are handled solely by
+// explicit offline migration/report tooling outside the portable skill bundle.
 
 'use strict';
 
@@ -24,9 +26,9 @@ const { createHash } = require('crypto');
 const { execFileSync } = require('child_process');
 
 // Bump when the identity derivation changes in a way that yields different ids
-// for the same repository. Older ids then survive as aliases (see recordAliases)
-// so nothing is orphaned across a codec upgrade.
-const CODEC_VERSION = 1;
+// for the same repository. Moving state across codec versions is an explicit
+// offline migration; runtime resolution never probes or writes earlier ids.
+const CODEC_VERSION = 2;
 
 // Canonical dirname for the neutral, provider-independent data root. PHANTOM_DATA
 // overrides the full path; this dirname is used only for the $HOME and workspace
@@ -139,8 +141,8 @@ function sanitizeName(value) {
   const cleaned = String(value == null ? '' : value)
     .trim()
     .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120);
+    .replace(/^[._-]+|[._-]+$/g, '')
+    .slice(0, 109);
   return (cleaned || 'repository').toLowerCase();
 }
 
@@ -151,11 +153,7 @@ function repoNameFromNormalized(canonical) {
   return segment || null;
 }
 
-/**
- * Legacy plain repository name from a RAW remote url: last path/scp segment,
- * minus a trailing `.git`, case preserved. This mirrors the pre-codec resolver
- * so its output can be recorded as an alias.
- */
+/** Last repository name from a raw remote URL, preserving its original case. */
 function repoNameFromRemote(url) {
   let s = String(url || '').trim().replace(/[/\\]+$/, '');
   s = s.slice(s.lastIndexOf('/') + 1);
@@ -165,6 +163,34 @@ function repoNameFromRemote(url) {
 
 function shortHash(value) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, 10);
+}
+
+/** Require a single, portable path segment for caller-supplied identities. */
+function validateIdentitySegment(value, label = 'repository identity') {
+  const segment = String(value == null ? '' : value).trim();
+  if (!/^[A-Za-z0-9_][A-Za-z0-9._-]{0,119}$/.test(segment)
+    || segment === '.' || segment === '..') {
+    throw new TypeError(`${label} must be one safe path segment (1-120 characters).`);
+  }
+  return segment;
+}
+
+/** Preserve the logical task id; reject values that cannot fit one encoded path segment. */
+function taskIdentity(value, fallback = 'task') {
+  const task = value == null || value === '' ? fallback : String(value);
+  const bytes = Buffer.byteLength(task, 'utf8');
+  if (bytes === 0 || bytes > 150 || task.includes('\0')) {
+    throw new TypeError('Task id must contain 1-150 UTF-8 bytes and no NUL characters.');
+  }
+  return task;
+}
+
+/** Encode unsafe task ids losslessly while leaving existing safe ids unchanged. */
+function taskPathSegment(value, fallback = 'task') {
+  const task = taskIdentity(value, fallback);
+  if (/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(task)
+    && task !== '.' && task !== '..') return task;
+  return `id~${Buffer.from(task, 'utf8').toString('base64url')}`;
 }
 
 function realpathOr(candidate) {
@@ -204,7 +230,6 @@ function literalIdentity(id, kind, root) {
     remote: null,
     kind,
     codec_version: CODEC_VERSION,
-    aliases: [],
   };
 }
 
@@ -212,48 +237,34 @@ function defaultIdentity(root) {
   return literalIdentity('_default', 'default', root || null);
 }
 
-/**
- * The pre-codec path-derived id for a repository WITHOUT an origin remote. The
- * old resolver hashed the realpath'd main root and prefixed the sanitized,
- * lowercased basename (`<basename>-<hash>`, e.g. `myrepo-a1b2c3d4e5`), whereas
- * the codec now uses the bare basename. Recording the old id as an alias keeps
- * sessions, pointers, and repos/<old-id> state created before the upgrade
- * discoverable. `root` must be the same realpath'd main root the identity uses,
- * so the hash matches byte-for-byte what the old algorithm produced.
- */
-function pathDerivedLegacyId(root) {
-  return `${sanitizeName(path.basename(root))}-${shortHash(root)}`;
-}
-
-/**
- * Compute the alias ids under which a remote-backed repository may already have
- * durable state: the legacy plain remote basename (both cases) and the
- * pre-normalization raw-hash id. The canonical id itself is never listed.
- */
-function remoteAliases(rawRemote, canonicalId, canonicalName) {
-  const legacyPlain = repoNameFromRemote(rawRemote);
-  const rawHashId = `${sanitizeName(legacyPlain)}-${shortHash(rawRemote)}`;
-  const aliases = new Set([
-    legacyPlain,
-    legacyPlain.toLowerCase(),
-    canonicalName,
-    rawHashId,
-  ]);
-  aliases.delete(canonicalId);
-  return [...aliases].filter(Boolean);
+function localIdentity(root, kind) {
+  const canonicalRoot = realpathOr(root);
+  const name = sanitizeName(path.basename(canonicalRoot));
+  const hash = shortHash(canonicalRoot);
+  return {
+    id: `${name}-${hash}`,
+    name,
+    hash,
+    root: canonicalRoot,
+    source: canonicalRoot,
+    remote: null,
+    kind,
+    codec_version: CODEC_VERSION,
+  };
 }
 
 /**
  * Resolve the repository identity for a workspace. Precedence -- first match
- * wins, never throws:
+ * wins. Filesystem and Git discovery failures degrade safely; invalid
+ * caller-supplied path segments throw:
  *   1. cwd inside <data-root>/worktrees/<seg>/... -> that <seg> (Phantom-managed
- *      worktree; verbatim segment).
- *   2. PHANTOM_REPO override (verbatim, trimmed).
+ *      worktree; validated as one safe segment).
+ *   2. PHANTOM_REPO override (trimmed and validated as one safe segment).
  *   3. Origin remote -> normalized -> `<name>-<hash>` (collision-resistant;
  *      SSH/HTTPS/renamed-clone/worktree all converge here).
- *   4. No remote -> Git common-dir main root basename (worktree-safe: the
- *      worktree and its main checkout resolve to the same plain id).
- *   5. Walk up to the first `.git` entry -> that dir's basename (git absent).
+ *   4. No remote -> hashed canonical Git common root (worktree-safe and
+ *      collision-resistant across equal basenames).
+ *   5. Walk up to the first `.git` entry -> hashed canonical root (git absent).
  *   6. `_default`.
  *
  * Options: { dataRoot, phantomRepo, gitRunner }. `dataRoot` enables step 1;
@@ -272,20 +283,31 @@ function repoIdentity(cwd = process.cwd(), options = {}) {
   }
 
   // (1) Phantom-managed worktree fast-path.
+  let managedSegment = null;
   if (dataRoot) {
     try {
       const realRoot = fs.realpathSync(path.join(dataRoot, 'worktrees'));
       const realCwd = fs.realpathSync(resolvedCwd);
       if (realCwd !== realRoot && realCwd.startsWith(realRoot + path.sep)) {
-        const segment = realCwd.slice(realRoot.length + 1).split(path.sep)[0];
-        if (segment) return literalIdentity(segment, 'worktree', realCwd);
+        managedSegment = realCwd.slice(realRoot.length + 1).split(path.sep)[0];
       }
     } catch (_) { /* root or cwd unresolvable -> next step */ }
   }
+  if (managedSegment) {
+    return literalIdentity(
+      validateIdentitySegment(managedSegment, 'Phantom worktree repository identity'),
+      'worktree',
+      resolvedCwd,
+    );
+  }
 
-  // (2) PHANTOM_REPO override (deterministic, verbatim).
+  // (2) PHANTOM_REPO override (deterministic and path-safe).
   if (phantomRepo && String(phantomRepo).trim()) {
-    return literalIdentity(String(phantomRepo).trim(), 'env', resolvedCwd);
+    return literalIdentity(
+      validateIdentitySegment(phantomRepo, 'PHANTOM_REPO'),
+      'env',
+      resolvedCwd,
+    );
   }
 
   try {
@@ -306,28 +328,15 @@ function repoIdentity(cwd = process.cwd(), options = {}) {
         remote,
         kind: 'remote',
         codec_version: CODEC_VERSION,
-        aliases: remoteAliases(remote, id, name),
       };
     }
 
-    // (4) No remote -> main root via Git common dir (worktree-safe).
+    // (4) No remote -> hashed canonical main root via Git common dir.
     const commonDir = git(resolvedCwd, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
     if (commonDir) {
       const root = realpathOr(path.dirname(path.resolve(resolvedCwd, commonDir)));
-      const base = path.basename(root);
-      if (base && base !== '.git' && base !== '.') {
-        const legacyId = pathDerivedLegacyId(root);
-        return {
-          id: base,
-          name: base,
-          hash: null,
-          root,
-          source: root,
-          remote: null,
-          kind: 'common-dir',
-          codec_version: CODEC_VERSION,
-          aliases: legacyId === base ? [] : [legacyId],
-        };
+      if (path.basename(root) !== '.git' && path.basename(root) !== '.') {
+        return localIdentity(root, 'common-dir');
       }
     }
 
@@ -336,20 +345,7 @@ function repoIdentity(cwd = process.cwd(), options = {}) {
     while (true) {
       if (fs.existsSync(path.join(dir, '.git'))) {
         const root = realpathOr(dir);
-        const base = path.basename(root);
-        if (base) {
-          return {
-            id: base,
-            name: base,
-            hash: null,
-            root,
-            source: root,
-            remote: null,
-            kind: 'walk-up',
-            codec_version: CODEC_VERSION,
-            aliases: [],
-          };
-        }
+        if (path.basename(root)) return localIdentity(root, 'walk-up');
         break;
       }
       const parent = path.dirname(dir);
@@ -369,100 +365,6 @@ function repoId(cwd = process.cwd(), options = {}) {
   return repoIdentity(cwd, options).id;
 }
 
-// ---------------------------------------------------------------------------
-// Alias persistence (origin-change / legacy discoverability)
-// ---------------------------------------------------------------------------
-
-/** Reverse alias map location: <data-root>/repos/.aliases.json (alias -> canonical). */
-function aliasMapPath(dataRoot) {
-  return path.join(dataRoot, 'repos', '.aliases.json');
-}
-
-// Sentinel value for an AMBIGUOUS alias: a plain/legacy name (e.g. a bare repo
-// basename) claimed by two or more DISTINCT canonical repos -- typically the same
-// repository name under different owners. It is a non-string so resolveCanonical
-// treats it as NO match (the id passes through unchanged) and a migrator cannot
-// silently attribute the shared legacy dir to whichever repo was detected last;
-// an explicit --map is required instead. Once ambiguous, an alias never reverts.
-const AMBIGUOUS_ALIAS = { ambiguous: true };
-
-function isAmbiguousValue(value) {
-  return !!value && typeof value === 'object' && value.ambiguous === true;
-}
-
-function readAliasMap(dataRoot) {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(aliasMapPath(dataRoot), 'utf8'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch (_) {
-    return {};
-  }
-}
-
-function atomicWriteJson(file, value) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  fs.renameSync(temporary, file);
-}
-
-/**
- * Persist an identity's aliases into the reverse map so a repository whose id
- * changed (origin rewrite, codec upgrade, legacy/plain/raw-hash history) stays
- * discoverable. Merge-only: existing entries are never dropped. No-ops for
- * identities without aliases (env override, worktree, no-remote, default).
- * Returns the resulting map.
- */
-function recordAliases(dataRoot, identity) {
-  const map = readAliasMap(dataRoot);
-  if (!dataRoot || !identity || !identity.id) return map;
-  if (!Array.isArray(identity.aliases) || identity.aliases.length === 0) return map;
-  let changed = false;
-  for (const alias of identity.aliases) {
-    if (!alias || alias === identity.id) continue;
-    const existing = map[alias];
-    if (existing === identity.id) continue; // already ours
-    if (isAmbiguousValue(existing)) continue; // already ambiguous -- never revert
-    if (existing === undefined) {
-      map[alias] = identity.id;
-      changed = true;
-    } else {
-      // A DIFFERENT canonical id already claims this plain/legacy alias: two repos
-      // share it (same basename, different owners). Do NOT last-write-win -- mark it
-      // ambiguous so no migrator attributes the shared legacy dir to either repo.
-      map[alias] = AMBIGUOUS_ALIAS;
-      changed = true;
-    }
-  }
-  if (map[identity.id] !== identity.id) {
-    map[identity.id] = identity.id;
-    changed = true;
-  }
-  if (changed) atomicWriteJson(aliasMapPath(dataRoot), map);
-  return map;
-}
-
-/**
- * Map any known (possibly legacy/plain/raw-hash) id to its canonical id. An
- * unknown id -- and an AMBIGUOUS alias (a non-string sentinel) -- passes through
- * unchanged, so an ambiguous plain name is never silently collapsed onto a repo.
- */
-function resolveCanonical(dataRoot, id) {
-  const value = readAliasMap(dataRoot)[id];
-  return typeof value === 'string' ? value : id;
-}
-
-/**
- * True when `id` is a KNOWN-ambiguous alias -- a plain/legacy name shared by two or
- * more distinct repos. resolveCanonical passes it through unchanged (safe for any
- * live writer resolving its own id), so migrators use this to distinguish it from a
- * merely-unknown id and route the shared legacy dir to their unresolved (explicit
- * --map required) path instead of importing it under an arbitrary repo.
- */
-function isAmbiguousAlias(dataRoot, id) {
-  return isAmbiguousValue(readAliasMap(dataRoot)[id]);
-}
-
 module.exports = {
   CODEC_VERSION,
   ROOT_DIRNAME,
@@ -470,14 +372,12 @@ module.exports = {
   normalizeRemote,
   repoIdentity,
   repoId,
-  aliasMapPath,
-  readAliasMap,
-  recordAliases,
-  resolveCanonical,
-  isAmbiguousAlias,
   // Exposed for reuse and focused testing.
   sanitizeName,
   repoNameFromRemote,
   repoNameFromNormalized,
   shortHash,
+  taskIdentity,
+  taskPathSegment,
+  validateIdentitySegment,
 };

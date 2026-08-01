@@ -60,34 +60,11 @@ try {
     if (toolName !== 'Agent' && toolName !== 'Task') process.exit(0); // only agent spawns
     const input = p.tool_input || {};
 
-    // Resolve effective model: param > frontmatter pin > inherited-from-session.
-    let model = 'inherited';
-    let modelSource = 'session';
-    if (input.model) {
-      model = input.model;
-      modelSource = 'param';
-    } else {
-      // Strip "phantom:" prefix to get bare agent name, then read its frontmatter.
-      try {
-        const rawType = input.subagent_type || '';
-        const name = rawType.replace(/^phantom:/, '');
-        if (name) {
-          const agentFile = path.join(__dirname, '..', 'agents', name + '.md');
-          const content = fs.readFileSync(agentFile, 'utf-8');
-          // Match `model: <value>` in the YAML front-matter block (between --- delimiters).
-          const fmMatch = content.match(/^---[\s\S]*?^---/m);
-          if (fmMatch) {
-            const pinMatch = fmMatch[0].match(/^model:\s*(\S+)/m);
-            if (pinMatch) {
-              model = pinMatch[1];
-              modelSource = 'pinned';
-            }
-          }
-        }
-      } catch (_) {
-        // file absent or unreadable — fall back to 'inherited'/'session'
-      }
-    }
+    // The native tool input is authoritative when it reports a model. Otherwise
+    // record inheritance; portable skills no longer have a second agent
+    // frontmatter tree from which to infer an effective model.
+    const model = input.model || 'inherited';
+    const modelSource = input.model ? 'param' : 'session';
 
     rec = {
       event: 'spawn',
@@ -95,7 +72,7 @@ try {
       sid,
       id,
       agent: input.subagent_type || 'unknown',
-      // model reflects the effective model (param, frontmatter pin, or session-inherited).
+      // Model is observed from the tool input or explicitly marked inherited.
       model,
       modelSource,
       bg: input.run_in_background === true,

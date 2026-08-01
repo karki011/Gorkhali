@@ -5,6 +5,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -28,6 +29,7 @@ const {
   learningsDir,
   sessionsDir,
   completedDir,
+  taskDir,
   globalPatternsDir,
   auditDir,
   repoDir,
@@ -61,6 +63,13 @@ function withEnv(overrides, fn) {
 // Tmp tree bookkeeping — every mkdtemp gets cleaned in finally blocks below.
 function mkTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+function expectedLocalId(root) {
+  const canonical = fs.realpathSync(root);
+  const name = path.basename(canonical).toLowerCase();
+  const hash = crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 10);
+  return `${name}-${hash}`;
 }
 
 function resolvedRoot(kind, { cwd, workspace = cwd, env }) {
@@ -202,22 +211,21 @@ test('detectRepo: PHANTOM_REPO env override wins (trimmed)', () => {
   });
 });
 
-test('detectRepo: empty/whitespace PHANTOM_REPO is ignored, falls through to walk-up', () => {
+test('detectRepo: empty/whitespace PHANTOM_REPO is ignored, falls through to hashed walk-up', () => {
   const tmp = mkTmp('paths-empty-env-');
   try {
     fs.mkdirSync(path.join(tmp, '.git'), { recursive: true });
     const nested = path.join(tmp, 'a', 'b');
     fs.mkdirSync(nested, { recursive: true });
     withEnv({ PHANTOM_REPO: '   ' }, () => {
-      // realpath: macOS tmpdir is a symlink (/var -> /private/var); compare basenames.
-      assert.equal(detectRepo(nested), path.basename(fs.realpathSync(tmp)));
+      assert.equal(detectRepo(nested), expectedLocalId(tmp));
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('detectRepo: .git DIR walk-up returns top dir basename from nested subdir', () => {
+test('detectRepo: .git DIR walk-up hashes the canonical top directory', () => {
   const tmp = mkTmp('paths-gitdir-');
   try {
     const top = fs.realpathSync(tmp);
@@ -225,14 +233,14 @@ test('detectRepo: .git DIR walk-up returns top dir basename from nested subdir',
     const sub = path.join(top, 'src', 'deep', 'nested');
     fs.mkdirSync(sub, { recursive: true });
     withEnv({ PHANTOM_REPO: undefined }, () => {
-      assert.equal(detectRepo(sub), path.basename(top));
+      assert.equal(detectRepo(sub), expectedLocalId(top));
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('detectRepo: .git FILE (git worktree case) is also detected', () => {
+test('detectRepo: .git FILE walk-up also hashes the canonical top directory', () => {
   const tmp = mkTmp('paths-gitfile-');
   try {
     const top = fs.realpathSync(tmp);
@@ -241,11 +249,20 @@ test('detectRepo: .git FILE (git worktree case) is also detected', () => {
     const sub = path.join(top, 'pkg', 'lib');
     fs.mkdirSync(sub, { recursive: true });
     withEnv({ PHANTOM_REPO: undefined }, () => {
-      assert.equal(detectRepo(sub), path.basename(top));
+      assert.equal(detectRepo(sub), expectedLocalId(top));
     });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('detectRepo rejects unsafe PHANTOM_REPO values instead of joining them into state paths', () => {
+  for (const value of ['../outside', 'two/segments', '.', '..', 'has space']) {
+    withEnv({ PHANTOM_REPO: value }, () => {
+      assert.throws(() => detectRepo('/'), /PHANTOM_REPO must be one safe path segment/);
+    });
+  }
+  assert.throws(() => repoDir('../outside'), /repository id must be one safe path segment/);
 });
 
 test('detectRepo: no .git anywhere up the tree -> "_default" (NOT basename of cwd)', () => {
@@ -321,6 +338,22 @@ test('run artifacts: runsDir resolves under sessionsDir/<ticket>/runs', () => {
   }
 });
 
+test('task paths encode unsafe ids losslessly without colliding with similar safe ids', () => {
+  const tmp = mkTmp('paths-task-codec-');
+  try {
+    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+      const taskId = 'feature/api:v1';
+      const encoded = `id~${Buffer.from(taskId).toString('base64url')}`;
+      assert.equal(taskDir(taskId), path.join(tmp, 'repos', 'r', 'sessions', encoded));
+      assert.equal(runsDir(taskId), path.join(tmp, 'repos', 'r', 'sessions', encoded, 'runs'));
+      assert.notEqual(taskDir(taskId), taskDir('feature-api-v1'));
+      assert.equal(Buffer.from(path.basename(taskDir(taskId)).slice(3), 'base64url').toString(), taskId);
+    });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('run artifacts: runDir resolves to runsDir/<ts>', () => {
   const tmp = mkTmp('paths-rundir-');
   try {
@@ -366,6 +399,31 @@ test('run artifacts: no directory created by merely requiring the lib', () => {
       currentRunPointer('T-1');
       assert.ok(!fs.existsSync(path.join(tmp, 'repos')), 'require must not create directories');
     });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('shell run path wrappers fail closed when the shared task codec is unavailable', () => {
+  const tmp = mkTmp('paths-shell-no-codec-');
+  try {
+    for (const invocation of [
+      'phantom_run_dir T-1 run-1',
+      'phantom_current_run_pointer T-1',
+    ]) {
+      const result = spawnSync('sh', ['-c', `. "${SHELL_PATHS}"; ${invocation}`], {
+        env: {
+          ...process.env,
+          PHANTOM_DATA: tmp,
+          PHANTOM_PLUGIN_ROOT: path.join(tmp, 'missing-plugin'),
+          PHANTOM_REPO: 'repo',
+        },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 2);
+      assert.equal(result.stdout, '');
+      assert.match(result.stderr, /task identity requires Node and the bundled codec/);
+    }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

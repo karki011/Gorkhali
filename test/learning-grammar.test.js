@@ -1,8 +1,8 @@
 // Author: Subash Karki
 // Regression guard for scripts/lib/learning-grammar.cjs.
 //
-// The break this file exists to prevent: the writer spec (commands/learn.md) specified
-// an em dash inside a CORRECTION, a standing no-em-dash convention rewrote every entry
+// The break this file exists to prevent: one writer emitted an em dash inside a
+// CORRECTION, while a formatting convention rewrote every entry
 // on disk to a plain ' - ', and the two readers required the em dash. 54 real entries
 // parsed as 0 for months with no failing test and no error - promotion, staleness,
 // distillation and prompt injection were all silently dark. So: BOTH separator forms
@@ -39,7 +39,7 @@ test('plain-dash CORRECTION parses (the form that is actually on disk)', () => {
   assert.equal(e.date, '2026-07-02');
 });
 
-test('em-dash CORRECTION parses (the form the writer spec still specifies)', () => {
+test('em-dash CORRECTION parses (the accepted alternate separator)', () => {
   const src = `CORRECTION [tilde-in-quotes]: [wrote a tilde inside double quotes] ${EM} [use $HOME in quoted expansions] [failed] (2026-07-02)`;
   const [e] = G.parseLearningEntries(src, 'workflow.md');
   assert.equal(e.type, 'correction');
@@ -342,7 +342,7 @@ test('INDEX.md bare form does not resolve a .md token sitting in the entry prose
 
 test('INDEX.md bare form does not resolve a .md token inside a path-bearing citation', () => {
   const src =
-    '- routed nearly every subtask to opus, justified as subtle or high-consequence, the exact reason reference/agents.md:40 rejects';
+    '- routed nearly every subtask to an expensive profile, justified as subtle or high-consequence, the exact reason docs/model-policy.md:40 rejects';
   const map = G.parseIndexDomainFiles(src);
   assert.ok(!('agents' in map));
   assert.ok(!Object.values(map).includes('agents.md'));

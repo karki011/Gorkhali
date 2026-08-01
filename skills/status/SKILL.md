@@ -1,7 +1,11 @@
 ---
 name: status
-description: Show current Phantom progress, active session, running agents, assignments, contracts, verification, blockers, task board, and cost.
+description: Show current Phantom workflow progress, active session, node assignments, contracts, evidence, blockers, budgets, and cost.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `status` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/status.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `status`.
+
+Treat invocation text as action input. Read current portable state and report
+route, active node, completed and stale artifacts, blockers, budgets, and next
+legal transition. This action is read-only.

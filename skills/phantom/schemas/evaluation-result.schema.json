@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/evaluation-result-v1.json",
+  "title": "Phantom evaluator result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "node_id",
+    "verdict",
+    "worktree_fingerprint",
+    "evaluator",
+    "evidence",
+    "failure_class",
+    "feedback",
+    "retryable",
+    "cost_units",
+    "duration_ms"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "node_id": { "type": "string", "minLength": 1 },
+    "verdict": { "enum": ["pass", "fail", "blocked"] },
+    "worktree_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "result": { "enum": ["passed", "failed"] }
+        }
+      }
+    },
+    "failure_class": { "type": ["string", "null"] },
+    "feedback": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "retryable": { "type": "boolean" },
+    "cost_units": { "type": "number", "minimum": 0 },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "artifact_digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_ref", "digest"],
+        "properties": {
+          "artifact_ref": { "type": "string", "minLength": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    }
+  }
+}

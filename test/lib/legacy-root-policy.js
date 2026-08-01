@@ -42,7 +42,9 @@ function scanForLegacyRoots({ detectors, allowlist, excludeFiles = [] }) {
   const usage = new Map();
 
   for (const file of repositoryFiles(excludeFiles)) {
-    const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const absolutePath = path.join(ROOT, file);
+    if (!fs.existsSync(absolutePath)) continue;
+    const text = fs.readFileSync(absolutePath, 'utf8');
     if (text.includes('\0')) continue;
 
     for (const detector of detectors) {

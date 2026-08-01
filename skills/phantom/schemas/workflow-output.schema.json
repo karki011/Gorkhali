@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/workflow-output-v1.json",
+  "title": "Phantom workflow output artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "status", "evidence", "output"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "node_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["completed", "failed", "blocked"] },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "result": { "enum": ["passed", "failed"] }
+        }
+      }
+    },
+    "output": { "type": "object" }
+  }
+}

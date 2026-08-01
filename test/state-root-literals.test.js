@@ -11,20 +11,6 @@ const {
 const SELF = 'test/state-root-literals.test.js';
 
 const ALLOWLIST = new Map([
-  ['project-docs/install.md', [
-    {
-      kind: 'literal',
-      context: '`~/.claude/phantom-data` directory, the optional',
-      reason: 'documents the source accepted by the legacy data migration',
-    },
-  ]],
-  ['evals/evals.json', [
-    {
-      kind: 'literal',
-      context: 'The Blade hits a hard decision',
-      reason: 'historical compatibility fixture for the retired config-driven flow',
-    },
-  ]],
   ['scripts/migrate-data.js', [
     {
       kind: 'constructed',

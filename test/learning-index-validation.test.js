@@ -5,7 +5,7 @@
 // The break this file exists to prevent: the old detector treated ANY `.md` token
 // anywhere in INDEX.md as a domain reference (`/\b([\w-]+\.md)\b/g`), including
 // tokens inside entry BODY PROSE (an auto-captured correction mentioning
-// "reference/agents.md:40", or a path "ending in review.md"). That produced two
+// "docs/model-policy.md:40", or a path "ending in review.md"). That produced two
 // false ERRORs on the real, healthy INDEX.md for this repo. The fix restricts a
 // reference to two real shapes: a markdown link `[label](file.md)`, or a bare
 // `file.md` anchored at the START of an entry line (`- file.md ...`). A token
@@ -105,10 +105,10 @@ test('review.md appearing mid-prose (real INDEX.md line-15 shape) is NOT treated
   }
 });
 
-test('reference/agents.md:40 appearing mid-prose (real INDEX.md line-16 shape) is NOT treated as a reference', async () => {
+test('docs/model-policy.md:40 appearing mid-prose is NOT treated as a reference', async () => {
   const dir = makeLearningsDir();
   try {
-    const line16 = 'auto: CORRECTION [scope-not-tier]: [routed nearly every subtask to opus, justified as subtle or high-consequence - the exact reason reference/agents.md:40 rejects] - [if acceptance criteria can be written precisely sonnet hits them; escalate only when DISCOVERING the criteria is the task. Evidence: opus agent shipped a validator rule with zero tests, the scoped sonnet agent then wrote 11 falsified assertions] [proposed] v:0 q:0.9 u:2026-07-29';
+    const line16 = 'auto: CORRECTION [scope-not-tier]: [routed nearly every subtask to an expensive profile, justified as subtle or high-consequence - the exact reason docs/model-policy.md:40 rejects] - [if acceptance criteria can be written precisely a balanced profile hits them; escalate only when DISCOVERING the criteria is the task. Evidence: an expensive worker shipped a validator rule with zero tests, the scoped balanced worker then wrote 11 falsified assertions] [proposed] v:0 q:0.9 u:2026-07-29';
     writeIndex(dir, `# Learnings Index\n\n## Auto-Captured\n\n${line16}\n`);
     // agents.md deliberately does not exist on disk (and the real token even carries
     // a path separator + line-number suffix, which is never a reference shape).
@@ -155,11 +155,11 @@ test('bulleted review.md mid-prose (BULLET_RE would accept this line) is NOT tre
   }
 });
 
-test('bulleted reference/agents.md:40 mid-prose (BULLET_RE would accept this line) is NOT treated as a reference', async () => {
+test('bulleted docs/model-policy.md:40 mid-prose is NOT treated as a reference', async () => {
   const dir = makeLearningsDir();
   try {
     const line =
-      '- routed nearly every subtask to opus, justified as subtle or high-consequence, the exact reason reference/agents.md:40 rejects';
+      '- routed nearly every subtask to an expensive profile, justified as subtle or high-consequence, the exact reason docs/model-policy.md:40 rejects';
     writeIndex(dir, `# Learnings Index\n\n${line}\n`);
     // agents.md deliberately does not exist on disk (and the real token even
     // carries a path separator + line-number suffix, which is never a reference

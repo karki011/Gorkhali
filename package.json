@@ -1,10 +1,12 @@
 {
   "name": "phantom-skill",
   "private": true,
-  "description": "Phantom provider-neutral Agent Skill and native compatibility distribution.",
+  "description": "Phantom deterministic, provider-neutral AI engineering workflow harness.",
   "author": "Subash Karki",
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
+    "metadata:check": "node scripts/sync-readme-metadata.js --check",
+    "metadata:write": "node scripts/sync-readme-metadata.js --write",
     "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom",
     "version:check": "node scripts/release-version.js --check"
   }

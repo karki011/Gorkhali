@@ -2,6 +2,10 @@
 name: visualflow
 description: Plan a new UI screen, feature, or user flow before implementation by producing a human-approved HTML flow artifact; use for visual flows, screen planning, low-fidelity wireframes, or net-new UI without a Figma design.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `visualflow` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/visualflow.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `visualflow`.
+
+Treat invocation text as action input. Model screens, states, transitions,
+constraints, and open design decisions in a versioned planning artifact.
+Validate and present the review surface, then stop at its approval gate.

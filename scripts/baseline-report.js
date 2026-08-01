@@ -5,7 +5,7 @@
 // READ-ONLY: this script has NO side effects - no writes, no mkdir, no mutation.
 // It reads wrap.json / verification.json / outcome.json under
 // <data>/repos/<repo>/{sessions,completed}/<ticket>/, the timing jsonl, and the
-// agent/model policy references, then prints one baseline table.
+// role/model policy references, then prints one baseline table.
 //
 // Merge rate is GROUND TRUTH from `gh api graphql` on the distinct PR urls, never
 // parsed from wrap.json's free-text pr.status (16 measured variants). Any field
@@ -24,8 +24,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { phantomData, timingDir } = require('./lib/phantom-paths');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const loopController = require('../hooks/loop-controller');
+const historicalAliases = require('./lib/historical-repo-aliases');
 
 const USAGE =
   'usage: node scripts/baseline-report.js [--no-gh] [--gh-limit <N>] [--json]\n';
@@ -34,7 +33,6 @@ const USAGE =
 // so this only bounds request size - it is not a rate limit.
 const GH_BATCH_SIZE = 50;
 
-const AGENTS_DIR = path.join(__dirname, '..', 'agents');
 const POLICY_PATH = path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json');
 const PRESETS_PATH = path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-presets.json');
 const PRESET_HOST = 'claude-code';
@@ -89,19 +87,20 @@ function findRecordDirs(dataRoot) {
   return { canonical, nestedCopies, offBucket };
 }
 
-// Resolve an on-disk repo dir name to its canonical repo id through the EXISTING
-// alias map (repos/.aliases.json). The `.migrated-away` / `.migrated-away-migrated`
+// This explicit historical report resolves an on-disk repository directory name
+// through the offline alias map (`repos/.aliases.json`). Normal runtime never
+// consults this map. The `.migrated-away` / `.migrated-away-migrated`
 // suffixes are migration bookkeeping, not part of any id, so they are stripped
 // before the lookup. An AMBIGUOUS alias (non-string sentinel) is reported as
 // ambiguous and NEVER collapsed onto either claimant.
 function resolveRepoId(dataRoot, repoDir) {
   const base = repoDir.replace(/(\.migrated-away)+(-migrated)*$/, '');
-  if (codec.isAmbiguousAlias(dataRoot, base)) {
+  if (historicalAliases.isAmbiguousAlias(dataRoot, base)) {
     return { id: base, resolution: 'ambiguous' };
   }
-  const canonical = codec.resolveCanonical(dataRoot, base);
+  const canonical = historicalAliases.resolveCanonical(dataRoot, base);
   if (canonical !== base) return { id: canonical, resolution: 'aliased' };
-  const known = Object.prototype.hasOwnProperty.call(codec.readAliasMap(dataRoot), base);
+  const known = Object.prototype.hasOwnProperty.call(historicalAliases.readAliasMap(dataRoot), base);
   return { id: base, resolution: known ? 'canonical' : 'unmapped' };
 }
 
@@ -151,7 +150,11 @@ function readCorpus(dataRoot) {
         wrap && wrap.greptile && typeof wrap.greptile.iterations === 'number'
           ? wrap.greptile.iterations
           : null,
-      verificationFixLoops: verification ? loopController.getFixLoops(verification) : null,
+      verificationFixLoops: verification
+        ? (typeof verification.review?.fixLoops === 'number' && verification.review.fixLoops >= 0
+          ? verification.review.fixLoops
+          : 0)
+        : null,
       hasVerificationFixLoops: !!(
         verification && verification.review && typeof verification.review.fixLoops === 'number'
       ),
@@ -392,80 +395,43 @@ function readTiming() {
   };
 }
 
-// ── agents vs model policy ─────────────────────────────────────────────────
+// ── role passes vs model policy ─────────────────────────────────────────────
 
 function agentNames() {
-  try {
-    return fs
-      .readdirSync(AGENTS_DIR)
-      .filter((f) => f.endsWith('.md'))
-      .map((f) => path.basename(f, '.md'))
-      .sort();
-  } catch (_) {
-    return [];
-  }
-}
-
-// The `model:` value from an agent's YAML frontmatter, or null when the agent
-// pins no model (it inherits the session model).
-function frontmatterModel(agent) {
-  let raw;
-  try {
-    raw = fs.readFileSync(path.join(AGENTS_DIR, agent + '.md'), 'utf-8');
-  } catch (_) {
-    return null;
-  }
-  const end = raw.indexOf('\n---', 4);
-  const head = end === -1 ? raw.slice(0, 2000) : raw.slice(0, end);
-  const m = /^model:[ \t]*(\S+)[ \t]*$/m.exec(head);
-  return m ? m[1] : null;
+  const policy = loadJson(POLICY_PATH);
+  return policy && policy.roles ? Object.keys(policy.roles).sort() : [];
 }
 
 // Expected model per role: model-policy.json role -> profile, resolved through
 // model-presets.json for the claude-code host. Neither file is modified.
 //
-// Only agents with a row in policy.roles belong in a policy-drift comparison -
-// an agent with no row was never expected to pin a model, so it can never
-// "drift". Agents/*.md files without a row (none exist today, but the check is
-// not assumed away) are reported via noPolicyRoleAgents instead, alongside the
-// built-in/recruited agent types collected by nonPhantomAgentRows().
+// Role names and profiles come directly from policy. Checked-in agent prompts do
+// not participate in resolution; host adapters map semantic profiles to models.
 function modelExpectations(agents, timing) {
   const policy = loadJson(POLICY_PATH);
   const presets = loadJson(PRESETS_PATH);
   const profiles =
     presets && presets.hosts && presets.hosts[PRESET_HOST] ? presets.hosts[PRESET_HOST].profiles : null;
   if (!policy || !policy.roles || !profiles) {
-    return { rows: [], noPolicyRoleAgents: [], unresolved: 'model-policy.json or model-presets.json unreadable' };
+    return { rows: [], unresolved: 'model-policy.json or model-presets.json unreadable' };
   }
 
   const rows = [];
-  const noPolicyRoleAgents = [];
   for (const agent of agents) {
     const profile = policy.roles[agent] || null;
-    if (!profile) {
-      noPolicyRoleAgents.push(agent);
-      continue;
-    }
+    if (!profile) continue;
     const preset = profiles[profile];
     const expected = preset ? preset.model : null;
-    const declared = frontmatterModel(agent);
     const observed = timing.available ? observedModels(timing, agent) : [];
-
-    let drift;
-    if (declared == null) drift = expected == null ? 'match' : 'frontmatter-absent';
-    else if (expected == null) drift = 'policy-inherit';
-    else drift = declared === expected ? 'match' : 'drift';
 
     rows.push({
       agent,
       policyProfile: profile,
       expectedModel: expected,
-      frontmatterModel: declared,
       observedModels: observed,
-      drift,
     });
   }
-  return { rows, noPolicyRoleAgents, unresolved: null };
+  return { rows, unresolved: null };
 }
 
 // Every agent TYPE observed in the timing log that has no row in
@@ -584,7 +550,7 @@ function runBaseline(opts) {
   if (!timing.available) unresolved.push({ field: 'agents', reason: timing.reason });
 
   const agents = agentNames();
-  if (agents.length === 0) unresolved.push({ field: 'agents', reason: 'agents/ unreadable' });
+  if (agents.length === 0) unresolved.push({ field: 'agents', reason: 'model policy contains no roles' });
   const spawnRows = agents.map((a) => ({ agent: a, spawns: spawnCountFor(timing, a) }));
   const zeroSpawn = spawnRows.filter((r) => r.spawns === 0).map((r) => r.agent);
 
@@ -645,7 +611,7 @@ function runBaseline(opts) {
       wrapFixLoops +
       '/' +
       records.length +
-      '; verification.json review.fixLoops (the loop-controller source) present in ' +
+      '; historical verification.json review.fixLoops present in ' +
       verifFixLoops +
       '/' +
       records.length +
@@ -716,7 +682,6 @@ function runBaseline(opts) {
     },
     modelSource,
     models: models.rows,
-    noPolicyRoleAgents: models.noPolicyRoleAgents,
     nonPhantomAgents,
     wallTime: {
       coverage: wallTimes.length + '/' + records.length,
@@ -796,21 +761,19 @@ function printHuman(r) {
     (r.reviewCycles.greptileIterationsMedian == null ? 'absent' : r.reviewCycles.greptileIterationsMedian) +
     '  coverage ' + r.reviewCycles.greptileIterationsCoverage);
   w('');
-  w('  AGENT SPAWNS (all ' + r.agents.enumerated.length + ' agents in agents/)');
+  w('  ROLE PASS SPAWNS (all ' + r.agents.enumerated.length + ' policy roles)');
   for (const row of r.agents.spawns) {
     w('    ' + row.agent.padEnd(14) + (row.spawns == null ? 'absent' : String(row.spawns).padStart(5)));
   }
   w('    zero-spawn agents: ' + (r.agents.zeroSpawn.length ? r.agents.zeroSpawn.join(', ') : 'none'));
   if (r.agents.pairing) w('    pairing: ' + r.agents.pairing);
   w('');
-  w('  MODEL: POLICY vs FRONTMATTER vs OBSERVED');
-  w('    ' + 'agent'.padEnd(14) + 'profile'.padEnd(10) + 'expected'.padEnd(10) + 'frontmatter'.padEnd(13) + 'drift'.padEnd(20) + 'observed');
+  w('  MODEL: POLICY vs OBSERVED');
+  w('    ' + 'role'.padEnd(14) + 'profile'.padEnd(10) + 'expected'.padEnd(14) + 'observed');
   for (const m of r.models) {
     w('    ' + m.agent.padEnd(14) +
       String(m.policyProfile || '-').padEnd(10) +
-      String(m.expectedModel || '-').padEnd(10) +
-      String(m.frontmatterModel || '(inherit)').padEnd(13) +
-      m.drift.padEnd(20) +
+      String(m.expectedModel || '-').padEnd(14) +
       (m.observedModels.length ? m.observedModels.join(' ') : '-'));
   }
   w('');

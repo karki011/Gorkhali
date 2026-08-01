@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/aggregation-result-v1.json",
+  "title": "Phantom parallel aggregation result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "node_id",
+    "status",
+    "baseline_fingerprint",
+    "worktree_fingerprint",
+    "integrated_snapshot_digest",
+    "integrated_files",
+    "authorized_changed_paths",
+    "branches",
+    "conflicts",
+    "aggregate_verification"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "node_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["accepted", "rejected", "missing_evidence"] },
+    "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "worktree_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "integrated_snapshot_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "integrated_files": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "kind", "mode", "digest"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["file", "symlink"] },
+          "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "authorized_changed_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch_id",
+          "status",
+          "baseline_fingerprint",
+          "workspace_identity",
+          "baseline_files",
+          "baseline_physical_files",
+          "current_files",
+          "current_physical_files",
+          "changed_paths",
+          "artifact_refs",
+          "artifact_digests",
+          "verification",
+          "failure_class",
+          "cost_units",
+          "duration_ms"
+        ],
+        "properties": {
+          "branch_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["passed", "failed"] },
+          "baseline_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "workspace_identity": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "baseline_files": {
+            "type": "array",
+            "maxItems": 20000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "kind", "mode", "digest"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "kind": { "enum": ["file", "symlink"] },
+                "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
+                "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+              }
+            }
+          },
+          "baseline_physical_files": {
+            "type": "array",
+            "maxItems": 20000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "dev", "ino", "nlink"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "dev": { "type": "string", "pattern": "^[0-9]+$" },
+                "ino": { "type": "string", "pattern": "^[0-9]+$" },
+                "nlink": { "const": 1 }
+              }
+            }
+          },
+          "current_files": {
+            "type": "array",
+            "maxItems": 20000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "kind", "mode", "digest"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "kind": { "enum": ["file", "symlink"] },
+                "mode": { "type": "integer", "minimum": 0, "maximum": 4095 },
+                "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+              }
+            }
+          },
+          "current_physical_files": {
+            "type": "array",
+            "maxItems": 20000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "dev", "ino", "nlink"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "dev": { "type": "string", "pattern": "^[0-9]+$" },
+                "ino": { "type": "string", "pattern": "^[0-9]+$" },
+                "nlink": { "const": 1 }
+              }
+            }
+          },
+          "changed_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "artifact_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "artifact_digests": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["artifact_ref", "digest"],
+              "properties": {
+                "artifact_ref": { "type": "string", "minLength": 1 },
+                "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+              }
+            }
+          },
+          "verification": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "result"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "result": { "enum": ["passed", "failed"] }
+              }
+            }
+          },
+          "failure_class": { "type": ["string", "null"] },
+          "cost_units": { "type": "number", "minimum": 0 },
+          "duration_ms": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "aggregate_verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result", "snapshot_digest"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "result": { "enum": ["passed", "failed"] },
+          "snapshot_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    }
+  }
+}

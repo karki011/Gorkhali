@@ -1,16 +1,122 @@
 {
   "name": "phantom",
-  "bundle_version": "2.2.0",
-  "contract_resource_digest": "sha256:453495ec925f09d1d1503c829817986daf02eac5ebc18511e2138103d741711a",
-  "contract_versions": {
-    "capability_ledger": 1,
-    "state_envelope": 1,
-    "decision_artifact": 3,
-    "defect_proof": 1,
-    "delegation": 2,
-    "model_policy": 2,
-    "model_presets": 1,
-    "model_routing": 1,
-    "impact_report": 1
+  "bundle_version": "3.0.0",
+  "contract_resource_digest": "sha256:9145163f1cc5507a4de512a6243ba580e436e69569b5fd80c39c22d847989788",
+  "contracts": {
+    "aggregation_result": {
+      "version": 1,
+      "resources": ["schemas/aggregation-result.schema.json"]
+    },
+    "authority_decision": {
+      "version": 1,
+      "resources": [
+        "schemas/authority-decision.schema.json",
+        "scripts/lib/authority-decision.mjs"
+      ]
+    },
+    "capability_ledger": {
+      "version": 1,
+      "resources": ["references/capabilities.md"]
+    },
+    "capability_probe": {
+      "version": 1,
+      "resources": ["schemas/capability-probe.schema.json"]
+    },
+    "capability_request": {
+      "version": 1,
+      "resources": [
+        "references/capability-broker.md",
+        "schemas/capability-request.schema.json",
+        "scripts/authorize-capability.mjs",
+        "scripts/lib/capability-contracts.mjs",
+        "scripts/lib/filesystem-snapshot.mjs",
+        "scripts/lib/git-metadata.mjs"
+      ]
+    },
+    "decision_artifact": {
+      "version": 3,
+      "resources": [
+        "references/brainstorming.md",
+        "references/planning.md",
+        "references/review-html.md",
+        "scripts/lib/decision-contracts.mjs",
+        "scripts/validate-review-html.mjs"
+      ]
+    },
+    "defect_proof": {
+      "version": 1,
+      "resources": ["scripts/lib/defect-proof.mjs"]
+    },
+    "delegation": {
+      "version": 2,
+      "resources": [
+        "references/roles.md",
+        "scripts/phantom-state.mjs"
+      ]
+    },
+    "evaluation_result": {
+      "version": 1,
+      "resources": ["schemas/evaluation-result.schema.json"]
+    },
+    "impact_report": {
+      "version": 1,
+      "resources": ["scripts/inspect-impact.mjs"]
+    },
+    "model_policy": {
+      "version": 2,
+      "resources": ["references/model-policy.json"]
+    },
+    "model_presets": {
+      "version": 1,
+      "resources": ["references/model-presets.json"]
+    },
+    "model_routing": {
+      "version": 1,
+      "resources": [
+        "references/models.md",
+        "scripts/resolve-profile.mjs"
+      ]
+    },
+    "state_envelope": {
+      "version": 1,
+      "resources": [
+        "references/evolution.md",
+        "references/state.md",
+        "scripts/lib/filesystem-snapshot.mjs",
+        "scripts/lib/git-metadata.mjs",
+        "scripts/lib/portable.mjs",
+        "scripts/lib/shared-state.cjs",
+        "scripts/phantom-state.mjs"
+      ]
+    },
+    "workflow_event": {
+      "version": 1,
+      "resources": [
+        "references/replay.md",
+        "schemas/workflow-event.schema.json",
+        "scripts/lib/workflow-journal.mjs",
+        "scripts/replay-workflow.mjs"
+      ]
+    },
+    "workflow_output": {
+      "version": 1,
+      "resources": ["schemas/workflow-output.schema.json"]
+    },
+    "workflow_plan": {
+      "version": 1,
+      "resources": [
+        "SKILL.md",
+        "references/policy.md",
+        "references/workflow-patterns.md",
+        "references/workflows.md",
+        "schemas/workflow-plan.schema.json",
+        "scripts/advance-workflow.mjs",
+        "scripts/compile-workflow.mjs",
+        "scripts/lib/filesystem-snapshot.mjs",
+        "scripts/lib/workflow-contracts.mjs",
+        "scripts/lib/workflow-kernel.mjs",
+        "scripts/validate-workflow.mjs"
+      ]
+    }
   }
 }

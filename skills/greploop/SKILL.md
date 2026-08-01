@@ -1,7 +1,12 @@
 ---
 name: greploop
-description: Iterate on a pull request until Greptile reaches 5/5 confidence with no unresolved actionable comments. Use to run Greploop, clear Greptile feedback, resolve review threads, or optimize a PR against Greptile review.
+description: Assess Greptile feedback and, when separately authorized, apply bounded pull-request updates. Use to inspect Greptile review, plan fixes, or address authorized actionable comments.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `greploop` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/greploop.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `greploop`.
+
+Treat invocation text as action input. Read current review evidence, classify
+actionable findings, and use a bounded evaluator loop for authorized repairs.
+Pushes, comments, thread resolution, and other remote mutations each pass
+through an explicit idempotent capability request.

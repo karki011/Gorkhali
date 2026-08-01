@@ -1,66 +1,93 @@
 # Code Structure
 
-Where everything lives: the portable skill tree, the native compatibility plugin tree, and the mutable state tree outside both.
+The repository has one canonical workflow contract and a set of thin public
+Agent Skill entrypoints.
 
-## Folder Structure
+```text
+skills/
+├── phantom/
+│   ├── SKILL.md                  # portable policy and lifecycle contract
+│   ├── manifest.json             # versioned contract/resource registry + digest
+│   ├── references/               # policy, workflows, roles, replay, QA
+│   ├── schemas/                  # workflow, event, aggregation, evaluation, capability, authority
+│   └── scripts/
+│       ├── compile-workflow.mjs   # validate and persist a workflow graph
+│       ├── advance-workflow.mjs   # append a typed event through the kernel
+│       ├── replay-workflow.mjs    # reconstruct state from the journal
+│       ├── authorize-capability.mjs
+│       ├── phantom-state.mjs      # sessions, approvals, evidence, lifecycle
+│       └── lib/                   # contracts, reducer, journal, shared state
+├── start/SKILL.md                # direct public actions
+├── execute/SKILL.md
+├── verify/SKILL.md
+└── ...
 
-The canonical portable skill and the existing native compatibility plugin live
-side-by-side. The portable directory is self-contained and never imports the
-native plugin tree:
-
-```
-skills/phantom/          # canonical provider-neutral Agent Skill
-├── SKILL.md             # intent router and invariant workflow
-├── manifest.json        # bundle and portable contract versions
-├── references/          # capabilities, profiles, roles, state, workflows, QA
-└── scripts/             # portable state, profile, and impact-analysis helpers
-
-{PLUGIN_ROOT}/           # native compatibility plugin
-├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
-│   ├── plugin.json        # Native Claude Code plugin manifest
-│   └── marketplace.json   # Marketplace entry (install source)
-├── commands/          # 28 command directives (+ 10 _shared partials)
-├── reference/         # reference files (on-demand, injected by hooks)
-│   ├── router.md          # Classification algorithm, deliberation protocol
-│   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
-│   ├── wiring.md          # Dependency topology, wave assignments
-│   ├── planning.md        # Machine-checkable criteria, anti-placeholder rules
-│   ├── detective-protocol.md  # 7-step investigation with HTML reports
-│   ├── _base-agent.md     # Template for spawning new agent types
-│   └── ...
-├── agents/            # 12 agent personas
-├── bin/               # thin executable entry shims; logic lives in scripts/ (e.g., bin/phantom-preflight → scripts/preflight.js)
-├── scripts/           # deterministic helpers (no LLM needed)
-│   ├── validate-artifact.js   # JSON schema validation
-│   ├── check-learnings-index.js
-│   ├── session-health.sh
-│   ├── preamble-tier.js
-│   ├── timing-report.js       # per-model agent timing (wall-clock by model)
-│   ├── phantom-config.js      # config CLI: get/set/list (see Configuration)
-│   ├── baseline-report.js     # read-only retrospective miner: PR/merge rates, spawn counts, policy-vs-observed model
-│   ├── outcome-write.js       # writes the per-ticket outcome record (closed pr_state enum); called from wrap and close
-│   ├── run-guard.js           # unattended-run guard: spend ceiling + stuck detection
-│   ├── gen-agent-frontmatter.js  # regenerates agents/*.md model pins from model-policy.json; --check is the CI drift gate
-│   └── release-version.js     # keeps the three plugin manifests' versions in sync; --check / --set <semver>
-├── evals/             # 55 test cases for skill triggering verification
-├── hooks/             # Structural enforcement
-│   ├── hooks.json         # Plugin-owned hook registrations
-│   └── timing-capture.js  # records agent spawn/stop + model (PreToolUse Agent + SubagentStop)
-└── templates/         # Reusable contract templates
+.claude-plugin/                   # distribution metadata
+.codex-plugin/                    # distribution metadata and skills path
+hooks/                            # branch/capability enforcement plus narrow telemetry adapters
+scripts/                          # repository maintenance, evaluation, release tools
+evals/                            # isolated skill-routing evaluation cases
+test/                             # deterministic contract and integration tests
+project-docs/                     # product documentation
 ```
 
-Portable mutable state lives outside the skill under
-`${PHANTOM_DATA:-~/.phantom}`. Set `PHANTOM_DATA` to use an explicit root;
-otherwise every supported runtime uses `~/.phantom`:
+Each public action reads `skills/phantom/SKILL.md`, names one portable action,
+and adds only action-specific constraints. There is no separate command tree,
+persona tree, or compatibility resolver.
 
-```
+## Portable Workflow Files
+
+The control-plane implementation is split by responsibility:
+
+- `schemas/workflow-plan.schema.json` defines graphs, dependencies, scopes,
+  budgets, evaluation policy, and external-action nodes.
+- `scripts/lib/workflow-contracts.mjs` validates plans and events.
+- `scripts/lib/workflow-kernel.mjs` is the pure reducer and legal-transition
+  authority.
+- `scripts/lib/workflow-journal.mjs` writes and validates the digest chain and
+  materialized state.
+- `scripts/lib/capability-contracts.mjs` validates effect requests,
+  authorization, scope, budget, freshness, and idempotency.
+- `scripts/lib/authority-decision.mjs` verifies pinned Ed25519 host decisions
+  and interception probes.
+- `scripts/phantom-state.mjs` owns session identity, approvals, evidence, and
+  lifecycle gates without advancing workflow nodes.
+- `hooks/capability-gate.mjs` normalizes provider-native workspace writes,
+  consumes one exact reservation before an effect, protects the append-only
+  control-input channel, and exposes the read-only host-adapter doctor status.
+  Process execution is denied until a versioned signed sandbox enforcement
+  contract exists; adapter registration alone is insufficient.
+
+## Mutable State
+
+Mutable state is outside the installed skills:
+
+```text
 ${PHANTOM_DATA:-~/.phantom}/
+├── config/authority-trust.json
 ├── state/current-session/{repo-id}.json
+├── state/session-telemetry/{repo-id}.json
 ├── repos/{repo-id}/
-│   ├── sessions/{task-id}/       # active portable artifacts and run evidence
-│   ├── completed/{task-id}/      # completed sessions are retained, not deleted
-│   └── learnings/                # provider-neutral corrections and patterns
+│   ├── sessions/{task-path-segment}/
+│   │   ├── session.json
+│   │   ├── intent.json
+│   │   ├── capabilities.json
+│   │   ├── capability-probe.json
+│   │   ├── plan.json
+│   │   ├── workflow/
+│   │   │   ├── plan.json
+│   │   │   ├── events.jsonl
+│   │   │   └── state.json
+│   │   ├── capability/reservations/{pending,consuming,completed}/
+│   │   └── runs/
+│   ├── completed/{task-path-segment}/
+│   └── learnings/
 ├── global/patterns/
 ├── audit/
 └── locks/
 ```
+
+The journal is authoritative for workflow transitions. Session JSON is
+authoritative for lifecycle approval and authorization. Generated review HTML
+and materialized workflow state are disposable projections, never sources of
+truth.

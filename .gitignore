@@ -45,6 +45,7 @@ crew-diagram.html
 
 # Local tool artifacts / scratch
 .playwright-mcp/
+/.claude-flow/
 board-v2*.png
 
 # Archive (restorable, not shared)

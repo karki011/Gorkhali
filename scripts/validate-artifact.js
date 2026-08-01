@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Validates a Phantom JSON artifact against its canonical schema, and is the
-// single source of truth for the schema docs under reference/schemas/.
+// Validates historical Phantom JSON artifact envelopes. New workflow contracts
+// use the versioned schemas bundled under skills/phantom/schemas/.
 //
 // Each entry in SCHEMAS carries two co-located halves:
-//   - `fields`:   the full documented field catalog (rendered by
-//                 scripts/gen-schema-docs.js; a superset of what is enforced).
+//   - `fields`:   the full field catalog (a superset of what is enforced).
 //   - `validate`: the enforcement logic (a byte-identical move of the original
 //                 per-type validators). Some documented fields are intentionally
 //                 NOT enforced yet (e.g. intent.specDelta, wrap.brief) - see the
@@ -291,7 +290,7 @@ const SCHEMAS = {
       { field: 'decisions[].status', type: 'string', required: 'yes', description: 'Decision lifecycle state, e.g. `"locked"`' },
       { field: 'decisions[].rationale', type: 'string', required: 'yes', description: 'Why this decision was made' },
       { field: 'decisions[].alternatives', type: 'string[]', required: 'yes', description: 'Alternatives considered and ruled out' },
-      { field: 'councilUsed', type: 'boolean', required: 'no', description: 'Whether brainstorm Council Mode ran (see reference/brainstorm.md)' },
+      { field: 'councilUsed', type: 'boolean', required: 'no', description: 'Whether an independent brainstorming challenge ran' },
       { field: 'peerRankings', type: 'object[]', required: 'no', description: 'Aggregate rank per anonymized approach, present when councilUsed' },
       { field: 'chairmanRationale', type: 'string', required: 'no', description: 'Chairman synthesis rationale, present when councilUsed' },
     ],
@@ -511,7 +510,7 @@ const SCHEMAS = {
       { field: 'tasks[].filesRead', type: 'string[]', required: 'no', description: 'Files read but NOT changed (wave-handoff awareness)' },
       { field: 'tasks[].selfReviewScore', type: 'number', required: 'no', description: 'Agent\'s self-review score (0-10)' },
       { field: 'tasks[].testResult', type: 'object | string', required: 'no', description: '`{ passed: bool, summary?: string }` or a short string. The string form is only for a check that ran' },
-      { field: 'tasks[].testResult.observation', type: '`"checked:pass"` | `"checked:fail"` | `"not_observed"`', required: 'no', description: 'Whether the check actually ran - same vocabulary as `agents/ward.md`. A check that has not run is recorded `not_observed`, which is its only legal spelling here' },
+      { field: 'tasks[].testResult.observation', type: '`"checked:pass"` | `"checked:fail"` | `"not_observed"`', required: 'no', description: 'Whether the check actually ran. A check that has not run is recorded `not_observed`, which is its only legal spelling here' },
       { field: 'tasks[].testResult.passed', type: 'boolean', required: 'yes, unless `observation` is `not_observed`', description: 'Whether the check passed. Must agree with `observation` when both are present (`checked:pass` means true, `checked:fail` means false), and must be omitted when `observation` is `not_observed` - an unrun check has no boolean truth' },
       { field: 'tasks[].testResult.summary', type: 'string', required: 'when `observation` is `not_observed`; else no', description: 'What ran and the outcome; carries the reason the check did not run when `observation` is `not_observed`' },
       { field: 'tasks[].blocker', type: 'string | null', required: 'no', description: 'Blocker description; null/absent when none' },
@@ -581,7 +580,7 @@ const SCHEMAS = {
       { field: 'review', type: 'object', required: 'yes', description: 'Self-review results' },
       { field: 'review.temperature', type: 'number', required: 'yes', description: 'Reviewer strictness (0-1)' },
       { field: 'review.findings', type: 'object[]', required: 'yes', description: 'Array of finding objects' },
-      { field: 'review.fixLoops', type: 'number', required: 'yes', description: 'How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it' },
+      { field: 'review.fixLoops', type: 'number', required: 'yes', description: 'How many bounded repair iterations ran; the workflow iteration limit remains authoritative' },
       { field: 'simplifyRan', type: 'boolean', required: 'yes', description: 'Whether simplify was run on changed files' },
       { field: 'intentAlignment', type: '`"aligned"` | `"drift"` | `"wrong"`', required: 'yes', description: 'How well output matches intent.json' },
       { field: 'visualVerification', type: 'object | `null`', required: 'no', description: 'Lens browser-agent result; present only when UI files changed (else absent/null). Written by `phantom:visual`, read by the verdict' },
@@ -626,14 +625,14 @@ const SCHEMAS = {
       { field: 'pr', type: 'object | `null`', required: 'yes', description: 'PR details, or null if no PR' },
       { field: 'pr.number', type: 'number', required: 'yes', description: 'PR number' },
       { field: 'pr.url', type: 'string', required: 'yes', description: 'PR URL' },
-      { field: 'pr.status', type: 'string', required: 'yes', description: 'PR status: `"draft"` (wrap ALWAYS creates draft PRs — see `reference/wrap/ship-ceremony.md` §4), `"open"`, `"merged"`, `"closed"`. The Stop-hook gate (`hooks/greploop-gate.js`) gates on PR *liveness* — it blocks any PR that is NOT `merged`/`closed` (matched case-insensitively), so a draft labeled `"draft"` OR `"open"` is still gated until greploop settles.' },
+      { field: 'pr.status', type: 'string', required: 'yes', description: 'Observed PR status: `"draft"`, `"open"`, `"merged"`, or `"closed"`; recording status does not authorize a remote action' },
       { field: 'jira', type: 'object | `null`', required: 'no', description: 'Jira update result' },
       { field: 'jira.ticket', type: 'string', required: 'yes (if present)', description: 'Ticket key' },
       { field: 'jira.transition', type: 'string', required: 'yes (if present)', description: 'Transition applied' },
       { field: 'jira.commented', type: 'boolean', required: 'yes (if present)', description: 'Whether comment was posted' },
       { field: 'greptile', type: 'object | `null`', required: 'no', description: 'Greptile review result' },
       { field: 'greptile.requested', type: 'boolean', required: 'yes (if present)', description: 'Whether review was requested' },
-      { field: 'greptile.status', type: 'string', required: 'yes (if present)', description: 'Canonical values greploop writes: `"done"` (completed, 5/5) and `"skipped"` (Greptile unavailable on the repo) — greploop is the sole writer of these. `"pending"` (or missing) = loop not yet run → the Stop-hook gate `hooks/greploop-gate.js` blocks the session at end while a live PR sits here. The gate matches **case-insensitively by PREFIX**, so freeform suffixes are tolerated as settled (e.g. `"skipped — availability guard (Greptile not installed on this repo)"`, `"done — 5/5"`); only `"pending…"`/`"requested"`/empty/missing block. Bias is to ALLOW on unknown values.' },
+      { field: 'greptile.status', type: 'string', required: 'yes (if present)', description: 'Recorded external-review status. This observation never grants shipping authority or acts as a lifecycle gate.' },
       { field: 'learnings', type: 'object', required: 'yes', description: 'Learning record actions' },
       { field: 'learnings.recorded', type: 'string[]', required: 'yes', description: 'Learnings written this session' },
       { field: 'learnings.promoted', type: 'string[]', required: 'yes', description: 'Learnings promoted to validated' },

@@ -1,7 +1,12 @@
 ---
 name: fix
-description: Repair a known failed verification step inside an active Phantom session, then re-verify within the controlled fix loop. Use for known failing tests, builds, lint, or CI; use hound when the cause is unknown.
+description: Repair a confirmed failure inside an active Phantom session through a bounded evaluator loop. Use for known failing tests, builds, lint, or CI; use hound when the cause is unknown.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `fix` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/fix.md`.
+Read `../phantom/SKILL.md` completely and apply its contracts directly.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Portable action: `fix`.
+
+Treat invocation text as action input. Require current defect evidence and a
+confirmed cause, apply one scoped repair, and let the bounded workflow evaluator
+decide whether another iteration is legal. Stop on repeated failure class,
+budget limit, or stale evidence.

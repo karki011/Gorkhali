@@ -22,14 +22,14 @@
     "apex": "frontier",
     "blade": "balanced",
     "ward": "economy",
-    "gaze": "deep",
+    "gaze": "balanced",
     "sage": "deep",
     "lens": "balanced",
-    "archer": "deep",
+    "archer": "balanced",
     "rival": "balanced",
     "plan-checker": "balanced",
     "hound": "deep",
-    "sweep": "balanced",
+    "sweep": "economy",
     "warden": "economy"
   }
 }

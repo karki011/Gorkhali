@@ -1,5 +1,7 @@
 # Model and compute policy
 
+Author: Subash Karki
+
 The portable skill routes work with semantic profiles. Maintained host mappings
 live in `model-presets.json`, the only file in the skill that may contain
 host-specific model identifiers. Users do not need to create a model map.
@@ -21,6 +23,30 @@ Delegated work uses the lowest sufficient profile: `economy` for deterministic
 mechanical tasks, `balanced` for well-scoped implementation, and `deep` only
 for ambiguity, cross-cutting risk, or demanding review.
 
+Effort and visible response length are separate controls. Use prompt-level
+output guidance for concise responses. Never apply one universal effort to
+every profile. Host presets choose the lowest effort supported by isolated
+evaluation for that profile; bounded work should test `low` and `medium`
+before expensive settings, while demanding long-horizon work may justify
+`high` or above. Change a preset from measured evidence, not model-family
+assumptions.
+
+## Reasoning mode
+
+Keep the host's normal reasoning mode enabled when available and control cost
+with the measured effort profile. Do not add system instructions telling a
+model not to think or reason. If an integration must disable reasoning, append
+one general artifact-safety instruction to the worker prompt:
+
+```text
+When you use a tool, you may say a brief sentence first. If no tool can express
+what the user asked for, say so instead of guessing. Do not include internal or
+system XML tags in your response.
+```
+
+This is a host-adapter mitigation, not permission to render tool calls as text.
+Structured tool use remains required.
+
 Risk is provider-neutral assignment metadata: `low`, `moderate`, `high`, or
 `critical`. A critical assignment elevates Blade, Gaze, Sage, Lens, Archer,
 Rival, Plan-checker, and Hound to at least `deep` before host presets are
@@ -37,8 +63,7 @@ model map. An explicit user choice still wins.
 
 If a selector is unavailable or rejected, retry without model and effort
 selectors while preserving the selected task topology. Compute fallback does
-not silently turn delegated work into direct work or remove a required review;
-only the delegation capability decision may change topology.
+not silently change topology or remove a required workflow node.
 
 ## Resolution order
 
@@ -68,7 +93,7 @@ Risk changes only the semantic profile. It never supplies a concrete model
 identifier. Only the explicit user `--model` option bypasses semantic profile
 resolution with a concrete choice; task or result payloads cannot do so.
 
-An optional external override remains supported for compatibility:
+An optional external profile map may override bundled presets:
 
 ```json
 {
@@ -111,3 +136,4 @@ Prefer re-scoping a task before escalating compute. Escalate implementation
 from `balanced` to `deep` only when ambiguity, cross-cutting risk, or failed
 bounded attempts show that the original profile is insufficient. Do not move
 implementation to `frontier`; Apex should re-decompose the assignment instead.
+Do not escalate merely to review, re-check, or repeat otherwise complete work.

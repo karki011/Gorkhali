@@ -27,10 +27,9 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { sessionsDir, completedDir, timingDir, detectRepo } = require('./lib/phantom-paths');
+const { taskDir, completedTaskDir, timingDir, detectRepo } = require('./lib/phantom-paths');
 const { atomicWrite } = require('./lib/atomic');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
-const loopController = require('../hooks/loop-controller');
 
 const USAGE =
   'usage: node scripts/outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] ' +
@@ -58,7 +57,7 @@ function git(args, cwd) {
 
 // The live session dir, else the archived one (close.md runs after the archive move).
 function resolveSessionDir(ticket, repo) {
-  for (const dir of [path.join(sessionsDir(repo), ticket), path.join(completedDir(repo), ticket)]) {
+  for (const dir of [taskDir(ticket, repo), completedTaskDir(ticket, repo)]) {
     if (fs.existsSync(dir)) return dir;
   }
   return null;
@@ -258,11 +257,13 @@ function deriveOutcome(opts) {
   const verdict = verification && typeof verification.verdict === 'string' ? verification.verdict : null;
   if (verification && !verdict) add('verified', 'verification.json has no verdict field');
 
-  // fix_loops comes from loop-controller, which reads the VERIFICATION OBJECT
-  // (review.fixLoops) - there is no separate loop state file. No verification
-  // artifact means no count, which is null, not 0.
-  const fixLoops = verification ? loopController.getFixLoops(verification) : null;
-  if (!verification) add('fix_loops', 'verification.json absent - loop-controller has no review.fixLoops to read');
+  // Historical verification artifacts recorded review.fixLoops directly. The
+  // workflow kernel now owns retry limits; this writer only reports old data.
+  const recordedFixLoops = verification?.review?.fixLoops;
+  const fixLoops = verification
+    ? (typeof recordedFixLoops === 'number' && recordedFixLoops >= 0 ? recordedFixLoops : 0)
+    : null;
+  if (!verification) add('fix_loops', 'verification.json absent - no recorded review.fixLoops value');
 
   const session = sessionDir ? loadJson(path.join(sessionDir, 'session.json')) : null;
   const wallTimeMs = sessionWallTimeMs(session);

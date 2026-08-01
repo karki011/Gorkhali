@@ -3,10 +3,11 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { generateKeyPairSync, sign } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
@@ -19,6 +20,7 @@ const DEFECT_PROOF = path.join(
   'lib',
   'defect-proof.mjs',
 );
+let authoritySequence = 0;
 
 function run(args, env) {
   return new Promise((resolve, reject) => {
@@ -45,7 +47,69 @@ function fixture() {
   const data = path.join(root, 'data');
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'source.txt'), 'baseline\n');
-  return { root, workspace, data, env: { PHANTOM_DATA: data } };
+  execFileSync('git', ['init', '-q', '-b', 'feat/defect-proof'], { cwd: workspace });
+  execFileSync('git', ['config', 'user.email', 'phantom@example.invalid'], { cwd: workspace });
+  execFileSync('git', ['config', 'user.name', 'Subash Karki'], { cwd: workspace });
+  execFileSync('git', ['add', 'source.txt'], { cwd: workspace });
+  execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: workspace });
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  fs.mkdirSync(path.join(data, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(data, 'config', 'authority-trust.json'), JSON.stringify({
+    schema_version: 1,
+    key_id: 'defect-proof-key',
+    source: 'defect-proof-host',
+    public_key: publicKey.export({ type: 'spki', format: 'pem' }),
+  }));
+  return { root, workspace, data, privateKey, env: { PHANTOM_DATA: data } };
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function authorizeImplementation(context) {
+  const pointerDirectory = path.join(context.data, 'state', 'current-session');
+  const pointerFile = fs.readdirSync(pointerDirectory)
+    .filter((entry) => entry.endsWith('.json'))
+    .map((entry) => path.join(pointerDirectory, entry))[0];
+  const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
+  const fingerprint = parse(await run([
+    'fingerprint', '--workspace', context.workspace,
+  ], context.env)).worktree_fingerprint;
+  authoritySequence += 1;
+  const issuedAt = new Date();
+  const unsigned = {
+    schema_version: 1,
+    repo_id: pointer.repo_id,
+    task_id: pointer.task_id,
+    decision_kind: 'authorization',
+    gate: null,
+    scope: 'implementation',
+    decision: 'authorized',
+    worktree_fingerprint: fingerprint,
+    approval_artifact_bindings: [],
+    issued_at: issuedAt.toISOString(),
+    expires_at: new Date(issuedAt.getTime() + 5 * 60_000).toISOString(),
+    actor: 'defect-proof-test-user',
+    source: 'defect-proof-host',
+    source_event_id: `defect-proof-source-${authoritySequence}`,
+    replay_id: `defect-proof-replay-${authoritySequence}`,
+    key_id: 'defect-proof-key',
+  };
+  const decision = {
+    ...unsigned,
+    signature: sign(null, Buffer.from(canonicalJson(unsigned)), context.privateKey).toString('base64'),
+  };
+  const file = path.join(context.root, `authority-${authoritySequence}.json`);
+  fs.writeFileSync(file, JSON.stringify(decision));
+  return parse(await run([
+    'authorize', '--workspace', context.workspace, '--scope', 'implementation', '--decision', file,
+  ], context.env));
 }
 
 function writeEvidence(sessionDirectory) {
@@ -292,9 +356,7 @@ test('portable execute fails closed until current confirmed defect proof exists'
     'investigation',
   );
 
-  parse(await run([
-    'authorize', ...common, '--scope', 'implementation',
-  ], context.env));
+  await authorizeImplementation(context);
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
   assert.match(blocked.stderr, /defect proof is not ready.*waiting_for_evidence/s);
@@ -320,7 +382,7 @@ test('portable execute rejects classification artifact tampering', async () => {
     '--intent', 'Build request pagination',
     '--route', 'direct',
   ], context.env));
-  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  await authorizeImplementation(context);
 
   const sessionDirectory = path.join(
     context.data,
@@ -336,10 +398,10 @@ test('portable execute rejects classification artifact tampering', async () => {
 
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
-  assert.match(blocked.stderr, /authoritative classification artifacts are inconsistent/);
+  assert.match(blocked.stderr, /intent\.json work_kind must match session work_kind/);
 });
 
-test('portable execute accepts legacy classification artifacts without work_kind', async () => {
+test('portable execute rejects legacy classification artifacts without current work_kind metadata', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   const started = parse(await run([
@@ -349,7 +411,7 @@ test('portable execute accepts legacy classification artifacts without work_kind
     '--intent', 'Build request pagination',
     '--route', 'direct',
   ], context.env));
-  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  await authorizeImplementation(context);
 
   const sessionDirectory = path.join(
     context.data,
@@ -366,9 +428,12 @@ test('portable execute accepts legacy classification artifacts without work_kind
     fs.writeFileSync(artifactFile, JSON.stringify(artifact));
   }
 
-  const executed = parse(await run(['execute', ...common], context.env));
-  assert.equal(executed.lifecycle.actions.execute.status, 'started');
-  assert.equal(executed.work_kind, 'implementation');
+  const rejected = await run(['execute', ...common], context.env);
+  assert.equal(rejected.code, 1);
+  assert.match(
+    rejected.stderr,
+    /session\.json bundle_version must be 3\.0\.0.*session\.json work_kind must be implementation\|investigation/s,
+  );
 });
 
 test('portable execute rejects missing work_kind in current classification artifacts', async () => {
@@ -381,7 +446,7 @@ test('portable execute rejects missing work_kind in current classification artif
     '--intent', 'Build request pagination',
     '--route', 'direct',
   ], context.env));
-  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  await authorizeImplementation(context);
 
   const intentFile = path.join(
     context.data,
@@ -397,7 +462,7 @@ test('portable execute rejects missing work_kind in current classification artif
 
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
-  assert.match(blocked.stderr, /intent\.json work_kind is missing/);
+  assert.match(blocked.stderr, /intent\.json work_kind must be implementation\|investigation/);
 });
 
 test('portable execute rejects a session downgrade after defect classification', async () => {
@@ -412,7 +477,7 @@ test('portable execute rejects a session downgrade after defect classification',
     '--route', 'direct',
   ], context.env));
   assert.equal(started.work_kind, 'investigation');
-  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  await authorizeImplementation(context);
 
   const sessionFile = path.join(
     context.data,
@@ -428,7 +493,7 @@ test('portable execute rejects a session downgrade after defect classification',
 
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
-  assert.match(blocked.stderr, /session work_kind conflicts with defect signals/);
+  assert.match(blocked.stderr, /intent\.json work_kind must match session work_kind/);
 });
 
 test('waiting_for_evidence remains resumable without weakening execute', async () => {
@@ -462,9 +527,7 @@ test('waiting_for_evidence remains resumable without weakening execute', async (
   assert.equal(resumed.work_kind, 'investigation');
   assert.equal(fs.readFileSync(proofFile, 'utf8'), waiting);
 
-  parse(await run([
-    'authorize', ...common, '--scope', 'implementation',
-  ], context.env));
+  await authorizeImplementation(context);
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
   assert.match(blocked.stderr, /state must be ready_for_fix/);

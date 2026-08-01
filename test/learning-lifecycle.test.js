@@ -7,7 +7,7 @@
 //      permanently by the oldest corrections and no [validated:N] entry was reachable at
 //      any prompt. Slots AND chars are now partitioned; both are pinned here, because
 //      partitioning slots alone did not fix it - chars are the binding constraint.
-//   2. Expiry (scripts/evolution-runner.js). reference/evolution.md exempts [failed]
+//   2. Expiry (scripts/evolution-runner.js). The portable evolution reference exempts [failed]
 //      entries from deletion; scanStaleness had no such exemption. Code and prose now
 //      agree, and the prose's "unless explicitly overridden" clause has a real reader.
 //   3. [validated:N]. Derived from artifacts (cited + observed verification pass), not
@@ -295,8 +295,11 @@ test('the runner reports the untagged population rather than leaving it invisibl
 // The contradiction K4 was assigned to close: the prose exempted [failed] entries while
 // the code did not. Pinned as a two-sided assertion so a future edit cannot silently
 // re-open the gap by changing only one side.
-test('reference/evolution.md and evolution-runner.js agree on the [failed] exemption', () => {
-  const prose = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'evolution.md'), 'utf8');
+test('the portable evolution reference and evolution-runner.js agree on the [failed] exemption', () => {
+  const prose = fs.readFileSync(
+    path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'evolution.md'),
+    'utf8',
+  );
   const code = fs.readFileSync(RUNNER, 'utf8');
 
   // Two SEPARATE places must name the flag, asserted separately. A single

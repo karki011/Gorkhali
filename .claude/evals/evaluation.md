@@ -1,128 +1,125 @@
-# Phantom Shadows Evaluation Rubric
+# Phantom Evaluation Contract
 
 Author: Subash Karki
 
-The scoring authority for both eval paths.
-This file owns the **scale**, the **confidence levels**, the **anti-fabrication rule**, and the **session-level dimensions**.
-It does NOT own the per-agent criterion lists — those live in [`commands/eval.md`](../../commands/eval.md) and are referenced, not duplicated, here.
+Phantom evaluates recorded evidence against an explicit rubric. Models may
+produce findings and recommendations; the typed workflow contract owns
+acceptance, retry eligibility, budgets, terminal states, and freshness.
 
-Two consumers read this rubric:
+The public `eval` action is a direct Agent Skill at `skills/eval/SKILL.md`. It
+applies `skills/phantom/SKILL.md` and does not create a separate evaluation
+runtime. It runs only when selected by the workflow and never authorizes a
+lifecycle effect.
 
-- **Per-agent eval** — `/phantom:eval` scores each active shadow 1-5 using the criterion lists in `commands/eval.md`, applying the scale and evidence rules below.
-- **Session-level eval** — `phantom:wrap` Step 5 (Shadows Evaluation) scores the whole session across the five dimensions below and records the result in the session file.
+## Two Evaluation Surfaces
 
-> If an eval cannot READ this file, it MUST report `eval-failed` and stop.
-> It must never invent a scale, invent criteria, or proceed on remembered rules.
+Phantom has two related but distinct evaluation surfaces:
 
----
+1. **Workflow evaluator nodes** assess a specific artifact or integrated result
+   inside a compiled workflow. Their machine-readable result validates against
+   `skills/phantom/schemas/evaluation-result.schema.json`.
+2. **The behavioral harness** in `scripts/run-evals.js` runs the trigger, route,
+   and convention cases declared in `evals/evals.json`. It materializes isolated
+   fixtures and uses independently reviewed route truth from
+   `evals/route-truth.json`.
 
-## Scale (1-5)
+Neither surface infers success from prose, a missing artifact, or remembered
+criteria.
 
-Every criterion is scored on this single scale.
-Anchors are concrete so a 2 and a 4 are not a matter of taste.
+## When a Workflow Evaluator Runs
 
-| Score | Anchor | What it looks like |
-|---|---|---|
-| **5** | Exemplary | Criterion fully met with margin. Evidence is unambiguous and complete. Nothing a reviewer would change. |
-| **4** | Solid | Criterion met. Minor, non-blocking gaps only (a missed edge case, a small stylistic miss). Evidence covers the claim. |
-| **3** | Acceptable | Criterion met at the bar, but with notable gaps a reviewer would flag. Evidence is present but partial. |
-| **2** | Below bar | Criterion partially met. Real problems that would need rework. Evidence shows the shortfall directly. |
-| **1** | Failed / absent | Criterion not met, or the work it describes never happened. Evidence shows failure or absence. |
+The compiled graph adds an `evaluate-optimize` node only when route, risk, or a
+measurable acceptance rubric justifies independent evaluation. Deterministic
+checks run first. A reviewer is not added merely to repeat checks that already
+passed.
 
-A score is only as trustworthy as its evidence, so every score carries a confidence.
+Before evaluation, the node declares:
 
-## Confidence (high / medium / low)
+- the artifact or behavior under evaluation;
+- the evaluator role and explicit rubric;
+- the current worktree fingerprint;
+- required evidence and acceptance policy;
+- maximum iterations, cost, duration, and repeated-failure limit; and
+- the allowed repair scope, when refinement is possible.
 
-| Level | Earns it |
+## Evidence Rules
+
+These rules are load-bearing:
+
+1. Every finding or rubric judgment cites a recorded artifact, journal event,
+   or captured command result and states the fact drawn from it.
+2. Missing, stale, conflicting, or unreadable evidence yields `blocked` or
+   `missing_evidence`; it never becomes a pass or a guessed middle score.
+3. The evaluator records every evidence-backed supported severity. The complete
+   finding record stays separate from the deterministic acceptance decision.
+4. The result binds the current worktree fingerprint. A later content change
+   makes the result stale.
+5. Historical model output is recorded data. Replay never regenerates it and
+   never calls a model to recreate evaluation evidence.
+
+A human-facing rubric may use numeric or qualitative scores, but each score
+must cite evidence. Scores are explanatory output; they do not replace the
+typed verdict or authorize another iteration.
+
+## Typed Result
+
+A workflow evaluator returns contract version 1 with exactly these fields:
+
+| Field | Meaning |
 |---|---|
-| **high** | A single authoritative artifact fully covers the criterion (e.g. `verification.json` verdict for "did it pass"), or multiple artifacts corroborate. No inference required. |
-| **medium** | One artifact covers the criterion but is incomplete, OR the score is inferred by combining two or more artifacts. Reasonable, not certain. |
-| **low** | Evidence is indirect, ambiguous, or a single weak signal. The score is a judgement call the artifacts only partly support. |
+| `schema_version` | Must be `1` |
+| `node_id` | Matching active evaluator node |
+| `verdict` | `pass`, `fail`, or `blocked` |
+| `worktree_fingerprint` | Exact current `sha256:` fingerprint |
+| `evaluator.role` | Role declared by the node |
+| `evidence[]` | Named `passed` or `failed` observations |
+| `failure_class` | Stable failure category, or `null` |
+| `feedback[]` | Evidence-backed bounded feedback |
+| `retryable` | Evaluator recommendation; policy still decides |
+| `cost_units` | Non-negative measured cost |
+| `duration_ms` | Non-negative measured duration |
 
-Confidence is about evidence strength, not about the score.
-A 5/high and a 2/high are both fully evidenced; a 4/low means "probably a 4, but the artifacts don't nail it."
+Unknown fields, wrong roles, stale fingerprints, and malformed evidence are
+rejected before the workflow state changes.
 
----
+## Bounded Evaluation
 
-## Anti-Fabrication Rule (load-bearing)
+The kernel stops immediately on acceptance. Otherwise it terminates in one of
+these explicit states:
 
-A hallucinated score is indistinguishable from a real one to anyone reading the summary.
-The only defense is that every number is chained to something on disk.
-These rules are not advisory.
-
-1. **Every scored criterion MUST cite on-disk evidence** — an artifact path (e.g. `sessions/{TICKET}/verification.json`) or captured command output.
-   The citation names the source and the fact drawn from it.
-   A score with no citation is invalid and must not appear in a summary.
-
-2. **No-evidence rule:** if a criterion has no citable on-disk evidence, it is scored `not-evaluable` (`n/e`) — NOT guessed, NOT given a middle score.
-   `n/e` is excluded from every average.
-   A criterion is never invented to fill a gap; the gap is reported as `n/e`.
-
-3. **A rubric summary without per-criterion evidence lines is INVALID.**
-   The evidence lines ARE the eval; a bare table of numbers is not an eval and must be rejected by the reader.
-
-4. **If this rubric file cannot be read, report `eval-failed`** and produce no scores.
-   A missing rubric is a failure to evaluate, never a license to improvise one.
-
-### Per-criterion evidence line — required format
-
-```
-{criterion}: {score}/{confidence} — {artifact-path-or-command} :: {fact drawn from it}
+```text
+accepted
+rejected
+budget_exhausted
+iteration_limit
+stuck_same_failure
+missing_evidence
+human_decision_required
 ```
 
-Example:
+An evaluator's suggestion that work could improve does not authorize another
+iteration. Policy permits a scoped retry only when the result is retryable,
+evidence is current, budgets remain, the failure class is not stuck, and no
+human decision is required.
 
-```
-Ward (build) verification completeness: 5/high — sessions/CP-0000/verification.json :: verdict "pass", 409/409 tests, gitHead matches HEAD
-Gaze KISS/DRY enforcement: n/e — no review-panel.json or gaze verdict on disk :: not evaluated
-```
+## Behavioral Harness Contract
 
----
+The repository harness evaluates published skill behavior, not worker personas.
+Each case has an ID, skill, realistic prompt, kind, expected check, and optional
+declarative fixture:
 
-## Per-Agent Evaluation
+- **trigger** cases check whether the expected direct skill activates;
+- **route** cases compare the typed route with digest-bound independent truth;
+- **convention** cases use deterministic evidence or a bounded semantic judge.
 
-The per-agent criterion lists (Apex, Blade React/UI/API/Documentation, Ward test/build, Gaze) live in [`commands/eval.md`](../../commands/eval.md).
-Do not restate them here — read them there, then score each listed criterion 1-5 with a confidence and an evidence line per the format above.
-An agent's score is the mean of its evaluable criteria (`n/e` criteria excluded).
-Report the `n/e` count alongside the mean; an agent scored mostly on `n/e` criteria is reported as `not-evaluable`, not as a low number.
+Cases run in isolated materialized repositories with separate mutable state and
+judge context. Unsafe fixture paths or environment overrides, stale route
+truth, missing cases, and judge failures fail closed. See `evals/README.md` for
+the fixture and execution contract.
 
----
+## Acceptance and Reporting
 
-## Session-Level Evaluation
-
-`phantom:wrap` Step 5 scores the session across five dimensions.
-Each dimension is scored 1-5 with a confidence and at least one evidence line drawn from session artifacts.
-
-| Dimension | Weight | Question | Primary evidence |
-|---|---|---|---|
-| **Outcome quality** | 30% | Did it ship AND verify — pass with matching HEAD, tests green? | `verification.json` (verdict, counts, `_meta.gitHead`), `wrap.json` (pr status) |
-| **Plan fidelity** | 20% | Does what shipped match the approved plan and contract scope? | `plan.json` vs `git diff main...HEAD`, contract files, `wrap.json` scope-creep notes |
-| **Review efficacy** | 20% | Were findings caught BEFORE ship, not after? | `review-panel.json` (RPSL perspectives, fixes applied), greptile status |
-| **Loop discipline** | 15% | Were fix-loops bounded and gates honored (no ship past a red verify)? | loop-controller state, fix-session artifacts, `verification.json` history |
-| **Evidence hygiene** | 15% | Are the session's own claims backed by artifacts (e.g. PR Validation section built from files, not prose)? | PR `## Validation` section vs `verification.json`/`review-panel.json`/`wrap.json` |
-
-### Overall score
-
-Weighted mean of the five dimension scores:
-
-```
-overall = 0.30·outcome + 0.20·planFidelity + 0.20·reviewEfficacy + 0.15·loopDiscipline + 0.15·evidenceHygiene
-```
-
-Renormalize the weights over the evaluable dimensions when one is `n/e` (drop its weight, rescale the rest to sum to 1).
-
-**Overall confidence is the LOWEST confidence among the contributing dimensions** — the eval is only as certain as its weakest evidenced input.
-If 2 or more dimensions are `n/e`, cap overall confidence at `low` and say so explicitly; a session scored on half its dimensions is a weak signal regardless of the number.
-
----
-
-## Output Contract
-
-A valid eval — per-agent or session-level — always contains:
-
-1. A score table (agents, or the five dimensions + overall).
-2. One evidence line per scored criterion/dimension, in the required format.
-3. The `n/e` count and, for session-level, the confidence cap note when it applies.
-
-Missing (2) makes the eval invalid.
-An unreadable rubric or a total absence of citable artifacts makes the eval `eval-failed`.
+A valid evaluation report includes the typed verdict, current fingerprint,
+complete evidence, complete findings, acceptance decision, measured cost and
+duration, and the terminal reason. If required evidence cannot be read, report
+the failure and stop; do not invent a rubric, result, or pass.

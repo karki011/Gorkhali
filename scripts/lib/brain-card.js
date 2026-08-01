@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { resolveRepoSubdir } = require('./phantom-paths');
+const { repoDir } = require('./phantom-paths');
 
 // md-grammar lets a read-modify-write (supersede) rewrite ONLY the frontmatter while
 // the human-authored body prose (## What / ## Why / ## Gotchas) keeps its exact bytes
@@ -31,14 +31,9 @@ const TRACE_KEYS = ['session', 'transcript', 'pr', 'commit'];
 const CARD_TYPES = ['episode', 'decision', 'gotcha', 'pattern'];
 const ID_RE = /^rb-[0-9a-f]{6}$/;
 
-/**
- * Cards dir for a repo: <data>/repos/{repo}/brain/cards, or the aliased dir that
- * actually holds the cards. Alias-aware because detectRepo() returns the CANONICAL
- * id while existing cards can still sit under an earlier id (see resolveRepoSubdir):
- * a bare join greps an empty dir and recall silently reports no matches.
- */
+/** Cards dir for the current canonical repository id. */
 function cardsDir(repo) {
-  return resolveRepoSubdir(repo, 'brain', 'cards');
+  return path.join(repoDir(repo), 'brain', 'cards');
 }
 
 /** Absolute path to a card file. Rejects any id that isn't rb-<6hex> — the
@@ -233,8 +228,8 @@ function parseCard(content) {
 /**
  * writeCard(card, { repo }) -> { id, file, card }.
  * Computes id from (repo,ticket,date,title) when absent. Creates the cards dir
- * and writes atomically. THROWS on IO failure — callers in wrap/close guard the
- * RUN (never block the ship on a brain-write); see commands/wrap.md.
+ * and writes atomically. THROWS on IO failure so the portable caller can record
+ * the failure without treating a learning write as shipping authority.
  */
 function writeCard(card, { repo } = {}) {
   if (!repo) throw new Error('writeCard: repo is required');
@@ -242,8 +237,6 @@ function writeCard(card, { repo } = {}) {
   if (!c.id || !ID_RE.test(c.id)) {
     c.id = makeCardId({ repo, ticket: c.ticket, date: c.date, title: c.title });
   }
-  // One cardsDir() resolution, not two: it now reads the filesystem, so resolving
-  // separately for the mkdir and for the file could mkdir one dir and write in another.
   const file = cardPath(repo, c.id);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;

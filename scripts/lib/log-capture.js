@@ -38,12 +38,10 @@ function numFromEnv(name, fallback) {
 // Ported default from gh-axi run.ts's LOG_TRUNCATE_LIMIT - the hard char cap on
 // the returned summary regardless of how the head/tail line budgets add up
 // (guards a single giant line from blowing past the intended bound). No existing
-// constant in scripts/lib/constants.js covers log capture, so these stay local
-// rather than adding entries outside this task's scope (same call wake-classifier.js
-// made for SELF_REVIEW_THRESHOLD).
+// constant in scripts/lib/constants.js covers log capture, so these stay local.
 const MAX_CHARS = numFromEnv('PHANTOM_LOG_CAPTURE_MAX_CHARS', 20000);
 
-// Line budgets, env-overridable like SELF_REVIEW_THRESHOLD (wake-classifier.js).
+// Line budgets are environment-overridable.
 // Tail gets the larger share: CI/build/test failures land at the end of output
 // far more often than the start - gh-axi's whole rationale for keeping the tail.
 const HEAD_LINES = numFromEnv('PHANTOM_LOG_CAPTURE_HEAD_LINES', 20);

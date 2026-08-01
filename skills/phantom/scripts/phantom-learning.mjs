@@ -484,7 +484,7 @@ export function validateLearningIndex(learningsDir, { knownDomains = [] } = {}) 
 
   // A domain reference is a markdown link target `[label](file.md)` or a bare
   // `file.md` anchored at the start of an entry line (`- file.md ...`). A token
-  // that carries a path separator (e.g. `reference/agents.md:40`) or one that
+  // that carries a path separator (e.g. `docs/model-policy.md:40`) or one that
   // appears mid-sentence outside a link is prose, not a domain pointer - both
   // shapes are real entry bodies in this INDEX.md, not references.
   const referencedDomains = new Set();
