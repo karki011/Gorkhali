@@ -16,7 +16,8 @@ The canonical directory contains:
 - `schemas/` for workflow plans, events, aggregation, evaluation, capability
   requests, signed authority decisions, and signed interception probes; and
 - `scripts/` for compilation, transition, replay, capability authorization,
-  session state, profile resolution, and bounded impact inspection.
+  session state, read-only diagnosis, explicit offline migration, profile
+  resolution, and bounded impact inspection.
 
 The bundle has zero external plugin dependencies. Its enforcement helpers use
 Node.js and the standard library.
@@ -74,6 +75,37 @@ signer, or private key is bundled. Those effects require a matching signed host
 registration and result attestation and otherwise remain unavailable even when
 policy authorization succeeds. The read-only native and portable doctor
 commands distinguish hook readiness from externally provisioned adapters.
+
+## Offline State Migration
+
+The schema-version-3 portable Doctor report detects legacy state and returns a
+redacted migration resource/command, but Doctor performs no writes. The
+separate `migrate-session-state.mjs` CLI inventories the selected Phantom root
+with `inventory --workspace <workspace> --output <manifest>`. It leaves Phantom
+state untouched, creates the full inventory as a private mode-`0600` file, and
+prints only a redacted receipt; use `--output`, never shell redirection. Apply,
+verify, and rollback accept only that exact reviewed, digest-bound manifest.
+Repeated `--confirm-inactive` and `--work-kind` options are inventory-only
+decisions recorded into it. Eligible continuations become clean paused
+same-task v2 successors with all authority and evidence reset; completed v1
+sessions remain history-only and other source evidence is archived or
+quarantined as classified. Inventory rejects `--manifest`.
+
+The manifest and digest-chained atomic journal pin canonical and physical
+storage/runtime identity, while crash-safe durable publication protects lock,
+successor, and pointer cutover. Recovery resumes only from the same trusted
+manifest and physical lock/claim chain, within explicit entry, file, byte,
+depth, event, and lock budgets. Any global migration-lock node blocks runtime
+state access and Doctor until the exact migrator recovers it; only exact
+ordinary dead-owner lifecycle locks are runtime-recoverable. A `verify` result
+`failed` or rollback result `human_decision_required` emits JSON and exits
+nonzero. After verified lock release, the successor is ordinary runtime- and
+Doctor-readable v2 state. Runtime readers have no v1 fallback and never
+silently auto-migrate.
+
+Schema version 2 defines reader compatibility. A strict SemVer
+`bundle_version` records writer provenance and need not equal the currently
+installed bundle.
 
 The isolated-executor verifier, receipt broker, workspace manifests, and
 deterministic aggregator are bundled. The OS isolation backend and signing key

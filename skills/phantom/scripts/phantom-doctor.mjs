@@ -3,6 +3,7 @@
 // Author: Subash Karki
 // Read-only, sanitized readiness report for Phantom's execution boundaries.
 
+import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -20,10 +21,16 @@ import {
   verifyExecutorProbe,
 } from './lib/isolated-executor-attestation.mjs';
 import {
+  classifyLegacyPointer,
+  classifyLegacySession,
+  legacyMigrationRequirement,
+} from './lib/legacy-session-classifier.mjs';
+import {
   currentSessionFile,
   dataRoot,
   isMainModule,
   parseArgs,
+  repoIdentity,
   sessionPaths,
   workspacePath,
 } from './lib/portable.mjs';
@@ -34,6 +41,8 @@ const HOST_REGISTRATION_FILE = 'host-adapter-registration.json';
 const NATIVE_CAPABILITY = 'workspace.write';
 const ISOLATED_CAPABILITY = 'parallel.branch';
 const SECTION_STATUSES = new Set(['not_applicable', 'not_registered', 'ready', 'blocked']);
+const MIGRATION_STATUSES = new Set(['required', 'not_required', 'blocked']);
+const MIGRATION_RESOURCE = 'scripts/migrate-session-state.mjs';
 
 class DoctorProblem extends Error {
   constructor(code) {
@@ -69,7 +78,7 @@ function assertUnchanged(record, invalidCode) {
   if (current === null
     || current.generation !== record.generation
     || !current.bytes.equals(record.bytes)) {
-    throw new DoctorProblem('runtime_state_changed');
+    throw new DoctorProblem(invalidCode);
   }
 }
 
@@ -102,6 +111,58 @@ const unavailableSections = (status, code = null) => ({
   isolated: section(status, ISOLATED_CAPABILITY, code ? [code] : []),
 });
 
+function migrationDescriptor(status, reason) {
+  if (!MIGRATION_STATUSES.has(status) || !/^[a-z][a-z0-9_]*$/.test(reason)) {
+    throw new Error('Unsupported doctor migration descriptor.');
+  }
+  return {
+    status,
+    reason,
+    resource: MIGRATION_RESOURCE,
+    command: status === 'required' ? ['inventory', '--workspace', '<workspace>'] : null,
+  };
+}
+
+const MIGRATION_STATE_NODES = Object.freeze([
+  '.session-state-migration.lock',
+  '.session-state-migration.recovery.lock',
+]);
+
+function assertNoMigrationStateNodes(workspace) {
+  const locks = join(dataRoot(workspace), 'locks');
+  for (const name of MIGRATION_STATE_NODES) {
+    try {
+      lstatSync(join(locks, name));
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+    }
+    throw new DoctorProblem('migration_in_progress_or_recovery_required');
+  }
+}
+
+function canonicalRepositoryWorkspace(workspaceInput) {
+  const requested = workspacePath(workspaceInput);
+  const root = repoIdentity(requested).root;
+  if (typeof root !== 'string' || !root) throw new DoctorProblem('active_session_invalid');
+  return workspacePath(root);
+}
+
+function readReadinessInput(inputs, file, root, invalidCode) {
+  const record = readPrivateJson(file, root, invalidCode);
+  inputs.push({ record, file, root, invalidCode });
+  return record;
+}
+
+function assertReadinessInputsUnchanged(inputs) {
+  for (const input of inputs) {
+    if (input.record !== null) {
+      assertUnchanged(input.record, input.invalidCode);
+    } else if (readPrivateJson(input.file, input.root, input.invalidCode) !== null) {
+      throw new DoctorProblem(input.invalidCode);
+    }
+  }
+}
+
 function classifyVerificationProblem(error, prefix) {
   if (error instanceof DoctorProblem) return error.code;
   if (typeof error?.code === 'string' && /^[a-z][a-z0-9_]*$/.test(error.code)) return error.code;
@@ -117,7 +178,22 @@ function classifyVerificationProblem(error, prefix) {
 function activeSession(workspace, requestedTask) {
   const root = dataRoot(workspace);
   const pointer = readPrivateJson(currentSessionFile(workspace), root, 'active_session_invalid');
-  if (pointer === null) return { status: 'not_applicable' };
+  if (pointer === null) {
+    return {
+      status: 'not_applicable',
+      migration: { status: 'not_required', reason: 'no_current_session' },
+    };
+  }
+
+  const initialClassification = classifyLegacyPointer(pointer.value);
+  if (initialClassification.kind === 'legacy_telemetry') {
+    const migration = legacyMigrationRequirement(initialClassification);
+    assertUnchanged(pointer, 'active_session_invalid');
+    return { status: 'migration_required', migration, records: [pointer] };
+  }
+  if (!['legacy_state_v1', 'state_v2'].includes(initialClassification.kind)) {
+    throw new DoctorProblem('active_session_invalid');
+  }
   if (typeof pointer.value?.task_id !== 'string' || !pointer.value.task_id.trim()) {
     throw new DoctorProblem('active_session_invalid');
   }
@@ -125,8 +201,43 @@ function activeSession(workspace, requestedTask) {
   if (requestedTask !== null && requestedTask !== paths.task) {
     throw new DoctorProblem('active_session_invalid');
   }
+
+  if (initialClassification.kind === 'legacy_state_v1') {
+    const pointerClassification = classifyLegacyPointer(pointer.value, {
+      repo_id: paths.repo.id,
+      task_id: paths.task,
+      session_dir: paths.sessionDir,
+      completed_dir: paths.completedDir,
+    });
+    if (!pointerClassification.valid) throw new DoctorProblem('active_session_invalid');
+    const canonicalDirectory = pointer.value.status === 'completed'
+      ? paths.completedDir
+      : paths.sessionDir;
+    const sessionFile = join(canonicalDirectory, 'session.json');
+    const session = readPrivateJson(sessionFile, root, 'active_session_invalid');
+    if (session === null) throw new DoctorProblem('active_session_invalid');
+    const sessionClassification = classifyLegacySession(session.value, {
+      repo_id: paths.repo.id,
+      task_id: paths.task,
+      workspace: paths.repo.root,
+      source_path: sessionFile,
+      session_file: sessionFile,
+    });
+    const migration = legacyMigrationRequirement(pointerClassification, sessionClassification);
+    if (migration.status !== 'required') throw new DoctorProblem('active_session_invalid');
+    assertUnchanged(pointer, 'active_session_invalid');
+    assertUnchanged(session, 'active_session_invalid');
+    return { status: 'migration_required', migration, records: [pointer, session] };
+  }
+
   if (pointerErrors(pointer.value, paths).length) throw new DoctorProblem('active_session_invalid');
-  if (pointer.value.status === 'completed') return { status: 'not_applicable' };
+  if (pointer.value.status === 'completed') {
+    assertUnchanged(pointer, 'active_session_invalid');
+    return {
+      status: 'not_applicable',
+      migration: { status: 'not_required', reason: 'state_envelope_v2' },
+    };
+  }
 
   const session = readPrivateJson(join(paths.sessionDir, 'session.json'), root, 'active_session_invalid');
   if (session === null || sessionErrors(session.value, paths, pointer.value).length) {
@@ -134,19 +245,32 @@ function activeSession(workspace, requestedTask) {
   }
   assertUnchanged(pointer, 'active_session_invalid');
   assertUnchanged(session, 'active_session_invalid');
-  if (session.value.status !== 'active') return { status: 'not_applicable' };
-  return { status: 'ready', paths, session: session.value, records: [pointer, session] };
+  if (session.value.status !== 'active') {
+    return {
+      status: 'not_applicable',
+      migration: { status: 'not_required', reason: 'state_envelope_v2' },
+    };
+  }
+  return {
+    status: 'ready',
+    paths,
+    session: session.value,
+    records: [pointer, session],
+    migration: { status: 'not_required', reason: 'state_envelope_v2' },
+  };
 }
 
-function nativeReadiness({ workspace, context, fingerprint, nowMs }) {
+function nativeReadiness({ workspace, context, fingerprint, nowMs, readinessInputs }) {
   try {
-    const probe = readPrivateJson(
+    const probe = readReadinessInput(
+      readinessInputs,
       join(context.paths.sessionDir, 'capability-probe.json'),
       context.paths.sessionDir,
       'native_runtime_state_invalid',
     );
     if (probe === null) return section('not_registered', NATIVE_CAPABILITY);
-    const trust = readPrivateJson(
+    const trust = readReadinessInput(
+      readinessInputs,
       authorityTrustFile(workspace),
       context.paths.root,
       'native_runtime_state_invalid',
@@ -171,15 +295,17 @@ function nativeReadiness({ workspace, context, fingerprint, nowMs }) {
   }
 }
 
-function hostReadiness({ workspace, context, nowMs }) {
+function hostReadiness({ workspace, context, nowMs, readinessInputs }) {
   try {
-    const registration = readPrivateJson(
+    const registration = readReadinessInput(
+      readinessInputs,
       join(context.paths.sessionDir, HOST_REGISTRATION_FILE),
       context.paths.sessionDir,
       'host_runtime_state_invalid',
     );
     if (registration === null) return hostSection('not_registered');
-    const trust = readPrivateJson(
+    const trust = readReadinessInput(
+      readinessInputs,
       join(dataRoot(workspace), 'config', HOST_TRUST_FILE),
       context.paths.root,
       'host_runtime_state_invalid',
@@ -205,15 +331,17 @@ function hostReadiness({ workspace, context, nowMs }) {
   }
 }
 
-function isolatedReadiness({ workspace, context, fingerprint, nowMs }) {
+function isolatedReadiness({ workspace, context, fingerprint, nowMs, readinessInputs }) {
   try {
-    const probe = readPrivateJson(
+    const probe = readReadinessInput(
+      readinessInputs,
       executorProbeFile(context.paths.sessionDir),
       context.paths.sessionDir,
       'isolated_runtime_state_invalid',
     );
     if (probe === null) return section('not_registered', ISOLATED_CAPABILITY);
-    const trust = readPrivateJson(
+    const trust = readReadinessInput(
+      readinessInputs,
       executorTrustFile(workspace),
       context.paths.root,
       'isolated_runtime_state_invalid',
@@ -261,15 +389,22 @@ export function buildPhantomDoctorReport({
   nowMs = Date.now(),
 } = {}) {
   let sections;
+  let migration = migrationDescriptor('not_required', 'no_current_session');
+  const readinessInputs = [];
   try {
     if (!Number.isFinite(nowMs)) throw new DoctorProblem('observation_time_invalid');
-    const workspace = workspacePath(workspaceInput);
+    const workspace = canonicalRepositoryWorkspace(workspaceInput);
+    assertNoMigrationStateNodes(workspace);
     const context = activeSession(workspace, task);
-    if (context.status === 'not_applicable') {
+    migration = migrationDescriptor(context.migration.status, context.migration.reason);
+    if (context.status === 'migration_required') {
+      sections = unavailableSections('blocked', 'migration_required');
+      context.records.forEach((record) => assertUnchanged(record, 'active_session_invalid'));
+    } else if (context.status === 'not_applicable') {
       sections = unavailableSections('not_applicable');
     } else {
       const fingerprint = workspaceFingerprint(workspace);
-      const inputs = { workspace, context, fingerprint, nowMs };
+      const inputs = { workspace, context, fingerprint, nowMs, readinessInputs };
       sections = {
         native: nativeReadiness(inputs),
         host: hostReadiness(inputs),
@@ -280,16 +415,21 @@ export function buildPhantomDoctorReport({
         throw new DoctorProblem('workspace_snapshot_changed');
       }
     }
+    assertNoMigrationStateNodes(workspace);
+    assertReadinessInputsUnchanged(readinessInputs);
   } catch (error) {
-    sections = unavailableSections('blocked', error instanceof DoctorProblem
-      ? error.code
-      : 'doctor_verification_failed');
+    const code = error instanceof DoctorProblem ? error.code : 'doctor_verification_failed';
+    sections = unavailableSections('blocked', code);
+    if (['active_session_invalid', 'migration_in_progress_or_recovery_required'].includes(code)) {
+      migration = migrationDescriptor('blocked', code);
+    }
   }
   return {
-    schema_version: 2,
+    schema_version: 3,
     status: overallStatus(sections),
     verifier_bundled: true,
     backend_bundled: false,
+    migration,
     ...sections,
   };
 }
@@ -320,9 +460,10 @@ if (isMainModule(import.meta.url)) {
     runPhantomDoctor();
   } catch {
     process.stderr.write(`${JSON.stringify({
-      schema_version: 2,
+      schema_version: 3,
       status: 'blocked',
       code: 'invalid_input',
+      migration: migrationDescriptor('blocked', 'invalid_input'),
     })}\n`);
     process.exitCode = 2;
   }

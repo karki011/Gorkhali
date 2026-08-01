@@ -1046,13 +1046,58 @@ test('hook registration covers provider-neutral pre/post enforcement', () => {
   });
   assert.equal(doctor.status, 0, doctor.stderr);
   const report = JSON.parse(doctor.stdout);
-  assert.equal(report.schema_version, 2);
+  assert.equal(report.schema_version, 3);
   assert.equal(report.status, 'not_applicable');
   assert.equal(report.verifier_bundled, true);
   assert.equal(report.backend_bundled, false);
+  assert.deepEqual(report.migration, {
+    status: 'not_required',
+    reason: 'no_current_session',
+    resource: 'scripts/migrate-session-state.mjs',
+    command: null,
+  });
   assert.deepEqual(
     [report.native.status, report.host.status, report.isolated.status],
     ['not_applicable', 'not_applicable', 'not_applicable'],
+  );
+
+  const migrationLock = path.join(isolatedData, 'locks', '.session-state-migration.lock');
+  fs.mkdirSync(path.dirname(migrationLock), { recursive: true });
+  fs.writeFileSync(migrationLock, 'not trusted lock metadata\n', { mode: 0o600 });
+  const lockedDoctor = spawnSync(process.execPath, [HOOK, 'doctor', isolatedWorkspace], {
+    encoding: 'utf8',
+    env: { ...process.env, PHANTOM_DATA: isolatedData },
+  });
+  assert.equal(lockedDoctor.status, 0, lockedDoctor.stderr);
+  const lockedReport = JSON.parse(lockedDoctor.stdout);
+  assert.equal(lockedReport.status, 'blocked');
+  assert.deepEqual(lockedReport.migration, {
+    status: 'blocked',
+    reason: 'migration_in_progress_or_recovery_required',
+    resource: 'scripts/migrate-session-state.mjs',
+    command: null,
+  });
+  assert.deepEqual(lockedReport.native.problems, [{
+    code: 'migration_in_progress_or_recovery_required',
+  }]);
+
+  fs.rmSync(migrationLock, { force: true });
+  const recoveryClaim = path.join(
+    isolatedData,
+    'locks',
+    '.session-state-migration.recovery.lock',
+  );
+  fs.writeFileSync(recoveryClaim, 'not trusted recovery metadata\n', { mode: 0o600 });
+  const recoveryDoctor = spawnSync(process.execPath, [HOOK, 'doctor', isolatedWorkspace], {
+    encoding: 'utf8',
+    env: { ...process.env, PHANTOM_DATA: isolatedData },
+  });
+  assert.equal(recoveryDoctor.status, 0, recoveryDoctor.stderr);
+  const recoveryReport = JSON.parse(recoveryDoctor.stdout);
+  assert.deepEqual(recoveryReport, lockedReport);
+  assert.doesNotMatch(
+    JSON.stringify(recoveryReport),
+    /inventory|session-state-migration/,
   );
 
   const malformed = spawnSync(process.execPath, [HOOK, 'pre'], {

@@ -3,9 +3,11 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  chmodSync,
   closeSync,
   existsSync,
   fsyncSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -20,6 +22,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 import {
   atomicWriteJson,
   currentSessionFile,
+  dataRoot,
   envelope,
   isMainModule,
   now,
@@ -94,6 +97,7 @@ const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0)
 const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;
+const TEST_READER_BARRIER_ENV = 'PHANTOM_TEST_STATE_READER_BARRIER';
 const lockWaiter = new Int32Array(new SharedArrayBuffer(4));
 const BRANCH_NAME = /^(?!\/|.*(?:\.\.|@\{|\\|\s|~|\^|:|\?|\*|\[))(?!.*\/$)(?!.*\.lock$)[A-Za-z0-9._\/-]+$/;
 
@@ -285,6 +289,76 @@ function lockFile(workspace) {
   return join(paths.root, 'locks', `${paths.repo.id}.lock`);
 }
 
+function migrationLockFile(workspace) {
+  return join(dataRoot(workspace), 'locks', '.session-state-migration.lock');
+}
+
+function migrationRecoveryLockFile(workspace) {
+  return join(dataRoot(workspace), 'locks', '.session-state-migration.recovery.lock');
+}
+
+function migrationBlockedError() {
+  return new Error(
+    'An offline Phantom session-state migration is in progress or requires exact migrator recovery; '
+    + 'runtime state access is blocked.',
+  );
+}
+
+function ensurePrivateLockDirectory(workspace) {
+  const directory = join(dataRoot(workspace), 'locks');
+  try {
+    lstatSync(directory);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    mkdirSync(directory, { recursive: true, mode: 0o700 });
+  }
+
+  let stat = lstatSync(directory);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
+  }
+  if (typeof process.getuid === 'function' && stat.uid !== process.getuid()) {
+    throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
+  }
+  if (process.platform !== 'win32' && (stat.mode & 0o777) !== 0o700) {
+    chmodSync(directory, 0o700);
+    stat = lstatSync(directory);
+    if (stat.isSymbolicLink() || !stat.isDirectory()
+      || (typeof process.getuid === 'function' && stat.uid !== process.getuid())
+      || (stat.mode & 0o777) !== 0o700) {
+      throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
+    }
+  }
+  return directory;
+}
+
+function assertNoMigrationWideLock(workspace) {
+  ensurePrivateLockDirectory(workspace);
+  for (const file of [migrationLockFile(workspace), migrationRecoveryLockFile(workspace)]) {
+    try {
+      lstatSync(file);
+    } catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw migrationBlockedError();
+    }
+    throw migrationBlockedError();
+  }
+}
+
+function pauseTestReaderAfterInitialLockCheck(workspace) {
+  const token = process.env[TEST_READER_BARRIER_ENV];
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(token)) return;
+  const directory = ensurePrivateLockDirectory(workspace);
+  const ready = join(directory, `.state-reader-${token}.ready`);
+  const resume = join(directory, `.state-reader-${token}.resume`);
+  writeFileSync(ready, 'ready\n', { flag: 'wx', mode: 0o600 });
+  const deadline = Date.now() + 10_000;
+  while (!existsSync(resume)) {
+    if (Date.now() >= deadline) throw new Error('Timed out waiting for the state-reader test barrier.');
+    Atomics.wait(lockWaiter, 0, 0, LOCK_RETRY_MS);
+  }
+}
+
 function processIsAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -294,7 +368,7 @@ function processIsAlive(pid) {
   }
 }
 
-function lockIsStale(file) {
+function auxiliaryLockIsStale(file) {
   try {
     const owner = JSON.parse(readFileSync(file, 'utf8'));
     if (Number.isInteger(owner.pid) && owner.pid > 0) return !processIsAlive(owner.pid);
@@ -307,6 +381,29 @@ function lockIsStale(file) {
   } catch (error) {
     return error.code === 'ENOENT';
   }
+}
+
+function lifecycleLockState(file) {
+  let owner;
+  try {
+    const record = readStableJsonFile(file);
+    if (record.physical.nlink !== 1) return { kind: 'ambiguous' };
+    owner = record.value;
+  } catch (error) {
+    if (error.code === 'ENOENT') return { kind: 'absent' };
+    return { kind: 'ambiguous' };
+  }
+  if (isObject(owner) && Object.hasOwn(owner, 'migration_id')) {
+    return { kind: 'migration' };
+  }
+  const fields = isObject(owner) ? Object.keys(owner).sort() : [];
+  if (JSON.stringify(fields) !== JSON.stringify(['created_at', 'pid', 'token'])
+    || !Number.isInteger(owner.pid) || owner.pid <= 0
+    || typeof owner.token !== 'string' || !owner.token
+    || typeof owner.created_at !== 'string' || !Number.isFinite(Date.parse(owner.created_at))) {
+    return { kind: 'ambiguous' };
+  }
+  return { kind: processIsAlive(owner.pid) ? 'active' : 'stale', owner };
 }
 
 function recoverStaleLock(file) {
@@ -325,7 +422,7 @@ function recoverStaleLock(file) {
         try { unlinkSync(recoveryFile); } catch {}
       }
       if (error.code !== 'EEXIST') throw error;
-      if (attempt > 0 || !lockIsStale(recoveryFile)) return false;
+      if (attempt > 0 || !auxiliaryLockIsStale(recoveryFile)) return false;
       try { unlinkSync(recoveryFile); } catch (unlinkError) {
         if (unlinkError.code !== 'ENOENT') throw unlinkError;
       }
@@ -333,12 +430,13 @@ function recoverStaleLock(file) {
   }
 
   try {
-    if (lockIsStale(file)) {
+    if (lifecycleLockState(file).kind === 'stale') {
       try { unlinkSync(file); } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
+      return true;
     }
-    return true;
+    return false;
   } finally {
     try { unlinkSync(recoveryFile); } catch (error) {
       if (error.code !== 'ENOENT') throw error;
@@ -350,23 +448,34 @@ function acquireLifecycleLock(workspace) {
   const file = lockFile(workspace);
   const token = randomUUID();
   const deadline = Date.now() + LOCK_WAIT_MS;
-  mkdirSync(dirname(file), { recursive: true });
+  ensurePrivateLockDirectory(workspace);
 
   while (true) {
+    assertNoMigrationWideLock(workspace);
     let descriptor;
     try {
       descriptor = openSync(file, 'wx', 0o600);
       writeFileSync(descriptor, `${JSON.stringify({ pid: process.pid, token, created_at: now() })}\n`, 'utf8');
       closeSync(descriptor);
       descriptor = undefined;
-      return { file, token };
+      const lock = { file, token };
+      try {
+        assertNoMigrationWideLock(workspace);
+      } catch (error) {
+        releaseLifecycleLock(lock);
+        throw error;
+      }
+      return lock;
     } catch (error) {
       if (descriptor !== undefined) {
         closeSync(descriptor);
         try { unlinkSync(file); } catch {}
       }
       if (error.code !== 'EEXIST') throw error;
-      if (lockIsStale(file) && recoverStaleLock(file)) continue;
+      assertNoMigrationWideLock(workspace);
+      const state = lifecycleLockState(file);
+      if (state.kind === 'migration') throw migrationBlockedError();
+      if (state.kind === 'stale' && recoverStaleLock(file)) continue;
       if (Date.now() >= deadline) {
         throw new Error('Another Phantom lifecycle mutation is already in progress for this repository.');
       }
@@ -486,8 +595,13 @@ function withLifecycleLock(workspace, action) {
 }
 
 function currentSession(workspace) {
+  assertNoMigrationWideLock(workspace);
+  pauseTestReaderAfterInitialLockCheck(workspace);
   const pointerFile = currentSessionFile(workspace);
-  if (!existsSync(pointerFile)) return null;
+  if (!existsSync(pointerFile)) {
+    assertNoMigrationWideLock(workspace);
+    return null;
+  }
   const pointer = readJson(pointerFile);
   if (!isObject(pointer) || typeof pointer.task_id !== 'string' || !pointer.task_id.trim()) {
     throwStateErrors(['current-session pointer task_id must be a non-empty string']);
@@ -499,6 +613,7 @@ function currentSession(workspace) {
   throwStateErrors(sessionErrors(session, paths, pointer));
   const intent = readJson(join(paths.sessionDir, 'intent.json'));
   throwStateErrors(intentErrors(intent, paths, session));
+  assertNoMigrationWideLock(workspace);
   return { paths, pointer, session, intent };
 }
 

@@ -125,7 +125,11 @@ test('rejects malformed governed envelope identity, time, bundle, producer, and 
     ['repo id', (source) => { source.repo_id = ''; }, /repo_id must be a non-empty string/],
     ['task id', (source) => { source.task_id = ''; }, /task_id must be a non-empty string/],
     ['timestamp', (source) => { source.created_at = 'yesterday'; }, /created_at must be an ISO timestamp/],
-    ['bundle', (source) => { source.bundle_version = 'legacy'; }, /bundle_version must be/],
+    [
+      'bundle',
+      (source) => { source.bundle_version = '03.0.0'; },
+      /bundle_version must be a strict core SemVer x\.y\.z string/,
+    ],
     ['producer', (source) => { source.producer.runtime = 'legacy'; }, /producer\.runtime is unsupported/],
     ['routing', (source) => { source.model_routing.runtime = 'legacy'; }, /model_routing\.runtime is unsupported/],
   ]) {

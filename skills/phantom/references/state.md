@@ -127,8 +127,9 @@ The envelope and producer are closed contracts. `producer` contains exactly
 undeclared producer roles are rejected. Session, intent, context, capabilities,
 brainstorm, plan, and decisions are Apex-produced; execution is Blade-produced;
 wrap is Warden-produced. Delegation producers must match the delegated role and
-resolved profile recorded in their evidence. `bundle_version` identifies the
-portable bundle that wrote an artifact.
+resolved profile recorded in their evidence. `bundle_version` is strict core
+SemVer provenance identifying the portable bundle that wrote an artifact; it
+does not select the reader contract. `schema_version` controls compatibility.
 
 `model_routing.actual_profile` remains `null` unless the host reports it; never
 infer it from a requested profile or model name. Add non-negative
@@ -137,13 +138,95 @@ and run artifacts include `model_routing`; session and intent envelopes omit it
 because they do not represent a routed worker execution. Raw `evidence` may
 carry artifact-specific diagnostics, but it does not relax the outer envelope.
 
-State envelope version `2` is a hard cut. State-envelope readers accept only
-version `2`; they do not migrate, reinterpret, or fall back to version `1`.
-Start a fresh session when old state must be replaced. Offline data-root
-relocation may reconstruct only version-2 current-session pointers and does not
-upgrade version-1 state. Decision-first brainstorm and plan payloads continue
-to declare `contract_version: 3` inside `evidence`; the outer state envelope and
-the inner decision contract evolve independently. Accepted v3 payloads follow
+State envelope version `2` is a hard runtime cut. Readers accept only version
+`2`; they never migrate, reinterpret, or fall back to version `1`. A valid
+strict `bundle_version` records provenance and may differ from the current
+bundle without making an otherwise supported version-2 envelope incompatible.
+
+## Offline version-1 migration
+
+Doctor is a read-only detector. Its schema-version-3 report includes a redacted
+`migration` descriptor and blocks readiness with `migration_required` when the
+canonical pointer needs migration. It never writes, archives, or activates
+state. Run the separate migrator explicitly:
+
+```text
+node <skill-directory>/scripts/migrate-session-state.mjs inventory --workspace <path> --output <migration-manifest.json>
+node <skill-directory>/scripts/migrate-session-state.mjs apply --workspace <path> --manifest <migration-manifest.json>
+node <skill-directory>/scripts/migrate-session-state.mjs verify --workspace <path> --manifest <migration-manifest.json>
+# Recovery only, when rollback is required:
+node <skill-directory>/scripts/migrate-session-state.mjs rollback --workspace <path> --manifest <migration-manifest.json>
+```
+
+Inventory resolves the selected root through `PHANTOM_DATA` and the workspace
+and scans its canonical current-session and repository session shards without
+changing Phantom state. `--output` atomically creates the full content-bound
+manifest as a private mode-`0600`, single-link file and emits only a redacted
+receipt to stdout. Use `--output`, never shell redirection. Review every entry
+before apply. Inventory rejects `--manifest`; only apply, verify, and rollback
+accept the exact reviewed manifest. Paused v1 sessions are eligible without an
+override. For each active entry, first stop all processes that may use it, then
+regenerate inventory with a repeated
+`--confirm-inactive <repo-id>/<task-path-segment>`. For each entry missing
+`work_kind`, regenerate with a repeated
+`--work-kind <repo-id>/<task-path-segment>=implementation|investigation`.
+Confirmations and overrides are accepted only by inventory and become part of
+the reviewed manifest required by apply, verify, and rollback.
+
+The selected Phantom state stays untouched until apply. The manifest digest
+binds the selected workspace's canonical path and physical identity, canonical
+data root and repository identity, physical identities for the relevant
+data/state/repository/source hierarchy, exact pointer and source content, and
+runtime pointer/session path resolution. The digest-chained atomic
+transaction journal additionally records and verifies the committed v2
+pointer's physical identity. Crash-safe durable publication protects lock,
+backup, successor, and pointer boundaries. Apply, verify, rollback, and
+interrupted-operation recovery revalidate those bindings instead of following
+caller-supplied or rebound paths.
+
+Apply locks the migration and affected repository shards, verifies the exact
+source manifest including inactivity confirmations and work-kind decisions,
+and enforces bounded entry, file, byte, depth, journal-event, recovery-claim,
+and lock-descriptor budgets. It creates content-addressed read-only backups
+before mutation, archives or quarantines v1 source evidence as classified, and
+commits pointers last. A paused or explicitly inactive session receives a
+clean, paused, same-task v2 successor containing only fresh
+session and intent envelopes plus the empty control-input channel. Approvals,
+authorizations, authority trust, compiled workflow, journal, verification,
+review, and defect evidence are not promoted and must be recreated. Completed
+sessions and their pointers are archived as history only; they never become
+synthetic v2 completions. Unsafe, ambiguous, telemetry-shaped, and unpointed
+state is quarantined or left for explicit human judgment according to the
+manifest.
+
+Any filesystem node at the global `.session-state-migration.lock` path—live,
+dead, malformed, directory, or symlink—is a hard barrier for runtime state
+readers, writers, and Doctor. Runtime never deletes or reclaims it; interrupted
+apply or rollback resumes only through the exact migrator and manifest. A
+per-repository migration-shaped or ambiguous lifecycle lock also blocks.
+Runtime lock recovery is limited to an exact ordinary lifecycle-lock record
+whose owner process is definitely dead.
+
+Interrupted apply or rollback resumes only when the same manifest, exact
+physical lock generations, and digest-chained recovery claims remain trusted;
+otherwise the migrator fails closed or requires human judgment. Apply performs
+verification before returning, and `verify` can repeat it from
+the same manifest. Rollback proceeds only while the archived sources, parked
+pointers, and generated successors still match the transaction; otherwise it
+returns `human_decision_required` with recovery steps. Rerunning an identical
+manifest resumes or deduplicates the same digest-bound transaction. At the CLI,
+`verify` status `failed` and rollback status `human_decision_required` are
+written as JSON to stdout before the process exits nonzero; JSON output alone
+is not a success signal.
+
+After verified cutover releases all migration locks, the clean paused successor
+validates through the ordinary v2 runtime and Doctor and may be explicitly
+resumed. That readability comes from producing valid v2 state, not from a v1
+runtime compatibility path or silent auto-migration.
+
+Decision-first brainstorm and plan payloads continue to declare
+`contract_version: 3` inside `evidence`; the outer state envelope and the inner
+decision contract evolve independently. Accepted v3 payloads follow
 [brainstorming](brainstorming.md) or [planning](planning.md) in full.
 
 The envelope persists enriched fields unchanged;
@@ -301,8 +384,10 @@ contract in [roles](roles.md) before the result can be synthesized.
   artifact write must leave those lifecycle actions unchanged; if the later
   state write fails, restore the prior artifact, session, and pointer values.
 - Serialize lifecycle mutations with the per-repository advisory lock under
-  `locks/`. Recover a lock whose owning process no longer exists, and reject a
-  second active task rather than silently replacing the current-session pointer.
+  `locks/`. Recover only an exact ordinary lock record whose owning process is
+  definitely dead; never recover a migration-shaped or ambiguous record.
+  Reject a second active task rather than silently replacing the current-session
+  pointer. Any node at the global migration-lock path blocks reads and writes.
 - Preserve `created_at` and update `updated_at` on mutation.
 - Treat session artifacts as source of truth, not conversation memory.
 - Pause with the exact next action, dirty-worktree state, decisions, incomplete

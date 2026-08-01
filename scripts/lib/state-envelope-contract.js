@@ -14,6 +14,7 @@ const APPROVAL_GATES = new Set(['direction', 'plan', 'wiring']);
 const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-draft-pr', 'tracker-comment']);
 const SESSION_STATUSES = new Set(['active', 'paused', 'completed']);
 const RECORD_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked', 'skipped']);
+const CORE_SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const ROUTED_TYPES = new Set([
   'context',
   'capabilities',
@@ -92,6 +93,10 @@ const AUTHORITY_FIELDS = new Set([
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isCoreSemVer(value) {
+  return typeof value === 'string' && CORE_SEMVER.test(value);
 }
 
 function isTimestamp(value) {
@@ -223,8 +228,8 @@ function commonEnvelopeErrors(value, type) {
   }
   if (!isTimestamp(value.created_at)) errors.push(`${label} created_at must be an ISO timestamp`);
   if (!isTimestamp(value.updated_at)) errors.push(`${label} updated_at must be an ISO timestamp`);
-  if (value.bundle_version !== BUNDLE_VERSION) {
-    errors.push(`${label} bundle_version must be ${BUNDLE_VERSION}`);
+  if (!isCoreSemVer(value.bundle_version)) {
+    errors.push(`${label} bundle_version must be a strict core SemVer x.y.z string`);
   }
   return errors;
 }

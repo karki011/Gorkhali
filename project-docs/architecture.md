@@ -123,7 +123,10 @@ See the canonical contracts in
 ## Host Adapter Status
 
 `node skills/phantom/scripts/phantom-doctor.mjs --workspace <workspace>`
-discovers the canonical active session and reports the boundary without
+inspects canonical current-session state and reports the boundary without
+changing state. Its schema-version-3, redacted report includes a migration
+descriptor; legacy v1 state blocks readiness and points to the separate
+`migrate-session-state.mjs inventory --output <manifest>` command rather than
 changing state. The native hook doctor projects the same readiness contract:
 
 | Surface | Bundled status |
@@ -148,6 +151,31 @@ Portable session state lives under `${PHANTOM_DATA:-~/.phantom}`. Approvals bind
 exact artifact sequences and digests. Verification, review, and capability
 decisions bind the current worktree fingerprint. Later changes make earlier
 evidence stale instead of silently carrying it forward.
+
+Runtime readers accept schema version 2 only; `bundle_version` is SemVer
+provenance, not a compatibility switch. The explicit offline migrator
+inventories the selected data root without changing Phantom state, writes the
+full manifest privately through `--output`, and prints only a redacted receipt.
+Apply accepts only the reviewed exact manifest with its recorded inactivity and
+work-kind decisions. It binds canonical and physical workspace,
+data/state/repository/source, runtime-path, and committed-pointer identity;
+bounded locks and inventory/file/journal budgets fail closed. Completed v1
+sessions are archived as history, other source evidence is archived or
+quarantined as classified, and clean paused successors are activated for
+eligible continuations with all authority and evidence reset. Backups precede
+mutation, pointer cutover is last, and rollback refuses if migration outputs
+changed after cutover.
+
+The migrator combines a digest-chained atomic journal with crash-safe durable
+publication. Interrupted work resumes only when the same manifest, physical
+lock generations, and recovery claim chain remain trusted; it never guesses
+from a partially published pointer.
+
+Any node at the global migration-lock path blocks runtime readers, writers, and
+Doctor until the exact migrator resumes or completes recovery. Runtime recovers
+only a well-formed ordinary per-repository lifecycle lock with a definitely dead
+owner. After verified lock release, the successor is readable by the ordinary
+v2 runtime and Doctor; no v1 fallback or silent auto-migration exists.
 
 The session helper owns task discovery, approvals, and user authorization. The
 workflow kernel alone advances graph nodes. This separation prevents a session

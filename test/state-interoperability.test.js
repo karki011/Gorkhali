@@ -19,6 +19,9 @@ const STATE = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs
 const LEARNING = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 const SESSION_MARKER = path.join(ROOT, 'hooks', 'session-marker.js');
 const brain = require(path.join(ROOT, 'scripts', 'lib', 'brain-card'));
+const {
+  stateEnvelopeErrors: analyticsEnvelopeErrors,
+} = require(path.join(ROOT, 'scripts', 'lib', 'state-envelope-contract'));
 
 let sequence = 0;
 let authoritySequence = 0;
@@ -332,6 +335,67 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   }
   assert.ok(fs.existsSync(sessionDir), 'active session remains unarchived');
   assertEnvelope(path.join(sessionDir, 'session.json'), 'session', ctx, taskId);
+});
+
+test('schema-v2 lifecycle state remains readable across other strict SemVer bundle releases', async () => {
+  for (const [index, bundleVersion] of ['3.0.1', '3.1.0', '2.9.9'].entries()) {
+    const ctx = fixture();
+    const common = ['--workspace', ctx.workspace];
+    const taskId = `BUNDLE-INTEROP-${index + 1}`;
+    const started = ok(await runState([
+      'start', ...common, '--task', taskId, '--intent', 'Resume compatible v2 state', '--route', 'direct',
+    ], ctx.env));
+    ok(await runState(['pause', ...common, '--reason', 'Exercise compatible provenance'], ctx.env));
+
+    const sessionDir = path.join(ctx.data, 'repos', started.repo_id, 'sessions', taskId);
+    for (const type of ['session', 'intent']) {
+      const file = path.join(sessionDir, `${type}.json`);
+      const envelope = JSON.parse(fs.readFileSync(file, 'utf8'));
+      envelope.bundle_version = bundleVersion;
+      assert.deepEqual(analyticsEnvelopeErrors(envelope, type), [], `${bundleVersion} ${type}`);
+      fs.writeFileSync(file, JSON.stringify(envelope));
+    }
+
+    const status = ok(await runState(['status', ...common], ctx.env));
+    assert.equal(status.bundle_version, bundleVersion);
+    assert.equal(status.status, 'paused');
+    assert.equal(ok(await runState(['resume', ...common], ctx.env)).status, 'active');
+  }
+});
+
+test('state readers create a private lock directory and normalize owned legacy permissions without changing lock bytes', {
+  skip: process.platform === 'win32',
+}, async () => {
+  const created = fixture();
+  const createdLocks = path.join(created.data, 'locks');
+  ok(await runState(['status', '--workspace', created.workspace], created.env));
+  assert.equal(fs.lstatSync(createdLocks).mode & 0o777, 0o700);
+
+  const normalized = fixture();
+  const normalizedLocks = path.join(normalized.data, 'locks');
+  fs.mkdirSync(normalizedLocks, { mode: 0o755 });
+  fs.chmodSync(normalizedLocks, 0o755);
+  const sentinel = path.join(normalizedLocks, '.existing.lock');
+  const bytes = Buffer.from('existing lock bytes\n');
+  fs.writeFileSync(sentinel, bytes, { mode: 0o600 });
+
+  ok(await runState(['status', '--workspace', normalized.workspace], normalized.env));
+  assert.equal(fs.lstatSync(normalizedLocks).mode & 0o777, 0o700);
+  assert.deepEqual(fs.readFileSync(sentinel), bytes);
+});
+
+test('state readers fail closed when the lock directory is a symlink', {
+  skip: process.platform === 'win32',
+}, async () => {
+  const ctx = fixture();
+  const outside = path.join(ctx.root, 'outside-locks');
+  fs.mkdirSync(outside, { mode: 0o700 });
+  fs.symlinkSync(outside, path.join(ctx.data, 'locks'), 'dir');
+
+  const result = await runState(['status', '--workspace', ctx.workspace], ctx.env);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /lock path must be a private current-user-owned real directory/);
+  assert.deepEqual(fs.readdirSync(outside), []);
 });
 
 test('a Claude-authored legacy top-level session is rejected by the portable path', async () => {

@@ -131,6 +131,48 @@ test('canonical session, lifecycle, pointer, and intent envelopes remain valid',
   assert.notEqual(lifecycle.approvals, state.session.lifecycle.approvals);
 });
 
+test('schema-v2 envelopes accept strict SemVer provenance from other bundle releases', async () => {
+  const { intentErrors, newLifecycle, sessionErrors, stateEnvelopeErrors } = await import(CONTRACTS);
+
+  for (const bundleVersion of ['3.0.1', '3.1.0', '2.9.9']) {
+    const state = validState(newLifecycle, bundleVersion);
+    const plan = recordedEnvelope('plan', state.paths, bundleVersion);
+
+    assert.deepEqual(sessionErrors(state.session, state.paths, state.pointer), [], bundleVersion);
+    assert.deepEqual(intentErrors(state.intent, state.paths, state.session), [], bundleVersion);
+    assert.deepEqual(stateEnvelopeErrors(plan, 'plan', state.paths), [], bundleVersion);
+    assert.deepEqual(analyticsEnvelopeErrors(state.session, 'session'), [], bundleVersion);
+    assert.deepEqual(analyticsEnvelopeErrors(state.intent, 'intent'), [], bundleVersion);
+    assert.deepEqual(analyticsEnvelopeErrors(plan, 'plan'), [], bundleVersion);
+  }
+});
+
+test('portable and analytics readers both reject missing or malformed bundle provenance', async () => {
+  const { newLifecycle, sessionErrors } = await import(CONTRACTS);
+  const expected = 'session.json bundle_version must be a strict core SemVer x.y.z string';
+  const cases = [
+    ['missing', undefined],
+    ['leading-zero major', '03.0.0'],
+    ['leading-zero minor', '3.00.0'],
+    ['leading-zero patch', '3.0.00'],
+    ['partial', '3.0'],
+    ['prerelease', '3.0.0-rc.1'],
+    ['build metadata', '3.0.0+build.1'],
+    ['prefixed', 'v3.0.0'],
+    ['non-string', ['3.0.0']],
+  ];
+
+  for (const [label, bundleVersion] of cases) {
+    const state = validState(newLifecycle, bundleVersion);
+    if (label === 'missing') delete state.session.bundle_version;
+
+    const portable = sessionErrors(state.session, state.paths, state.pointer);
+    const analytics = analyticsEnvelopeErrors(state.session, 'session');
+    assert.ok(portable.includes(expected), `${label}: portable reader`);
+    assert.ok(analytics.includes(expected), `${label}: analytics reader`);
+  }
+});
+
 test('analytics and portable readers both reject malformed nested v2 session state', async () => {
   const { newLifecycle, sessionErrors } = await import(CONTRACTS);
   const { BUNDLE_VERSION } = await import(PROFILE);
@@ -330,7 +372,7 @@ test('malformed session rejects legacy lifecycle fields without parsing or migra
   };
 
   assert.deepEqual(sessionErrors(malformed, state.paths, state.pointer), [
-    `session.json bundle_version must be ${BUNDLE_VERSION}`,
+    'session.json bundle_version must be a strict core SemVer x.y.z string',
     'session.json status must be active|paused|completed',
     'session.json route must be direct|plan|brainstorm|full',
     'session.json intent_summary must be a non-empty string',

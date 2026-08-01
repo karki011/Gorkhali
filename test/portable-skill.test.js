@@ -238,6 +238,26 @@ test('portable bundle manifest versions every public contract', async () => {
     .filter((file) => file.endsWith('.schema.json'))
     .map((file) => `schemas/${file}`);
   for (const schema of schemas) assert.ok(registered.has(schema), `${schema} must be registered`);
+  const migrationModules = fs.readdirSync(path.join(SKILL_ROOT, 'scripts', 'lib', 'session-migration'))
+    .filter((file) => file.endsWith('.mjs'))
+    .map((file) => `scripts/lib/session-migration/${file}`)
+    .sort();
+  for (const resource of [
+    'scripts/lib/legacy-session-classifier.mjs',
+    ...migrationModules,
+    'scripts/migrate-session-state.mjs',
+  ]) {
+    assert.ok(
+      manifest.contracts.state_envelope.resources.includes(resource),
+      `${resource} must belong to state_envelope`,
+    );
+  }
+  for (const resource of migrationModules) {
+    const owners = Object.entries(manifest.contracts)
+      .filter(([, entry]) => entry.resources.includes(resource))
+      .map(([name]) => name);
+    assert.deepEqual(owners, ['state_envelope'], `${resource} must have one manifest owner`);
+  }
   assert.match(manifest.contract_resource_digest, /^sha256:[a-f0-9]{64}$/);
   const { BUNDLE_VERSION } = await import(RESOLVER_URL);
   assert.equal(BUNDLE_VERSION, manifest.bundle_version);
@@ -264,6 +284,20 @@ test('portable validator rejects malformed manifest contract keys and versions',
   }
 });
 
+test('portable validator requires the same strict core SemVer as state readers', () => {
+  for (const version of ['03.0.0', '3.0.0-alpha.1', '3.0.0+build.1']) {
+    const target = copySkill(`manifest-version-${version.replaceAll(/[^A-Za-z0-9]/g, '-')}`);
+    const file = path.join(target, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+    manifest.bundle_version = version;
+    fs.writeFileSync(file, JSON.stringify(manifest));
+
+    const result = validate(target);
+    assert.notEqual(result.status, 0, `${version} unexpectedly passed`);
+    assert.match(result.stderr, /bundle_version must be a strict core SemVer x\.y\.z string/);
+  }
+});
+
 test('portable validator rejects an unregistered public contract schema', () => {
   const target = copySkill('unregistered-public-schema');
   fs.writeFileSync(
@@ -273,6 +307,19 @@ test('portable validator rejects an unregistered public contract schema', () => 
   const result = validate(target);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Public contract schema is not registered/);
+});
+
+test('portable validator requires every session migration module to have one state owner', () => {
+  const target = copySkill('unregistered-session-migration-module');
+  const resource = 'scripts/lib/session-migration/unregistered.mjs';
+  fs.writeFileSync(path.join(target, resource), 'export const unregistered = true;\n');
+
+  const result = validate(target);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    new RegExp(`Session migration module must have exactly one manifest owner, state_envelope: ${resource}`),
+  );
 });
 
 test('portable validator detects stale bundle metadata after a lifecycle contract resource changes', () => {
@@ -295,12 +342,16 @@ test('portable validator detects stale bundle metadata after a lifecycle contrac
   assert.match(versioned.stderr, /bundle_version must be at least 3\.0\.0/);
 });
 
-test('portable validator requires every bundled planning and AI review resource', () => {
+test('portable validator requires every bundled planning, review, and migration resource', () => {
   for (const resource of [
     'references/planning.md',
     'references/brainstorming.md',
     'references/review-html.md',
     'scripts/lib/decision-contracts.mjs',
+    'scripts/lib/legacy-session-classifier.mjs',
+    'scripts/lib/session-migration/atomic-journal.mjs',
+    'scripts/lib/session-migration/durable-publication.mjs',
+    'scripts/migrate-session-state.mjs',
     'scripts/validate-review-html.mjs',
   ]) {
     const target = copySkill(`missing-${resource.replaceAll('/', '-')}`);

@@ -52,7 +52,9 @@ Maintained by Subash Karki.
 1. Read the nearest repository instructions and the Phantom learnings index for
    relevant corrections.
 2. Inspect durable state and resume a matching active session when one exists.
-   Do not create a new session before routing.
+   If the current state cannot be read, run the read-only Doctor before retrying;
+   follow its migration procedure when required. Do not create a new session
+   before routing or add a runtime v1 fallback.
 3. Trace the current behavior and gather minimum-sufficient-solution evidence,
    including omission, repository reuse, standard or native capabilities,
    installed dependencies, and candidate dependency impact.
@@ -125,10 +127,62 @@ without executing anything:
 node <skill-directory>/scripts/phantom-doctor.mjs --workspace <path>
 ```
 
-The version-2 report discovers pinned runtime files itself and exposes only
-native, signed-host, and isolated readiness status plus stable problem codes.
-Do not pass copied artifacts, credentials, private keys, or provider results to
-the doctor.
+The schema-version-3 report discovers pinned runtime files itself and exposes
+only native, signed-host, and isolated readiness status, stable problem codes,
+and a redacted migration descriptor. Do not pass copied artifacts, credentials,
+private keys, or provider results to the doctor. Doctor is read-only and must
+never apply a migration.
+
+When Doctor reports `migration.status: required`, use the separate offline
+migrator. Inventory resolves and scans the selected Phantom data root without
+changing Phantom state. It writes the full manifest as a private mode-`0600`
+file and emits only a redacted receipt to stdout:
+
+```text
+node <skill-directory>/scripts/migrate-session-state.mjs inventory --workspace <path> --output <migration-manifest.json>
+```
+
+Use `--output`, never shell redirection. Inventory rejects `--manifest`. Review
+every entry. A paused v1 session is eligible automatically. Before migrating an
+active entry, stop all processes that may use it and repeat
+`--confirm-inactive <repo-id>/<task-path-segment>` on a new inventory command.
+When `work_kind` is missing, repeat
+`--work-kind <repo-id>/<task-path-segment>=implementation|investigation` on that
+inventory command. The resulting exact manifest binds those decisions; do not
+supply them to later commands. Its digest also binds canonical and physical
+workspace, data, state, repository, source, and runtime path identity; the
+digest-chained atomic journal binds the committed pointer's physical identity.
+Inventory leaves all selected Phantom state untouched until apply.
+
+```text
+node <skill-directory>/scripts/migrate-session-state.mjs apply --workspace <path> --manifest <migration-manifest.json>
+node <skill-directory>/scripts/migrate-session-state.mjs verify --workspace <path> --manifest <migration-manifest.json>
+# Recovery only, when rollback is required:
+node <skill-directory>/scripts/migrate-session-state.mjs rollback --workspace <path> --manifest <migration-manifest.json>
+```
+
+Apply enforces explicit entry, file, byte, depth, journal, and lock budgets,
+creates exact backups before mutation, and activates a clean, paused,
+same-task v2 successor with approvals, authorization, workflow, verification,
+and review evidence reset. Completed v1 sessions remain history-only; other v1
+source evidence is archived or quarantined as classified. Atomic journaling and
+crash-safe durable publication make cutover resumable without guessing from
+partial state. Interrupted work resumes only when the same manifest, lock
+generations, and recovery claim chain remain trusted.
+Rollback is guarded and returns `human_decision_required` rather than replacing
+a successor that changed after cutover. Any filesystem node at the global
+migration-lock path blocks runtime state readers, writers, and Doctor. Do not
+remove or reclaim it through runtime code; repeat the exact migrator command
+with the same manifest. Runtime may recover only an exact ordinary per-repository
+lifecycle lock whose owner is definitely dead, never a migration-shaped or
+ambiguous lock.
+
+The CLI emits JSON before exiting nonzero for `verify` status `failed` or
+rollback status `human_decision_required`; inspect both status and exit code.
+After successful verification releases the locks, state commands and Doctor can
+validate the paused successor as ordinary v2 state, and it may be explicitly
+resumed. Runtime readers remain v2-only; never add a v1 fallback or silently
+reinterpret legacy authority.
 
 Resolve `<skill-directory>` from this `SKILL.md`; do not assume an installation
 location. File tools may draft candidate plan, event, or request inputs, but

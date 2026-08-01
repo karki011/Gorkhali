@@ -1,6 +1,6 @@
 // Author: Subash Karki
 
-import { BUNDLE_VERSION, resolveProfile } from '../resolve-profile.mjs';
+import { resolveProfile } from '../resolve-profile.mjs';
 import { STATE_ENVELOPE_VERSION } from './portable.mjs';
 
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
@@ -34,9 +34,14 @@ const MODEL_ROUTING_FIELDS = new Set([
   'requested_profile', 'actual_profile', 'fallback_reason', 'outcome', 'wall_time_ms', 'tool_turns',
 ]);
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
+const CORE_SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isCoreSemVer(value) {
+  return typeof value === 'string' && CORE_SEMVER.test(value);
 }
 
 const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
@@ -401,8 +406,8 @@ export function stateEnvelopeErrors(value, type, paths) {
   if (!isTimestamp(value.created_at)) errors.push(`${type}.json created_at must be an ISO timestamp`);
   if (!isTimestamp(value.updated_at)) errors.push(`${type}.json updated_at must be an ISO timestamp`);
   errors.push(...producerErrors(value.producer, type, value.model_routing));
-  if (value.bundle_version !== BUNDLE_VERSION) {
-    errors.push(`${type}.json bundle_version must be ${BUNDLE_VERSION}`);
+  if (!isCoreSemVer(value.bundle_version)) {
+    errors.push(`${type}.json bundle_version must be a strict core SemVer x.y.z string`);
   }
   if (RECORDED_ARTIFACTS.has(type)) {
     if (!RECORD_STATUSES.has(value.status)) {

@@ -423,7 +423,7 @@ test('portable execute rejects legacy classification artifacts without current w
   for (const file of ['session.json', 'intent.json']) {
     const artifactFile = path.join(sessionDirectory, file);
     const artifact = JSON.parse(fs.readFileSync(artifactFile, 'utf8'));
-    artifact.bundle_version = '2.1.0';
+    artifact.bundle_version = '03.0.0';
     delete artifact.work_kind;
     fs.writeFileSync(artifactFile, JSON.stringify(artifact));
   }
@@ -432,7 +432,7 @@ test('portable execute rejects legacy classification artifacts without current w
   assert.equal(rejected.code, 1);
   assert.match(
     rejected.stderr,
-    /session\.json bundle_version must be 3\.0\.0.*session\.json work_kind must be implementation\|investigation/s,
+    /session\.json bundle_version must be a strict core SemVer x\.y\.z string.*session\.json work_kind must be implementation\|investigation/s,
   );
 });
 

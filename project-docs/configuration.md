@@ -95,14 +95,40 @@ node hooks/capability-gate.mjs doctor /path/to/workspace
 node skills/phantom/scripts/phantom-doctor.mjs --workspace /path/to/workspace
 ```
 
-The portable command reads the version-2 current-session pointer and active
+The portable command reads the canonical current-session pointer and active
 session, then verifies any canonical native probe, signed host registration,
 and isolated-executor probe in place. Runtime inputs must be private,
-single-link, stable regular files. The report is schema version 2 and uses only
+single-link, stable regular files. The report is schema version 3 and uses only
 `not_applicable`, `not_registered`, `ready`, or `blocked`; problems are stable
-codes with no paths, keys, signatures, artifacts, or raw verifier errors.
+codes with no paths, keys, signatures, artifacts, or raw verifier errors. Its
+redacted `migration` descriptor reports whether offline migration is required
+and supplies the bundled resource plus inventory argv. Doctor remains
+read-only.
+
 `verifier_bundled: true` and `backend_bundled: false` distinguish contract
 verification from an externally provisioned executor.
+
+`migrate-session-state.mjs inventory --workspace <workspace> --output
+<migration-manifest.json>` resolves the same `${PHANTOM_DATA:-~/.phantom}` root
+and scans its canonical current-session and repository session shards. It
+leaves Phantom state untouched, creates the full manifest as a private
+mode-`0600` file, and emits only a redacted receipt to stdout. Use `--output`,
+never shell redirection. Inventory rejects `--manifest`; apply, verify, and
+guarded rollback each require that exact reviewed manifest. Active entries
+additionally require explicit repeated `--confirm-inactive` inventory bindings;
+missing work kinds require repeated `--work-kind` bindings. Runtime commands
+never fall back to v1 or silently auto-migrate.
+
+The manifest and digest-chained atomic journal bind canonical and physical
+workspace, data/state/repository/source, runtime-path, and committed-pointer
+identity. Crash-safe durable publication makes pointer cutover recoverable.
+Apply and recovery enforce bounded entries, files, bytes, depth, journal events,
+and lock descriptors; interrupted work resumes only under the trusted manifest,
+lock generations, and recovery claim chain. Any node at the global
+migration-lock path blocks runtime reads/writes and Doctor; only the exact
+migrator recovers it. A failed `verify` or rollback requiring human judgment
+emits its JSON result and exits nonzero. After verified lock release, the paused
+successor is readable by normal v2 state commands and Doctor.
 
 The bundled native executor covers `workspace.write` only. Native Git, shell,
 build, test, interpreter, and network tools are not alternate execution paths.

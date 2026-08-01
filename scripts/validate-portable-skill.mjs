@@ -101,6 +101,7 @@ const criticalEligibleRoles = [
   'hound',
 ];
 const criticalExemptRoles = ['apex', 'ward', 'sweep', 'warden'];
+const CORE_SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -259,8 +260,8 @@ function validateManifest(manifest, errors, skillDirectory) {
   )) return;
   if (manifest.name !== 'phantom') errors.push('Manifest name must be phantom.');
   if (typeof manifest.bundle_version !== 'string'
-    || !/^\d+\.\d+\.\d+$/.test(manifest.bundle_version)) {
-    errors.push('Manifest bundle_version must be a semantic version.');
+    || !CORE_SEMVER.test(manifest.bundle_version)) {
+    errors.push('Manifest bundle_version must be a strict core SemVer x.y.z string.');
   } else {
     const [major, minor] = manifest.bundle_version.split('.').map(Number);
     if (major < 3) {
@@ -297,6 +298,21 @@ function validateManifest(manifest, errors, skillDirectory) {
       errors.push(`Public contract schema is not registered in the manifest: ${schema}.`);
     } else if (count !== 1) {
       errors.push(`Public contract schema must have exactly one manifest owner: ${schema}.`);
+    }
+  }
+
+  const migrationDirectory = join(skillDirectory, 'scripts', 'lib', 'session-migration');
+  if (existsSync(migrationDirectory) && statSync(migrationDirectory).isDirectory()) {
+    for (const file of filesUnder(migrationDirectory).filter((item) => extname(item) === '.mjs')) {
+      const resource = relative(skillDirectory, file).split('\\').join('/');
+      const owners = resources
+        .filter((entry) => entry.resource === resource)
+        .map((entry) => entry.contract);
+      if (owners.length !== 1 || owners[0] !== 'state_envelope') {
+        errors.push(
+          `Session migration module must have exactly one manifest owner, state_envelope: ${resource}.`,
+        );
+      }
     }
   }
 
@@ -533,6 +549,10 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     'references/verification.md',
     'scripts/inspect-impact.mjs',
     'scripts/lib/decision-contracts.mjs',
+    'scripts/lib/legacy-session-classifier.mjs',
+    'scripts/lib/session-migration/atomic-journal.mjs',
+    'scripts/lib/session-migration/durable-publication.mjs',
+    'scripts/migrate-session-state.mjs',
     'scripts/phantom-state.mjs',
     'scripts/resolve-profile.mjs',
     'scripts/validate-review-html.mjs',

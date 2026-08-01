@@ -343,7 +343,10 @@ test('portable lifecycle persists state and rejects removed verification/review 
   fs.writeFileSync(sessionFile, JSON.stringify(missingVersion));
   const rejectedResume = await run(['resume', ...common], context.env);
   assert.equal(rejectedResume.code, 1);
-  assert.match(rejectedResume.stderr, /session\.json bundle_version must be 3\.0\.0/);
+  assert.match(
+    rejectedResume.stderr,
+    /session\.json bundle_version must be a strict core SemVer x\.y\.z string/,
+  );
 
   fs.writeFileSync(sessionFile, JSON.stringify(canonicalSession));
   const resumed = parse(await run(['resume', ...common], context.env));
@@ -1597,4 +1600,59 @@ test('lifecycle lock blocks concurrent owners and recovers after a dead owner', 
   assert.equal(paused.status, 'paused');
   assert.equal(fs.existsSync(lock), false);
   assert.equal(fs.existsSync(`${lock}.recovery`), false);
+});
+
+test('runtime never reclaims migration locks and blocks on every migration-wide filesystem node', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'LOCK-MIGRATION', '--intent', 'Protect offline migration', '--route', 'direct',
+  ], context.env));
+  const locks = path.join(context.data, 'locks');
+  const repoLock = path.join(locks, `${started.repo_id}.lock`);
+  const globalLock = path.join(locks, '.session-state-migration.lock');
+  const migrationOwner = `${JSON.stringify({
+    pid: 2_147_483_647,
+    token: 'migration-owner',
+    migration_id: `sha256:${'a'.repeat(64)}`,
+    created_at: '2000-01-01T00:00:00.000Z',
+  })}\n`;
+  fs.writeFileSync(repoLock, migrationOwner);
+  const repoBlocked = await run(['pause', ...common], context.env);
+  assert.equal(repoBlocked.code, 1);
+  assert.match(repoBlocked.stderr, /migration.*exact migrator recovery/i);
+  assert.equal(fs.readFileSync(repoLock, 'utf8'), migrationOwner);
+  fs.unlinkSync(repoLock);
+
+  const scenarios = [
+    ['empty file', () => fs.writeFileSync(globalLock, '')],
+    ['live owner', () => fs.writeFileSync(globalLock, JSON.stringify({ pid: process.pid }))],
+    ['dead owner', () => fs.writeFileSync(globalLock, JSON.stringify({ pid: 2_147_483_647 }))],
+    ['malformed owner', () => fs.writeFileSync(globalLock, '{not-json')],
+    ['directory', () => fs.mkdirSync(globalLock)],
+  ];
+  if (process.platform !== 'win32') {
+    scenarios.push(['broken symlink', () => fs.symlinkSync('missing-migration-owner', globalLock)]);
+  }
+  for (const [label, install] of scenarios) {
+    install();
+    const blocked = await run(['pause', ...common], context.env);
+    assert.equal(blocked.code, 1, label);
+    assert.match(blocked.stderr, /session-state migration.*runtime state access is blocked/i, label);
+    if (label === 'empty file') {
+      const reader = await runScript('-e', [
+        `import(${JSON.stringify(pathToFileURL(STATE).href)})`
+          + `.then((state) => state.workflowControlContext(${JSON.stringify(context.workspace)}))`
+          + `.catch((error) => { process.stderr.write(error.message); process.exitCode = 1; });`,
+      ], context.env);
+      assert.equal(reader.code, 1);
+      assert.match(reader.stderr, /session-state migration.*runtime state access is blocked/i);
+    }
+    const metadata = fs.lstatSync(globalLock);
+    if (metadata.isDirectory()) fs.rmdirSync(globalLock);
+    else fs.unlinkSync(globalLock);
+  }
+
+  const paused = parse(await run(['pause', ...common], context.env));
+  assert.equal(paused.status, 'paused');
 });

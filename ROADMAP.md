@@ -3,7 +3,7 @@
 Author: Subash Karki
 
 <!-- generated:roadmap-status:start -->
-Package `0.3.0` publishes portable bundle `3.0.0` with 20 versioned contracts, 785 completed test cases (784 passed, 1 skipped, 0 todo), and 51 declared isolated evaluation cases.
+Package `0.3.0` publishes portable bundle `3.0.0` with 20 versioned contracts, 936 completed test cases (934 passed, 2 skipped, 0 todo), and 51 declared isolated evaluation cases.
 <!-- generated:roadmap-status:end -->
 
 Phantom is evolving into a deterministic, replayable AI engineering harness.
@@ -24,6 +24,9 @@ and any required external executors:
   checks;
 - append-only digest-chained journals, materialized state, strict replay, and
   optimistic concurrency;
+- an explicit, bounded v1-to-v2 session-state migrator with read-only Doctor
+  guidance, private inventory manifests, atomic journals, crash-safe durable
+  publication, verification, and guarded rollback;
 - a typed capability broker for workspace writes, commands, commits, pushes,
   draft pull requests, and tracker comments, with bundled native interception
   limited to workspace writes and trusted control-plane invocations;

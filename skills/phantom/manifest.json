@@ -1,7 +1,7 @@
 {
   "name": "phantom",
   "bundle_version": "3.0.0",
-  "contract_resource_digest": "sha256:56e6355cea32d680bf352ca38f6fc613457e30a91e1fc6c4a514f762938afba8",
+  "contract_resource_digest": "sha256:cc673b07feb7cbe18f50b42b1277a495abdd00d4cf0637415175cc16e4dea942",
   "contracts": {
     "aggregation_result": {
       "version": 2,
@@ -113,9 +113,13 @@
         "scripts/lib/filesystem-snapshot.mjs",
         "scripts/lib/git-metadata.mjs",
         "scripts/lib/learning-grammar.cjs",
+        "scripts/lib/legacy-session-classifier.mjs",
         "scripts/lib/portable.mjs",
         "scripts/lib/session-contracts.mjs",
+        "scripts/lib/session-migration/atomic-journal.mjs",
+        "scripts/lib/session-migration/durable-publication.mjs",
         "scripts/lib/shared-state.cjs",
+        "scripts/migrate-session-state.mjs",
         "scripts/phantom-learning.mjs",
         "scripts/phantom-state.mjs",
         "scripts/validate-review-html.mjs"

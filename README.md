@@ -3,7 +3,7 @@
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
 <!-- generated:project-metadata:start -->
 [![version](https://img.shields.io/badge/version-0.3.0-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-785-brightgreen)](test/)
+[![tests](https://img.shields.io/badge/tests-936-brightgreen)](test/)
 [![declared evals](https://img.shields.io/badge/declared_evals-51-brightgreen)](evals/)
 <!-- generated:project-metadata:end -->
 [![distribution](https://img.shields.io/badge/distribution-Agent%20Skills-8A2BE2)](project-docs/install.md)
@@ -132,13 +132,51 @@ node hooks/capability-gate.mjs doctor /path/to/workspace
 node skills/phantom/scripts/phantom-doctor.mjs --workspace /path/to/workspace
 ```
 
-The portable doctor discovers only the canonical active session and its pinned
-runtime files. Its version-2 report separates native, signed-host, and isolated
-execution readiness with `not_applicable`, `not_registered`, `ready`, or
-`blocked` status. It uses the broker verifiers and stable private-file reads,
-but emits only capability status and stable problem codes—never paths, key
-bodies, signatures, raw artifacts, provider references, secrets, or
-credentials. `verifier_bundled: true` does not imply an execution backend;
+The portable doctor inspects only canonical current-session state and its
+safely bound runtime files. Its schema-version-3 report separates native,
+signed-host, and isolated execution readiness with `not_applicable`,
+`not_registered`, `ready`, or `blocked` status and adds a redacted `migration`
+descriptor. It uses the broker verifiers and stable private-file reads, but
+emits only capability status, stable problem codes, and an exact bundled
+migration resource/command—never paths, key bodies, signatures, raw artifacts,
+provider references, secrets, or credentials. Doctor is read-only:
+`migration.status: required` blocks readiness but never changes state.
+
+Migrate legacy session state with the separate, manifest-bound CLI. Inventory
+scans the selected Phantom data root, writes the full manifest as a private
+mode-`0600` file, and emits only a redacted receipt to stdout:
+
+```bash
+node skills/phantom/scripts/migrate-session-state.mjs inventory --workspace /path/to/workspace --output migration-manifest.json
+node skills/phantom/scripts/migrate-session-state.mjs apply --workspace /path/to/workspace --manifest migration-manifest.json
+node skills/phantom/scripts/migrate-session-state.mjs verify --workspace /path/to/workspace --manifest migration-manifest.json
+# Recovery only, when rollback is required:
+node skills/phantom/scripts/migrate-session-state.mjs rollback --workspace /path/to/workspace --manifest migration-manifest.json
+```
+
+Use `--output`, never shell redirection, so sensitive inventory details do not
+pass through stdout. Review the inventory before apply. Re-run inventory with
+repeated
+`--confirm-inactive <repo-id>/<task-path-segment>` entries after stopping every
+listed active session, and with repeated
+`--work-kind <repo-id>/<task-path-segment>=implementation|investigation` entries
+where classification is missing. Paused sessions become clean paused v2
+successors; completed sessions remain history-only. Guarded rollback uses the
+same reviewed manifest and refuses if migration outputs changed after cutover.
+Inventory rejects `--manifest`; the reviewed exact manifest is input only to
+apply, verify, and rollback. The selected Phantom state remains untouched until
+apply. The manifest and atomic transaction journal bind canonical and physical
+workspace, data, state, repository, source, and committed-pointer identity.
+Crash-safe durable publication preserves recoverable cutover boundaries. Resume
+accepts only the same trusted manifest and recorded lock/claim generation, and
+entry, file, byte, depth, journal, and lock counts are bounded. While any node
+occupies the global migration-lock path, runtime state reads/writes and Doctor
+fail closed; only the exact migrator recovers it.
+`verify` status `failed` and rollback status `human_decision_required` still
+emit JSON but exit nonzero. After verified cutover and lock release, the paused
+successor is ordinary runtime- and Doctor-readable v2 state. There is no runtime
+v1 fallback or silent auto-migration. `verifier_bundled: true` does not imply an
+execution backend;
 `backend_bundled` remains `false`.
 
 ## Documentation

@@ -185,10 +185,22 @@ presence of hook files is not interception evidence. Phantom bundles no probe
 signer or private key and never self-attests; an absent, stale, expired, or
 forged probe denies every consequential capability.
 
-`phantom-doctor` derives a sanitized version 2 readiness report from the active
-session. It verifies native interception, signed host registration/trust/policy,
-and isolated-executor evidence without disclosing paths, commands, keys, or
-credentials. Phantom bundles the schemas and verifiers, but not an execution
+`phantom-doctor` derives a sanitized schema-version-3 readiness report from
+canonical current-session state. It verifies native interception, signed host
+registration/trust/policy, and isolated-executor evidence, and reports a
+read-only migration descriptor when v1 state requires the separate offline
+migrator. It also detects migration and recovery barriers before reading the
+pointer. It emits only statuses, stable codes, and redacted bundled
+resource/argv—including safe `inventory --output` guidance—not absolute paths,
+keys, or credentials, and it never mutates state. Phantom bundles the
+schemas and verifiers, but not an execution
 backend, signer, private key, provider credential, or network authority. When
 required runtime evidence is unavailable, the workflow must fail closed or be
 recompiled to a topology that does not require that capability.
+
+Before inspecting a pointer, Doctor treats any filesystem node at the global
+session-state migration-lock path as `migration_in_progress_or_recovery_required`.
+Runtime readers and writers use the same hard barrier and never reclaim it;
+only the exact migrator may recover an interrupted transaction. Once migration
+verifies and releases its locks, Doctor reads the paused successor through the
+ordinary v2 contract. No v1 runtime fallback is introduced.

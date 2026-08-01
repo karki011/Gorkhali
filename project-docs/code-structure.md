@@ -16,7 +16,10 @@ skills/
 │       ├── replay-workflow.mjs    # reconstruct state from the journal
 │       ├── authorize-capability.mjs
 │       ├── phantom-state.mjs      # sessions, approvals, evidence, lifecycle
+│       ├── migrate-session-state.mjs # offline manifest-bound v1-to-v2 cutover
+│       ├── phantom-doctor.mjs     # read-only readiness and migration detection
 │       └── lib/                   # contracts, reducer, journal, shared state
+│           └── session-migration/ # atomic journal and durable publication
 ├── start/SKILL.md                # direct public actions
 ├── execute/SKILL.md
 ├── verify/SKILL.md
@@ -51,8 +54,19 @@ The control-plane implementation is split by responsibility:
 - `scripts/lib/authority-decision.mjs` verifies pinned Ed25519 host decisions
   and interception probes.
 - `scripts/phantom-doctor.mjs` stable-reads the canonical active runtime and
-  emits the sanitized version-2 native, signed-host, and isolated readiness
-  report. It bundles verifiers, not execution backends.
+  emits the sanitized schema-version-3 native, signed-host, isolated, and
+  migration readiness report. It bundles verifiers, not execution backends,
+  and never changes state.
+- `scripts/migrate-session-state.mjs` inventories the selected Phantom root
+  without changing Phantom state, then applies, verifies, or rolls back a reviewed,
+  digest-bound v1-to-v2 manifest. Canonical paths, physical hierarchy, runtime
+  path resolution, source content, and the committed pointer are revalidated.
+- `scripts/lib/legacy-session-classifier.mjs` keeps Doctor and migration
+  classifications identical without adding a runtime v1 fallback.
+- `scripts/lib/session-migration/atomic-journal.mjs` validates bounded,
+  digest-chained recovery evidence and exact lock generations.
+- `scripts/lib/session-migration/durable-publication.mjs` provides crash-safe,
+  no-replace publication and replacement under a validated migration lease.
 - `scripts/phantom-state.mjs` owns session identity, approvals, evidence, and
   lifecycle gates without advancing workflow nodes.
 - `hooks/capability-gate.mjs` normalizes provider-native workspace writes,
@@ -90,6 +104,7 @@ ${PHANTOM_DATA:-~/.phantom}/
 │   ├── completed/{task-path-segment}/
 │   └── learnings/
 ├── global/patterns/
+├── migrations/session-state/{migration-digest}/ # manifest, backups, history, journal, rollback
 ├── audit/
 └── locks/
 ```
@@ -98,3 +113,8 @@ The journal is authoritative for workflow transitions. Session JSON is
 authoritative for lifecycle approval and authorization. Generated review HTML
 and materialized workflow state are disposable projections, never sources of
 truth.
+
+The global session-state migration lock is an absolute runtime read/write
+barrier regardless of node type or owner liveness. Runtime recovery applies
+only to an exact ordinary per-repository lifecycle lock with a dead owner;
+migration recovery belongs exclusively to the manifest-bound migrator.
