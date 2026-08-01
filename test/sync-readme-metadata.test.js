@@ -119,11 +119,17 @@ test('readProjectMetadata rejects malformed contract registry entries', () => {
 
 test('renderRoadmapStatus derives release status from the same authorities', () => {
   const fixture = projectFixture();
-  const block = renderRoadmapStatus(readProjectMetadata(fixture.root, fixture.tap));
+  const metadata = readProjectMetadata(fixture.root, fixture.tap);
+  const block = renderRoadmapStatus(metadata);
   assert.match(block, /Package `1\.2\.3`/);
   assert.match(block, /bundle `4\.5\.6`/);
   assert.match(block, /2 versioned contracts/);
-  assert.match(block, /3 completed test cases \(2 passed, 1 skipped, 0 todo\)/);
+  assert.match(block, /3 completed test cases/);
+  assert.doesNotMatch(block, /passed|skipped|todo/);
+  assert.equal(renderRoadmapStatus({
+    ...metadata,
+    tests: { ...metadata.tests, pass: 1, skipped: 2 },
+  }), block);
   assert.match(block, /3 declared isolated evaluation cases/);
 });
 

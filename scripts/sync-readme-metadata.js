@@ -107,7 +107,7 @@ function readProjectMetadata(root, tapPath) {
 function renderRoadmapStatus(metadata) {
   return [
     ROADMAP_START,
-    `Package \`${metadata.version}\` publishes portable bundle \`${metadata.bundleVersion}\` with ${metadata.contractCount} versioned contracts, ${metadata.tests.tests} completed test cases (${metadata.tests.pass} passed, ${metadata.tests.skipped} skipped, ${metadata.tests.todo} todo), and ${metadata.evals.total} declared isolated evaluation cases.`,
+    `Package \`${metadata.version}\` publishes portable bundle \`${metadata.bundleVersion}\` with ${metadata.contractCount} versioned contracts, ${metadata.tests.tests} completed test cases, and ${metadata.evals.total} declared isolated evaluation cases.`,
     ROADMAP_END,
   ].join('\n');
 }
