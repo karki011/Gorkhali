@@ -49,7 +49,10 @@ function parseTapSummary(text) {
     throw new Error('TAP input has an invalid final summary');
   }
   if (tests === 0) throw new Error('refusing metadata from a TAP run with zero tests');
-  if (planTests !== tests) throw new Error(`TAP plan ${planTests} does not match summary test count ${tests}`);
+  const hasNestedSubtests = /(?:^|\n)\s*# Subtest:/.test(input.slice(0, match.index));
+  if (planTests !== tests && !hasNestedSubtests) {
+    throw new Error(`TAP plan ${planTests} does not match summary test count ${tests}`);
+  }
   const summary = {
     tests,
     pass,

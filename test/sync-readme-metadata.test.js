@@ -33,6 +33,24 @@ const PASSING_TAP = `TAP version 13
 # duration_ms 12.5
 `;
 
+const NESTED_TAP = `TAP version 13
+# Subtest: grouped checks
+    ok 1 - first nested check
+    ok 2 - second nested check
+    1..2
+ok 1 - grouped checks
+ok 2 - top-level check
+1..2
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 15.5
+`;
+
 function projectFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'readme-metadata-'));
   fs.mkdirSync(path.join(root, '.claude-plugin'));
@@ -63,12 +81,13 @@ function projectFixture() {
 
 test('parseTapSummary derives counts only from a successful final TAP summary', () => {
   assert.deepEqual(parseTapSummary(PASSING_TAP), { tests: 3, pass: 2, fail: 0, cancelled: 0, skipped: 1, todo: 0 });
+  assert.deepEqual(parseTapSummary(NESTED_TAP), { tests: 4, pass: 4, fail: 0, cancelled: 0, skipped: 0, todo: 0 });
   assert.throws(() => parseTapSummary(PASSING_TAP.replace('# fail 0', '# fail 1')), /unsuccessful test run/);
   assert.throws(() => parseTapSummary('ok 1 - no summary'), /complete final plan and summary/);
   assert.throws(() => parseTapSummary(PASSING_TAP.replace('# pass 2', '# pass 1')), /internally inconsistent/);
 });
 
-test('parseTapSummary rejects zero, incomplete, mismatched, and trailing TAP results', () => {
+test('parseTapSummary rejects zero, incomplete, mismatched flat, and trailing TAP results', () => {
   assert.throws(() => parseTapSummary(PASSING_TAP
     .replace('1..3', '1..0')
     .replace('# tests 3', '# tests 0')
