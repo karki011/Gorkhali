@@ -1038,7 +1038,7 @@ test('runClaude timeout kills the detached process group, including descendants'
       "process.stdout.write(String(child.pid) + '\\n');",
       'setInterval(() => {}, 1000);',
     ].join('\n');
-    const result = await runClaude(['-e', script], 150, null, {
+    const result = await runClaude(['-e', script], 1_000, null, {
       cwd: os.tmpdir(), env: { PATH: process.env.PATH || '' },
     });
     descendantPid = Number.parseInt(result.out.trim(), 10);
