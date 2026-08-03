@@ -103,8 +103,14 @@ function stateEvidence(envelope, artifactType) {
  * fail-closed.
  */
 function sessionPassed(verification) {
-  if (!verification || verification.verdict !== 'pass') return false;
-  const observed = verification.correctness && verification.correctness.observations;
+  // A v2 verification artifact carries its body under `evidence`, exactly like the
+  // context artifact this function is paired with. Reading only the top level meant
+  // every state-envelope-v2 session failed this check, so no citation was ever
+  // credited even once the citations existed -- the flat shape below is the pre-v2
+  // layout and is still accepted so historical sessions keep counting.
+  const body = stateEvidence(verification, 'verification') || verification;
+  if (!body || body.verdict !== 'pass') return false;
+  const observed = body.correctness && body.correctness.observations;
   return !!observed && observed.tests === 'checked:pass';
 }
 
@@ -118,17 +124,19 @@ function sessionPassed(verification) {
  * nothing has ever reached the promote threshold of 5: the old increment fired only when
  * an LLM decided a pattern "was successfully used", which was unverifiable and unlogged.
  *
- * MISSING WRITER - the one input that does not exist yet. No artifact records WHICH
- * learning entries a session recalled. context.json's `learningsRefs` is documented as
- * "Paths to relevant learning files": file granularity, so it cannot attribute a
- * validation to an entry. (One context.json on disk carries an undocumented freeform
- * `learnings_applied` array of prose sentences - also not entry-identified.) The minimal
- * field needed is `learningsCited: string[]` on context.json, holding the `[keyword]` of
- * each injected entry; all 54 real entries carry a keyword, so it is a sufficient
- * identity. Its only possible writer is hooks/memory-reader.js, the component that
- * selects the entries. Until that field is written this returns an empty map and every
- * computed count is 0 - the reader is deliberately built first so the field has a
- * consumer the day it lands, rather than being a clause with no reader.
+ * CITATION WRITER - `learningsCited: string[]` on context.json now exists, so this no
+ * longer returns an empty map. hooks/memory-reader.js is the writer, because it is the
+ * only component that knows which entries it injected; it runs on UserPromptSubmit,
+ * before a session directory exists, so it records its selection under the host
+ * session_id at state/recall/<repo>/<session-id>.json. phantom-state.mjs performs the
+ * join when it records the context artifact, reading state/session-telemetry/<repo>.json
+ * for the current session_id. `learningsRefs` was never usable for this: it is
+ * documented as "Paths to relevant learning files", so its granularity is the file, not
+ * the entry.
+ *
+ * Both halves of the qualification are read through the state envelope. Reading
+ * verification only at the top level silently disqualified every envelope-v2 session,
+ * which meant citations could exist and still never be credited.
  */
 function computeCitedValidations() {
   const counts = new Map();

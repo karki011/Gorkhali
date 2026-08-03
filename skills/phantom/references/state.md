@@ -114,7 +114,7 @@ Every persisted JSON artifact governed by `state_envelope` must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "3.0.1",
+  "bundle_version": "3.0.2",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"

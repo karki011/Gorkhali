@@ -27,15 +27,28 @@ test('portable skills are the only published workflow authority', async () => {
   assert.deepEqual(validator.validateActionEntrypoints(path.join(ROOT, 'skills')), []);
 });
 
-test('deleted enforcement hooks cannot be registered', () => {
+// The deterministic-workflow-harness rewrite retired every discipline hook on the
+// bet that the workflow contract and capability gate would subsume them. That bet
+// did not survive contact: the capability gate denied every tool it saw, and its
+// approval gate required a signature no shipped code could produce, so the
+// enforcement those hooks provided was not replaced -- it was removed. Four are
+// deliberately back, each verified inert until its own precondition holds:
+//   apex-subagent-driven-law  keeps implementation in subagents so Apex holds the
+//                             expensive tier for decomposition and Blades run cheaper
+//   blade-model-gate          refuses a Blade spawn with no explicit model
+//   routing-gate              routes implementation through a session, fail-open,
+//                             with PHANTOM_ADHOC=1 as the logged escape hatch
+//   fix-loop-gate             fix-loop ceiling (needs loop-controller)
+//   greploop-gate             holds a session open while a live PR has an unrun
+//                             Greptile loop, which is the review step this project
+//                             actually depends on
+// These two stay retired, and this guard still protects that:
+//   router-nudge     a nudge, superseded by routing-gate actually gating
+//   wake-classifier  depends on wake-queue.js, which was also deleted
+test('retired enforcement hooks cannot be registered', () => {
   const hooks = fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8');
   for (const retired of [
-    'apex-subagent-driven-law',
-    'blade-model-gate',
-    'fix-loop-gate',
-    'greploop-gate',
     'router-nudge',
-    'routing-gate',
     'wake-classifier',
   ]) {
     assert.doesNotMatch(hooks, new RegExp(retired));

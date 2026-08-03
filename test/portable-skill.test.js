@@ -207,7 +207,7 @@ test('installed-cache portable lifecycle keeps Codex state out of .claude', () =
 test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.equal(manifest.name, 'phantom');
-  assert.equal(manifest.bundle_version, '3.0.1');
+  assert.equal(manifest.bundle_version, '3.0.2');
   assert.deepEqual(
     Object.fromEntries(Object.entries(manifest.contracts).map(([name, entry]) => [name, entry.version])),
     {
@@ -453,7 +453,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '3.0.1');
+    assert.equal(result.bundle_version, '3.0.2');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -635,7 +635,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '3.0.1');
+  assert.equal(resolver.bundle_version, '3.0.2');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [

@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Deterministic, replayable software-delivery workflows with explicit capability authorization.",
-    "version": "0.3.2"
+    "version": "0.3.3"
   },
   "plugins": [
     {

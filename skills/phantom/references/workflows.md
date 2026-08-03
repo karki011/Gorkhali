@@ -24,8 +24,8 @@ Lifecycle authority is explicit and cumulative:
 | `full` | Approved direction, approved plan, approved wiring, and implementation authorization. |
 
 `--mode to-plan` is a permanent denial of `execute` and `ship` for that session.
-Starting work never grants draft-PR shipping authority. The
-`ship-draft-pr` authorization is separate from implementation authorization.
+Starting work never grants shipping authority. The `ship-draft-pr`
+authorization is separate from implementation authorization.
 For the same active task, route and material intent do not change after the
 initial start. A missing route fails closed; changed direction must be recorded
 as a revision or restarted under a new task id.
@@ -151,6 +151,25 @@ for every run and retry.
    assignments through the runtime's native capability when delegation adds
    value; otherwise execute the contract in the current context. Parallelize
    only tasks in a proven-independent wave.
+
+   Before spawning a wave, show the user the decomposition as a table, one row
+   per assignment: task, role, files in scope, model profile, risk, and wave.
+   The table is the reference the user reviews the split against, so it states
+   what was decided rather than what is intended:
+
+   | # | Task | Role | Scope | Profile | Risk | Wave |
+   |---|------|------|-------|---------|------|------|
+   | 1 | Add the recall ledger writer | blade | `hooks/memory-reader.js` | balanced | low | 1 |
+   | 2 | Join the ledger to context evidence | blade | `scripts/phantom-state.mjs` | balanced | moderate | 1 |
+   | 3 | Unwrap the v2 verification envelope | blade | `scripts/evolution-runner.js` | deep | high | 2 |
+
+   Scope is the file set the assignment may write, not a summary. A row whose
+   scope is a whole directory is not decomposed yet: keep splitting until each
+   row names files, because a bounded scope is what lets a cheaper profile take
+   the work. Raise `risk` when correctness depends on invariants spanning rows -
+   that is what elevates a profile - and never substitute a bare model alias for
+   an honest risk. If most rows land on an elevated profile, the decomposition
+   is doing no work and the split needs revisiting rather than the tier.
 4. Give each delegated assignment a single objective, the minimum-sufficient-
    solution constraint, and an output contract. Require the worker to select
    the first sufficient rung rather than assuming the parent's reasoning was
@@ -192,8 +211,23 @@ stale. A bounded repair iteration repeats only the affected checks and stops on
 acceptance, budget or iteration limit, repeated failure class, missing
 evidence, or human-decision requirement.
 
-`ship` additionally requires separate draft-PR authorization plus replayed
-graph readiness at the current fingerprint. `complete` requires replay to reach
-`accepted`, current route approvals, and the exact current approved-plan
-binding; it does not implicitly ship. Capture reusable learnings, then complete
-or pause the session.
+`ship` additionally requires separate shipping authorization plus replayed
+graph readiness at the current fingerprint.
+
+Open the pull request ready for review, not as a draft. A draft asks the
+reviewer to guess whether it is waiting on the author, and the automated review
+this project relies on runs against review-ready pull requests. The
+authorization scope is still identified as `ship-draft-pr` for compatibility
+with persisted state; the identifier lags the behavior and is not a second
+policy.
+
+Once the pull request exists, run the review loop before the session ends: read
+the automated review thread-aware, classify every comment including top-level
+bot comments, verify each fix against current `HEAD`, and state any unresolved
+or intentionally skipped review. A pull request whose review has not been read
+is not finished work, and an unrun loop holds the session open rather than
+letting it close quietly.
+
+`complete` requires replay to reach `accepted`, current route approvals, and the
+exact current approved-plan binding; it does not implicitly ship. Capture
+reusable learnings, then complete or pause the session.

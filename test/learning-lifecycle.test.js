@@ -70,6 +70,10 @@ function writeSession(root, name, {
   verdict = 'pass',
   testsObservation = 'checked:pass',
   schemaVersion = 2,
+  // Verification is written flat by default because that is the pre-v2 layout still
+  // present in historical sessions. `envelopeVerification` produces what
+  // phantom-state.mjs record actually writes today: the body under `evidence`.
+  envelopeVerification = false,
 }) {
   const dir = path.join(root, 'repos', REPO, 'sessions', name);
   fs.mkdirSync(dir, { recursive: true });
@@ -78,11 +82,19 @@ function writeSession(root, name, {
     artifact_type: 'context',
     evidence: { ticket: name, summary: 'fixture', source: 'args', learningsCited: cited },
   }));
-  fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({
+  const verificationBody = {
     correctness: { lint: true, build: true, tests: true, commands: ['npm test'], observations: { lint: 'checked:pass', build: 'checked:pass', tests: testsObservation } },
     review: { temperature: 0.7, findings: [], fixLoops: 0 },
     simplifyRan: true, intentAlignment: 'aligned', verdict,
-  }));
+  };
+  fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify(envelopeVerification
+    ? {
+      schema_version: 2,
+      artifact_type: 'verification',
+      status: verdict === 'pass' ? 'passed' : 'failed',
+      evidence: verificationBody,
+    }
+    : verificationBody));
 }
 
 const longText = (n) => 'y'.repeat(n);
@@ -340,7 +352,25 @@ test('the portable evolution reference and evolution-runner.js agree on the [fai
     code.includes("includes('--prune')"),
     'evolution-runner.js must actually read --prune',
   );
-  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the missing citation field precisely');
+  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the citation field precisely');
+  // The chain is only trustworthy while the prose describes what the code does. It
+  // previously said the citation field did not exist yet, which stayed published long
+  // after the field was the one thing standing between capture and promotion.
+  assert.doesNotMatch(
+    prose,
+    /until that field\s+exists|report the evidence gap/,
+    'the prose must not still describe the citation field as absent',
+  );
+  assert.match(
+    prose,
+    /checked:pass/,
+    'the prose must name the exact observation that qualifies a session',
+  );
+  assert.match(
+    prose,
+    /once\s+per\s+day\s+per\s+repository/,
+    'the prose must state the automatic cadence, since an unscheduled runner promotes nothing',
+  );
 });
 
 // ── Concurrency: lifecycle writes must serialize against the capture-path lock ──
@@ -468,6 +498,59 @@ test('the same removable entry in a REAL run reports the actual removed count', 
   assert.match(out, /Removed: 1/, 'a real run must report the entry as actually removed');
   assert.doesNotMatch(out, /Would remove:/, 'a real run must not print the dry-run-only prospective label');
   assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'), 'the entry must actually be gone from disk');
+});
+
+// ── The shape phantom-state actually writes must count ─────────────────────────
+//
+// sessionPassed read `verdict` and `correctness.observations` off the top level while
+// its paired context read went through stateEvidence. Every state-envelope-v2 session
+// therefore failed the evidence check, so no citation was ever credited even once the
+// citations existed - promotion could not happen for any session Phantom writes today.
+// The fixtures hid it by writing verification flat while writing context enveloped.
+// Validation counts drive promotion, so a citation must be measured rather than
+// asserted. Merging a caller-supplied learningsCited into the recorded evidence would
+// let anything claim credit and promote a learning into a global pattern without ever
+// having been injected, destroying the one property this evidence carries.
+test('context citations come from the recall ledger, never from the caller', () => {
+  const source = fs.readFileSync(
+    path.join(REPO_ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs'),
+    'utf8',
+  );
+  assert.doesNotMatch(
+    source,
+    /payload\.learningsCited/,
+    'a caller-supplied citation must not reach the recorded evidence',
+  );
+  assert.match(
+    source,
+    /const cited = recalledLearnings\(current\.paths\)/,
+    'citations must be derived from the ledger written by the injecting component',
+  );
+});
+
+test('a state-envelope-v2 verification artifact counts as citation evidence', () => {
+  const { root } = makeWorkspace({
+    'workflow.md': 'PATTERN [p-enveloped]: entry cited by a v2 session (2026-07-20)\n',
+  });
+  writeSession(root, 's-v2-envelope', { cited: ['p-enveloped'], envelopeVerification: true });
+
+  const out = runRunner(root, [], { PHANTOM_PROMOTE_THRESHOLD: '1' });
+  assert.match(out, /1 verified session citations/, 'the enveloped verification must be observed as a pass');
+  assert.match(out, /Promoted: .*p-enveloped/, 'a cited entry in a verified v2 session must promote');
+});
+
+test('a v2 verification reporting an observed failure is still rejected', () => {
+  const { root } = makeWorkspace({
+    'workflow.md': 'PATTERN [p-enveloped-fail]: entry cited by a failing v2 session (2026-07-20)\n',
+  });
+  writeSession(root, 's-v2-fail', {
+    cited: ['p-enveloped-fail'],
+    testsObservation: 'checked:fail',
+    envelopeVerification: true,
+  });
+
+  const out = runRunner(root, [], { PHANTOM_PROMOTE_THRESHOLD: '1' });
+  assert.match(out, /0 verified session citations/, 'unwrapping the envelope must not weaken the whitelist');
 });
 
 // ── Fail-closed evidence: only an OBSERVED checked:pass counts ──────────────────

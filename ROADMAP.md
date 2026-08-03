@@ -3,7 +3,7 @@
 Author: Subash Karki
 
 <!-- generated:roadmap-status:start -->
-Package `0.3.2` publishes portable bundle `3.0.1` with 20 versioned contracts, 942 completed test cases, and 51 declared isolated evaluation cases.
+Package `0.3.3` publishes portable bundle `3.0.2` with 20 versioned contracts, 953 completed test cases, and 51 declared isolated evaluation cases.
 <!-- generated:roadmap-status:end -->
 
 Phantom is evolving into a deterministic, replayable AI engineering harness.

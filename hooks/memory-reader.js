@@ -7,7 +7,51 @@ try {
   const fs = require('fs');
   const path = require('path');
 
-  const { learningsDir } = require('../scripts/lib/phantom-paths');
+  const { learningsDir, stateDir, detectRepo } = require('../scripts/lib/phantom-paths');
+
+  // RECALL LEDGER — the missing input for derived [validated:N].
+  //
+  // scripts/evolution-runner.js derives a validation count as the number of distinct
+  // sessions that BOTH cited an entry and recorded a verification pass, and it reads
+  // those citations from context.json's `learningsCited`. Nothing wrote that field, so
+  // every computed count was 0, nothing ever reached the promote threshold, and the
+  // brain recalled without ever evolving.
+  //
+  // This hook is the only component that knows which entries were injected, but it runs
+  // on UserPromptSubmit, before a session directory exists, and must never write session
+  // state directly. So it records its selection under the host session_id that
+  // session-marker.js already stamps per repo; the join back to a session artifact
+  // happens where context.json is written. Keyword is the identity because every entry
+  // carries one.
+  //
+  // Best-effort by construction: a failure here must never cost the user their prompt,
+  // so it degrades to no citation rather than to an error.
+  function recordRecall(picked, hookInput) {
+    try {
+      const keywords = [...new Set(picked
+        .map((entry) => String(entry.keyword || '').trim().toLowerCase())
+        .filter(Boolean))];
+      if (keywords.length === 0) return;
+      const sessionId = String((hookInput && hookInput.session_id) || '').trim();
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(sessionId)) return;
+      const dir = path.join(stateDir(), 'recall', detectRepo());
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, `${sessionId.replace(/[^A-Za-z0-9._-]/g, '-')}.json`);
+      let existing = [];
+      try {
+        const prior = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (Array.isArray(prior.learningsCited)) existing = prior.learningsCited;
+      } catch (_) { /* absent or corrupt -> start clean */ }
+      const merged = [...new Set([...existing, ...keywords])].sort();
+      if (merged.length === existing.length && merged.every((k, i) => k === existing[i])) return;
+      fs.writeFileSync(file, `${JSON.stringify({
+        schema_version: 1,
+        session_id: sessionId,
+        learningsCited: merged,
+        updated_at: new Date().toISOString(),
+      }, null, 2)}\n`);
+    } catch (_) { /* never break the prompt */ }
+  }
 
   // The ONE parser. This hook used to carry its own entry regexes, which required a
   // markdown TABLE in INDEX.md (it is a bullet list) and skipped any entry outside a
@@ -133,6 +177,9 @@ try {
           text: entry.text,
           cls,
           date: entry.date || '',
+          // Carried for the recall ledger: the keyword is the only stable identity an
+          // injected entry has, and the evolution runner counts citations by it.
+          keyword: entry.keyword || '',
           rank: (CLASS_RANK[cls] ?? CLASS_RANK.auto) * 2 + ageBand(entry.date),
         };
       });
@@ -235,10 +282,15 @@ try {
   // 1100 chars, so this is reachable, not theoretical.
   if (outputLines.length === 0 && allEntries.length > 0 && budget > 4) {
     outputLines.push('- ' + allEntries[0].text.slice(0, budget - 4) + '...');
+    // The entry was shown, so it is a citation. Leaving `picked` empty here meant a
+    // learning the session actually saw could never earn validation credit, and the
+    // truncation path is reachable: real entries run past 1100 chars.
+    picked.push(allEntries[0]);
   }
 
   if (outputLines.length === 0) process.exit(0);
 
+  recordRecall(picked, input);
   process.stdout.write(header + outputLines.join('\n') + footer);
 } catch (_) {
   // Silent exit — never break user flow

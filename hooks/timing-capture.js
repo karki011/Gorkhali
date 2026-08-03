@@ -17,9 +17,9 @@
 const fs = require('fs');
 const path = require('path');
 
-let timingDir, detectRepo;
+let timingDir, detectRepo, phantomData;
 try {
-  ({ timingDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+  ({ timingDir, detectRepo, phantomData } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   // fail open: resolver unavailable — degrade gracefully, never crash a spawn
   const os = require('os');
@@ -28,6 +28,7 @@ try {
     (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   timingDir = () => path.join(data, 'timing');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
+  phantomData = () => data;
 }
 
 // Native Claude Code passes the hook payload as JSON on stdin; the internal router
@@ -45,6 +46,48 @@ function readPayload() {
     } catch (_) { /* try next source */ }
   }
   return {};
+}
+
+// Blade mutex read by hooks/apex-subagent-driven-law.sh. One file per live
+// subagent, keyed by tool_use_id so a stop clears exactly its own spawn: with
+// parallel Blades a single shared flag is cleared by whichever subagent finishes
+// first, reopening the gate while its siblings still hold edits in flight.
+//
+// Deriving it here rather than asking Apex to touch and remove a marker by hand
+// is the point: an instruction Apex can forget is not a mutex, and forgetting the
+// removal fails open silently -- the law looks enforced while enforcing nothing.
+// Scoped per repository, matching the session sentinel the law reads. A global
+// directory means a Blade spawned for repository A reports "a Blade is editing" for
+// repository B, letting Apex edit B directly and defeating the per-repo isolation.
+function bladeMarkerDir() {
+  return path.join(phantomData(), '.blade-editing.d', detectRepo());
+}
+
+function syncBladeMarker(mode, id) {
+  const dir = bladeMarkerDir();
+  const safeId = typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : null;
+  if (mode === 'spawn') {
+    fs.mkdirSync(dir, { recursive: true });
+    const name = safeId || `unpaired-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(path.join(dir, name), '', { flag: 'w' });
+    return;
+  }
+  if (!fs.existsSync(dir)) return;
+  if (safeId && fs.existsSync(path.join(dir, safeId))) {
+    fs.unlinkSync(path.join(dir, safeId));
+    return;
+  }
+  // A stop without a pairable id must still decrement, or the directory leaks and
+  // the law stops enforcing. Drop the oldest marker: the count stays honest even
+  // when the host does not correlate stop events with their spawn.
+  const oldest = fs.readdirSync(dir)
+    .map((name) => {
+      try { return { name, mtime: fs.statSync(path.join(dir, name)).mtimeMs }; }
+      catch (_) { return null; }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.mtime - b.mtime)[0];
+  if (oldest) fs.unlinkSync(path.join(dir, oldest.name));
 }
 
 try {
@@ -84,6 +127,7 @@ try {
   const dir = timingDir();
   fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(path.join(dir, `${detectRepo()}.jsonl`), JSON.stringify(rec) + '\n');
+  syncBladeMarker(mode, id);
 } catch (_) {
   // never break the workflow — silent on errors
 }

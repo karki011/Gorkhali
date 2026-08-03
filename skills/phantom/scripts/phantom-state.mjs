@@ -1290,6 +1290,42 @@ function restoreJson(file, value) {
   durableWriteJson(file, value);
 }
 
+// Join the recall ledger to the session artifact that evidence-derived validation
+// reads. hooks/memory-reader.js is the only component that knows which learning
+// entries were injected, but it runs on UserPromptSubmit before a session directory
+// exists, so it records its selection under the host session_id that
+// hooks/session-marker.js stamps per repo. This is the join: session-telemetry gives
+// the current host session_id, the ledger gives that session's cited keywords, and
+// scripts/evolution-runner.js counts distinct sessions per keyword from
+// context.json's evidence -- so a learning is only credited where a real session
+// both recalled it and recorded a verification pass.
+//
+// Best-effort: a missing or unreadable ledger records no citations rather than
+// failing the artifact. Losing a citation costs one validation count; failing here
+// would cost the user their recorded context.
+function recalledLearnings(paths) {
+  try {
+    const root = dataRoot(paths.repo.root);
+    const telemetry = readJson(join(root, 'state', 'session-telemetry', `${paths.repo.id}.json`));
+    const sessionId = String(telemetry?.session_id || '').trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(sessionId)) return [];
+    const ledger = readJson(join(
+      root,
+      'state',
+      'recall',
+      paths.repo.id,
+      `${sessionId.replace(/[^A-Za-z0-9._-]/g, '-')}.json`,
+    ));
+    const cited = ledger?.learningsCited;
+    if (!Array.isArray(cited)) return [];
+    return [...new Set(cited
+      .map((value) => String(value == null ? '' : value).trim().toLowerCase())
+      .filter((value) => /^[a-z0-9][a-z0-9._-]{0,80}$/.test(value)))].sort();
+  } catch {
+    return [];
+  }
+}
+
 function record(workspace, args) {
   if (!args.type || !args.status) throw new Error('record requires --type and --status.');
   if (!Object.hasOwn(ARTIFACTS, args.type)) throw new Error(`Unsupported artifact type: ${args.type}`);
@@ -1383,12 +1419,27 @@ function record(workspace, args) {
     lifecycle.approvals.wiring = emptyDecision();
   }
   if (args.type === 'decisions') lifecycle.approvals.wiring = emptyDecision();
+  // Context is the artifact evidence-derived validation reads, so the citations are
+  // attached here rather than asked of the caller: a field the model must remember to
+  // supply is a field that silently goes missing.
+  let evidence = payload;
+  if (args.type === 'context') {
+    // Citations are derived from the recall ledger ONLY. A caller-supplied value is
+    // discarded rather than merged: validation counts drive promotion, so accepting a
+    // claimed citation would let anything inflate a learning into a global pattern and
+    // would destroy the one property this evidence has -- that it was measured, not
+    // asserted. The ledger is written by the component that actually did the injecting.
+    const cited = recalledLearnings(current.paths);
+    evidence = cited.length
+      ? { ...payload, learningsCited: cited }
+      : Object.fromEntries(Object.entries(payload).filter(([key]) => key !== 'learningsCited'));
+  }
   const artifact = envelope(args.type, current.paths, args.status, {
     bundle_version: BUNDLE_VERSION,
     record_sequence: recordSequence,
     producer: { role, compute_profile: profile },
     model_routing: routing,
-    evidence: payload,
+    evidence,
   });
   const file = ARTIFACTS[args.type].run
     ? join(current.paths.sessionDir, 'runs', runId, `${args.type}.json`)

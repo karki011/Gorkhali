@@ -1,6 +1,6 @@
 {
   "name": "phantom",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Deterministic, replayable software-delivery workflows with explicit capability authorization.",
   "author": {
     "name": "Subash Karki"

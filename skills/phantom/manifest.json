@@ -1,11 +1,13 @@
 {
   "name": "phantom",
-  "bundle_version": "3.0.1",
-  "contract_resource_digest": "sha256:9a9ca8a7541da08f765a88ea74e5eb87ad1a6d6bf6e1d0a46a0f188fea08c68c",
+  "bundle_version": "3.0.2",
+  "contract_resource_digest": "sha256:1b6a784a31ed3d12498d1a63be3dbc4923d91eaca180c3b95fa67dfde05ab592",
   "contracts": {
     "aggregation_result": {
       "version": 2,
-      "resources": ["schemas/aggregation-result.schema.json"]
+      "resources": [
+        "schemas/aggregation-result.schema.json"
+      ]
     },
     "authority_decision": {
       "version": 1,
@@ -16,11 +18,15 @@
     },
     "capability_ledger": {
       "version": 1,
-      "resources": ["references/capabilities.md"]
+      "resources": [
+        "references/capabilities.md"
+      ]
     },
     "capability_probe": {
       "version": 1,
-      "resources": ["schemas/capability-probe.schema.json"]
+      "resources": [
+        "schemas/capability-probe.schema.json"
+      ]
     },
     "capability_request": {
       "version": 1,
@@ -58,7 +64,9 @@
     },
     "defect_proof": {
       "version": 1,
-      "resources": ["scripts/lib/defect-proof.mjs"]
+      "resources": [
+        "scripts/lib/defect-proof.mjs"
+      ]
     },
     "delegation": {
       "version": 2,
@@ -76,7 +84,9 @@
     },
     "impact_report": {
       "version": 1,
-      "resources": ["scripts/inspect-impact.mjs"]
+      "resources": [
+        "scripts/inspect-impact.mjs"
+      ]
     },
     "isolated_executor": {
       "version": 1,
@@ -92,11 +102,15 @@
     },
     "model_policy": {
       "version": 2,
-      "resources": ["references/model-policy.json"]
+      "resources": [
+        "references/model-policy.json"
+      ]
     },
     "model_presets": {
       "version": 1,
-      "resources": ["references/model-presets.json"]
+      "resources": [
+        "references/model-presets.json"
+      ]
     },
     "model_routing": {
       "version": 1,
@@ -136,7 +150,9 @@
     },
     "workflow_output": {
       "version": 1,
-      "resources": ["schemas/workflow-output.schema.json"]
+      "resources": [
+        "schemas/workflow-output.schema.json"
+      ]
     },
     "workspace_manifest": {
       "version": 2,
