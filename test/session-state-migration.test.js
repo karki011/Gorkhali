@@ -843,6 +843,97 @@ test('active sessions require per-session inactivity confirmation and missing wo
   }
 });
 
+test('confirmed inactive active session with a deleted workspace quarantines only its pointer', () => {
+  const unconfirmed = fixture({ status: 'active', workspaceMismatch: true });
+  const confirmed = fixture({ status: 'active', workspaceMismatch: true });
+  try {
+    fs.rmSync(unconfirmed.recordedWorkspace, { recursive: true });
+    const unconfirmedBefore = treeState(unconfirmed.data);
+    const dryRun = inventory(unconfirmed);
+    const dryEntry = dryRun.entries.find((entry) => entry.task_id === unconfirmed.task);
+    assert.equal(dryEntry.action, 'manual');
+    assert.equal(dryEntry.reason, 'explicit_inactive_confirmation_required_for_missing_workspace');
+    assert.equal(dryEntry.workspace_binding, null);
+    assert.deepEqual(treeState(unconfirmed.data), unconfirmedBefore);
+
+    const wrongKey = `${unconfirmed.repo}/OTHER-TASK`;
+    const wrong = inventory(unconfirmed, ['--confirm-inactive', wrongKey]);
+    assert.equal(wrong.entries.find((entry) => entry.task_id === unconfirmed.task).action, 'manual');
+    assert.ok(wrong.issues.includes(`unused_inactive_confirmation:${wrongKey}`));
+    const wrongFile = saveManifest(unconfirmed, wrong);
+    const rejected = run(unconfirmed, ['apply', '--manifest', wrongFile]);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /unresolved issues/);
+    assert.deepEqual(treeState(unconfirmed.data), unconfirmedBefore);
+
+    fs.rmSync(confirmed.recordedWorkspace, { recursive: true });
+    const key = `${confirmed.repo}/${confirmed.task}`;
+    const pointerBefore = fs.readFileSync(confirmed.pointer);
+    const sourceBefore = treeState(confirmed.sessionDir);
+    const manifest = inventory(confirmed, ['--confirm-inactive', key]);
+    const entry = mutationEntry(manifest);
+    assert.equal(entry.action, 'quarantine_pointer');
+    assert.equal(entry.reason, 'active_missing_workspace_explicitly_confirmed_inactive');
+    assert.deepEqual(entry.workspace_binding, manifest.workspace_binding);
+    assert.equal(entry.source_relative, null);
+    assert.equal(entry.source, null);
+    assert.deepEqual(manifest.confirmations.inactive, [key]);
+
+    const migrated = apply(confirmed, manifest);
+    assert.equal(migrated.result.status, 0, migrated.result.stderr);
+    assert.equal(migrated.value.status, 'verified');
+    assert.equal(fs.existsSync(confirmed.pointer), false);
+    assert.deepEqual(treeState(confirmed.sessionDir), sourceBefore);
+    assert.equal(fs.existsSync(confirmed.recordedWorkspace), false);
+
+    const verified = run(confirmed, ['verify', '--manifest', migrated.file]);
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.equal(JSON.parse(verified.stdout).status, 'verified');
+    assert.deepEqual(treeState(confirmed.sessionDir), sourceBefore);
+
+    const rolledBack = run(confirmed, ['rollback', '--manifest', migrated.file]);
+    assert.equal(rolledBack.status, 0, rolledBack.stderr);
+    assert.equal(JSON.parse(rolledBack.stdout).status, 'rolled_back');
+    assert.deepEqual(fs.readFileSync(confirmed.pointer), pointerBefore);
+    assert.deepEqual(treeState(confirmed.sessionDir), sourceBefore);
+    assert.equal(fs.existsSync(confirmed.recordedWorkspace), false);
+  } finally {
+    cleanup(unconfirmed);
+    cleanup(confirmed);
+  }
+});
+
+test('deleted workspace recovery never borrows the selected binding for a foreign repository', () => {
+  const world = fixture();
+  const foreign = addBoundRepository(world, { status: 'active' });
+  try {
+    fs.rmSync(foreign.workspace, { recursive: true });
+    const foreignPointerBefore = fs.readFileSync(foreign.pointer);
+    const foreignSourceBefore = treeState(foreign.sessionDir);
+    const key = `${foreign.repo}/${foreign.task}`;
+
+    const confirmed = inventory(world, ['--confirm-inactive', key]);
+    const foreignConfirmed = confirmed.entries.find((entry) => entry.repo_id === foreign.repo);
+    assert.equal(foreignConfirmed.action, 'manual');
+    assert.equal(foreignConfirmed.reason, 'legacy_session_workspace_not_canonical_or_missing');
+    assert.equal(foreignConfirmed.workspace_binding, null);
+    assert.ok(confirmed.issues.includes(`unused_inactive_confirmation:${key}`));
+
+    const manifest = inventory(world);
+    const foreignEntry = manifest.entries.find((entry) => entry.repo_id === foreign.repo);
+    assert.equal(foreignEntry.action, 'manual');
+    const migrated = apply(world, manifest);
+    assert.equal(migrated.result.status, 0, migrated.result.stderr);
+    assert.deepEqual(fs.readFileSync(foreign.pointer), foreignPointerBefore);
+    assert.deepEqual(treeState(foreign.sessionDir), foreignSourceBefore);
+
+    const verified = run(world, ['verify', '--manifest', migrated.file]);
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.deepEqual(fs.readFileSync(foreign.pointer), foreignPointerBefore);
+    assert.deepEqual(treeState(foreign.sessionDir), foreignSourceBefore);
+  } finally { cleanup(world); }
+});
+
 test('to-plan is preserved as a permanent restriction with every decision pending', () => {
   const world = fixture({ mode: 'to-plan' });
   try {

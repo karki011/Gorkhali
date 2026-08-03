@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
 <!-- generated:project-metadata:start -->
-[![version](https://img.shields.io/badge/version-0.3.1-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-939-brightgreen)](test/)
+[![version](https://img.shields.io/badge/version-0.3.2-blue)](.claude-plugin/plugin.json)
+[![tests](https://img.shields.io/badge/tests-941-brightgreen)](test/)
 [![declared evals](https://img.shields.io/badge/declared_evals-51-brightgreen)](evals/)
 <!-- generated:project-metadata:end -->
 [![distribution](https://img.shields.io/badge/distribution-Agent%20Skills-8A2BE2)](project-docs/install.md)

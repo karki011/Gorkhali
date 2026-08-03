@@ -637,6 +637,16 @@ function safeCanonicalWorkspace(value) {
   }
 }
 
+function workspacePathIsAbsent(value) {
+  if (typeof value !== 'string' || !isAbsolute(value)) return false;
+  try {
+    lstatSync(value);
+    return false;
+  } catch (error) {
+    return error?.code === 'ENOENT';
+  }
+}
+
 function workspaceBinding(workspaceInput) {
   const requestedPath = workspacePath(workspaceInput);
   const discovered = repoIdentity(requestedPath);
@@ -920,7 +930,28 @@ function classifyPointerEntry({
   };
   if (requirement.status !== 'required' || !sessionClassification.metadata) return withSource;
   const metadata = sessionClassification.metadata;
+  const key = migrationKey(repoId, taskSegment);
   if (!safeCanonicalWorkspace(metadata.workspace)) {
+    if (repoId === binding.repo_id
+      && metadata.status === 'active'
+      && ROUTES.has(metadata.route)
+      && WORK_KINDS.has(metadata.work_kind)
+      && ['standard', 'to-plan'].includes(metadata.mode)
+      && workspacePathIsAbsent(metadata.workspace)) {
+      if (!confirmations.inactive.includes(key)) {
+        return { ...withSource, reason: 'explicit_inactive_confirmation_required_for_missing_workspace' };
+      }
+      consumedConfirmations.inactive.add(key);
+      return {
+        ...withSource,
+        source_relative: null,
+        source: null,
+        workspace_binding: binding,
+        action: 'quarantine_pointer',
+        reason: 'active_missing_workspace_explicitly_confirmed_inactive',
+        quarantine_relative: pointerQuarantineRelative(repoId),
+      };
+    }
     return { ...withSource, reason: 'legacy_session_workspace_not_canonical_or_missing' };
   }
   let workspaceBindingForEntry;
@@ -938,7 +969,6 @@ function classifyPointerEntry({
     return { ...withSource, reason: 'legacy_session_runtime_path_binding_mismatch' };
   }
   if (!ROUTES.has(metadata.route)) return { ...withSource, reason: 'legacy_session_route_invalid' };
-  const key = migrationKey(repoId, taskSegment);
   const workKindOverride = confirmations.work_kind[key];
   if (metadata.work_kind && workKindOverride) {
     consumedConfirmations.work_kind.add(key);
