@@ -112,6 +112,22 @@ function hookFixture() {
   };
 }
 
+function installLegacyState(context, { pointer = {}, session = {} } = {}) {
+  const paths = sessionPaths(context.workspace, context.task);
+  const now = new Date().toISOString();
+  writeJson(paths.currentFile, {
+    schema_version: 1, repo_id: paths.repo.id, task_id: paths.task,
+    session_dir: paths.sessionDir, updated_at: now, ...pointer,
+  });
+  writeJson(path.join(paths.sessionDir, 'session.json'), {
+    schema_version: 1, artifact_type: 'session', repo_id: paths.repo.id,
+    task_id: paths.task, workspace: paths.repo.root, status: 'active', route: 'direct',
+    intent_summary: 'Migrate legacy state', work_kind: 'implementation',
+    created_at: now, updated_at: now, ...session,
+  });
+  return paths;
+}
+
 function authorizeImplementation(context) {
   const paths = sessionPaths(context.workspace, context.task);
   const fingerprint = worktreeFingerprint(context.workspace);
@@ -325,6 +341,82 @@ test('effectful hooks allow no session and fail closed for active missing or cor
   }
 });
 
+test('genuine v1 state bootstraps only safe Write and Edit effects', () => {
+  const context = hookFixture();
+  const previousData = process.env.PHANTOM_DATA;
+  process.env.PHANTOM_DATA = context.data;
+  try {
+    installLegacyState(context);
+    const write = { tool_name: 'Write', cwd: context.workspace, tool_input: {
+      file_path: 'legacy.txt', content: 'first\n',
+    } };
+    assert.equal(preToolUse(write).reason, 'legacy_state_write_bootstrap');
+    fs.writeFileSync(path.join(context.workspace, 'legacy.txt'), 'first\n');
+    assert.equal(postToolUse(write).reason, 'legacy_state_write_bootstrap');
+    const edit = { tool_name: 'Edit', cwd: context.workspace, tool_input: {
+      file_path: 'legacy.txt', old_string: 'first', new_string: 'second',
+    } };
+    assert.equal(preToolUse(edit).reason, 'legacy_state_write_bootstrap');
+    fs.writeFileSync(path.join(context.workspace, 'legacy.txt'), 'second\n');
+    assert.equal(postToolUse(edit).reason, 'legacy_state_write_bootstrap');
+
+    const recovery = /requires recovery through phantom:health before this consequential tool can run/;
+    for (const event of [
+      { tool_name: 'ApplyPatch', cwd: context.workspace, tool_input: {
+        patch: '*** Begin Patch\n*** Update File: legacy.txt\n@@\n-first\n+second\n*** End Patch',
+      } },
+      { tool_name: 'MultiEdit', cwd: context.workspace, tool_input: { file_path: 'legacy.txt', edits: [] } },
+      { tool_name: 'NotebookEdit', cwd: context.workspace, tool_input: { notebook_path: 'x.ipynb' } },
+      { tool_name: 'Bash', cwd: context.workspace, tool_input: { command: 'pwd' } },
+      { tool_name: 'VendorEffect', cwd: context.workspace, tool_input: {} },
+      { tool_name: 'Vendor.Write', cwd: context.workspace, tool_input: write.tool_input },
+      { tool_name: 'Vendor.Edit', cwd: context.workspace, tool_input: edit.tool_input },
+      { function: { name: 'Write', arguments: JSON.stringify(write.tool_input) }, cwd: context.workspace },
+    ]) {
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.throws(() => handler(event), (error) => recovery.test(error.message)
+          && !error.message.includes('schema_version'));
+      }
+    }
+    for (const filePath of ['../outside.txt', '.git/config', '.phantom/state']) {
+      assert.throws(() => preToolUse({ ...write, tool_input: { ...write.tool_input, file_path: filePath } }));
+    }
+    fs.symlinkSync('legacy.txt', path.join(context.workspace, 'legacy-link.txt'));
+    assert.throws(() => preToolUse({
+      ...write,
+      tool_input: { ...write.tool_input, file_path: 'legacy-link.txt' },
+    }), /symbolic link/);
+
+    installLegacyState(context, { session: { schema_version: 2 } });
+    assert.throws(() => preToolUse(write), recovery);
+    installLegacyState(context, { pointer: { schema_version: 99 } });
+    assert.throws(() => preToolUse(write), recovery);
+    installLegacyState(context, { session: { route: 'invalid' } });
+    assert.throws(() => preToolUse(write), recovery);
+
+    fs.rmSync(context.data, { recursive: true, force: true });
+    runState([
+      'start', '--workspace', context.workspace, '--task', context.task,
+      '--intent', 'Validate mixed state recovery', '--route', 'direct',
+    ], context.env);
+    const v2Paths = sessionPaths(context.workspace, context.task);
+    const v2Pointer = JSON.parse(fs.readFileSync(v2Paths.currentFile, 'utf8'));
+    installLegacyState(context);
+    writeJson(v2Paths.currentFile, v2Pointer);
+    assert.throws(() => preToolUse(write), (error) => recovery.test(error.message)
+      && !error.message.includes('schema_version'));
+    for (const session of [{ malformed: true }, { schema_version: 99 }]) {
+      writeJson(path.join(v2Paths.sessionDir, 'session.json'), session);
+      assert.throws(() => preToolUse(write), (error) => recovery.test(error.message)
+        && !error.message.includes('schema_version'));
+    }
+  } finally {
+    if (previousData === undefined) delete process.env.PHANTOM_DATA;
+    else process.env.PHANTOM_DATA = previousData;
+    fs.rmSync(context.root, { recursive: true, force: true });
+  }
+});
+
 test('read-only tools and the exact bundled Doctor bypass legacy state validation', () => {
   const context = hookFixture();
   const previousData = process.env.PHANTOM_DATA;
@@ -405,11 +497,45 @@ test('read-only tools and the exact bundled Doctor bypass legacy state validatio
       ...rejectedRedirections,
       {
         ...doctorEvent,
+        tool_input: { ...doctorEvent.tool_input, cmd: doctorEvent.tool_input.command },
+      },
+      {
+        ...doctorEvent,
+        tool_input: {
+          ...doctorEvent.tool_input,
+          argv: [process.execPath, DOCTOR, '--workspace', context.workspace],
+        },
+      },
+      {
+        ...doctorEvent,
+        tool_input: { ...doctorEvent.tool_input, cwd: context.workspace },
+      },
+      {
+        ...doctorEvent,
         tool_input: {
           ...doctorEvent.tool_input,
           command: `${doctorEvent.tool_input.command} --task ${JSON.stringify(context.task)}`,
         },
       },
+      (() => {
+        const alias = path.join(context.root, 'doctor-alias.mjs');
+        fs.symlinkSync(DOCTOR, alias);
+        return {
+          ...doctorEvent,
+          tool_input: {
+            ...doctorEvent.tool_input,
+            command: command([process.execPath, alias, '--workspace', context.workspace]),
+          },
+        };
+      })(),
+      (() => {
+        const subdirectory = path.join(context.workspace, 'nested');
+        fs.mkdirSync(subdirectory);
+        return {
+          tool_name: 'Bash', cwd: subdirectory,
+          tool_input: { command: doctorEvent.tool_input.command },
+        };
+      })(),
       {
         ...doctorEvent,
         tool_input: {
@@ -468,7 +594,10 @@ test('read-only tools and the exact bundled Doctor bypass legacy state validatio
     ];
     for (const event of nearMisses) {
       for (const handler of [preToolUse, postToolUse]) {
-        assert.throws(() => handler(event), /current-session pointer schema_version must be 2/);
+        assert.throws(
+          () => handler(event),
+          /requires recovery through phantom:health before this consequential tool can run/,
+        );
       }
     }
   } finally {
@@ -486,10 +615,7 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
   fs.mkdirSync(unrelated);
   execFileSync('git', ['init', '-q', '-b', 'feat/unrelated'], { cwd: unrelated });
   try {
-    runState([
-      'start', '--workspace', context.workspace, '--task', context.task,
-      '--intent', 'Govern only candidate repositories', '--route', 'direct',
-    ], context.env);
+    installLegacyState(context);
     for (const command of ['pwd', 'echo probe', `${process.execPath} --version`]) {
       const event = {
         tool_name: 'Bash',
@@ -500,6 +626,19 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
       for (const handler of [preToolUse, postToolUse]) {
         assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
       }
+    }
+    const targeted = {
+      tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+      tool_input: {
+        command: `${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(context.workspace, 'app.js'))}`,
+        workdir: unrelated,
+      },
+    };
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.throws(() => handler(targeted), (error) => (
+        /requires recovery through phantom:health before this consequential tool can run/.test(error.message)
+        && !error.message.includes('schema_version')
+      ));
     }
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;

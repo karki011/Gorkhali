@@ -46,8 +46,15 @@ import {
   currentSessionFile,
   readJson,
   repoIdentity,
+  sessionPaths,
   workspacePath,
 } from '../skills/phantom/scripts/lib/portable.mjs';
+import {
+  classifyLegacyPointer,
+  classifyLegacySession,
+  legacyMigrationRequirement,
+} from '../skills/phantom/scripts/lib/legacy-session-classifier.mjs';
+import { intentErrors, pointerErrors, sessionErrors } from '../skills/phantom/scripts/lib/session-contracts.mjs';
 import {
   readWorkflowJournal,
   workflowPaths,
@@ -195,6 +202,7 @@ export function normalizeToolEvent(eventInput) {
     workspace: trustedWorkspace ?? invocationPolicyWorkspace,
     trusted_workspace: trustedWorkspace,
     invocation_workspace: invocationWorkspace,
+    invocation_cwd: realpathSync(invocationCandidate),
     invocation_policy_workspace: invocationPolicyWorkspace,
     execution_workspace: executionWorkspace,
     correlation_id: String(
@@ -758,21 +766,91 @@ function capabilityControlInvocation(args, active) {
 
 function bootstrapDiagnosticCommand(event) {
   if (!EXEC_TOOLS.has(event.key)) return false;
-  const command = scalar(event.input, ['command', 'cmd']);
+  const commandCarriers = ['command', 'cmd', 'argv'].filter((key) => event.input[key] !== undefined);
+  const cwdCarriers = ['workdir', 'cwd'].filter((key) => event.input[key] !== undefined);
+  if (commandCarriers.length !== 1 || cwdCarriers.length > 1) return false;
+  const carrier = event.input[commandCarriers[0]];
+  const command = Array.isArray(carrier) ? null : carrier;
   const stderrMerge = typeof command === 'string' ? command.match(/[ \t]+2>&1[ \t]*$/) : null;
-  const argv = shellArgv(stderrMerge ? command.slice(0, stderrMerge.index) : command);
+  const argv = Array.isArray(carrier) && carrier.every((value) => typeof value === 'string')
+    ? carrier
+    : shellArgv(stderrMerge ? command.slice(0, stderrMerge.index) : command);
   if (!argv || argv.length !== 4 || !isAbsolute(argv[1]) || argv[2] !== '--workspace') {
     return false;
   }
   try {
     const canonicalWorkspace = realpathSync(event.workspace);
-    const requestedCwd = resolve(canonicalWorkspace, event.input.workdir ?? event.input.cwd ?? '.');
+    const requestedCwd = resolve(event.input.workdir ?? event.input.cwd ?? event.invocation_cwd);
     return resolvedNodeExecutable(argv[0], canonicalWorkspace) === TRUSTED_NODE_EXECUTABLE
-      && realpathSync(argv[1]) === TRUSTED_SCRIPTS['phantom-doctor.mjs']
+      && argv[1] === TRUSTED_SCRIPTS['phantom-doctor.mjs']
       && policyRoot(argv[3]) === event.workspace
       && resolve(realpathSync(requestedCwd)) === canonicalWorkspace;
   } catch {
     return false;
+  }
+}
+
+const LEGACY_RECOVERY = 'Phantom session state requires recovery through phantom:health before this consequential tool can run.';
+
+function stateCompatibility(event, materialized) {
+  const pointerFile = currentSessionFile(event.workspace);
+  if (!existsSync(pointerFile)) return null;
+  const root = dirname(dirname(dirname(pointerFile)));
+  const readState = (file) => {
+    const record = readRegularFileOnce(file, root);
+    if (record.physical.nlink !== 1) throw new Error(LEGACY_RECOVERY);
+    try { return { ...record, value: JSON.parse(record.bytes.toString('utf8')), file }; }
+    catch { throw new Error(LEGACY_RECOVERY); }
+  };
+  const unchanged = (record) => {
+    const current = readState(record.file);
+    if (current.generation !== record.generation || !current.bytes.equals(record.bytes)) {
+      throw new Error(LEGACY_RECOVERY);
+    }
+  };
+  let pointer;
+  try { pointer = readState(pointerFile); } catch { throw new Error(LEGACY_RECOVERY); }
+  const initial = classifyLegacyPointer(pointer.value);
+  try {
+    if (typeof pointer.value.task_id !== 'string') throw new Error();
+    const paths = sessionPaths(event.workspace, pointer.value.task_id);
+    const directory = pointer.value.status === 'completed' ? paths.completedDir : paths.sessionDir;
+    const session = readState(join(directory, 'session.json'));
+    if (initial.kind === 'state_v2') {
+      const intent = readState(join(directory, 'intent.json'));
+      if (pointerErrors(pointer.value, paths).length
+        || sessionErrors(session.value, paths, pointer.value).length
+        || intentErrors(intent.value, paths, session.value).length) throw new Error();
+      unchanged(pointer); unchanged(session); unchanged(intent);
+      return null;
+    }
+    if (initial.kind !== 'legacy_state_v1') throw new Error();
+    const pointerClass = classifyLegacyPointer(pointer.value, {
+      repo_id: paths.repo.id, task_id: paths.task,
+      session_dir: paths.sessionDir, completed_dir: paths.completedDir,
+    });
+    const sessionClass = classifyLegacySession(session.value, {
+      repo_id: paths.repo.id, task_id: paths.task, workspace: paths.repo.root,
+      source_path: session.file, session_file: session.file,
+    });
+    if (legacyMigrationRequirement(pointerClass, sessionClass).status !== 'required') throw new Error();
+    if (!['Write', 'Edit'].includes(event.name) || event.raw.tool_name !== event.name) throw new Error();
+    writeEvidence(event);
+    nativeWriteTargetState(event, materialized);
+    unchanged(pointer); unchanged(session);
+    return { allowed: true, reason: 'legacy_state_write_bootstrap' };
+  } catch (error) {
+    if (error.message && error.message !== LEGACY_RECOVERY
+      && /outside the workspace|control metadata|symbolic link|hard-linked|materialize/.test(error.message)) throw error;
+    throw new Error(LEGACY_RECOVERY);
+  }
+}
+
+function stableStateRead(action) {
+  try { return action(); }
+  catch (error) {
+    if (String(error.message).startsWith('Noncanonical Phantom state:')) throw new Error(LEGACY_RECOVERY);
+    throw error;
   }
 }
 
@@ -1157,7 +1235,9 @@ export function preToolUse(eventInput) {
     return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
   }
   const event = bindPolicyWorkspace(normalized, classification);
-  const control = workflowControlContext(event.workspace);
+  const legacy = stateCompatibility(event, false);
+  if (legacy) return legacy;
+  const control = stableStateRead(() => workflowControlContext(event.workspace));
   const controlInput = control && reserveControlInput(event, control);
   if (controlInput) {
     return { allowed: true, reason: 'phantom_control_input', control_input: controlInput };
@@ -1166,7 +1246,7 @@ export function preToolUse(eventInput) {
   if (control && controlPlaneCommand(event, control)) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
-  const active = loadActiveWorkflow(event.workspace);
+  const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
   if (!active) return { allowed: true, reason: 'no_active_session' };
   const evidence = nativeEffectEvidence(event);
   const candidate = pendingCandidate(active, event, evidence);
@@ -1192,7 +1272,9 @@ export function postToolUse(eventInput) {
     return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
   }
   const event = bindPolicyWorkspace(normalized, classification);
-  const control = workflowControlContext(event.workspace);
+  const legacy = stateCompatibility(event, true);
+  if (legacy) return legacy;
+  const control = stableStateRead(() => workflowControlContext(event.workspace));
   const controlInput = control && finalizeControlInput(event, control);
   if (controlInput) {
     return { allowed: true, reason: 'phantom_control_input', control_input: controlInput };
@@ -1201,7 +1283,7 @@ export function postToolUse(eventInput) {
   if (control && controlPlaneCommand(event, control)) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
-  const active = loadActiveWorkflow(event.workspace);
+  const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
   if (!active) return { allowed: true, reason: 'no_active_session' };
   const evidence = nativeEffectEvidence(event);
   const claim = correlation(event, evidence);
