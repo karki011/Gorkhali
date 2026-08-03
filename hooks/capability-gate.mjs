@@ -46,7 +46,6 @@ import {
   currentSessionFile,
   readJson,
   repoIdentity,
-  STATE_ENVELOPE_VERSION,
   workspacePath,
 } from '../skills/phantom/scripts/lib/portable.mjs';
 import {
@@ -338,42 +337,19 @@ function writeTargetPolicyRoots(event) {
   });
 }
 
-function governedSessionRoots(workspace) {
-  const pointerDirectory = dirname(currentSessionFile(workspace));
-  if (!existsSync(pointerDirectory)) return [];
-  const root = dirname(dirname(realpathSync(pointerDirectory)));
-  const governed = new Set();
-  for (const entry of readdirSync(pointerDirectory, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
-    const pointerFile = join(pointerDirectory, entry.name);
-    try {
-      const pointer = readStableJsonFile(pointerFile).value;
-      if (!isObject(pointer)
-        || pointer.schema_version !== STATE_ENVELOPE_VERSION
-        || pointer.status !== undefined
-        || typeof pointer.repo_id !== 'string'
-        || typeof pointer.task_id !== 'string'
-        || typeof pointer.session_dir !== 'string'
-        || entry.name !== `${pointer.repo_id}.json`) continue;
-      const sessionDirectory = resolve(pointer.session_dir);
-      if (!existsSync(sessionDirectory)) continue;
-      const canonicalSessionDirectory = realpathSync(sessionDirectory);
-      if (!within(root, canonicalSessionDirectory)) continue;
-      const session = readStableJsonFile(join(canonicalSessionDirectory, 'session.json')).value;
-      if (!isObject(session)
-        || session.schema_version !== STATE_ENVELOPE_VERSION
-        || session.artifact_type !== 'session'
-        || !['active', 'paused'].includes(session.status)
-        || session.repo_id !== pointer.repo_id
-        || session.task_id !== pointer.task_id
-        || typeof session.workspace !== 'string') continue;
-      const candidate = policyRoot(session.workspace);
-      if (resolve(currentSessionFile(candidate)) === resolve(pointerFile)) governed.add(candidate);
-    } catch {
-      // Unrelated legacy or malformed state cannot claim a governed workspace.
-    }
-  }
-  return [...governed];
+function processTargetPolicyRoots(event) {
+  const argv = Array.isArray(event.input.argv)
+    && event.input.argv.every((value) => typeof value === 'string')
+    ? event.input.argv
+    : shellArgv(scalar(event.input, ['command', 'cmd']));
+  if (!argv) return [];
+  return [...new Set(argv.slice(1).filter(isAbsolute).map((inputPath) => {
+    const ancestor = existingAncestor(inputPath);
+    if (!ancestor) return null;
+    const materialized = realpathSync(ancestor);
+    const directory = statSync(materialized).isDirectory() ? materialized : dirname(materialized);
+    return policyRoot(directory);
+  }).filter(Boolean))];
 }
 
 function bindPolicyWorkspace(event, classification) {
@@ -385,17 +361,10 @@ function bindPolicyWorkspace(event, classification) {
   if (classification.kind === 'workspace.write') {
     for (const targetRoot of writeTargetPolicyRoots(event)) candidates.add(targetRoot);
   }
-  let governed = [...candidates].filter((candidate) => existsSync(currentSessionFile(candidate)));
   if (classification.kind === 'process.exec') {
-    const activeRoots = governedSessionRoots(event.workspace);
-    const activeCandidates = governed.filter((candidate) => activeRoots.includes(candidate));
-    if (activeCandidates.length === 0 && activeRoots.length > 0) {
-      throw new Error(
-        'Native process effect cannot prove its target is outside active governed Phantom workspaces.',
-      );
-    }
-    if (activeCandidates.length > 0) governed = activeCandidates;
+    for (const targetRoot of processTargetPolicyRoots(event)) candidates.add(targetRoot);
   }
+  const governed = [...candidates].filter((candidate) => existsSync(currentSessionFile(candidate)));
   if (governed.length > 1) {
     throw new Error('Native effect resolves to multiple governed Phantom workspaces.');
   }
@@ -1146,9 +1115,23 @@ function failureDetails(event) {
   return { status: 'failed', error: String(detail).slice(0, 4096) };
 }
 
+function bootstrapSkillAllowance(event) {
+  if (event.key !== 'skill') return null;
+  if (event.input.skill === 'phantom:start') {
+    return { allowed: true, reason: 'phantom_bootstrap_skill' };
+  }
+  if (event.input.skill === 'phantom:health') {
+    return { allowed: true, reason: 'phantom_diagnostic_skill' };
+  }
+  return null;
+}
+
 export function preToolUse(eventInput) {
   const normalized = normalizeToolEvent(eventInput);
   const classification = classifyTool(normalized);
+  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
+  const bootstrap = bootstrapSkillAllowance(normalized);
+  if (bootstrap) return bootstrap;
   const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && reserveControlInput(event, control);
@@ -1161,7 +1144,6 @@ export function preToolUse(eventInput) {
   }
   const active = loadActiveWorkflow(event.workspace);
   if (!active) return { allowed: true, reason: 'no_active_session' };
-  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
   const evidence = nativeEffectEvidence(event);
   const candidate = pendingCandidate(active, event, evidence);
   const claim = correlation(event, evidence);
@@ -1179,6 +1161,9 @@ export function preToolUse(eventInput) {
 export function postToolUse(eventInput) {
   const normalized = normalizeToolEvent(eventInput);
   const classification = classifyTool(normalized);
+  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
+  const bootstrap = bootstrapSkillAllowance(normalized);
+  if (bootstrap) return bootstrap;
   const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && finalizeControlInput(event, control);
@@ -1191,7 +1176,6 @@ export function postToolUse(eventInput) {
   }
   const active = loadActiveWorkflow(event.workspace);
   if (!active) return { allowed: true, reason: 'no_active_session' };
-  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
   const evidence = nativeEffectEvidence(event);
   const claim = correlation(event, evidence);
   const matches = matchingLane(active, 'consuming', evidence, claim);

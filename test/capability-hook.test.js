@@ -324,6 +324,81 @@ test('effectful hooks allow no session and fail closed for active missing or cor
   }
 });
 
+test('read-only hooks bypass legacy active-session state validation', () => {
+  const context = hookFixture();
+  const previousData = process.env.PHANTOM_DATA;
+  process.env.PHANTOM_DATA = context.data;
+  try {
+    runState([
+      'start', '--workspace', context.workspace, '--task', context.task,
+      '--intent', 'Keep read-only tools available during state migration', '--route', 'direct',
+    ], context.env);
+    const pointerFile = sessionPaths(context.workspace, context.task).currentFile;
+    const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
+    writeJson(pointerFile, { ...pointer, schema_version: 1 });
+    const read = {
+      tool_name: 'Read',
+      cwd: context.workspace,
+      tool_input: { file_path: 'app.js' },
+    };
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.deepEqual(handler(read), { allowed: true, reason: 'read_only_allowlist' });
+      assert.deepEqual(handler({
+        tool_name: 'Skill', cwd: context.workspace,
+        tool_input: { skill: 'phantom:start', args: '' },
+      }), { allowed: true, reason: 'phantom_bootstrap_skill' });
+      assert.deepEqual(handler({
+        tool_name: 'Skill', cwd: context.workspace,
+        tool_input: { skill: 'phantom:health', args: '' },
+      }), { allowed: true, reason: 'phantom_diagnostic_skill' });
+    }
+    assert.throws(() => preToolUse({
+      tool_name: 'Bash',
+      cwd: context.workspace,
+      tool_input: { command: 'pwd', workdir: context.workspace },
+    }), /current-session pointer schema_version must be 2/);
+    assert.throws(() => preToolUse({
+      tool_name: 'Skill',
+      cwd: context.workspace,
+      tool_input: { skill: 'phantom:execute', args: '' },
+    }), /current-session pointer schema_version must be 2/);
+  } finally {
+    if (previousData === undefined) delete process.env.PHANTOM_DATA;
+    else process.env.PHANTOM_DATA = previousData;
+    fs.rmSync(context.root, { recursive: true, force: true });
+  }
+});
+
+test('process hooks ignore active sessions in unrelated repositories', () => {
+  const context = hookFixture();
+  const previousData = process.env.PHANTOM_DATA;
+  process.env.PHANTOM_DATA = context.data;
+  const unrelated = path.join(context.root, 'unrelated-workspace');
+  fs.mkdirSync(unrelated);
+  execFileSync('git', ['init', '-q', '-b', 'feat/unrelated'], { cwd: unrelated });
+  try {
+    runState([
+      'start', '--workspace', context.workspace, '--task', context.task,
+      '--intent', 'Govern only candidate repositories', '--route', 'direct',
+    ], context.env);
+    for (const command of ['pwd', 'echo probe', `${process.execPath} --version`]) {
+      const event = {
+        tool_name: 'Bash',
+        cwd: unrelated,
+        project_dir: unrelated,
+        tool_input: { command, workdir: unrelated },
+      };
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
+      }
+    }
+  } finally {
+    if (previousData === undefined) delete process.env.PHANTOM_DATA;
+    else process.env.PHANTOM_DATA = previousData;
+    fs.rmSync(context.root, { recursive: true, force: true });
+  }
+});
+
 test('governed capability policy is invariant to a mutable hook cwd', () => {
   const context = hookFixture();
   const previousData = process.env.PHANTOM_DATA;
@@ -401,17 +476,11 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
 
     for (const handler of [preToolUse, postToolUse]) {
       assert.deepEqual(handler(outsideWrite), { allowed: true, reason: 'no_active_session' });
-      assert.throws(
-        () => handler(outsideExec),
-        /cannot prove its target is outside active governed Phantom workspaces/,
-      );
-      assert.throws(
-        () => handler({
-          tool_name: 'Bash', cwd: sibling,
-          tool_input: { command: `node ${governedTarget}` },
-        }),
-        /cannot prove its target is outside active governed Phantom workspaces/,
-      );
+      assert.deepEqual(handler(outsideExec), { allowed: true, reason: 'no_active_session' });
+      assert.throws(() => handler({
+        tool_name: 'Bash', cwd: sibling,
+        tool_input: { command: `node ${governedTarget}` },
+      }), /compiled workflow plan is missing/);
     }
     assert.equal(fs.readFileSync(governedTarget, 'utf8'), 'export const value = 1;\n');
     assert.equal(fs.readFileSync(outsideTarget, 'utf8'), 'outside sentinel\n');
@@ -1036,7 +1105,7 @@ test('hook registration covers provider-neutral pre/post enforcement', () => {
     },
   });
   assert.equal(codexInvocation.status, 0, codexInvocation.stderr);
-  assert.equal(JSON.parse(codexInvocation.stdout).phantom.reason, 'no_active_session');
+  assert.equal(JSON.parse(codexInvocation.stdout).phantom.reason, 'read_only_allowlist');
 
   const previousData = process.env.PHANTOM_DATA;
   process.env.PHANTOM_DATA = isolatedData;
