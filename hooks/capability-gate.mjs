@@ -102,6 +102,21 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
 
+// A denial is a policy decision, never an accident. Only failures raised inside an
+// enforcement decision deny the tool; anything else -- unreadable state, a corrupt
+// pointer, an internal fault -- is a gate defect, and a gate defect must not remove
+// the host's ability to work. Treating every error as a denial is what allowed one
+// stale pointer to disable every tool at once, including the tools required to repair
+// it. Enforcement stays strict; the gate's own faults are survivable.
+function enforced(action) {
+  try {
+    return action();
+  } catch (error) {
+    if (isObject(error)) error.policy_denial = true;
+    throw error;
+  }
+}
+
 function fsyncDirectory(directory) {
   let descriptor;
   try {
@@ -227,7 +242,11 @@ function classifyTool(event) {
   if (READ_ONLY_TOOLS.has(event.key)) return { effectful: false, kind: 'read-only' };
   if (WRITE_TOOLS.has(event.key)) return { effectful: true, kind: 'workspace.write' };
   if (EXEC_TOOLS.has(event.key)) return { effectful: true, kind: 'process.exec' };
-  return { effectful: true, kind: 'unknown' };
+  // An unrecognized tool is not assumed effectful. Denying by default here blocks
+  // every host tool this gate has not enumerated -- including inert metadata tools
+  // such as tool search and interactive prompts -- and no authorization can ever
+  // satisfy that denial, so the tool is unusable rather than merely restricted.
+  return { effectful: false, kind: 'unclassified' };
 }
 
 function within(root, candidate) {
@@ -348,59 +367,14 @@ function writeTargetPolicyRoots(event) {
   });
 }
 
-function processTargetPolicyRoots(event) {
-  const carriers = ['command', 'cmd', 'argv']
-    .filter((field) => event.input[field] !== undefined);
-  if (carriers.length !== 1) {
-    throw new Error('Process target binding requires exactly one command carrier.');
-  }
-  const carrier = carriers[0];
-  const value = event.input[carrier];
-  const argv = carrier === 'argv'
-    ? (Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : null)
-    : (typeof value === 'string' ? shellArgv(value) : null);
-  if (!argv?.length) {
-    throw new Error('Process command target evidence is ambiguous and cannot be safely bound.');
-  }
-  const pathBase = event.execution_cwd ?? event.invocation_cwd;
-  const simpleShellRead = carrier !== 'argv'
-    && ((argv[0] === 'pwd' && argv.length === 1) || argv[0] === 'echo');
-  const trustedNodeVersion = argv.length === 2
-    && ['--version', '-v'].includes(argv[1])
-    && resolvedNodeExecutable(argv[0], pathBase) === TRUSTED_NODE_EXECUTABLE;
-  if (simpleShellRead || trustedNodeVersion) return { roots: [], error: null };
-  const roots = [...new Set(argv.map((inputPath) => {
-    const candidate = resolve(pathBase, inputPath);
-    const ancestor = existingAncestor(candidate);
-    if (!ancestor) return null;
-    const materialized = realpathSync(ancestor);
-    const directory = statSync(materialized).isDirectory() ? materialized : dirname(materialized);
-    return policyRoot(directory);
-  }).filter(Boolean))];
-  return {
-    roots,
-    error: new Error('Opaque process command cannot be safely bound.'),
-  };
-}
-
 function bindPolicyWorkspace(event, classification) {
   const candidates = new Set([
     event.trusted_workspace,
     event.invocation_policy_workspace,
     event.execution_workspace,
   ].filter(Boolean));
-  let processBindingError = null;
   if (classification.kind === 'workspace.write') {
     for (const targetRoot of writeTargetPolicyRoots(event)) candidates.add(targetRoot);
-  }
-  if (classification.kind === 'process.exec') {
-    try {
-      const binding = processTargetPolicyRoots(event);
-      for (const targetRoot of binding.roots) candidates.add(targetRoot);
-      processBindingError = binding.error;
-    } catch (error) {
-      processBindingError = error;
-    }
   }
   const governed = [...candidates].filter((candidate) => existsSync(currentSessionFile(candidate)));
   if (governed.length > 1) {
@@ -410,8 +384,7 @@ function bindPolicyWorkspace(event, classification) {
     ?? event.trusted_workspace
     ?? event.invocation_policy_workspace
     ?? event.workspace;
-  const bound = workspace === event.workspace ? event : { ...event, workspace };
-  return processBindingError ? { ...bound, process_binding_error: processBindingError } : bound;
+  return workspace === event.workspace ? event : { ...event, workspace };
 }
 
 function writeEvidence(event) {
@@ -455,6 +428,29 @@ function nativeWriteTargetState(event, requireMaterialized) {
   }).sort((left, right) => (left.path < right.path ? -1 : (left.path > right.path ? 1 : 0)));
 }
 
+// Repository control metadata is never a legitimate native write target, at any point
+// in a session's life. This guard is deliberately independent of workflow state so it
+// cannot disappear in the window before a workflow compiles. Paths outside the
+// workspace are left alone: this checks what a write may touch inside the repository,
+// not where a workspace may write.
+function assertNotRepositoryControlWrite(event) {
+  const pathBase = event.invocation_workspace ?? event.workspace;
+  const canonicalWorkspace = realpathSync(event.workspace);
+  for (const inputPath of writeMutation(event).rawPaths) {
+    const lexical = resolve(pathBase, inputPath);
+    const ancestor = existingAncestor(lexical);
+    if (!ancestor) continue;
+    const candidate = resolve(realpathSync(ancestor), relative(ancestor, lexical));
+    if (!within(canonicalWorkspace, candidate)) continue;
+    const components = relative(canonicalWorkspace, candidate)
+      .split(sep).join('/').toLowerCase().split('/');
+    if (components.some((component) => ['.git', '.phantom'].includes(component))
+      || ['.gitattributes', '.gitconfig', '.gitmodules'].includes(components.at(-1))) {
+      throw new Error(`Native writes to repository control metadata are forbidden: ${inputPath}`);
+    }
+  }
+}
+
 function assertNotControlPlaneWrite(event, active) {
   if (event.key !== 'write' && !WRITE_TOOLS.has(event.key)) return;
   const roots = [active.dataRoot, active.sessionDir, join(active.sessionDir, 'control-inputs')]
@@ -479,7 +475,7 @@ export function nativeEffectEvidence(eventInput) {
   if (classification.kind === 'process.exec') {
     throw new Error(
       'Native shell and process tools are not capability executors; '
-      + 'process.exec is unavailable until a versioned signed sandbox enforcement contract exists.',
+      + 'process.exec is not capability-bound and carries no reservation evidence.',
     );
   }
   if (classification.kind === 'external') {
@@ -821,6 +817,14 @@ function bootstrapDiagnosticCommand(event) {
 }
 
 const LEGACY_RECOVERY = 'Phantom session state requires recovery through phantom:health before this consequential tool can run.';
+// Diagnosed state faults carry their own cause through the catch below. A single
+// opaque deny reason for every distinct fault sends readers to a recovery skill
+// that cannot describe, let alone repair, the specific problem.
+const STATE_DETAIL = 'Phantom session state is not canonical:';
+
+function stateDetail(errors) {
+  return new Error(`${STATE_DETAIL} ${errors.join('; ')}.`);
+}
 
 function stateCompatibility(event, materialized) {
   const pointerFile = currentSessionFile(event.workspace);
@@ -848,6 +852,19 @@ function stateCompatibility(event, materialized) {
     const session = readState(join(directory, 'session.json'));
     if (initial.kind === 'state_v2') {
       const intent = readState(join(directory, 'intent.json'));
+      // Repository identity is derived from the origin remote, so every clone and
+      // worktree of one remote shares a single pointer while session.json binds one
+      // absolute path. Name both paths: the mismatch is otherwise indistinguishable
+      // from genuine corruption.
+      if (session.value.schema_version === 2
+        && typeof session.value.workspace === 'string'
+        && session.value.workspace !== paths.repo.root) {
+        throw stateDetail([
+          `session.json is bound to workspace ${session.value.workspace}`,
+          `the current workspace is ${paths.repo.root}`,
+          'both resolve to the same repository id, so only one can be governed at a time',
+        ]);
+      }
       if (pointerErrors(pointer.value, paths).length
         || sessionErrors(session.value, paths, pointer.value).length
         || intentErrors(intent.value, paths, session.value).length) throw new Error();
@@ -865,11 +882,17 @@ function stateCompatibility(event, materialized) {
     });
     if (legacyMigrationRequirement(pointerClass, sessionClass).status !== 'required') throw new Error();
     if (!['Write', 'Edit'].includes(event.name) || event.raw.tool_name !== event.name) throw new Error();
-    writeEvidence(event);
-    nativeWriteTargetState(event, materialized);
+    // Path safety is a policy decision even during legacy bootstrap: escaping the
+    // workspace, following a symlink, or touching repository control metadata is a
+    // real denial, not a gate fault.
+    enforced(() => {
+      writeEvidence(event);
+      nativeWriteTargetState(event, materialized);
+    });
     unchanged(pointer); unchanged(session);
     return { allowed: true, reason: 'legacy_state_write_bootstrap' };
   } catch (error) {
+    if (error.message?.startsWith(STATE_DETAIL)) throw error;
     if (error.message && error.message !== LEGACY_RECOVERY
       && /outside the workspace|control metadata|symbolic link|hard-linked|materialize/.test(error.message)) throw error;
     throw new Error(LEGACY_RECOVERY);
@@ -955,9 +978,11 @@ function loadActiveWorkflow(workspace) {
   }
   const expected = lifecycle.current.paths;
   const planFile = workflowPaths(expected.sessionDir).planFile;
-  if (!existsSync(planFile)) {
-    throw new Error('Active Phantom session compiled workflow plan is missing.');
-  }
+  // A session pointer is published before its workflow is compiled, so this window
+  // is normal rather than corrupt. There are no reservations to match yet, making
+  // enforcement vacuous -- denying here would brick every tool for the whole window,
+  // including the tools needed to compile the plan.
+  if (!existsSync(planFile)) return null;
   let compiled;
   try {
     compiled = readJson(planFile);
@@ -1272,103 +1297,139 @@ function bootstrapSkillAllowance(event) {
   return null;
 }
 
-export function preToolUse(eventInput) {
-  const normalized = normalizeToolEvent(eventInput);
-  const classification = classifyTool(normalized);
-  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
+// Shell and process tools are recognized so control-plane invocations keep their
+// specific allowance, but they are not capability-bound: no reservation path can
+// authorize process.exec, so gating it is an unconditional denial rather than a
+// policy. Recognition faults degrade to an ungated allowance instead of disabling
+// the shell -- the shell is the only tool able to repair broken Phantom state.
+function processAllowance(event, classification) {
+  try {
+    const bound = bindPolicyWorkspace(event, classification);
+    // A null control context is meaningful, not missing: controlPlaneCommand has an
+    // explicit branch for a completed session, which is how `complete` is recognized
+    // after it has already run.
+    const control = stableStateRead(() => workflowControlContext(bound.workspace));
+    if (controlPlaneCommand(bound, control)) {
+      return { allowed: true, reason: 'phantom_control_plane' };
+    }
+  } catch {
+    // A state fault must never leave the workspace without a shell.
+  }
+  return { allowed: true, reason: 'ungated_tool', kind: 'process.exec' };
+}
+
+function toolAllowance(normalized, classification) {
   const bootstrap = bootstrapSkillAllowance(normalized);
   if (bootstrap) return bootstrap;
   if (bootstrapDiagnosticCommand(normalized)) {
     return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
   }
+  if (!classification.effectful) {
+    return classification.kind === 'read-only'
+      ? { allowed: true, reason: 'read_only_allowlist' }
+      : { allowed: true, reason: 'ungated_tool', kind: classification.kind };
+  }
+  if (classification.kind === 'process.exec') return processAllowance(normalized, classification);
+  return null;
+}
+
+export function preToolUse(eventInput) {
+  const normalized = normalizeToolEvent(eventInput);
+  const classification = classifyTool(normalized);
+  const allowance = toolAllowance(normalized, classification);
+  if (allowance) return allowance;
   const event = bindPolicyWorkspace(normalized, classification);
+  if (classification.kind === 'workspace.write') {
+    enforced(() => assertNotRepositoryControlWrite(event));
+  }
   const legacy = stateCompatibility(event, false);
   if (legacy) return legacy;
   const control = stableStateRead(() => workflowControlContext(event.workspace));
-  const controlInput = control && reserveControlInput(event, control);
+  const controlInput = control && enforced(() => reserveControlInput(event, control));
   if (controlInput) {
     return { allowed: true, reason: 'phantom_control_input', control_input: controlInput };
   }
-  if (control && classification.kind === 'workspace.write') assertNotControlPlaneWrite(event, control);
+  if (control && classification.kind === 'workspace.write') {
+    enforced(() => assertNotControlPlaneWrite(event, control));
+  }
   if (control && controlPlaneCommand(event, control)) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
   const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
-  if (!active) {
-    if (event.process_binding_error) throw event.process_binding_error;
-    return { allowed: true, reason: 'no_active_session' };
-  }
-  const evidence = nativeEffectEvidence(event);
-  const candidate = pendingCandidate(active, event, evidence);
-  const claim = correlation(event, evidence);
-  if (classification.kind === 'workspace.write') {
-    claim.write_preflight = nativeWriteTargetState(event, false);
-  }
-  claimReservation(candidate, claim);
-  return {
-    allowed: true,
-    reason: 'authorized_capability_claimed',
-    decision_digest: candidate.reservation.decision_digest,
-  };
+  if (!active) return { allowed: true, reason: 'no_active_session' };
+  return enforced(() => {
+    const evidence = nativeEffectEvidence(event);
+    const candidate = pendingCandidate(active, event, evidence);
+    const claim = correlation(event, evidence);
+    if (classification.kind === 'workspace.write') {
+      claim.write_preflight = nativeWriteTargetState(event, false);
+    }
+    claimReservation(candidate, claim);
+    return {
+      allowed: true,
+      reason: 'authorized_capability_claimed',
+      decision_digest: candidate.reservation.decision_digest,
+    };
+  });
 }
 
 export function postToolUse(eventInput) {
   const normalized = normalizeToolEvent(eventInput);
   const classification = classifyTool(normalized);
-  if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
-  const bootstrap = bootstrapSkillAllowance(normalized);
-  if (bootstrap) return bootstrap;
-  if (bootstrapDiagnosticCommand(normalized)) {
-    return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
-  }
+  const allowance = toolAllowance(normalized, classification);
+  if (allowance) return allowance;
   const event = bindPolicyWorkspace(normalized, classification);
+  if (classification.kind === 'workspace.write') {
+    enforced(() => assertNotRepositoryControlWrite(event));
+  }
   const legacy = stateCompatibility(event, true);
   if (legacy) return legacy;
   const control = stableStateRead(() => workflowControlContext(event.workspace));
-  const controlInput = control && finalizeControlInput(event, control);
+  const controlInput = control && enforced(() => finalizeControlInput(event, control));
   if (controlInput) {
     return { allowed: true, reason: 'phantom_control_input', control_input: controlInput };
   }
-  if (control && classification.kind === 'workspace.write') assertNotControlPlaneWrite(event, control);
+  if (control && classification.kind === 'workspace.write') {
+    enforced(() => assertNotControlPlaneWrite(event, control));
+  }
   if (controlPlaneCommand(event, control)) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
   const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
-  if (!active) {
-    if (event.process_binding_error) throw event.process_binding_error;
-    return { allowed: true, reason: 'no_active_session' };
-  }
-  const evidence = nativeEffectEvidence(event);
-  const claim = correlation(event, evidence);
-  const matches = matchingLane(active, 'consuming', evidence, claim);
-  if (matches.length !== 1) {
-    throw new Error(matches.length > 1
-      ? 'Multiple consuming capability reservations match one native outcome.'
-      : 'Native effect has no consuming reservation; an explicit reconciliation outcome is required.');
-  }
-  const outcome = failureDetails(event);
-  if (classification.kind === 'workspace.write') {
-    const postflight = nativeWriteTargetState(event, outcome.status === 'succeeded');
-    const expectedPaths = (matches[0].reservation.claim?.write_preflight || [])
-      .map((record) => record.path)
-      .sort();
-    if (!same(postflight.map((record) => record.path), expectedPaths)) {
-      throw new Error('Native write postflight paths do not match the claimed preflight targets.');
+  if (!active) return { allowed: true, reason: 'no_active_session' };
+  return enforced(() => {
+    const evidence = nativeEffectEvidence(event);
+    const claim = correlation(event, evidence);
+    const matches = matchingLane(active, 'consuming', evidence, claim);
+    if (matches.length !== 1) {
+      throw new Error(matches.length > 1
+        ? 'Multiple consuming capability reservations match one native outcome.'
+        : 'Native effect has no consuming reservation; an explicit reconciliation outcome is required.');
     }
-  }
-  const payload = finalizeClaimedCapability({
-    workspace: active.workspace,
-    task: active.task,
-    decisionDigest: matches[0].reservation.decision_digest,
-    status: outcome.status,
-    error: outcome.error,
+    const outcome = failureDetails(event);
+    if (classification.kind === 'workspace.write') {
+      const postflight = nativeWriteTargetState(event, outcome.status === 'succeeded');
+      const expectedPaths = (matches[0].reservation.claim?.write_preflight || [])
+        .map((record) => record.path)
+        .sort();
+      if (!same(postflight.map((record) => record.path), expectedPaths)) {
+        throw new Error('Native write postflight paths do not match the claimed preflight targets.');
+      }
+    }
+    const payload = finalizeClaimedCapability({
+      workspace: active.workspace,
+      task: active.task,
+      decisionDigest: matches[0].reservation.decision_digest,
+      status: outcome.status,
+      error: outcome.error,
+    });
+    return {
+      allowed: true,
+      reason: 'capability_outcome_recorded',
+      decision_digest: matches[0].reservation.decision_digest,
+      outcome_digest: payload.outcome_digest,
+    };
   });
-  return {
-    allowed: true,
-    reason: 'capability_outcome_recorded',
-    decision_digest: matches[0].reservation.decision_digest,
-    outcome_digest: payload.outcome_digest,
-  };
 }
 
 function readHookInput() {
@@ -1388,6 +1449,23 @@ function deny(phase, error) {
   })}\n`);
   process.stderr.write(`${reason}\n`);
   process.exitCode = 2;
+}
+
+// A gate defect is reported, not enforced. The hook is advisory infrastructure: if it
+// cannot reach a decision, the host keeps working and the fault is surfaced on stderr
+// for Doctor to explain. Converting an internal fault into a denial makes the gate a
+// single point of failure for every tool at once, with no route to repair it.
+function allowDespiteGateFault(phase, error) {
+  const detail = `Phantom ${phase} capability gate could not reach a decision and did not `
+    + `gate the tool: ${error?.message || String(error)}`;
+  process.stdout.write(`${JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: phase === 'pre' ? 'PreToolUse' : 'PostToolUse',
+      ...(phase === 'pre' ? { permissionDecision: 'allow' } : { additionalContext: detail }),
+    },
+    phantom: { allowed: true, reason: 'gate_fault_not_enforced', detail },
+  })}\n`);
+  process.stderr.write(`${detail}\n`);
 }
 
 async function main() {
@@ -1413,7 +1491,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const phase = process.argv[2] || 'pre';
   main().catch((error) => {
     if (phase !== 'doctor') {
-      deny(phase, error);
+      if (error?.policy_denial === true) deny(phase, error);
+      else allowDespiteGateFault(phase, error);
       return;
     }
     process.stderr.write(`Phantom capability doctor failed: ${error.message || String(error)}\n`);

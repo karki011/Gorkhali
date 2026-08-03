@@ -278,7 +278,7 @@ test('Claude and Codex native tool events normalize to exact capability evidence
       { name: 'functions.exec_command', cwd: workspace, arguments: { argv: ['git', 'status', '--short'] } },
       { name: 'functions.exec_command', cwd: workspace, arguments: { argv: ['node', '--test'] } },
     ]) {
-      assert.throws(() => nativeEffectEvidence(event), /signed sandbox enforcement contract/);
+      assert.throws(() => nativeEffectEvidence(event), /not capability-bound/);
     }
 
     assert.throws(() => nativeEffectEvidence({
@@ -309,7 +309,7 @@ test('native workspace writes reject hard-linked targets before outside bytes ca
   }
 });
 
-test('effectful hooks allow no session and fail closed for active missing or corrupt workflow state', () => {
+test('effectful hooks pass through before a workflow compiles and fail closed once it is corrupt', () => {
   const context = hookFixture();
   const previousData = process.env.PHANTOM_DATA;
   process.env.PHANTOM_DATA = context.data;
@@ -326,13 +326,71 @@ test('effectful hooks allow no session and fail closed for active missing or cor
       'start', '--workspace', context.workspace, '--task', context.task,
       '--intent', 'Keep active sessions fail closed', '--route', 'direct',
     ], context.env);
+    // Starting a session publishes its pointer before any workflow is compiled.
+    // No reservation can exist yet, so this window must stay usable -- otherwise the
+    // act of starting a session denies the tools that would compile its plan.
     for (const handler of [preToolUse, postToolUse]) {
-      assert.throws(() => handler(event), /compiled workflow plan is missing/);
+      assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
     }
+    // Passing through before a workflow compiles must not also surrender repository
+    // control metadata. That guard used to sit behind the active-workflow lookup, so
+    // widening the pass-through silently opened a window where .git was writable.
+    for (const handler of [preToolUse, postToolUse]) {
+      for (const target of ['.git/config', '.git/hooks/pre-commit', '.gitmodules']) {
+        assert.throws(
+          () => handler({ ...event, tool_input: { ...event.tool_input, file_path: target } }),
+          /repository control metadata/,
+        );
+      }
+    }
+    // A plan that exists but does not parse is corruption, not a normal window, and
+    // still fails closed.
     const paths = sessionPaths(context.workspace, context.task);
     writeJson(workflowPaths(paths.sessionDir).planFile, { corrupt: true });
     for (const handler of [preToolUse, postToolUse]) {
       assert.throws(() => handler(event), /workflow plan is malformed/);
+    }
+  } finally {
+    if (previousData === undefined) delete process.env.PHANTOM_DATA;
+    else process.env.PHANTOM_DATA = previousData;
+    fs.rmSync(context.root, { recursive: true, force: true });
+  }
+});
+
+test('a session bound to another clone of one remote names both workspaces', () => {
+  const context = hookFixture();
+  const previousData = process.env.PHANTOM_DATA;
+  process.env.PHANTOM_DATA = context.data;
+  try {
+    runState([
+      'start', '--workspace', context.workspace, '--task', context.task,
+      '--intent', 'Report a cross-clone workspace binding exactly', '--route', 'direct',
+    ], context.env);
+    // Repository identity is derived from the origin remote, so every clone and
+    // worktree of one remote shares a single current-session pointer while
+    // session.json binds exactly one absolute path. Only one clone can be governed,
+    // and the resulting denial must say which -- a generic "run phantom:health"
+    // reason is indistinguishable from genuine corruption and names no remedy.
+    const paths = sessionPaths(context.workspace, context.task);
+    const sessionFile = path.join(paths.sessionDir, 'session.json');
+    const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    const otherClone = path.join(context.root, 'other-clone');
+    session.workspace = otherClone;
+    fs.writeFileSync(sessionFile, `${JSON.stringify(session, null, 2)}\n`);
+
+    const write = {
+      tool_name: 'Write',
+      cwd: context.workspace,
+      tool_input: { file_path: 'app.js', content: 'export const value = 3;\n' },
+    };
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.throws(() => handler(write), (error) => {
+        assert.match(error.message, /is not canonical/);
+        assert.ok(error.message.includes(otherClone), 'must name the bound workspace');
+        assert.ok(error.message.includes(paths.repo.root), 'must name the current workspace');
+        assert.doesNotMatch(error.message, /requires recovery through phantom:health/);
+        return true;
+      });
     }
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
@@ -367,8 +425,6 @@ test('genuine v1 state bootstraps only safe Write and Edit effects', () => {
       } },
       { tool_name: 'MultiEdit', cwd: context.workspace, tool_input: { file_path: 'legacy.txt', edits: [] } },
       { tool_name: 'NotebookEdit', cwd: context.workspace, tool_input: { notebook_path: 'x.ipynb' } },
-      { tool_name: 'Bash', cwd: context.workspace, tool_input: { command: 'pwd' } },
-      { tool_name: 'VendorEffect', cwd: context.workspace, tool_input: {} },
       { tool_name: 'Vendor.Write', cwd: context.workspace, tool_input: write.tool_input },
       { tool_name: 'Vendor.Edit', cwd: context.workspace, tool_input: edit.tool_input },
       { function: { name: 'Write', arguments: JSON.stringify(write.tool_input) }, cwd: context.workspace },
@@ -376,6 +432,17 @@ test('genuine v1 state bootstraps only safe Write and Edit effects', () => {
       for (const handler of [preToolUse, postToolUse]) {
         assert.throws(() => handler(event), (error) => recovery.test(error.message)
           && !error.message.includes('schema_version'));
+      }
+    }
+    // Legacy state still bootstraps only exact Write and Edit effects, but shell and
+    // unenumerated tools are no longer capability-bound, so legacy state does not
+    // withhold them. Recovering from legacy state requires a working shell.
+    for (const event of [
+      { tool_name: 'Bash', cwd: context.workspace, tool_input: { command: 'pwd' } },
+      { tool_name: 'VendorEffect', cwd: context.workspace, tool_input: {} },
+    ]) {
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.equal(handler(event).reason, 'ungated_tool');
       }
     }
     for (const filePath of ['../outside.txt', '.git/config', '.phantom/state']) {
@@ -592,12 +659,13 @@ test('read-only tools and the exact bundled Doctor bypass legacy state validatio
         tool_input: { skill: 'phantom:execute', args: '' },
       },
     ];
+    // None of these is the exact bundled Doctor invocation, so none may inherit the
+    // bootstrap diagnostic allowance. They are shell and unenumerated tools, which are
+    // not capability-bound, so the proof is the allowance they receive rather than a
+    // denial: legacy state must not be able to withhold the shell that repairs it.
     for (const event of nearMisses) {
       for (const handler of [preToolUse, postToolUse]) {
-        assert.throws(
-          () => handler(event),
-          /requires recovery through phantom:health before this consequential tool can run/,
-        );
+        assert.equal(handler(event).reason, 'ungated_tool');
       }
     }
   } finally {
@@ -624,7 +692,9 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
         tool_input: { command, workdir: unrelated },
       };
       for (const handler of [preToolUse, postToolUse]) {
-        assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
+        assert.deepEqual(handler(event), {
+          allowed: true, reason: 'ungated_tool', kind: 'process.exec',
+        });
       }
     }
     const targeted = {
@@ -634,11 +704,14 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
         workdir: unrelated,
       },
     };
+    // Naming a governed path in an argv no longer binds the command to that
+    // workspace. Argv-path binding could not distinguish a path argument from a
+    // target, and it denied ordinary commands whenever any token resolved to a
+    // second governed root.
     for (const handler of [preToolUse, postToolUse]) {
-      assert.throws(() => handler(targeted), (error) => (
-        /requires recovery through phantom:health before this consequential tool can run/.test(error.message)
-        && !error.message.includes('schema_version')
-      ));
+      assert.deepEqual(handler(targeted), {
+        allowed: true, reason: 'ungated_tool', kind: 'process.exec',
+      });
     }
     const bypassAttempts = [
       {
@@ -719,14 +792,18 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
         tool_input: { argv: [process.execPath, 42], workdir: unrelated },
       },
     ];
+    // These reach into a governed workspace from an unrelated cwd, and the gate no
+    // longer stops them. That is the stated cost of a usable shell, recorded here
+    // rather than left implicit: a shell cannot be both available and prevented from
+    // naming a governed path, and every one of these was previously "denied" only
+    // because process.exec was denied unconditionally -- including for the governed
+    // workspace itself, which is what made the gate unusable. Native writes, control
+    // metadata, and registered external capabilities remain enforced; shell effects
+    // are deliberately outside the capability boundary until an exec reservation
+    // contract exists to authorize rather than merely refuse them.
     for (const event of bypassAttempts) {
       for (const handler of [preToolUse, postToolUse]) {
-        assert.throws(() => handler(event), (error) => (
-          !error.message.includes('schema_version')
-          && (/requires recovery through phantom:health/.test(error.message)
-            || /cannot be safely bound/.test(error.message)
-            || /requires exactly one command carrier/.test(error.message))
-        ));
+        assert.equal(handler(event).reason, 'ungated_tool');
       }
     }
   } finally {
@@ -760,7 +837,9 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
   try {
     for (const handler of [preToolUse, postToolUse]) {
       assert.deepEqual(handler(outsideWrite), { allowed: true, reason: 'no_active_session' });
-      assert.deepEqual(handler(outsideExec), { allowed: true, reason: 'no_active_session' });
+      assert.deepEqual(handler(outsideExec), {
+        allowed: true, reason: 'ungated_tool', kind: 'process.exec',
+      });
     }
 
     runState([
@@ -775,8 +854,13 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
         workdir: context.workspace,
       },
     };
+    // A started session has published its pointer but not compiled a workflow, so
+    // no reservation can exist to match. Enforcement is vacuous in that window and
+    // must pass through: denying here blocked every tool, including the ones needed
+    // to compile the plan, which made a started session unusable.
+    const ungatedExec = { allowed: true, reason: 'ungated_tool', kind: 'process.exec' };
     for (const handler of [preToolUse, postToolUse]) {
-      assert.throws(() => handler(opaqueProcess), /compiled workflow plan is missing/);
+      assert.deepEqual(handler(opaqueProcess), ungatedExec);
     }
 
     const writeFrom = (cwd, target = governedTarget) => ({
@@ -785,12 +869,13 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
       tool_input: { file_path: target, content: 'forged\n' },
     });
     for (const handler of [preToolUse, postToolUse]) {
-      assert.throws(() => handler(writeFrom(context.workspace)), /compiled workflow plan is missing/);
-      assert.throws(() => handler(writeFrom(sibling)), /compiled workflow plan is missing/);
-      assert.throws(
-        () => handler(writeFrom(sibling, path.join(workspaceAlias, 'new-file.js'))),
-        /compiled workflow plan is missing/,
-      );
+      for (const event of [
+        writeFrom(context.workspace),
+        writeFrom(sibling),
+        writeFrom(sibling, path.join(workspaceAlias, 'new-file.js')),
+      ]) {
+        assert.deepEqual(handler(event), { allowed: true, reason: 'no_active_session' });
+      }
     }
 
     for (const event of [
@@ -804,10 +889,13 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
       },
     ]) {
       for (const handler of [preToolUse, postToolUse]) {
-        assert.throws(() => handler(event), /compiled workflow plan is missing/);
+        assert.deepEqual(handler(event), ungatedExec);
       }
     }
 
+    // Workspace binding is independent of mutable cwd. That property is asserted on
+    // the normalized event directly, so it stays observable without depending on a
+    // deny as its proof.
     process.env.CLAUDE_PROJECT_DIR = context.workspace;
     try {
       const conflictingProjectEvent = {
@@ -816,7 +904,7 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
       };
       assert.equal(normalizeToolEvent(conflictingProjectEvent).workspace, context.workspace);
       for (const handler of [preToolUse, postToolUse]) {
-        assert.throws(() => handler(conflictingProjectEvent), /compiled workflow plan is missing/);
+        assert.deepEqual(handler(conflictingProjectEvent), ungatedExec);
       }
     } finally {
       delete process.env.CLAUDE_PROJECT_DIR;
@@ -824,11 +912,11 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
 
     for (const handler of [preToolUse, postToolUse]) {
       assert.deepEqual(handler(outsideWrite), { allowed: true, reason: 'no_active_session' });
-      assert.deepEqual(handler(outsideExec), { allowed: true, reason: 'no_active_session' });
-      assert.throws(() => handler({
+      assert.deepEqual(handler(outsideExec), ungatedExec);
+      assert.deepEqual(handler({
         tool_name: 'Bash', cwd: sibling,
         tool_input: { command: `node ${governedTarget}` },
-      }), /compiled workflow plan is missing/);
+      }), ungatedExec);
     }
     assert.equal(fs.readFileSync(governedTarget, 'utf8'), 'export const value = 1;\n');
     assert.equal(fs.readFileSync(outsideTarget, 'utf8'), 'outside sentinel\n');
@@ -918,13 +1006,13 @@ test('native Write staging and exact literal-node control commands complete a bo
     };
     assert.equal(preToolUse(parallelEvent).reason, 'phantom_control_plane');
     assert.equal(postToolUse(parallelEvent).reason, 'phantom_control_plane');
-    assert.throws(() => preToolUse({
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: { command: `${parallelCommand} --offline-test true` },
-    }), /signed sandbox enforcement contract/);
+    }).reason, 'ungated_tool');
     const outsideReceipt = path.join(context.root, 'outside-receipt.json');
     writeJson(outsideReceipt, { signed: 'outside-session' });
-    assert.throws(() => preToolUse({
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: {
         command: [
@@ -934,7 +1022,7 @@ test('native Write staging and exact literal-node control commands complete a bo
           '--receipt', outsideReceipt,
         ].map(quote).join(' '),
       },
-    }), /signed sandbox enforcement contract/);
+    }).reason, 'ungated_tool');
     const signedAttestation = stage('capability-attestation.json', { signed: 'adapter-result' });
     const attestationCommand = [
       'node', AUTHORIZE, 'attest',
@@ -978,13 +1066,13 @@ test('native Write staging and exact literal-node control commands complete a bo
       event_id: 'swapped-event', event_type: 'workflow.started', payload: {},
     });
     fs.writeFileSync(swapFile, '{"event_id":"attacker","event_type":"workflow.started","payload":{}}\n');
-    assert.throws(() => preToolUse({
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: {
         command: ['node', ADVANCE, '--workspace', context.workspace, '--task', context.task,
           '--input', swapFile].map(quote).join(' '),
       },
-    }), /signed sandbox enforcement contract/);
+    }).reason, 'ungated_tool');
 
     for (const protectedTarget of [
       path.join(paths.sessionDir, 'session.json'),
@@ -1012,20 +1100,20 @@ test('native Write staging and exact literal-node control commands complete a bo
     }), /strictly new-only/);
     const outsideInput = path.join(context.root, 'outside-event.json');
     writeJson(outsideInput, { event_type: 'workflow.started' });
-    assert.throws(() => preToolUse({
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: {
         command: ['node', ADVANCE, '--workspace', context.workspace, '--task', context.task,
           '--input', outsideInput].map(quote).join(' '),
       },
-    }), /signed sandbox enforcement contract/);
-    assert.throws(() => preToolUse({
+    }).reason, 'ungated_tool');
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: {
         command: ['node', COMPILE, '--workspace', context.workspace, '--task', context.task,
           '--input', planFile, '--offline-test', 'true'].map(quote).join(' '),
       },
-    }), /signed sandbox enforcement contract/);
+    }).reason, 'ungated_tool');
 
     const fakeBin = path.join(context.root, 'fake-bin');
     fs.mkdirSync(fakeBin);
@@ -1034,13 +1122,13 @@ test('native Write staging and exact literal-node control commands complete a bo
     const originalPath = process.env.PATH;
     process.env.PATH = `${fakeBin}${path.delimiter}${originalPath}`;
     try {
-      assert.throws(() => preToolUse({
+      assert.equal(preToolUse({
         tool_name: 'Bash', cwd: context.workspace,
         tool_input: {
           command: ['node', REPLAY, '--workspace', context.workspace, '--task', context.task]
             .map(quote).join(' '),
         },
-      }), /signed sandbox enforcement contract/);
+      }).reason, 'ungated_tool');
     } finally {
       process.env.PATH = originalPath;
     }
@@ -1163,13 +1251,13 @@ test('native Write staging and exact literal-node control commands complete a bo
       '--workspace', context.workspace, '--task', context.task, '--input', completionFile,
     ]);
     assert.equal(accepted.state.status, 'accepted');
-    assert.throws(() => preToolUse({
+    assert.equal(preToolUse({
       tool_name: 'Bash', cwd: context.workspace,
       tool_input: {
         command: ['node', AUTHORIZE, 'execute', '--workspace', context.workspace,
           '--task', context.task, '--input', requestFile].map(quote).join(' '),
       },
-    }), /signed sandbox enforcement contract/);
+    }).reason, 'ungated_tool');
     const completeArgs = ['complete', '--workspace', context.workspace];
     const completeEvent = {
       tool_name: 'Bash', cwd: context.workspace,
@@ -1187,9 +1275,13 @@ test('native Write staging and exact literal-node control commands complete a bo
       { ...completeEvent.tool_input, cmd: completeEvent.tool_input.command },
       { ...completeEvent.tool_input, workdir: context.workspace, cwd: context.workspace },
     ]) {
-      assert.throws(
-        () => postToolUse({ ...completeEvent, tool_input: toolInput }),
-        /cannot be safely bound|requires exactly one command carrier/,
+      // Duplicated or ambiguous command carriers still forfeit control-plane
+      // recognition -- controlPlaneCommand requires exactly one carrier. They are
+      // ungated rather than denied, because an ambiguous shell invocation is not
+      // something a capability reservation could ever describe.
+      assert.equal(
+        postToolUse({ ...completeEvent, tool_input: toolInput }).reason,
+        'ungated_tool',
       );
     }
   } finally {
@@ -1391,17 +1483,25 @@ test('active workflows fail closed for unknown effects and native shell strings'
     execFileSync('git', ['switch', '-q', 'feat/capability-hook'], { cwd: context.workspace });
     writeInterceptionProbe(context);
 
+    // Shell tools and tools this gate does not enumerate are not capability-bound:
+    // no reservation can describe them, so denying them is unconditional rather than
+    // a policy. They pass through instead. The cost is deliberate and stated here --
+    // an unenumerated effectful vendor tool is ungated until it is classified, which
+    // is the price of not blocking every host tool Phantom has never heard of.
+    for (const event of [
+      { tool_name: 'Bash', cwd: context.workspace, tool_input: { command: 'node --test' } },
+      { name: 'functions.exec_command', cwd: context.workspace, arguments: { cmd: 'node --test' } },
+      { name: 'functions.exec_command', cwd: context.workspace, arguments: { argv: ['node', '--test'] } },
+      { tool_name: 'VendorWriteEverything', cwd: context.workspace, tool_input: { path: 'app.js' } },
+      { tool_name: 'mcp__vendor__merge', cwd: context.workspace, tool_input: {} },
+      { tool_name: 'mcp__vendor__deploy', cwd: context.workspace, tool_input: {} },
+      { tool_name: 'mcp__vendor__read', cwd: context.workspace, tool_input: {} },
+    ]) {
+      assert.equal(preToolUse(event).reason, 'ungated_tool');
+    }
+    // Native writes, repository control metadata, and registered external
+    // capabilities stay fully enforced.
     for (const [event, expected] of [
-      [{ tool_name: 'Bash', cwd: context.workspace, tool_input: { command: 'node --test' } }, /signed sandbox enforcement contract/],
-      [{ name: 'functions.exec_command', cwd: context.workspace, arguments: { cmd: 'node --test' } }, /signed sandbox enforcement contract/],
-      [
-        { name: 'functions.exec_command', cwd: context.workspace, arguments: { argv: ['node', '--test'] } },
-        /signed sandbox enforcement contract/,
-      ],
-      [{ tool_name: 'VendorWriteEverything', cwd: context.workspace, tool_input: { path: 'app.js' } }, /Unknown consequential tool/],
-      [{ tool_name: 'mcp__vendor__merge', cwd: context.workspace, tool_input: {} }, /Unknown consequential tool/],
-      [{ tool_name: 'mcp__vendor__deploy', cwd: context.workspace, tool_input: {} }, /Unknown consequential tool/],
-      [{ tool_name: 'mcp__vendor__read', cwd: context.workspace, tool_input: {} }, /Unknown consequential tool/],
       [{ tool_name: 'Write', cwd: context.workspace, tool_input: {
         file_path: '.git/config', content: 'forged',
       } }, /repository control metadata/],
@@ -1527,13 +1627,21 @@ test('hook registration covers provider-neutral pre/post enforcement', () => {
     /inventory|session-state-migration/,
   );
 
+  // An unparseable event is a gate fault, not a policy decision. The gate reports it
+  // and leaves the tool ungated: a hook that cannot read its own input must not be
+  // able to disable every tool in the host, which is unrecoverable from inside the
+  // session it just disabled.
   const malformed = spawnSync(process.execPath, [HOOK, 'pre'], {
     cwd: ROOT,
     input: '{',
     encoding: 'utf8',
   });
-  assert.equal(malformed.status, 2);
-  assert.match(malformed.stderr, /capability gate denied/);
+  assert.equal(malformed.status, 0, malformed.stderr);
+  assert.match(malformed.stderr, /could not reach a decision and did not gate the tool/);
+  assert.equal(
+    JSON.parse(malformed.stdout).hookSpecificOutput.permissionDecision,
+    'allow',
+  );
   if (previousData === undefined) delete process.env.PHANTOM_DATA;
   else process.env.PHANTOM_DATA = previousData;
   fs.rmSync(isolatedRoot, { recursive: true, force: true });
