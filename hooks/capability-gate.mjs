@@ -72,6 +72,7 @@ const TRUSTED_SCRIPTS = Object.freeze(Object.fromEntries([
   'authorize-capability.mjs',
   'compile-workflow.mjs',
   'execute-parallel.mjs',
+  'phantom-doctor.mjs',
   'phantom-state.mjs',
   'replay-workflow.mjs',
   'validate-workflow.mjs',
@@ -755,6 +756,26 @@ function capabilityControlInvocation(args, active) {
   return false;
 }
 
+function bootstrapDiagnosticCommand(event) {
+  if (!EXEC_TOOLS.has(event.key)) return false;
+  const command = scalar(event.input, ['command', 'cmd']);
+  const stderrMerge = typeof command === 'string' ? command.match(/[ \t]+2>&1[ \t]*$/) : null;
+  const argv = shellArgv(stderrMerge ? command.slice(0, stderrMerge.index) : command);
+  if (!argv || argv.length !== 4 || !isAbsolute(argv[1]) || argv[2] !== '--workspace') {
+    return false;
+  }
+  try {
+    const canonicalWorkspace = realpathSync(event.workspace);
+    const requestedCwd = resolve(canonicalWorkspace, event.input.workdir ?? event.input.cwd ?? '.');
+    return resolvedNodeExecutable(argv[0], canonicalWorkspace) === TRUSTED_NODE_EXECUTABLE
+      && realpathSync(argv[1]) === TRUSTED_SCRIPTS['phantom-doctor.mjs']
+      && policyRoot(argv[3]) === event.workspace
+      && resolve(realpathSync(requestedCwd)) === canonicalWorkspace;
+  } catch {
+    return false;
+  }
+}
+
 function controlPlaneCommand(event, active) {
   if (!EXEC_TOOLS.has(event.key)) return false;
   const command = scalar(event.input, ['command', 'cmd']);
@@ -1132,6 +1153,9 @@ export function preToolUse(eventInput) {
   if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
   const bootstrap = bootstrapSkillAllowance(normalized);
   if (bootstrap) return bootstrap;
+  if (bootstrapDiagnosticCommand(normalized)) {
+    return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
+  }
   const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && reserveControlInput(event, control);
@@ -1164,6 +1188,9 @@ export function postToolUse(eventInput) {
   if (classification.kind === 'read-only') return { allowed: true, reason: 'read_only_allowlist' };
   const bootstrap = bootstrapSkillAllowance(normalized);
   if (bootstrap) return bootstrap;
+  if (bootstrapDiagnosticCommand(normalized)) {
+    return { allowed: true, reason: 'phantom_bootstrap_diagnostic' };
+  }
   const event = bindPolicyWorkspace(normalized, classification);
   const control = workflowControlContext(event.workspace);
   const controlInput = control && finalizeControlInput(event, control);

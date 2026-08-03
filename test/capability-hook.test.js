@@ -12,6 +12,7 @@ const { pathToFileURL } = require('node:url');
 
 const ROOT = path.join(__dirname, '..');
 const STATE = path.join(ROOT, 'skills/phantom/scripts/phantom-state.mjs');
+const DOCTOR = path.join(ROOT, 'skills/phantom/scripts/phantom-doctor.mjs');
 const HOOK = path.join(ROOT, 'hooks/capability-gate.mjs');
 const ADVANCE = path.join(ROOT, 'skills/phantom/scripts/advance-workflow.mjs');
 const AUTHORIZE = path.join(ROOT, 'skills/phantom/scripts/authorize-capability.mjs');
@@ -324,7 +325,7 @@ test('effectful hooks allow no session and fail closed for active missing or cor
   }
 });
 
-test('read-only hooks bypass legacy active-session state validation', () => {
+test('read-only tools and the exact bundled Doctor bypass legacy state validation', () => {
   const context = hookFixture();
   const previousData = process.env.PHANTOM_DATA;
   process.env.PHANTOM_DATA = context.data;
@@ -341,8 +342,30 @@ test('read-only hooks bypass legacy active-session state validation', () => {
       cwd: context.workspace,
       tool_input: { file_path: 'app.js' },
     };
+    const command = (argv) => argv.map((value) => JSON.stringify(value)).join(' ');
+    const doctorEvent = {
+      tool_name: 'Bash',
+      cwd: context.workspace,
+      tool_input: {
+        command: command([process.execPath, DOCTOR, '--workspace', context.workspace]),
+        workdir: context.workspace,
+      },
+    };
+    const mergedDoctorEvent = {
+      ...doctorEvent,
+      tool_input: {
+        ...doctorEvent.tool_input,
+        command: `${doctorEvent.tool_input.command} 2>&1`,
+      },
+    };
     for (const handler of [preToolUse, postToolUse]) {
       assert.deepEqual(handler(read), { allowed: true, reason: 'read_only_allowlist' });
+      for (const event of [doctorEvent, mergedDoctorEvent]) {
+        assert.deepEqual(handler(event), {
+          allowed: true,
+          reason: 'phantom_bootstrap_diagnostic',
+        });
+      }
       assert.deepEqual(handler({
         tool_name: 'Skill', cwd: context.workspace,
         tool_input: { skill: 'phantom:start', args: '' },
@@ -352,16 +375,102 @@ test('read-only hooks bypass legacy active-session state validation', () => {
         tool_input: { skill: 'phantom:health', args: '' },
       }), { allowed: true, reason: 'phantom_diagnostic_skill' });
     }
-    assert.throws(() => preToolUse({
-      tool_name: 'Bash',
-      cwd: context.workspace,
-      tool_input: { command: 'pwd', workdir: context.workspace },
-    }), /current-session pointer schema_version must be 2/);
-    assert.throws(() => preToolUse({
-      tool_name: 'Skill',
-      cwd: context.workspace,
-      tool_input: { skill: 'phantom:execute', args: '' },
-    }), /current-session pointer schema_version must be 2/);
+    const doctor = spawnSync(process.execPath, [DOCTOR, '--workspace', context.workspace], {
+      encoding: 'utf8',
+      env: { ...process.env, ...context.env },
+    });
+    assert.equal(doctor.status, 1, doctor.stderr);
+    assert.deepEqual(JSON.parse(doctor.stdout).migration, {
+      status: 'blocked',
+      reason: 'active_session_invalid',
+      resource: 'scripts/migrate-session-state.mjs',
+      command: null,
+    });
+
+    const rejectedRedirections = [
+      ' > output.json',
+      ' 2>output.json',
+      ' | cat',
+      ' && pwd',
+      ' 2>&1 2>&1',
+      ' 2>&1 trailing',
+    ].map((suffix) => ({
+      ...doctorEvent,
+      tool_input: {
+        ...doctorEvent.tool_input,
+        command: `${doctorEvent.tool_input.command}${suffix}`,
+      },
+    }));
+    const nearMisses = [
+      ...rejectedRedirections,
+      {
+        ...doctorEvent,
+        tool_input: {
+          ...doctorEvent.tool_input,
+          command: `${doctorEvent.tool_input.command} --task ${JSON.stringify(context.task)}`,
+        },
+      },
+      {
+        ...doctorEvent,
+        tool_input: {
+          ...doctorEvent.tool_input,
+          command: command([process.execPath, STATE, '--workspace', context.workspace]),
+        },
+      },
+      {
+        ...doctorEvent,
+        tool_input: {
+          ...doctorEvent.tool_input,
+          command: command([process.execPath, DOCTOR, '--workspace', context.root]),
+        },
+      },
+      {
+        ...doctorEvent,
+        tool_input: { ...doctorEvent.tool_input, workdir: context.root },
+      },
+      {
+        ...doctorEvent,
+        tool_input: { ...doctorEvent.tool_input, command: `${doctorEvent.tool_input.command}; pwd` },
+      },
+      {
+        ...doctorEvent,
+        tool_input: {
+          ...doctorEvent.tool_input,
+          command: command(['/usr/bin/env', 'node', DOCTOR, '--workspace', context.workspace]),
+        },
+      },
+      {
+        tool_name: 'Bash',
+        cwd: context.workspace,
+        tool_input: { command: 'pwd', workdir: context.workspace },
+      },
+      {
+        tool_name: 'Bash',
+        cwd: context.workspace,
+        tool_input: {
+          command: command([
+            process.execPath,
+            STATE,
+            'start',
+            '--workspace', context.workspace,
+            '--task', 'replacement',
+            '--intent', 'Replace legacy state',
+            '--route', 'direct',
+          ]),
+          workdir: context.workspace,
+        },
+      },
+      {
+        tool_name: 'Skill',
+        cwd: context.workspace,
+        tool_input: { skill: 'phantom:execute', args: '' },
+      },
+    ];
+    for (const event of nearMisses) {
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.throws(() => handler(event), /current-session pointer schema_version must be 2/);
+      }
+    }
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
     else process.env.PHANTOM_DATA = previousData;
