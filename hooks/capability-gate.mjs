@@ -193,6 +193,7 @@ export function normalizeToolEvent(eventInput) {
   const trustedWorkspace = trustedCandidate ? policyRoot(trustedCandidate) : null;
   const invocationWorkspace = repositoryRoot(invocationCandidate);
   const invocationPolicyWorkspace = policyRoot(invocationWorkspace);
+  const executionCwd = executionCandidate ? realpathSync(executionCandidate) : null;
   const executionWorkspace = executionCandidate ? policyRoot(executionCandidate) : null;
   return {
     raw: eventInput,
@@ -204,6 +205,7 @@ export function normalizeToolEvent(eventInput) {
     invocation_workspace: invocationWorkspace,
     invocation_cwd: realpathSync(invocationCandidate),
     invocation_policy_workspace: invocationPolicyWorkspace,
+    execution_cwd: executionCwd,
     execution_workspace: executionWorkspace,
     correlation_id: String(
       eventInput.tool_use_id
@@ -347,18 +349,38 @@ function writeTargetPolicyRoots(event) {
 }
 
 function processTargetPolicyRoots(event) {
-  const argv = Array.isArray(event.input.argv)
-    && event.input.argv.every((value) => typeof value === 'string')
-    ? event.input.argv
-    : shellArgv(scalar(event.input, ['command', 'cmd']));
-  if (!argv) return [];
-  return [...new Set(argv.slice(1).filter(isAbsolute).map((inputPath) => {
-    const ancestor = existingAncestor(inputPath);
+  const carriers = ['command', 'cmd', 'argv']
+    .filter((field) => event.input[field] !== undefined);
+  if (carriers.length !== 1) {
+    throw new Error('Process target binding requires exactly one command carrier.');
+  }
+  const carrier = carriers[0];
+  const value = event.input[carrier];
+  const argv = carrier === 'argv'
+    ? (Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : null)
+    : (typeof value === 'string' ? shellArgv(value) : null);
+  if (!argv?.length) {
+    throw new Error('Process command target evidence is ambiguous and cannot be safely bound.');
+  }
+  const pathBase = event.execution_cwd ?? event.invocation_cwd;
+  const simpleShellRead = carrier !== 'argv'
+    && ((argv[0] === 'pwd' && argv.length === 1) || argv[0] === 'echo');
+  const trustedNodeVersion = argv.length === 2
+    && ['--version', '-v'].includes(argv[1])
+    && resolvedNodeExecutable(argv[0], pathBase) === TRUSTED_NODE_EXECUTABLE;
+  if (simpleShellRead || trustedNodeVersion) return { roots: [], error: null };
+  const roots = [...new Set(argv.map((inputPath) => {
+    const candidate = resolve(pathBase, inputPath);
+    const ancestor = existingAncestor(candidate);
     if (!ancestor) return null;
     const materialized = realpathSync(ancestor);
     const directory = statSync(materialized).isDirectory() ? materialized : dirname(materialized);
     return policyRoot(directory);
   }).filter(Boolean))];
+  return {
+    roots,
+    error: new Error('Opaque process command cannot be safely bound.'),
+  };
 }
 
 function bindPolicyWorkspace(event, classification) {
@@ -367,11 +389,18 @@ function bindPolicyWorkspace(event, classification) {
     event.invocation_policy_workspace,
     event.execution_workspace,
   ].filter(Boolean));
+  let processBindingError = null;
   if (classification.kind === 'workspace.write') {
     for (const targetRoot of writeTargetPolicyRoots(event)) candidates.add(targetRoot);
   }
   if (classification.kind === 'process.exec') {
-    for (const targetRoot of processTargetPolicyRoots(event)) candidates.add(targetRoot);
+    try {
+      const binding = processTargetPolicyRoots(event);
+      for (const targetRoot of binding.roots) candidates.add(targetRoot);
+      processBindingError = binding.error;
+    } catch (error) {
+      processBindingError = error;
+    }
   }
   const governed = [...candidates].filter((candidate) => existsSync(currentSessionFile(candidate)));
   if (governed.length > 1) {
@@ -381,7 +410,8 @@ function bindPolicyWorkspace(event, classification) {
     ?? event.trusted_workspace
     ?? event.invocation_policy_workspace
     ?? event.workspace;
-  return workspace === event.workspace ? event : { ...event, workspace };
+  const bound = workspace === event.workspace ? event : { ...event, workspace };
+  return processBindingError ? { ...bound, process_binding_error: processBindingError } : bound;
 }
 
 function writeEvidence(event) {
@@ -856,7 +886,13 @@ function stableStateRead(action) {
 
 function controlPlaneCommand(event, active) {
   if (!EXEC_TOOLS.has(event.key)) return false;
-  const command = scalar(event.input, ['command', 'cmd']);
+  const commandCarriers = ['command', 'cmd', 'argv']
+    .filter((field) => event.input[field] !== undefined);
+  const cwdCarriers = ['workdir', 'cwd']
+    .filter((field) => event.input[field] !== undefined);
+  if (commandCarriers.length !== 1 || cwdCarriers.length > 1) return false;
+  const command = event.input[commandCarriers[0]];
+  if (typeof command !== 'string') return false;
   const argv = shellArgv(command);
   if (!argv || argv.length < 2 || !isAbsolute(argv[1])) return false;
   const executable = resolvedNodeExecutable(argv[0], event.workspace);
@@ -871,6 +907,17 @@ function controlPlaneCommand(event, active) {
   if (executable !== TRUSTED_NODE_EXECUTABLE
     || resolve(realpathSync(requestedCwd)) !== canonicalWorkspace) return false;
   const args = argv.slice(2);
+  if (!active) {
+    const values = script === TRUSTED_SCRIPTS['phantom-state.mjs']
+      ? exactInvocation(args, ['complete'], ['--workspace'])
+      : null;
+    if (!values) return false;
+    try {
+      return policyRoot(values['--workspace']) === canonicalWorkspace;
+    } catch {
+      return false;
+    }
+  }
   if (script === TRUSTED_SCRIPTS['validate-workflow.mjs']) {
     const values = exactInvocation(args, [], ['--input']);
     return canonicalSessionInput(values?.['--input'], active);
@@ -1247,7 +1294,10 @@ export function preToolUse(eventInput) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
   const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
-  if (!active) return { allowed: true, reason: 'no_active_session' };
+  if (!active) {
+    if (event.process_binding_error) throw event.process_binding_error;
+    return { allowed: true, reason: 'no_active_session' };
+  }
   const evidence = nativeEffectEvidence(event);
   const candidate = pendingCandidate(active, event, evidence);
   const claim = correlation(event, evidence);
@@ -1280,11 +1330,14 @@ export function postToolUse(eventInput) {
     return { allowed: true, reason: 'phantom_control_input', control_input: controlInput };
   }
   if (control && classification.kind === 'workspace.write') assertNotControlPlaneWrite(event, control);
-  if (control && controlPlaneCommand(event, control)) {
+  if (controlPlaneCommand(event, control)) {
     return { allowed: true, reason: 'phantom_control_plane' };
   }
   const active = stableStateRead(() => loadActiveWorkflow(event.workspace));
-  if (!active) return { allowed: true, reason: 'no_active_session' };
+  if (!active) {
+    if (event.process_binding_error) throw event.process_binding_error;
+    return { allowed: true, reason: 'no_active_session' };
+  }
   const evidence = nativeEffectEvidence(event);
   const claim = correlation(event, evidence);
   const matches = matchingLane(active, 'consuming', evidence, claim);

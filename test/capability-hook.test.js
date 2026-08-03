@@ -640,6 +640,95 @@ test('process hooks ignore active sessions in unrelated repositories', () => {
         && !error.message.includes('schema_version')
       ));
     }
+    const bypassAttempts = [
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          command: `node ${path.relative(fs.realpathSync(unrelated), path.join(context.workspace, 'app.js'))}`,
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: [process.execPath, path.relative(
+            fs.realpathSync(unrelated), path.join(context.workspace, 'app.js'),
+          )],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          command: `cd ${JSON.stringify(context.workspace)} && rm app.js`,
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: ['bash', '-lc', `node ${JSON.stringify(path.join(context.workspace, 'app.js'))}`],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          command: `bash -lc ${JSON.stringify(`node ${path.join(context.workspace, 'app.js')}`)}`,
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: ['/usr/bin/env', 'bash', '-lc', `node ${path.join(context.workspace, 'app.js')}`],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: [process.execPath, '-e', `require('node:fs').unlinkSync(${JSON.stringify(path.join(context.workspace, 'app.js'))})`],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: ['/usr/bin/nice', 'bash', '-lc', `node ${path.join(context.workspace, 'app.js')}`],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          argv: ['php', '-r', `unlink(${JSON.stringify(path.join(context.workspace, 'app.js'))});`],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: {
+          command: `node ${JSON.stringify(path.join(context.workspace, 'app.js'))}`,
+          argv: [process.execPath, path.join(context.workspace, 'app.js')],
+          workdir: unrelated,
+        },
+      },
+      {
+        tool_name: 'Bash', cwd: unrelated, project_dir: unrelated,
+        tool_input: { argv: [process.execPath, 42], workdir: unrelated },
+      },
+    ];
+    for (const event of bypassAttempts) {
+      for (const handler of [preToolUse, postToolUse]) {
+        assert.throws(() => handler(event), (error) => (
+          !error.message.includes('schema_version')
+          && (/requires recovery through phantom:health/.test(error.message)
+            || /cannot be safely bound/.test(error.message)
+            || /requires exactly one command carrier/.test(error.message))
+        ));
+      }
+    }
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
     else process.env.PHANTOM_DATA = previousData;
@@ -678,6 +767,17 @@ test('governed capability policy is invariant to a mutable hook cwd', () => {
       'start', '--workspace', context.workspace, '--task', context.task,
       '--intent', 'Bind native effects independently of mutable cwd', '--route', 'direct',
     ], context.env);
+
+    const opaqueProcess = {
+      tool_name: 'Bash', cwd: context.workspace,
+      tool_input: {
+        argv: [process.execPath, '-e', 'process.stdout.write("opaque")'],
+        workdir: context.workspace,
+      },
+    };
+    for (const handler of [preToolUse, postToolUse]) {
+      assert.throws(() => handler(opaqueProcess), /compiled workflow plan is missing/);
+    }
 
     const writeFrom = (cwd, target = governedTarget) => ({
       tool_name: 'Write',
@@ -1081,7 +1181,17 @@ test('native Write staging and exact literal-node control commands complete a bo
     });
     assert.equal(completed.status, 0, completed.stderr);
     assert.equal(JSON.parse(completed.stdout).status, 'completed');
-    assert.equal(postToolUse(completeEvent).reason, 'no_active_session');
+    assert.equal(postToolUse(completeEvent).reason, 'phantom_control_plane');
+    for (const toolInput of [
+      { ...completeEvent.tool_input, argv: [process.execPath, STATE, ...completeArgs] },
+      { ...completeEvent.tool_input, cmd: completeEvent.tool_input.command },
+      { ...completeEvent.tool_input, workdir: context.workspace, cwd: context.workspace },
+    ]) {
+      assert.throws(
+        () => postToolUse({ ...completeEvent, tool_input: toolInput }),
+        /cannot be safely bound|requires exactly one command carrier/,
+      );
+    }
   } finally {
     if (previousData === undefined) delete process.env.PHANTOM_DATA;
     else process.env.PHANTOM_DATA = previousData;
