@@ -2,15 +2,15 @@
 // Author: Subash Karki
 
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
-  chmodSync,
   closeSync,
   existsSync,
-  fsyncSync,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   readdirSync,
   renameSync,
@@ -22,27 +22,14 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 import {
   atomicWriteJson,
   currentSessionFile,
-  dataRoot,
   envelope,
   isMainModule,
   now,
   parseArgs,
   readJson,
   sessionPaths,
-  STATE_ENVELOPE_VERSION,
   workspacePath,
 } from './lib/portable.mjs';
-import {
-  pinAuthorityTrust,
-  verifyAuthorityDecision,
-  verifyCapabilityProbe,
-} from './lib/authority-decision.mjs';
-import { readStableJsonFile, workspaceSnapshot } from './lib/filesystem-snapshot.mjs';
-import { gitMetadata } from './lib/git-metadata.mjs';
-import {
-  replayWorkflowSession,
-  workflowPaths,
-} from './lib/workflow-journal.mjs';
 import { BUNDLE_VERSION, resolveProfile } from './resolve-profile.mjs';
 import {
   delegationTaskDigest,
@@ -52,19 +39,11 @@ import {
 } from './lib/decision-contracts.mjs';
 import {
   defectProofErrors,
+  hasDefectSignal,
   resolveWorkKind,
 } from './lib/defect-proof.mjs';
-import {
-  canonicalLifecycle,
-  emptyDecision,
-  intentErrors,
-  newLifecycle,
-  pointerErrors,
-  sessionErrors,
-  stateEnvelopeErrors,
-  throwStateErrors,
-} from './lib/session-contracts.mjs';
 
+const REQUIRED_GATES = ['verification', 'review'];
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
   direct: [],
@@ -78,7 +57,7 @@ const APPROVAL_ARTIFACTS = {
   plan: ['plan'],
   wiring: ['plan', 'decisions'],
 };
-const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-draft-pr', 'tracker-comment']);
+const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-draft-pr']);
 const ARTIFACT_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked', 'skipped']);
 const ARTIFACTS = {
   context: {},
@@ -89,17 +68,15 @@ const ARTIFACTS = {
   'delegation-task': { run: true },
   'delegation-result': { run: true },
   execution: { run: true, role: 'blade' },
+  verification: { run: true, role: 'ward' },
+  review: { run: true, role: 'gaze' },
   wrap: { run: true, role: 'warden' },
 };
-const DECISION_ARTIFACTS = new Set(['brainstorm', 'plan', 'decisions']);
 const MODEL_PROFILES = new Set(['inherit', 'economy', 'balanced', 'deep', 'frontier']);
-const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;
-const TEST_READER_BARRIER_ENV = 'PHANTOM_TEST_STATE_READER_BARRIER';
 const lockWaiter = new Int32Array(new SharedArrayBuffer(4));
-const BRANCH_NAME = /^(?!\/|.*(?:\.\.|@\{|\\|\s|~|\^|:|\?|\*|\[))(?!.*\/$)(?!.*\.lock$)[A-Za-z0-9._\/-]+$/;
 
 function fail(message) {
   process.stderr.write(`${message}\n`);
@@ -110,77 +87,115 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function fsyncDirectory(directory) {
-  let descriptor;
-  try {
-    descriptor = openSync(directory, 'r');
-    fsyncSync(descriptor);
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-  }
+function emptyDecision() {
+  return { status: 'pending', decided_at: null };
 }
 
-function durableWriteJson(file, value) {
-  atomicWriteJson(file, value);
-  fsyncDirectory(dirname(file));
-}
-
-function durableUnlink(file) {
-  try {
-    unlinkSync(file);
-    fsyncDirectory(dirname(file));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
-}
-
-function durableRename(from, to) {
-  renameSync(from, to);
-  fsyncDirectory(dirname(from));
-  if (dirname(to) !== dirname(from)) fsyncDirectory(dirname(to));
+function lifecycleFor(session) {
+  const existing = isObject(session.lifecycle) ? session.lifecycle : {};
+  const mode = existing.mode === 'to-plan' || session.mode === 'to-plan' || session.to_plan === true
+    ? 'to-plan'
+    : 'standard';
+  return {
+    mode,
+    approvals: {
+      direction: emptyDecision(),
+      plan: emptyDecision(),
+      wiring: emptyDecision(),
+      ...(isObject(existing.approvals) ? existing.approvals : {}),
+    },
+    authorizations: {
+      implementation: emptyDecision(),
+      'ship-draft-pr': emptyDecision(),
+      ...(isObject(existing.authorizations) ? existing.authorizations : {}),
+    },
+    actions: {
+      execute: emptyDecision(),
+      verify: emptyDecision(),
+      ship: emptyDecision(),
+      ...(isObject(existing.actions) ? existing.actions : {}),
+    },
+  };
 }
 
 function granted(decision) {
   return decision?.status === 'approved' || decision?.status === 'authorized';
 }
 
-export function worktreeFingerprint(workspace) {
-  return workspaceSnapshot(workspace).digest;
-}
-
-export function protectedBranches(workspace) {
-  const configured = String(process.env.PHANTOM_PROTECTED_BRANCHES || '')
-    .split(/[\s,]+/)
-    .map((branch) => branch.trim())
-    .filter(Boolean);
-  const originHead = gitMetadata(workspace).origin_head;
-  const branches = ['main', 'master', 'develop', originHead, ...configured].filter(Boolean);
-  for (const branch of branches) {
-    if (!BRANCH_NAME.test(branch)) {
-      throw new Error(`Invalid protected branch name: ${branch}`);
+function hashFileState(hash, workspace, relativePath, gitlink = false) {
+  const file = join(workspace, relativePath);
+  hash.update(`path\0${relativePath}\0`);
+  let metadata;
+  try {
+    metadata = lstatSync(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      hash.update('missing\0');
+      return;
     }
+    throw error;
   }
-  return [...new Set(branches)].sort();
+  hash.update(`mode\0${metadata.mode & 0o7777}\0`);
+  if (metadata.isSymbolicLink()) {
+    hash.update(`link\0${readlinkSync(file)}\0`);
+  } else if (metadata.isFile()) {
+    hash.update('file\0');
+    hash.update(readFileSync(file));
+  } else if (metadata.isDirectory() && gitlink) {
+    hash.update(`gitlink-worktree\0${worktreeFingerprint(file)}\0`);
+  } else {
+    hash.update(`node\0${metadata.mode & 0o170000}\0`);
+  }
 }
 
-export function branchPolicyContext(workspace) {
-  return {
-    current_branch: gitMetadata(workspace).current_branch,
-    protected_branches: protectedBranches(workspace),
-  };
-}
+export function worktreeFingerprint(workspace) {
+  const hash = createHash('sha256');
+  hash.update(`workspace\0${workspace}\0`);
+  let indexRecords = [];
+  let files = [];
+  let gitlinks = new Set();
+  try {
+    indexRecords = execFileSync(
+      'git',
+      ['-C', workspace, 'ls-files', '--stage', '-z'],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString('utf8').split('\0').filter(Boolean).sort();
+    const tracked = [];
+    for (const record of indexRecords) {
+      const separator = record.indexOf('\t');
+      if (separator < 0) continue;
+      const metadata = record.slice(0, separator).split(' ');
+      const relativePath = record.slice(separator + 1);
+      tracked.push(relativePath);
+      if (metadata[0] === '160000') gitlinks.add(relativePath);
+    }
+    const untracked = execFileSync(
+      'git',
+      ['-C', workspace, 'ls-files', '-z', '--others', '--exclude-standard'],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString('utf8').split('\0').filter(Boolean);
+    files = [...new Set([...tracked, ...untracked])].sort();
+  } catch {
+    indexRecords = [];
+    gitlinks = new Set();
+    const visit = (directory, prefix = '') => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.name === '.git') continue;
+        const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const file = join(directory, entry.name);
+        if (entry.isDirectory()) visit(file, relativePath);
+        else files.push(relativePath);
+      }
+    };
+    visit(workspace);
+    files.sort();
+  }
 
-export function assertFeatureBranch(workspace, action = 'mutate the workspace') {
-  const policy = branchPolicyContext(workspace);
-  if (!policy.current_branch) {
-    throw new Error(`Cannot ${action}: Git is unavailable or HEAD is detached; a named feature branch is required.`);
+  for (const record of indexRecords) hash.update(`index\0${record}\0`);
+  for (const relativePath of files) {
+    hashFileState(hash, workspace, relativePath, gitlinks.has(relativePath));
   }
-  if (policy.protected_branches.includes(policy.current_branch)) {
-    throw new Error(
-      `Cannot ${action}: ${policy.current_branch} is a protected branch. Create and select a feature branch first.`,
-    );
-  }
-  return policy;
+  return `sha256:${hash.digest('hex')}`;
 }
 
 function isWithin(root, candidate) {
@@ -289,76 +304,6 @@ function lockFile(workspace) {
   return join(paths.root, 'locks', `${paths.repo.id}.lock`);
 }
 
-function migrationLockFile(workspace) {
-  return join(dataRoot(workspace), 'locks', '.session-state-migration.lock');
-}
-
-function migrationRecoveryLockFile(workspace) {
-  return join(dataRoot(workspace), 'locks', '.session-state-migration.recovery.lock');
-}
-
-function migrationBlockedError() {
-  return new Error(
-    'An offline Phantom session-state migration is in progress or requires exact migrator recovery; '
-    + 'runtime state access is blocked.',
-  );
-}
-
-function ensurePrivateLockDirectory(workspace) {
-  const directory = join(dataRoot(workspace), 'locks');
-  try {
-    lstatSync(directory);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    mkdirSync(directory, { recursive: true, mode: 0o700 });
-  }
-
-  let stat = lstatSync(directory);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
-  }
-  if (typeof process.getuid === 'function' && stat.uid !== process.getuid()) {
-    throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
-  }
-  if (process.platform !== 'win32' && (stat.mode & 0o777) !== 0o700) {
-    chmodSync(directory, 0o700);
-    stat = lstatSync(directory);
-    if (stat.isSymbolicLink() || !stat.isDirectory()
-      || (typeof process.getuid === 'function' && stat.uid !== process.getuid())
-      || (stat.mode & 0o777) !== 0o700) {
-      throw new Error(`Phantom lock path must be a private current-user-owned real directory: ${directory}`);
-    }
-  }
-  return directory;
-}
-
-function assertNoMigrationWideLock(workspace) {
-  ensurePrivateLockDirectory(workspace);
-  for (const file of [migrationLockFile(workspace), migrationRecoveryLockFile(workspace)]) {
-    try {
-      lstatSync(file);
-    } catch (error) {
-      if (error.code === 'ENOENT') continue;
-      throw migrationBlockedError();
-    }
-    throw migrationBlockedError();
-  }
-}
-
-function pauseTestReaderAfterInitialLockCheck(workspace) {
-  const token = process.env[TEST_READER_BARRIER_ENV];
-  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(token)) return;
-  const directory = ensurePrivateLockDirectory(workspace);
-  const ready = join(directory, `.state-reader-${token}.ready`);
-  const resume = join(directory, `.state-reader-${token}.resume`);
-  writeFileSync(ready, 'ready\n', { flag: 'wx', mode: 0o600 });
-  const deadline = Date.now() + 10_000;
-  while (!existsSync(resume)) {
-    if (Date.now() >= deadline) throw new Error('Timed out waiting for the state-reader test barrier.');
-    Atomics.wait(lockWaiter, 0, 0, LOCK_RETRY_MS);
-  }
-}
-
 function processIsAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -368,7 +313,7 @@ function processIsAlive(pid) {
   }
 }
 
-function auxiliaryLockIsStale(file) {
+function lockIsStale(file) {
   try {
     const owner = JSON.parse(readFileSync(file, 'utf8'));
     if (Number.isInteger(owner.pid) && owner.pid > 0) return !processIsAlive(owner.pid);
@@ -381,29 +326,6 @@ function auxiliaryLockIsStale(file) {
   } catch (error) {
     return error.code === 'ENOENT';
   }
-}
-
-function lifecycleLockState(file) {
-  let owner;
-  try {
-    const record = readStableJsonFile(file);
-    if (record.physical.nlink !== 1) return { kind: 'ambiguous' };
-    owner = record.value;
-  } catch (error) {
-    if (error.code === 'ENOENT') return { kind: 'absent' };
-    return { kind: 'ambiguous' };
-  }
-  if (isObject(owner) && Object.hasOwn(owner, 'migration_id')) {
-    return { kind: 'migration' };
-  }
-  const fields = isObject(owner) ? Object.keys(owner).sort() : [];
-  if (JSON.stringify(fields) !== JSON.stringify(['created_at', 'pid', 'token'])
-    || !Number.isInteger(owner.pid) || owner.pid <= 0
-    || typeof owner.token !== 'string' || !owner.token
-    || typeof owner.created_at !== 'string' || !Number.isFinite(Date.parse(owner.created_at))) {
-    return { kind: 'ambiguous' };
-  }
-  return { kind: processIsAlive(owner.pid) ? 'active' : 'stale', owner };
 }
 
 function recoverStaleLock(file) {
@@ -422,7 +344,7 @@ function recoverStaleLock(file) {
         try { unlinkSync(recoveryFile); } catch {}
       }
       if (error.code !== 'EEXIST') throw error;
-      if (attempt > 0 || !auxiliaryLockIsStale(recoveryFile)) return false;
+      if (attempt > 0 || !lockIsStale(recoveryFile)) return false;
       try { unlinkSync(recoveryFile); } catch (unlinkError) {
         if (unlinkError.code !== 'ENOENT') throw unlinkError;
       }
@@ -430,13 +352,12 @@ function recoverStaleLock(file) {
   }
 
   try {
-    if (lifecycleLockState(file).kind === 'stale') {
+    if (lockIsStale(file)) {
       try { unlinkSync(file); } catch (error) {
         if (error.code !== 'ENOENT') throw error;
       }
-      return true;
     }
-    return false;
+    return true;
   } finally {
     try { unlinkSync(recoveryFile); } catch (error) {
       if (error.code !== 'ENOENT') throw error;
@@ -448,34 +369,23 @@ function acquireLifecycleLock(workspace) {
   const file = lockFile(workspace);
   const token = randomUUID();
   const deadline = Date.now() + LOCK_WAIT_MS;
-  ensurePrivateLockDirectory(workspace);
+  mkdirSync(dirname(file), { recursive: true });
 
   while (true) {
-    assertNoMigrationWideLock(workspace);
     let descriptor;
     try {
       descriptor = openSync(file, 'wx', 0o600);
       writeFileSync(descriptor, `${JSON.stringify({ pid: process.pid, token, created_at: now() })}\n`, 'utf8');
       closeSync(descriptor);
       descriptor = undefined;
-      const lock = { file, token };
-      try {
-        assertNoMigrationWideLock(workspace);
-      } catch (error) {
-        releaseLifecycleLock(lock);
-        throw error;
-      }
-      return lock;
+      return { file, token };
     } catch (error) {
       if (descriptor !== undefined) {
         closeSync(descriptor);
         try { unlinkSync(file); } catch {}
       }
       if (error.code !== 'EEXIST') throw error;
-      assertNoMigrationWideLock(workspace);
-      const state = lifecycleLockState(file);
-      if (state.kind === 'migration') throw migrationBlockedError();
-      if (state.kind === 'stale' && recoverStaleLock(file)) continue;
+      if (lockIsStale(file) && recoverStaleLock(file)) continue;
       if (Date.now() >= deadline) {
         throw new Error('Another Phantom lifecycle mutation is already in progress for this repository.');
       }
@@ -493,101 +403,9 @@ function releaseLifecycleLock(lock) {
   }
 }
 
-function stateTransactionFile(workspace) {
-  const paths = sessionPaths(workspace, 'transaction');
-  return join(paths.root, 'state', 'transactions', `${paths.repo.id}.json`);
-}
-
-function assertTransactionPath(root, file) {
-  const candidate = resolve(file);
-  if (!isWithin(resolve(root), candidate)) {
-    throw new Error(`State transaction target is outside the Phantom data root: ${file}`);
-  }
-  return candidate;
-}
-
-function restoreTransactionSnapshot(snapshot) {
-  if (snapshot.existed) durableWriteJson(snapshot.file, snapshot.value);
-  else durableUnlink(snapshot.file);
-}
-
-function rollbackStateTransaction(workspace, transaction) {
-  const root = sessionPaths(workspace, 'transaction').root;
-  if (!isObject(transaction)
-    || transaction.schema_version !== 1
-    || !Array.isArray(transaction.snapshots)) {
-    throw new Error('State transaction journal is malformed; refusing unsafe recovery.');
-  }
-  if (transaction.rename !== null) {
-    if (!isObject(transaction.rename)) throw new Error('State transaction rename is malformed.');
-    const from = assertTransactionPath(root, transaction.rename.from);
-    const to = assertTransactionPath(root, transaction.rename.to);
-    if (existsSync(to) && !existsSync(from)) durableRename(to, from);
-    else if (existsSync(to) && existsSync(from)) {
-      throw new Error('State transaction recovery found both rename endpoints; manual recovery is required.');
-    } else if (!existsSync(from)) {
-      throw new Error('State transaction recovery found neither rename endpoint; manual recovery is required.');
-    }
-  }
-  for (const snapshot of transaction.snapshots) {
-    if (!isObject(snapshot) || typeof snapshot.file !== 'string' || typeof snapshot.existed !== 'boolean') {
-      throw new Error('State transaction snapshot is malformed; refusing unsafe recovery.');
-    }
-    snapshot.file = assertTransactionPath(root, snapshot.file);
-    restoreTransactionSnapshot(snapshot);
-  }
-}
-
-function recoverStateTransaction(workspace) {
-  const file = stateTransactionFile(workspace);
-  const transaction = readJson(file);
-  if (!transaction) return false;
-  rollbackStateTransaction(workspace, transaction);
-  durableUnlink(file);
-  return true;
-}
-
-function runStateTransaction(workspace, operation, files, action, rename = null) {
-  const file = stateTransactionFile(workspace);
-  if (existsSync(file)) {
-    throw new Error('An unrecovered Phantom state transaction already exists.');
-  }
-  const root = sessionPaths(workspace, 'transaction').root;
-  const snapshots = files.map((candidate) => {
-    const target = assertTransactionPath(root, candidate);
-    const existed = existsSync(target);
-    return { file: target, existed, value: existed ? readJson(target) : null };
-  });
-  const transaction = {
-    schema_version: 1,
-    operation,
-    created_at: now(),
-    snapshots,
-    rename: rename === null ? null : {
-      from: assertTransactionPath(root, rename.from),
-      to: assertTransactionPath(root, rename.to),
-    },
-  };
-  durableWriteJson(file, transaction);
-  try {
-    const result = action();
-    durableUnlink(file);
-    return result;
-  } catch (error) {
-    try {
-      rollbackStateTransaction(workspace, transaction);
-      durableUnlink(file);
-    } catch (rollbackError) {
-      throw new Error(`${error.message} State rollback failed: ${rollbackError.message}`);
-    }
-    throw error;
-  }
-}
-
 function withLifecycleLock(workspace, action) {
   const lock = acquireLifecycleLock(workspace);
   try {
-    recoverStateTransaction(workspace);
     return action();
   } finally {
     releaseLifecycleLock(lock);
@@ -595,26 +413,24 @@ function withLifecycleLock(workspace, action) {
 }
 
 function currentSession(workspace) {
-  assertNoMigrationWideLock(workspace);
-  pauseTestReaderAfterInitialLockCheck(workspace);
-  const pointerFile = currentSessionFile(workspace);
-  if (!existsSync(pointerFile)) {
-    assertNoMigrationWideLock(workspace);
-    return null;
-  }
-  const pointer = readJson(pointerFile);
-  if (!isObject(pointer) || typeof pointer.task_id !== 'string' || !pointer.task_id.trim()) {
-    throwStateErrors(['current-session pointer task_id must be a non-empty string']);
-  }
+  const pointer = readJson(currentSessionFile(workspace));
+  if (!pointer?.task_id) return null;
   const paths = sessionPaths(workspace, pointer.task_id);
-  throwStateErrors(pointerErrors(pointer, paths));
-  paths.sessionDir = pointer.session_dir;
-  const session = readJson(join(paths.sessionDir, 'session.json'));
-  throwStateErrors(sessionErrors(session, paths, pointer));
-  const intent = readJson(join(paths.sessionDir, 'intent.json'));
-  throwStateErrors(intentErrors(intent, paths, session));
-  assertNoMigrationWideLock(workspace);
-  return { paths, pointer, session, intent };
+  const sessionDirectory = pointer.session_dir || paths.sessionDir;
+  const session = readJson(join(sessionDirectory, 'session.json'));
+  paths.sessionDir = sessionDirectory;
+  if (!session) return null;
+  const sessionHadWorkKind = session.work_kind !== undefined;
+  session.lifecycle = lifecycleFor(session);
+  if (!sessionHadWorkKind) {
+    session.work_kind = resolveWorkKind(undefined, session.intent_summary);
+  }
+  return {
+    paths,
+    pointer,
+    session,
+    sessionHadWorkKind,
+  };
 }
 
 function requireCurrent(workspace) {
@@ -624,38 +440,18 @@ function requireCurrent(workspace) {
   return current;
 }
 
-export function workflowControlContext(workspaceInput) {
-  const workspace = workspacePath(workspaceInput);
-  const current = currentSession(workspace);
-  if (!current || current.session.status === 'completed') return null;
-  return {
-    workspace,
-    task: current.paths.task,
-    dataRoot: current.paths.root,
-    sessionDir: current.paths.sessionDir,
-    status: current.session.status,
-    route: current.session.route,
-  };
-}
-
 function start(workspace, args) {
-  if (!args.task || !args.intent || !args.route) {
-    throw new Error('start requires --task, --intent, and --route.');
-  }
+  if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
   const requestedWorkKind = resolveWorkKind(args['work-kind'], args.intent);
-  const route = args.route;
+  const route = args.route || 'plan';
   if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
-  }
-  if (args['to-plan'] !== undefined) {
-    throw new Error('Unsupported --to-plan flag. Use --mode to-plan.');
   }
   if (args.mode !== undefined && !['standard', 'to-plan'].includes(args.mode)) {
     throw new Error('Unsupported mode. Use --mode standard or --mode to-plan.');
   }
-  const requestedMode = args.mode === 'to-plan' ? 'to-plan' : 'standard';
+  const requestedMode = args['to-plan'] === true || args.mode === 'to-plan' ? 'to-plan' : 'standard';
   const paths = sessionPaths(workspace, args.task);
-  const authorityTrust = pinAuthorityTrust(workspace);
   const current = currentSession(workspace);
   if (current && current.session.status !== 'completed' && current.paths.task !== paths.task) {
     throw new Error(
@@ -664,25 +460,25 @@ function start(workspace, args) {
     );
   }
   mkdirSync(paths.sessionDir, { recursive: true });
-  mkdirSync(join(paths.sessionDir, 'control-inputs'), { recursive: true });
-  mkdirSync(join(paths.sessionDir, 'control-inputs', '.claims'), { recursive: true });
   const existing = readJson(join(paths.sessionDir, 'session.json'));
   if (existing) {
-    if (!current || current.paths.task !== paths.task || current.paths.sessionDir !== paths.sessionDir) {
-      throw new Error(
-        `Cannot resume task ${paths.task}: its session is not selected by a canonical current-session pointer.`,
-      );
-    }
-    if (existing.work_kind !== requestedWorkKind) {
+    const existingWorkKind = resolveWorkKind(existing.work_kind, existing.intent_summary);
+    if (existingWorkKind !== requestedWorkKind) {
       throw new Error(
         `Cannot change work kind for active task ${paths.task} from `
-        + `${existing.work_kind} to ${requestedWorkKind}.`,
+        + `${existingWorkKind} to ${requestedWorkKind}.`,
       );
     }
-    if (existing.route !== route) {
+    if (existing.route && existing.route !== route) {
       throw new Error(
         `Cannot change route for active task ${paths.task} from ${existing.route} to ${route}. `
         + 'Record the change as a revision, or complete this session and restart with a new task id.',
+      );
+    }
+    if (!existing.intent_summary) {
+      throw new Error(
+        `Cannot resume active task ${paths.task}: its legacy session has no immutable intent summary. `
+        + 'Recover the original session metadata, or complete it and restart with a new task id.',
       );
     }
     if (existing.intent_summary.trim() !== args.intent.trim()) {
@@ -697,44 +493,29 @@ function start(workspace, args) {
     workspace: paths.repo.root,
     route,
     intent_summary: args.intent,
-    authority_trust: authorityTrust,
-    authority_decisions: [],
   });
   session.bundle_version = BUNDLE_VERSION;
   session.status = 'active';
-  session.route = route;
+  session.route = existing?.route || route;
   session.work_kind = requestedWorkKind;
-  session.lifecycle = existing ? canonicalLifecycle(existing.lifecycle) : newLifecycle(requestedMode);
-  session.authority_trust = existing?.authority_trust ?? authorityTrust;
-  session.authority_decisions = existing?.authority_decisions ?? [];
-  session.intent_summary = existing?.intent_summary ?? args.intent;
+  session.lifecycle = lifecycleFor(existing ? session : { ...session, mode: requestedMode });
+  session.intent_summary = existing?.intent_summary || args.intent;
   session.updated_at = now();
-  const sessionFile = join(paths.sessionDir, 'session.json');
-  const intentFile = join(paths.sessionDir, 'intent.json');
-  const intent = envelope('intent', paths, 'active', {
+  atomicWriteJson(join(paths.sessionDir, 'session.json'), session);
+  atomicWriteJson(join(paths.sessionDir, 'intent.json'), envelope('intent', paths, 'active', {
     bundle_version: BUNDLE_VERSION,
     summary: session.intent_summary,
     route: session.route,
     work_kind: session.work_kind,
-  });
-  const pointer = {
-    schema_version: STATE_ENVELOPE_VERSION,
+  }));
+  atomicWriteJson(paths.currentFile, {
+    schema_version: 1,
     repo_id: paths.repo.id,
     task_id: paths.task,
     session_dir: paths.sessionDir,
     updated_at: now(),
-  };
-  return runStateTransaction(
-    workspace,
-    'start',
-    [sessionFile, intentFile, paths.currentFile],
-    () => {
-      durableWriteJson(sessionFile, session);
-      durableWriteJson(intentFile, intent);
-      durableWriteJson(paths.currentFile, pointer);
-      return session;
-    },
-  );
+  });
+  return session;
 }
 
 function status(workspace) {
@@ -754,28 +535,20 @@ function updateStatus(workspace, nextStatus, extra = {}, current = requireCurren
   const session = {
     ...current.session,
     ...extra,
-    lifecycle: canonicalLifecycle(extra.lifecycle ?? current.session.lifecycle),
+    lifecycle: lifecycleFor(extra.lifecycle ? { ...current.session, lifecycle: extra.lifecycle } : current.session),
     bundle_version: BUNDLE_VERSION,
     status: nextStatus,
     updated_at: now(),
   };
-  const sessionFile = join(current.paths.sessionDir, 'session.json');
-  return runStateTransaction(
-    workspace,
-    'update-status',
-    [sessionFile, current.paths.currentFile],
-    () => {
-      durableWriteJson(sessionFile, session);
-      durableWriteJson(current.paths.currentFile, { ...current.pointer, updated_at: now() });
-      return session;
-    },
-  );
+  atomicWriteJson(join(current.paths.sessionDir, 'session.json'), session);
+  atomicWriteJson(current.paths.currentFile, { ...current.pointer, updated_at: now() });
+  return session;
 }
 
 function requireStandardMode(current, action) {
   if (current.session.lifecycle.mode === 'to-plan') {
     throw new Error(
-      `Cannot ${action}: this session is permanently plan-only (--mode to-plan). `
+      `Cannot ${action}: this session is permanently plan-only (--to-plan). `
       + 'Start a separate standard session when implementation or shipping is authorized.',
     );
   }
@@ -791,13 +564,21 @@ function artifactDigest(artifact) {
 
 function approvalArtifactErrors(type, artifact, current) {
   if (!isObject(artifact)) return [`current passed ${type} artifact is missing`];
-  const errors = stateEnvelopeErrors(artifact, type, current.paths);
+  const errors = [];
+  if (artifact.schema_version !== 1) errors.push(`${type} artifact has an unsupported schema version`);
+  if (artifact.artifact_type !== type) errors.push(`${type} artifact type does not match`);
+  if (artifact.repo_id !== current.paths.repo.id) errors.push(`${type} artifact belongs to another repository`);
+  if (artifact.task_id !== current.paths.task) errors.push(`${type} artifact belongs to another task`);
   if (artifact.status !== 'passed') errors.push(`${type} artifact is not passed`);
   if (!Number.isInteger(artifact.record_sequence) || artifact.record_sequence < 1) {
     errors.push(`${type} artifact has no stable record sequence`);
   }
   if (['brainstorm', 'plan'].includes(type)) {
     errors.push(...validateDecisionContract(type, artifact.evidence, {
+      requireV3: true,
+      enforceCanonicalQuick: true,
+      enforceEvidenceFreshness: true,
+      enforcePathProvenance: true,
       workspace: current.paths.repo.root,
     }));
   }
@@ -824,201 +605,29 @@ function currentApprovalBindings(current, gate, action) {
   return bindings;
 }
 
-function signedApprovalBindings(current, gates, action) {
-  return gates.flatMap((gate) => currentApprovalBindings(current, gate, action)
-    .map((binding) => ({ gate, ...binding })))
-    .sort((left, right) => compareText(canonicalJsonValue(left), canonicalJsonValue(right)));
-}
-
-function authorityDecisionInput(args, action) {
-  if (args.by !== undefined) {
-    throw new Error(`${action} does not accept caller-controlled --by identity.`);
-  }
-  if (!args.decision || args.decision === true) {
-    throw new Error(`${action} requires --decision <signed-authority-decision.json>.`);
-  }
-  return readStableJsonFile(resolve(args.decision)).value;
-}
-
-function consumedAuthorityIds(current) {
-  const history = current.session.authority_decisions || [];
-  return {
-    usedReplayIds: history.map((entry) => entry.replay_id),
-    usedSourceEventIds: history.map((entry) => entry.source_event_id),
-  };
-}
-
-function appendAuthorityHistory(session, kind, target, record) {
-  return [
-    ...(session.authority_decisions || []),
-    {
-      decision_kind: kind,
-      target,
-      decided_at: now(),
-      ...record,
-    },
-  ];
-}
-
 function requireCurrentApproval(current, gate, action) {
   const approval = current.session.lifecycle.approvals[gate];
   if (!granted(approval)) {
     missingPrerequisite(
       action,
       `${gate} approval is missing for route ${current.session.route}`,
-      `phantom-state.mjs approve --gate ${gate} --decision <signed.json> --workspace <path>`,
+      `phantom-state.mjs approve --gate ${gate} --workspace <path>`,
     );
   }
   if (!Array.isArray(approval.artifact_bindings)) {
     throw new Error(
       `Cannot ${action}: ${gate} approval has no artifact binding and cannot be safely recovered. `
       + `Record a fresh passed ${APPROVAL_ARTIFACTS[gate].join(' and ')} artifact, `
-      + `then run \`phantom-state.mjs approve --gate ${gate} --decision <signed.json> --workspace <path>\` again.`,
+      + `then run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
     );
   }
   const currentBindings = currentApprovalBindings(current, gate, action);
   if (JSON.stringify(approval.artifact_bindings) !== JSON.stringify(currentBindings)) {
     throw new Error(
       `Cannot ${action}: ${gate} approval is stale for the current passed artifact. `
-      + `Review it and run \`phantom-state.mjs approve --gate ${gate} --decision <signed.json> --workspace <path>\` again.`,
+      + `Review it and run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
     );
   }
-}
-
-function requireCurrentAuthorization(current, scope, action, fingerprint) {
-  const authorization = current.session.lifecycle.authorizations[scope];
-  const label = scope === 'ship-draft-pr' ? 'draft-PR shipping' : scope;
-  if (!granted(authorization)) {
-    missingPrerequisite(
-      action,
-      `${label} authorization is missing`,
-      `phantom-state.mjs authorize --scope ${scope} --decision <signed.json> --workspace <path>`,
-    );
-  }
-  if (!isObject(authorization.authority)
-    || authorization.authority.worktree_fingerprint !== fingerprint) {
-    throw new Error(
-      `Cannot ${action}: ${label} authorization is missing a current signed fingerprint binding. `
-      + `Run \`phantom-state.mjs authorize --scope ${scope} --decision <signed.json> --workspace <path>\` again.`,
-    );
-  }
-  const expectedBindings = signedApprovalBindings(
-    current,
-    ROUTE_APPROVALS[current.session.route],
-    action,
-  );
-  if (canonicalJsonValue(authorization.authority.approval_artifact_bindings)
-    !== canonicalJsonValue(expectedBindings)) {
-    throw new Error(`Cannot ${action}: ${scope} authorization has stale approval artifact bindings.`);
-  }
-  const trust = current.session.authority_trust;
-  if (!isObject(trust)
-    || authorization.authority.key_id !== trust.key_id
-    || authorization.authority.source !== trust.source) {
-    throw new Error(`Cannot ${action}: ${scope} authorization no longer matches the session-pinned host trust.`);
-  }
-  const expiresAt = Date.parse(authorization.authority.expires_at);
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-    throw new Error(`Cannot ${action}: ${scope} authorization is expired; obtain a fresh signed decision.`);
-  }
-  const decisions = current.session.authority_decisions.filter((entry) =>
-    entry.decision_kind === 'authorization' && entry.target === scope);
-  const latest = decisions.at(-1);
-  if (!isObject(latest)) {
-    throw new Error(`Cannot ${action}: ${scope} authorization has no consumed authority-history record.`);
-  }
-  for (const [field, value] of Object.entries(authorization.authority)) {
-    if (canonicalJsonValue(latest[field]) !== canonicalJsonValue(value)) {
-      throw new Error(`Cannot ${action}: ${scope} authorization was replaced or its authority record is inconsistent.`);
-    }
-  }
-  return authorization;
-}
-
-function currentCapabilityContext(workspaceInput, task, fingerprint, action) {
-  const workspace = workspacePath(workspaceInput);
-  const current = requireCurrent(workspace);
-  if (current.session.status !== 'active') {
-    throw new Error(`Cannot ${action}: the Phantom session is ${current.session.status}, not active.`);
-  }
-  if (task !== null && current.paths.task !== task) {
-    throw new Error(`Cannot ${action}: requested task ${task} is not the canonical active task ${current.paths.task}.`);
-  }
-  const currentFingerprint = worktreeFingerprint(current.paths.repo.root);
-  if (fingerprint !== null && fingerprint !== currentFingerprint) {
-    throw new Error(`Cannot ${action}: the supplied worktree fingerprint is stale.`);
-  }
-  return { workspace, current, fingerprint: currentFingerprint };
-}
-
-export function assertCurrentLifecycleAuthorization(workspaceInput, {
-  task = null,
-  scope,
-  fingerprint = null,
-  action = 'use a consequential capability',
-} = {}) {
-  if (!AUTHORIZATION_SCOPES.has(scope)) {
-    throw new Error('Lifecycle authorization check requires a supported scope.');
-  }
-  const { current, fingerprint: currentFingerprint } = currentCapabilityContext(
-    workspaceInput,
-    task,
-    fingerprint,
-    action,
-  );
-  const authorization = requireCurrentAuthorization(
-    current,
-    scope,
-    action,
-    currentFingerprint,
-  );
-  return {
-    current,
-    fingerprint: currentFingerprint,
-    authority: structuredClone(authorization.authority),
-  };
-}
-
-export function assertTrustedHostInterception(workspaceInput, {
-  task = null,
-  fingerprint = null,
-  action = 'use native tool interception',
-} = {}) {
-  const { workspace, current, fingerprint: currentFingerprint } = currentCapabilityContext(
-    workspaceInput,
-    task,
-    fingerprint,
-    action,
-  );
-  const file = join(current.paths.sessionDir, 'capability-probe.json');
-  const probe = readJson(file);
-  if (probe === null) {
-    throw new Error(
-      `Cannot ${action}: signed host interception evidence is unavailable at ${file}.`,
-    );
-  }
-  const verified = verifyCapabilityProbe({
-    workspace,
-    probe,
-    pinnedTrust: current.session.authority_trust,
-    repoId: current.paths.repo.id,
-    taskId: current.paths.task,
-    worktreeFingerprint: currentFingerprint,
-  });
-  return {
-    current,
-    fingerprint: currentFingerprint,
-    probe_digest: verified.probe_digest,
-    probe: structuredClone(probe),
-  };
-}
-
-function canonicalJsonValue(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJsonValue).join(',')}]`;
-  if (isObject(value)) {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJsonValue(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
 
 function approve(workspace, args) {
@@ -1033,7 +642,7 @@ function approve(workspace, args) {
   if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)
     && !granted(current.session.lifecycle.approvals.direction)) {
     missingPrerequisite('approve the plan', 'direction approval is missing',
-      'phantom-state.mjs approve --gate direction --decision <signed.json> --workspace <path>');
+      'phantom-state.mjs approve --gate direction --workspace <path>');
   }
   if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)) {
     requireCurrentApproval(current, 'direction', 'approve the plan');
@@ -1042,130 +651,152 @@ function approve(workspace, args) {
     missingPrerequisite(
       'approve wiring',
       'plan approval is missing',
-      'phantom-state.mjs approve --gate plan --decision <signed.json> --workspace <path>',
+      'phantom-state.mjs approve --gate plan --workspace <path>',
     );
   }
   if (args.gate === 'wiring') requireCurrentApproval(current, 'plan', 'approve wiring');
   const artifactBindings = currentApprovalBindings(current, args.gate, `approve ${args.gate}`);
-  const signedBindings = artifactBindings.map((binding) => ({ gate: args.gate, ...binding }));
-  const decision = authorityDecisionInput(args, 'approve');
-  const authority = verifyAuthorityDecision({
-    workspace,
-    decision,
-    pinnedTrust: current.session.authority_trust,
-    repoId: current.paths.repo.id,
-    taskId: current.paths.task,
-    decisionKind: 'approval',
-    gate: args.gate,
-    worktreeFingerprint: worktreeFingerprint(current.paths.repo.root),
-    approvalArtifactBindings: signedBindings,
-    ...consumedAuthorityIds(current),
-  });
-  const lifecycle = canonicalLifecycle(current.session.lifecycle);
+  const lifecycle = lifecycleFor(current.session);
   lifecycle.approvals[args.gate] = {
     status: 'approved',
     decided_at: now(),
+    by: args.by || 'user',
     artifact_bindings: artifactBindings,
-    authority,
   };
-  return updateStatus(workspace, current.session.status, {
-    lifecycle,
-    authority_decisions: appendAuthorityHistory(current.session, 'approval', args.gate, authority),
-  }, current);
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
 
 function authorize(workspace, args) {
   if (!AUTHORIZATION_SCOPES.has(args.scope)) {
-    throw new Error(
-      'authorize requires --scope implementation, --scope ship-draft-pr, or --scope tracker-comment.',
-    );
+    throw new Error('authorize requires --scope implementation or --scope ship-draft-pr.');
   }
   const current = requireCurrent(workspace);
-  const requiredGates = ROUTE_APPROVALS[current.session.route];
-  for (const gate of requiredGates) requireCurrentApproval(current, gate, `authorize ${args.scope}`);
-  const approvalBindings = signedApprovalBindings(current, requiredGates, `authorize ${args.scope}`);
-  const decision = authorityDecisionInput(args, 'authorize');
-  const authority = verifyAuthorityDecision({
-    workspace,
-    decision,
-    pinnedTrust: current.session.authority_trust,
-    repoId: current.paths.repo.id,
-    taskId: current.paths.task,
-    decisionKind: 'authorization',
-    scope: args.scope,
-    worktreeFingerprint: worktreeFingerprint(current.paths.repo.root),
-    approvalArtifactBindings: approvalBindings,
-    ...consumedAuthorityIds(current),
-  });
-  const lifecycle = canonicalLifecycle(current.session.lifecycle);
+  const lifecycle = lifecycleFor(current.session);
   lifecycle.authorizations[args.scope] = {
     status: 'authorized',
     decided_at: now(),
-    authority,
+    by: args.by || 'user',
   };
-  return updateStatus(workspace, current.session.status, {
-    lifecycle,
-    authority_decisions: appendAuthorityHistory(current.session, 'authorization', args.scope, authority),
-  }, current);
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function isLegacyClassificationArtifact(bundleVersion) {
+  if (bundleVersion === undefined) return true;
+  if (typeof bundleVersion !== 'string') return false;
+  const match = bundleVersion.match(/^(\d+)\.(\d+)\.\d+$/);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major < 2 || (major === 2 && minor < 2);
 }
 
 function authoritativeWorkKind(current) {
   const errors = [];
-  const sessionKind = resolveWorkKind(
-    current.session.work_kind,
-    current.session.intent_summary,
-  );
-  const intentKind = resolveWorkKind(current.intent.work_kind, current.intent.summary);
-  if (current.session.work_kind !== sessionKind) {
-    errors.push('session work_kind conflicts with defect signals in session intent_summary');
+  const sessionSummary = current.session.intent_summary;
+  if (typeof sessionSummary !== 'string' || sessionSummary.trim() === '') {
+    errors.push('session intent_summary is missing or malformed');
   }
-  if (current.intent.work_kind !== intentKind) {
-    errors.push('intent.json work_kind conflicts with defect signals in its summary');
+  let sessionKind;
+  try {
+    if (!current.sessionHadWorkKind
+      && !isLegacyClassificationArtifact(current.session.bundle_version)) {
+      errors.push('session work_kind is missing from a current classification artifact');
+    }
+    sessionKind = resolveWorkKind(current.session.work_kind, sessionSummary);
+    if (current.session.work_kind !== sessionKind) {
+      errors.push('session work_kind conflicts with defect signals in session intent_summary');
+    }
+  } catch (error) {
+    errors.push(`session work_kind is invalid: ${error.message}`);
   }
-  if (sessionKind !== intentKind) {
+
+  const intent = readJson(join(current.paths.sessionDir, 'intent.json'));
+  let intentKind;
+  if (!isObject(intent)) {
+    errors.push('intent.json is missing or malformed');
+  } else {
+    if (intent.repo_id !== current.paths.repo.id) {
+      errors.push('intent.json repo_id does not match the active session');
+    }
+    if (intent.task_id !== current.paths.task) {
+      errors.push('intent.json task_id does not match the active session');
+    }
+    if (typeof intent.summary !== 'string' || intent.summary.trim() === '') {
+      errors.push('intent.json summary is missing');
+    } else if (intent.summary.trim() !== String(sessionSummary || '').trim()) {
+      errors.push('intent.json summary does not match session intent_summary');
+    }
+    try {
+      if (intent.work_kind === undefined
+        && !isLegacyClassificationArtifact(intent.bundle_version)) {
+        errors.push('intent.json work_kind is missing from a current classification artifact');
+      }
+      intentKind = resolveWorkKind(intent.work_kind, intent.summary);
+      if (intent.work_kind !== undefined && intent.work_kind !== intentKind) {
+        errors.push('intent.json work_kind conflicts with defect signals in its summary');
+      }
+    } catch (error) {
+      errors.push(`intent.json work_kind is invalid: ${error.message}`);
+    }
+  }
+
+  if (sessionKind && intentKind && sessionKind !== intentKind) {
     errors.push('session and intent.json work_kind classifications do not match');
+  }
+  if (hasDefectSignal(sessionSummary) || hasDefectSignal(intent?.summary)) {
+    if (sessionKind !== 'investigation' || intentKind !== 'investigation') {
+      errors.push('defect signals require investigation classification');
+    }
   }
   return { errors, workKind: sessionKind };
 }
 
-function assertDefectProofCurrent(current, currentFingerprint, action) {
+function prepareExecute(current) {
+  requireStandardMode(current, 'execute');
+  const lifecycle = lifecycleFor(current.session);
+  const currentFingerprint = worktreeFingerprint(current.paths.repo.root);
   const classification = authoritativeWorkKind(current);
   if (classification.errors.length) {
     throw new Error(
-      `Cannot ${action}: authoritative classification artifacts are inconsistent. `
+      'Cannot execute: authoritative classification artifacts are inconsistent. '
       + classification.errors.join('; '),
     );
   }
-  if (classification.workKind !== 'investigation') return classification;
-  const proof = readJson(join(current.paths.sessionDir, 'defect-proof.json'));
-  const errors = defectProofErrors(proof, {
-    repoId: current.paths.repo.id,
-    taskId: current.paths.task,
-    baselineFingerprint: currentFingerprint,
-    sessionDir: current.paths.sessionDir,
-    nowMs: Date.now(),
-  });
-  if (errors.length) {
-    throw new Error(
-      `Cannot ${action} investigation: defect proof is not ready. `
-      + `${errors.join('; ')}. Preserve waiting_for_evidence/unconfirmed_defect `
-      + 'and run Hound again with the missing evidence.',
+  if (classification.workKind === 'investigation') {
+    const proof = readJson(join(current.paths.sessionDir, 'defect-proof.json'));
+    const errors = defectProofErrors(proof, {
+      repoId: current.paths.repo.id,
+      taskId: current.paths.task,
+      baselineFingerprint: currentFingerprint,
+      sessionDir: current.paths.sessionDir,
+      nowMs: Date.now(),
+    });
+    if (errors.length) {
+      throw new Error(
+        'Cannot execute investigation: defect proof is not ready. '
+        + `${errors.join('; ')}. Preserve waiting_for_evidence/unconfirmed_defect `
+        + 'and run Hound again with the missing evidence.',
+      );
+    }
+  }
+  if (!granted(lifecycle.authorizations.implementation)) {
+    missingPrerequisite(
+      'execute',
+      'implementation authorization is missing',
+      'phantom-state.mjs authorize --scope implementation --workspace <path>',
     );
   }
-  return classification;
-}
-
-function prepareExecute(current) {
-  requireStandardMode(current, 'execute');
-  const lifecycle = canonicalLifecycle(current.session.lifecycle);
-  const currentFingerprint = worktreeFingerprint(current.paths.repo.root);
-  assertDefectProofCurrent(current, currentFingerprint, 'execute');
-  assertFeatureBranch(current.paths.repo.root, 'execute');
   const requiredApprovals = ROUTE_APPROVALS[current.session.route];
+  if (!requiredApprovals) {
+    throw new Error(
+      'Cannot execute: the recovered session has no supported route. '
+      + 'Resume it with `phantom-state.mjs start --task <id> --intent <text> '
+      + '--route <direct|plan|brainstorm|full> --workspace <path>`.',
+    );
+  }
   for (const gate of requiredApprovals) {
     requireCurrentApproval(current, gate, 'execute');
   }
-  requireCurrentAuthorization(current, 'implementation', 'execute', currentFingerprint);
   lifecycle.actions.execute = {
     status: 'started',
     decided_at: now(),
@@ -1174,59 +805,80 @@ function prepareExecute(current) {
   return lifecycle;
 }
 
-function workflowSessionBinding(current, requiredGates) {
-  const planApproval = current.session.lifecycle.approvals.plan;
-  const approvedPlan = requiredGates.includes('plan')
-    ? planApproval.artifact_bindings.find((binding) => binding.artifact_type === 'plan')
-    : null;
-  if (requiredGates.includes('plan') && !approvedPlan) {
-    throw new Error('Cannot compile workflow: the current plan approval has no plan artifact binding.');
-  }
-  return {
-    repo_id: current.paths.repo.id,
-    task_id: current.paths.task,
-    route: current.session.route,
-    approved_plan: approvedPlan ? structuredClone(approvedPlan) : null,
-  };
-}
-
-export function workflowCompilationContext(workspace, { requireDefectProof = true } = {}) {
-  const current = requireCurrent(workspace);
-  const fingerprint = worktreeFingerprint(current.paths.repo.root);
-  if (requireDefectProof) assertDefectProofCurrent(current, fingerprint, 'compile workflow for');
-  const requiredGates = ROUTE_APPROVALS[current.session.route];
-  for (const gate of requiredGates) requireCurrentApproval(current, gate, 'compile workflow for');
-  return {
-    current,
-    fingerprint,
-    session_binding: workflowSessionBinding(current, requiredGates),
-  };
-}
-
-export function workflowStartContext(workspace) {
-  const current = requireCurrent(workspace);
-  const fingerprint = worktreeFingerprint(current.paths.repo.root);
-  assertDefectProofCurrent(current, fingerprint, 'start workflow for');
-  assertFeatureBranch(current.paths.repo.root, 'start workflow execution');
-  for (const gate of ROUTE_APPROVALS[current.session.route]) {
-    requireCurrentApproval(current, gate, 'start workflow execution');
-  }
-  requireCurrentAuthorization(current, 'implementation', 'start workflow execution', fingerprint);
-  if (current.session.lifecycle.actions.execute.status !== 'started'
-    || current.session.lifecycle.actions.execute.worktree_fingerprint !== fingerprint) {
-    throw new Error('Cannot start workflow execution: pass the current portable execute gate first.');
-  }
-  return {
-    current,
-    fingerprint,
-    session_binding: workflowSessionBinding(current, ROUTE_APPROVALS[current.session.route]),
-  };
-}
-
 function execute(workspace) {
   const current = requireCurrent(workspace);
   const lifecycle = prepareExecute(current);
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function prepareVerify(current) {
+  const lifecycle = lifecycleFor(current.session);
+  if (lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'verify',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
+    );
+  }
+  lifecycle.actions.verify = {
+    status: 'started',
+    decided_at: now(),
+    worktree_fingerprint: worktreeFingerprint(current.paths.repo.root),
+  };
+  return lifecycle;
+}
+
+function verify(workspace) {
+  const current = requireCurrent(workspace);
+  const lifecycle = prepareVerify(current);
+  return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function gateEvidenceErrors(type, evidence) {
+  if (!isObject(evidence)) return [`${type} evidence must be an object.`];
+  if (type === 'verification') {
+    if (!Array.isArray(evidence.checks) || evidence.checks.length === 0) {
+      return ['Passed verification evidence requires at least one check.'];
+    }
+    return evidence.checks.flatMap((check, index) => {
+      if (!isObject(check)) return [`Verification check ${index + 1} must be an object.`];
+      const errors = [];
+      if (typeof check.name !== 'string' || !check.name.trim()) {
+        errors.push(`Verification check ${index + 1} requires a name.`);
+      }
+      if (check.result !== 'passed') {
+        errors.push(`Verification check ${index + 1} must have result "passed".`);
+      }
+      return errors;
+    });
+  }
+  if (type === 'review') {
+    const errors = [];
+    if (evidence.verdict !== 'pass') errors.push('Passed review evidence requires verdict "pass".');
+    if (!Array.isArray(evidence.findings)) errors.push('Passed review evidence requires a findings array.');
+    return errors;
+  }
+  return [];
+}
+
+function gateArtifactErrors(type, artifact, current, fingerprint) {
+  if (!isObject(artifact)) return [`current passed ${type} artifact is missing.`];
+  const errors = [];
+  if (artifact.schema_version !== 1) errors.push(`${type} artifact has an unsupported schema version.`);
+  if (artifact.artifact_type !== type) errors.push(`${type} artifact type does not match its gate.`);
+  if (artifact.repo_id !== current.paths.repo.id) errors.push(`${type} artifact belongs to another repository.`);
+  if (artifact.task_id !== current.paths.task) errors.push(`${type} artifact belongs to another task.`);
+  if (artifact.status !== 'passed') errors.push(`${type} artifact is not passed.`);
+  if (!Number.isInteger(artifact.record_sequence) || artifact.record_sequence < 1) {
+    errors.push(`${type} artifact has no stable record sequence; record a fresh ${type} artifact.`);
+  }
+  if (fingerprint && artifact.worktree_fingerprint !== fingerprint) {
+    errors.push(
+      `${type} artifact is stale for the current worktree; record a fresh passed ${type} artifact.`,
+    );
+  }
+  errors.push(...gateEvidenceErrors(type, artifact.evidence));
+  return errors;
 }
 
 function optionalNonnegative(value, label, integer = false) {
@@ -1260,6 +912,25 @@ function modelRouting(args, requestedProfile) {
   return routing;
 }
 
+function latestGateArtifact(runsDirectory, type) {
+  let latest = null;
+  for (const runId of readdirSync(runsDirectory)) {
+    const file = join(runsDirectory, runId, `${type}.json`);
+    const artifact = readJson(file);
+    if (!artifact) continue;
+    const sequence = Number.isInteger(artifact.record_sequence) ? artifact.record_sequence : 0;
+    const parsedTime = Date.parse(artifact.updated_at);
+    const updatedAt = Number.isFinite(parsedTime) ? parsedTime : Number.NEGATIVE_INFINITY;
+    if (!latest
+      || sequence > latest.sequence
+      || (sequence === latest.sequence && updatedAt > latest.updatedAt)
+      || (sequence === latest.sequence && updatedAt === latest.updatedAt && file > latest.file)) {
+      latest = { artifact, file, sequence, updatedAt };
+    }
+  }
+  return latest?.artifact;
+}
+
 function latestRecordSequence(directory) {
   if (!existsSync(directory)) return 0;
   let latest = 0;
@@ -1277,6 +948,21 @@ function latestRecordSequence(directory) {
   return latest;
 }
 
+function requireCurrentPassedVerification(current, action, fingerprint) {
+  const runsDirectory = join(current.paths.sessionDir, 'runs');
+  const verification = existsSync(runsDirectory)
+    ? latestGateArtifact(runsDirectory, 'verification')
+    : null;
+  const errors = gateArtifactErrors('verification', verification, current, fingerprint);
+  if (errors.length) {
+    throw new Error(
+      `Cannot ${action}: ${errors.join(' ')} `
+      + 'Record a fresh passed verification artifact before independent review.',
+    );
+  }
+  return verification;
+}
+
 function restoreJson(file, value) {
   if (JSON.stringify(readJson(file)) === JSON.stringify(value)) return;
   if (value === null) {
@@ -1287,43 +973,7 @@ function restoreJson(file, value) {
     }
     return;
   }
-  durableWriteJson(file, value);
-}
-
-// Join the recall ledger to the session artifact that evidence-derived validation
-// reads. hooks/memory-reader.js is the only component that knows which learning
-// entries were injected, but it runs on UserPromptSubmit before a session directory
-// exists, so it records its selection under the host session_id that
-// hooks/session-marker.js stamps per repo. This is the join: session-telemetry gives
-// the current host session_id, the ledger gives that session's cited keywords, and
-// scripts/evolution-runner.js counts distinct sessions per keyword from
-// context.json's evidence -- so a learning is only credited where a real session
-// both recalled it and recorded a verification pass.
-//
-// Best-effort: a missing or unreadable ledger records no citations rather than
-// failing the artifact. Losing a citation costs one validation count; failing here
-// would cost the user their recorded context.
-function recalledLearnings(paths) {
-  try {
-    const root = dataRoot(paths.repo.root);
-    const telemetry = readJson(join(root, 'state', 'session-telemetry', `${paths.repo.id}.json`));
-    const sessionId = String(telemetry?.session_id || '').trim();
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(sessionId)) return [];
-    const ledger = readJson(join(
-      root,
-      'state',
-      'recall',
-      paths.repo.id,
-      `${sessionId.replace(/[^A-Za-z0-9._-]/g, '-')}.json`,
-    ));
-    const cited = ledger?.learningsCited;
-    if (!Array.isArray(cited)) return [];
-    return [...new Set(cited
-      .map((value) => String(value == null ? '' : value).trim().toLowerCase())
-      .filter((value) => /^[a-z0-9][a-z0-9._-]{0,80}$/.test(value)))].sort();
-  } catch {
-    return [];
-  }
+  atomicWriteJson(file, value);
 }
 
 function record(workspace, args) {
@@ -1331,14 +981,7 @@ function record(workspace, args) {
   if (!Object.hasOwn(ARTIFACTS, args.type)) throw new Error(`Unsupported artifact type: ${args.type}`);
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
   const current = requireCurrent(workspace);
-  if (DECISION_ARTIFACTS.has(args.type)
-    && existsSync(workflowPaths(current.paths.sessionDir).planFile)) {
-    throw new Error(
-      `Cannot record ${args.type} after workflow compilation; `
-      + 'start a new session and compile its replacement workflow so decision evidence and journal authority cannot diverge.',
-    );
-  }
-  const payload = args.input ? readStableJsonFile(resolve(args.input)).value : {};
+  const payload = args.input ? JSON.parse(readFileSync(args.input, 'utf8')) : {};
   const runId = args.run || `run-${Date.now()}`;
   const delegatedTask = args.type === 'delegation-result'
     ? readJson(join(current.paths.sessionDir, 'runs', runId, 'delegation-task.json'))
@@ -1346,31 +989,32 @@ function record(workspace, args) {
   if (args.type === 'delegation-result' && !delegatedTask) {
     throw new Error('Delegation result requires a task recorded under the same run.');
   }
-  if (args.type === 'delegation-result') {
-    const envelopeErrors = stateEnvelopeErrors(delegatedTask, 'delegation-task', current.paths);
-    if (envelopeErrors.length) {
-      throw new Error(`Invalid delegation-task state envelope: ${envelopeErrors.join('; ')}`);
-    }
-  }
   const delegatedTaskPayload = delegatedTask?.evidence;
   let contractErrors;
   if (args.type === 'delegation-task') {
     contractErrors = [
       ...validateDelegationTaskContract(payload),
-      ...validateContextReferences(payload, current),
+      ...(payload.contract_version === 2 ? validateContextReferences(payload, current) : []),
     ];
   } else if (args.type === 'delegation-result') {
     contractErrors = [
-      ...validateDelegationResultContract(payload),
+      ...validateDelegationResultContract(payload, {
+        allowVersion1: delegatedTaskPayload?.contract_version === 1,
+      }),
       ...(isObject(delegatedTaskPayload)
         ? validateChangedPaths(payload, delegatedTaskPayload, current.paths.repo.root)
         : []),
     ];
-  } else if (['plan', 'brainstorm'].includes(args.type)) {
+  }
+  else {
     contractErrors = validateDecisionContract(args.type, payload, {
+      requireV3: ['plan', 'brainstorm'].includes(args.type),
+      enforceCanonicalQuick: true,
+      enforceEvidenceFreshness: true,
+      enforcePathProvenance: true,
       workspace: current.paths.repo.root,
     });
-  } else contractErrors = [];
+  }
   if (contractErrors.length) {
     const label = args.type.startsWith('delegation-') ? `${args.type} contract` : `${args.type} decision contract`;
     throw new Error(`Invalid ${label}: ${contractErrors.join('; ')}`);
@@ -1388,12 +1032,18 @@ function record(workspace, args) {
     if (delegatedTaskPayload?.contract_version !== payload.contract_version) {
       throw new Error('Delegation result contract_version must match the task recorded under the same run.');
     }
-    if (delegatedTaskPayload.delegation_id !== payload.delegation_id) {
-      throw new Error('Delegation result delegation_id must match the task recorded under the same run.');
+    if (payload.contract_version === 2) {
+      if (delegatedTaskPayload.delegation_id !== payload.delegation_id) {
+        throw new Error('Delegation result delegation_id must match the task recorded under the same run.');
+      }
+      if (delegationTaskDigest(delegatedTaskPayload) !== payload.task_digest) {
+        throw new Error('Delegation result task_digest must match the accepted canonical task.');
+      }
     }
-    if (delegationTaskDigest(delegatedTaskPayload) !== payload.task_digest) {
-      throw new Error('Delegation result task_digest must match the accepted canonical task.');
-    }
+  }
+  if (args.status === 'passed' && REQUIRED_GATES.includes(args.type)) {
+    const evidenceErrors = gateEvidenceErrors(args.type, payload);
+    if (evidenceErrors.length) throw new Error(`Invalid passed ${args.type} evidence: ${evidenceErrors.join('; ')}`);
   }
   const role = args.role
     || (args.type === 'delegation-task' ? payload.role : delegatedTask?.producer?.role)
@@ -1406,8 +1056,15 @@ function record(workspace, args) {
   const risk = args.type === 'delegation-task' ? payload.risk : delegatedTaskPayload?.risk;
   const profile = resolveProfile({ role, profile: profileOverride, risk }).requested_profile;
   const routing = modelRouting(args, profile);
-  let lifecycle = canonicalLifecycle(current.session.lifecycle);
+  const fingerprint = ['verification', 'review'].includes(args.type)
+    ? worktreeFingerprint(current.paths.repo.root)
+    : null;
+  let lifecycle = lifecycleFor(current.session);
   if (args.type === 'execution') lifecycle = prepareExecute(current);
+  else if (args.type === 'verification') lifecycle = prepareVerify(current);
+  else if (args.type === 'review') {
+    requireCurrentPassedVerification(current, 'record review', fingerprint);
+  }
   const recordSequence = Math.max(
     Number.isInteger(current.session.last_record_sequence) ? current.session.last_record_sequence : 0,
     latestRecordSequence(current.paths.sessionDir),
@@ -1419,27 +1076,15 @@ function record(workspace, args) {
     lifecycle.approvals.wiring = emptyDecision();
   }
   if (args.type === 'decisions') lifecycle.approvals.wiring = emptyDecision();
-  // Context is the artifact evidence-derived validation reads, so the citations are
-  // attached here rather than asked of the caller: a field the model must remember to
-  // supply is a field that silently goes missing.
-  let evidence = payload;
-  if (args.type === 'context') {
-    // Citations are derived from the recall ledger ONLY. A caller-supplied value is
-    // discarded rather than merged: validation counts drive promotion, so accepting a
-    // claimed citation would let anything inflate a learning into a global pattern and
-    // would destroy the one property this evidence has -- that it was measured, not
-    // asserted. The ledger is written by the component that actually did the injecting.
-    const cited = recalledLearnings(current.paths);
-    evidence = cited.length
-      ? { ...payload, learningsCited: cited }
-      : Object.fromEntries(Object.entries(payload).filter(([key]) => key !== 'learningsCited'));
-  }
   const artifact = envelope(args.type, current.paths, args.status, {
     bundle_version: BUNDLE_VERSION,
     record_sequence: recordSequence,
+    ...(['verification', 'review'].includes(args.type)
+      ? { worktree_fingerprint: fingerprint }
+      : {}),
     producer: { role, compute_profile: profile },
     model_routing: routing,
-    evidence,
+    evidence: payload,
   });
   const file = ARTIFACTS[args.type].run
     ? join(current.paths.sessionDir, 'runs', runId, `${args.type}.json`)
@@ -1447,7 +1092,7 @@ function record(workspace, args) {
   const previousArtifact = readJson(file);
   const previousSession = readJson(join(current.paths.sessionDir, 'session.json'));
   const previousPointer = readJson(current.paths.currentFile);
-  durableWriteJson(file, artifact);
+  atomicWriteJson(file, artifact);
   try {
     updateStatus(workspace, current.session.status, stateUpdate, current);
   } catch (error) {
@@ -1473,66 +1118,46 @@ function record(workspace, args) {
   return { artifact, file };
 }
 
-function replayCurrentWorkflow(current, action) {
-  let replay;
-  try {
-    replay = replayWorkflowSession(current.paths.sessionDir);
-  } catch (error) {
-    throw new Error(`Cannot ${action}: authoritative workflow replay failed: ${error.message}`);
-  }
-  if (replay.events.length === 0) {
-    throw new Error(`Cannot ${action}: authoritative workflow journal has no accepted events.`);
-  }
-  const requiredGates = ROUTE_APPROVALS[current.session.route];
-  for (const gate of requiredGates) requireCurrentApproval(current, gate, action);
-  const expectedBinding = workflowSessionBinding(current, requiredGates);
-  const binding = replay.compiled.plan.session_binding;
-  if (canonicalJsonValue(binding) !== canonicalJsonValue(expectedBinding)) {
-    throw new Error(
-      `Cannot ${action}: compiled workflow is not bound to the current session and its current approved plan.`,
-    );
-  }
+function requireCurrentPassedGates(current, action) {
+  const runsDirectory = join(current.paths.sessionDir, 'runs');
   const fingerprint = worktreeFingerprint(current.paths.repo.root);
-  const tail = replay.events.at(-1);
-  if (tail.worktree_fingerprint !== fingerprint) {
-    throw new Error(`Cannot ${action}: replayed workflow evidence is stale for the current worktree.`);
+  const artifacts = {};
+  for (const gate of REQUIRED_GATES) {
+    const artifact = existsSync(runsDirectory) ? latestGateArtifact(runsDirectory, gate) : null;
+    const errors = gateArtifactErrors(gate, artifact, current, fingerprint);
+    if (errors.length > 0) {
+      throw new Error(`Cannot ${action}: ${errors.join(' ')}`);
+    }
+    artifacts[gate] = artifact;
   }
-  return { ...replay, fingerprint };
-}
-
-function requireShipReadyWorkflow(current) {
-  const replay = replayCurrentWorkflow(current, 'ship');
-  const nodes = replay.compiled.plan.nodes;
-  const nonExternal = nodes.filter((node) => node.kind !== 'external-action');
-  const incomplete = nonExternal.filter((node) => replay.state.nodes[node.id]?.status !== 'completed');
-  if (incomplete.length) {
+  if (artifacts.review.record_sequence <= artifacts.verification.record_sequence) {
     throw new Error(
-      `Cannot ship: replayed workflow prerequisites are incomplete: ${incomplete.map((node) => node.id).join(', ')}.`,
+      `Cannot ${action}: review artifact is stale because authoritative review must be newer `
+      + 'than the current passed verification. Record a fresh review after verification.',
     );
   }
-  const shipping = nodes.filter((node) => node.kind === 'external-action'
-    && ['git-push', 'draft-pr'].includes(node.action));
-  if (shipping.length === 0) {
-    throw new Error('Cannot ship: compiled workflow declares no git-push or draft-pr external action.');
-  }
-  const ready = shipping.filter((node) => replay.state.nodes[node.id]?.status === 'ready');
-  if (ready.length === 0) {
-    throw new Error('Cannot ship: no declared git-push or draft-pr node is legally ready in replayed state.');
-  }
-  const invalid = shipping.filter((node) => !['pending', 'ready', 'completed']
-    .includes(replay.state.nodes[node.id]?.status));
-  if (invalid.length) {
-    throw new Error(`Cannot ship: external workflow state is not current for ${invalid.map((node) => node.id).join(', ')}.`);
-  }
-  return replay;
+  return fingerprint;
 }
 
 function ship(workspace) {
   const current = requireCurrent(workspace);
   requireStandardMode(current, 'ship');
-  const lifecycle = canonicalLifecycle(current.session.lifecycle);
-  const { fingerprint } = requireShipReadyWorkflow(current);
-  requireCurrentAuthorization(current, 'ship-draft-pr', 'ship', fingerprint);
+  const lifecycle = lifecycleFor(current.session);
+  if (lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'ship',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
+    );
+  }
+  if (!granted(lifecycle.authorizations['ship-draft-pr'])) {
+    missingPrerequisite(
+      'ship',
+      'draft-PR shipping authorization is missing',
+      'phantom-state.mjs authorize --scope ship-draft-pr --workspace <path>',
+    );
+  }
+  const fingerprint = requireCurrentPassedGates(current, 'ship');
   lifecycle.actions.ship = {
     status: 'ready',
     decided_at: now(),
@@ -1543,43 +1168,27 @@ function ship(workspace) {
 
 function complete(workspace) {
   const current = requireCurrent(workspace);
-  const replay = replayCurrentWorkflow(current, 'complete');
-  if (replay.state.status !== 'accepted') {
-    throw new Error(
-      `Cannot complete: replayed workflow state is ${replay.state.status}; expected accepted.`,
+  if (current.session.lifecycle.actions.execute.status !== 'started') {
+    missingPrerequisite(
+      'complete',
+      'execution has not started through the lifecycle gate',
+      'phantom-state.mjs execute --workspace <path>',
     );
   }
+  requireCurrentPassedGates(current, 'complete');
   if (existsSync(current.paths.completedDir)) {
     throw new Error(`Completed session already exists: ${current.paths.completedDir}`);
   }
-  const session = {
-    ...current.session,
-    bundle_version: BUNDLE_VERSION,
+  const session = updateStatus(workspace, 'completed', { completed_at: now() }, current);
+  mkdirSync(join(current.paths.repoRoot, 'completed'), { recursive: true });
+  renameSync(current.paths.sessionDir, current.paths.completedDir);
+  atomicWriteJson(current.paths.currentFile, {
+    ...current.pointer,
     status: 'completed',
-    completed_at: now(),
+    session_dir: current.paths.completedDir,
     updated_at: now(),
-  };
-  const sessionFile = join(current.paths.sessionDir, 'session.json');
-  const completedRoot = join(current.paths.repoRoot, 'completed');
-  mkdirSync(completedRoot, { recursive: true });
-  fsyncDirectory(dirname(completedRoot));
-  return runStateTransaction(
-    workspace,
-    'complete',
-    [sessionFile, current.paths.currentFile],
-    () => {
-      durableWriteJson(sessionFile, session);
-      durableRename(current.paths.sessionDir, current.paths.completedDir);
-      durableWriteJson(current.paths.currentFile, {
-        ...current.pointer,
-        status: 'completed',
-        session_dir: current.paths.completedDir,
-        updated_at: now(),
-      });
-      return session;
-    },
-    { from: current.paths.sessionDir, to: current.paths.completedDir },
-  );
+  });
+  return session;
 }
 
 function main() {
@@ -1589,21 +1198,22 @@ function main() {
 
   try {
     let result;
-    if (command === 'fingerprint') result = fingerprint(workspace);
+    if (command === 'status') result = status(workspace);
+    else if (command === 'fingerprint') result = fingerprint(workspace);
     else result = withLifecycleLock(workspace, () => {
-      if (command === 'status') return status(workspace);
       if (command === 'start') return start(workspace, args);
       if (command === 'pause') return updateStatus(workspace, 'paused', { pause_reason: args.reason || 'Paused by user.' });
       if (command === 'resume') return updateStatus(workspace, 'active', { resumed_at: now() });
       if (command === 'approve') return approve(workspace, args);
       if (command === 'authorize') return authorize(workspace, args);
       if (command === 'execute') return execute(workspace);
+      if (command === 'verify') return verify(workspace);
       if (command === 'record') return record(workspace, args);
       if (command === 'ship') return ship(workspace);
       if (command === 'complete') return complete(workspace);
       throw new Error(
         'Usage: phantom-state.mjs '
-        + '<start|status|fingerprint|pause|resume|approve|authorize|execute|record|ship|complete> [options]',
+        + '<start|status|fingerprint|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
       );
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

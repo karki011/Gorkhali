@@ -1,197 +1,126 @@
-# Phantom — Deterministic Software Delivery Workflows
+# PHANTOM - Your Shadow Army of AI Agents
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
-<!-- generated:project-metadata:start -->
-[![version](https://img.shields.io/badge/version-0.3.3-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-953-brightgreen)](test/)
-[![declared evals](https://img.shields.io/badge/declared_evals-51-brightgreen)](evals/)
-<!-- generated:project-metadata:end -->
-[![distribution](https://img.shields.io/badge/distribution-Agent%20Skills-8A2BE2)](project-docs/install.md)
+[![version](https://img.shields.io/badge/version-0.2.8-blue)](.claude-plugin/plugin.json)
+[![tests](https://img.shields.io/badge/tests-689-brightgreen)](test/)
+[![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI-8A2BE2)](project-docs/install.md)
 
-**Author: Subash karki**
+**Author: Subash Karki**
 
-Phantom turns software-delivery intent into a validated workflow graph, advances
-that graph through a deterministic kernel, and records every transition in a
-replayable journal. Models can recommend, implement, and evaluate; code owns
-legal transitions, freshness, budgets, terminal states, and authorization.
+Phantom is a multi-agent development harness for Claude Code and Codex CLI that plans, implements, verifies, and ships work through specialized agents behind mechanically enforced gates.
 
-The canonical control plane lives in `skills/phantom/`. Public actions such as
-`start`, `execute`, `verify`, `pause`, `resume`, and `wrap` are direct Agent
-Skills in `skills/`; they apply the same portable contracts without a second
-command or agent runtime.
+> Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
+> Say `/phantom:recruit` - "Arise!" - and they answer.
 
-## Core Guarantees
+## What It Does
 
-- **Compiled workflows.** Versioned schemas describe nodes, dependencies,
-  scopes, budgets, checks, and terminal conditions. Invalid graphs, cycles,
-  unsafe parallel ownership, and unbounded loops fail closed.
-- **Deterministic execution and replay.** The same pure reducer handles live
-  events and replay. The digest-chained journal is authoritative; materialized
-  state can be rebuilt without model or external calls.
-- **Explicit effect policy.** Workspace writes, process execution, commits,
-  pushes, draft pull requests, and tracker comments use typed capability
-  requests. Authorization, scope, freshness, budget, and idempotency are
-  checked before execution. External execution additionally requires a
-  registry-signed short-lived adapter registration and a nonce-bound leaf-signed
-  result; native process tools remain denied as an alternate path.
-- **Risk-selected evidence.** The workflow declares the checks it needs. An
-  independent evaluator is added only when risk, topology, or a measurable
-  rubric requires one, and every supported finding remains in the record.
-- **Portable state.** Sessions, approvals, evidence, learnings, and workflow
-  journals use a neutral data root and stable repository identity.
-- **Optional delegation.** Phantom chooses the smallest useful topology after
-  dependency inspection. Native workers accelerate independent scopes; a
-  host-provisioned isolated executor can run signed parallel branches, while a
-  sequential fallback preserves the same contracts and gates.
+Every task is a Gate. Phantom reads the difficulty, assembles the right shadows, and clears it. After every run, the system gains EXP - learning what works, remembering what doesn't.
 
-## Control Flow
+Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex tasks get full dependency wiring. Shadows deliberate among themselves; humans approve consensus or break ties.
+
+Zero external plugin dependencies. Fully self-contained.
+
+See `ROADMAP.md` for the durable backlog, decisions, and measured baseline.
+
+## Mechanical Gates, Not Advice
+
+The usual way to constrain an agent is prose in a prompt, which the model is free to ignore.
+Phantom's gates are code that returns a decision before the tool call runs.
+
+- `hooks/blade-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` in exactly two cases: an implementer role (`blade`, `sweep`, `ward`, `lens`, `warden`) pinned to the retired Fable tier, or a `blade` spawn that set no explicit `model`.
+  The spawn does not happen. There is no ceiling check here - the gate reads `skills/phantom/references/model-policy.json` only to word the deny reason, never to make the decision.
+- `hooks/greploop-gate.js` is a `Stop` hook that returns `decision: "block"` when an active session's live PR has not been through the review loop, so a session cannot quietly end unreviewed.
+  It is bounded to 3 blocks per PR, and any ambiguity allows the stop.
+- `hooks/routing-gate.js` returns `permissionDecision: "deny"` on `Edit`/`Write`/`MultiEdit`/`NotebookEdit` inside a Phantom-known repo with no active session.
+  It is opt-in via `PHANTOM_ROUTING_ENFORCE=1` and fails open by design.
+- `test/agent-frontmatter-drift.test.js` fails CI when any `agents/*.md` model pin drifts from `skills/phantom/references/model-policy.json`.
+  A hand-edited routing decision does not survive to a merge.
+
+Every registration is visible in `hooks/hooks.json`.
+
+## Measured, Not Claimed
+
+One number, with its sample stated before the number.
+
+**99.1% merge rate across 112 distinct PRs** (111 merged, 1 closed), taken from `gh` as ground truth.
+Produced by `scripts/baseline-report.js` over 191 canonical wrap records spanning 152 tickets and two months of real use.
+
+The caveats matter more than the figure.
+This is one developer's usage on their own repositories, the PRs were largely authored and merged by the same person, and external review ran on only 50 of those 191 sessions.
+n=112 is a sample, not a study, and no third party has validated it.
+The full table, and the beliefs that measurement disproved, are in `ROADMAP.md` sections 3 and 4.
+
+## One Ticket, End To End
 
 ```text
-user intent
-    │
-    ▼
-route recommendation ──► validated workflow plan
-                              │
-                              ▼
-                      deterministic kernel
-                              │
-                ┌─────────────┴─────────────┐
-                ▼                           ▼
-       bounded local work          typed capability request
-                │                           │
-                └─────────────┬─────────────┘
-                              ▼
-                    digest-chained journal
-                              │
-                              ▼
-                    replayable workflow state
+/phantom:start CP-41606
+  |- router classifies    -> PLAN route (3+ files, clear scope)
+  |- Apex + Rival         -> plan, adversarially reviewed; you approve or break the tie
+  |- Blade x2 (parallel)  -> implementation in isolated worktrees
+  |- Ward                 -> lint, build, test -> verification.json
+  |- Gaze + Archer        -> scored review; P0/P1 auto-fixed, P2/P3 dropped
+  `- /phantom:wrap        -> draft PR + ticket cost total
 ```
 
-Routing selects required gates and artifacts, not a worker count:
+The PR body's `## Validation` section is assembled from those artifacts: verify verdict with test counts, review panel outcome, grill verdict.
+A missing artifact means a missing subsection, never invented text.
+The PR opens as a **draft** deliberately, because marking it ready to review stays a human action.
 
-| Route | Typical signal | Required decision flow |
-|---|---|---|
-| `direct` | Clear, low-risk, high-confidence change | Context, implementation authorization, required checks |
-| `plan` | Clear outcome with dependencies | Plan approval, implementation authorization, execute, required checks |
-| `brainstorm` | Ambiguous outcome or low confidence | Direction approval, plan approval, implementation authorization |
-| `full` | Broad, critical, irreversible, or security-sensitive work | Direction, plan, wiring, implementation authorization, staged execution |
+Report a defect instead of a feature and no fix runs first.
+The work is classified `investigation`, and no fix route can be selected until the evidence reaches `ready_for_fix`.
 
-Starting or executing work never grants authority to commit, push, open a pull
-request, comment on a tracker, or perform another external action. Each effect
-must be represented by the workflow and separately authorized. `wrap` can
-request an idempotent draft pull request only when that exact authority and
-current evidence exist.
+## What Is Actually In The Box
 
-For reported defects, Phantom first records reproduction evidence, the traced
-code path, a falsifiable root cause, and user confirmation. Implementation
-remains blocked until the defect-proof contract is complete.
+- **Proof before fix.** Every reported bug, regression, or flake writes a `defect-proof.json` and cannot reach a fix route until it reaches `ready_for_fix`. Spec: `reference/defect-proof.md`.
+- **An unattended spend ceiling that halts honestly.** `PHANTOM_SPEND_CEILING_USD` (default `5`), enforced by `scripts/run-guard.js`, halts only on a CONFIRMED overrun and writes a halt record. Unknown spend continues rather than failing silently. Interactive sessions are never capped, because the watching human is the ceiling.
+- **Model routing generated from one policy file.** `skills/phantom/references/model-policy.json` holds semantic role policy, `skills/phantom/references/model-presets.json` holds per-host models, and `scripts/gen-agent-frontmatter.js` generates every agent pin from them. No value is hand-maintained twice.
+- **Outcome records with closed enums.** `scripts/outcome-write.js` writes a per-ticket outcome whose `pr_state` is one of `draft | open | merged | closed | absent`, derived from `gh` alone. Anything unmappable is recorded as unresolved instead of guessed. This is what made the measurement above possible at all.
+- **A config layer with provenance.** `scripts/phantom-config.js get|set|list`, per-repo winning over global, created lazily. Every resolved value reports which layer it came from, and an unset key reports unset rather than a fabricated default.
+- **Portable across runtimes.** One provider-neutral Agent Skill at `skills/phantom/` runs on Claude Code and Codex CLI alongside a native plugin distribution. Optional host capabilities degrade to explicit fallbacks instead of breaking the workflow.
 
 ## Quick Start
 
-Install the repository's `skills/` tree in an Agent Skills discovery directory,
-or install the plugin distribution. Then ask naturally:
+In an Agent Skills-compatible host, ask naturally:
 
 ```text
-Use Phantom to implement this feature and verify the result.
-Use Phantom to investigate this regression without changing code yet.
-Use Phantom to pause this work and preserve a resumable checkpoint.
-Use Phantom to wrap the verified work; do not perform external actions unless I approve them.
+Use Phantom to implement CP-41606 through a tested review request.
+Use Phantom to investigate why the dashboard feels slow.
+Use Phantom to pause this task and preserve a resumable checkpoint.
 ```
 
-Direct actions are listed in [Actions](project-docs/actions.md). Installation
-and update paths are in [Install](project-docs/install.md).
-
-## Runtime Readiness
-
-The Codex manifest points to `hooks/hooks.json`; the Claude plugin loads the
-same root hook file by convention. Registration alone is not proof that
-interception is live. A trusted host must provision the public-key trust record
-and externally issue short-lived signed probes; Phantom contains no private
-key, signer, or self-attestation path.
-
-The bundled native adapter handles reservation-bound workspace writes only.
-Native shell and process tools are not command executors. The portable bundle
-now verifies separate isolated-executor trust/probes/receipts and
-host-adapter registry/registration/execution attestations, but it contains no
-OS isolation backend, signer, private key, or provider credentials. A host must
-provision those boundaries; registration text or a reported capability alone
-cannot enable an effect. Only exact trusted Phantom control-plane commands are
-exempt from the native process denial.
-
-This distribution does not register effect adapters for `process.exec`,
-`git.commit`, `git.push`, `github.openDraftPr`, or `tracker.comment`. A host may
-supply an adapter only through the signed typed broker. One random reservation
-nonce is consumed once; an indeterminate remote result blocks retry until a
-signed reconciliation resolves that same reservation. An authorization record
-by itself never executes an external action.
-
-Inspect the current boundary without changing state:
+The existing native plugin remains as a compatibility distribution with its
+command surface:
 
 ```bash
-node hooks/capability-gate.mjs doctor /path/to/workspace
-node skills/phantom/scripts/phantom-doctor.mjs --workspace /path/to/workspace
+/phantom:start CP-41606                    # router classifies → plan → execute → verify → ship
+/phantom:start "the dashboard feels slow"  # ambiguous → brainstorm → plan → execute → verify
+/phantom:verify                            # power level (P0/P1 fix, P2/P3 drop)
+/phantom:wrap                              # commit, push, PR, Jira transition
+/phantom:pause → /clear → /phantom:resume     # context mgmt + portable handoff packet
 ```
 
-The portable doctor inspects only canonical current-session state and its
-safely bound runtime files. Its schema-version-3 report separates native,
-signed-host, and isolated execution readiness with `not_applicable`,
-`not_registered`, `ready`, or `blocked` status and adds a redacted `migration`
-descriptor. It uses the broker verifiers and stable private-file reads, but
-emits only capability status, stable problem codes, and an exact bundled
-migration resource/command—never paths, key bodies, signatures, raw artifacts,
-provider references, secrets, or credentials. Doctor is read-only:
-`migration.status: required` blocks readiness but never changes state.
+In Codex, type `$` or open `/skills`, then select the namespaced skill such as
+`phantom:start`, `phantom:pause`, `phantom:wrap`, `phantom:loop`, or
+`phantom:greploop`. Codex can also choose these skills implicitly from their
+descriptions. Start a new task or CLI session after installing or updating the
+plugin so the complete skill inventory is reloaded.
 
-Migrate legacy session state with the separate, manifest-bound CLI. Inventory
-scans the selected Phantom data root, writes the full manifest as a private
-mode-`0600` file, and emits only a redacted receipt to stdout:
-
-```bash
-node skills/phantom/scripts/migrate-session-state.mjs inventory --workspace /path/to/workspace --output migration-manifest.json
-node skills/phantom/scripts/migrate-session-state.mjs apply --workspace /path/to/workspace --manifest migration-manifest.json
-node skills/phantom/scripts/migrate-session-state.mjs verify --workspace /path/to/workspace --manifest migration-manifest.json
-# Recovery only, when rollback is required:
-node skills/phantom/scripts/migrate-session-state.mjs rollback --workspace /path/to/workspace --manifest migration-manifest.json
-```
-
-Use `--output`, never shell redirection, so sensitive inventory details do not
-pass through stdout. Review the inventory before apply. Re-run inventory with
-repeated
-`--confirm-inactive <repo-id>/<task-path-segment>` entries after stopping every
-listed active session, and with repeated
-`--work-kind <repo-id>/<task-path-segment>=implementation|investigation` entries
-where classification is missing. Paused sessions become clean paused v2
-successors; completed sessions remain history-only. Guarded rollback uses the
-same reviewed manifest and refuses if migration outputs changed after cutover.
-Inventory rejects `--manifest`; the reviewed exact manifest is input only to
-apply, verify, and rollback. The selected Phantom state remains untouched until
-apply. The manifest and atomic transaction journal bind canonical and physical
-workspace, data, state, repository, source, and committed-pointer identity.
-Crash-safe durable publication preserves recoverable cutover boundaries. Resume
-accepts only the same trusted manifest and recorded lock/claim generation, and
-entry, file, byte, depth, journal, and lock counts are bounded. While any node
-occupies the global migration-lock path, runtime state reads/writes and Doctor
-fail closed; only the exact migrator recovers it.
-`verify` status `failed` and rollback status `human_decision_required` still
-emit JSON but exit nonzero. After verified cutover and lock release, the paused
-successor is ordinary runtime- and Doctor-readable v2 state. There is no runtime
-v1 fallback or silent auto-migration. `verifier_bundled: true` does not imply an
-execution backend;
-`backend_bundled` remains `false`.
+Full installation instructions, including the native plugin and upgrade paths,
+are in [Install](project-docs/install.md).
 
 ## Documentation
 
 | Document | What it covers |
 |---|---|
-| [Install](project-docs/install.md) | Agent Skills and plugin installation |
-| [Architecture](project-docs/architecture.md) | Compiler, kernel, journal, replay, and capability boundary |
-| [Code Structure](project-docs/code-structure.md) | Repository and portable-state layout |
-| [Roles and Compute](project-docs/roles.md) | Conditional role passes, topology, profiles, and evaluation |
-| [Actions](project-docs/actions.md) | Direct public Agent Skill entrypoints |
-| [Configuration](project-docs/configuration.md) | Layered configuration and user-facing environment variables |
-| [Portable Skill](project-docs/portable-skill.md) | The provider-neutral contract and capability fallbacks |
-| [ROADMAP](ROADMAP.md) | Backlog, decisions, and measured baseline |
+| [Install](project-docs/install.md) | Portable skill and native plugin installation, prerequisites, upgrading from a pre-plugin install |
+| [Architecture and Key Concepts](project-docs/architecture.md) | The adaptive cognitive router, the concepts behind each route, and the Repo Brain knowledge layer |
+| [Code Structure](project-docs/code-structure.md) | The portable skill tree, the native plugin tree, and the mutable state tree |
+| [Shadows, Models and Effort](project-docs/agents.md) | The agent roster, role-to-profile routing policy, and effort rules |
+| [Commands](project-docs/commands.md) | Every `/phantom:*` command and the route it takes |
+| [Configuration](project-docs/configuration.md) | The layered config file and every user-relevant environment variable |
+| [Portable Agent Skill](project-docs/portable-skill.md) | The provider-neutral bundle, runtime capability negotiation, and dependency independence |
+| [ROADMAP.md](ROADMAP.md) | Durable backlog, decisions, and the measured baseline with its caveats |
 
 ## Author
 
-Subash karki
+Subash Karki

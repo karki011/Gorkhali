@@ -27,10 +27,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { taskDir, completedTaskDir, timingDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, completedDir, timingDir, detectRepo } = require('./lib/phantom-paths');
 const { atomicWrite } = require('./lib/atomic');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
-const { sessionEnvelopeError } = require('./lib/state-envelope-contract');
+const loopController = require('../hooks/loop-controller');
 
 const USAGE =
   'usage: node scripts/outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] ' +
@@ -58,7 +58,7 @@ function git(args, cwd) {
 
 // The live session dir, else the archived one (close.md runs after the archive move).
 function resolveSessionDir(ticket, repo) {
-  for (const dir of [taskDir(ticket, repo), completedTaskDir(ticket, repo)]) {
+  for (const dir of [path.join(sessionsDir(repo), ticket), path.join(completedDir(repo), ticket)]) {
     if (fs.existsSync(dir)) return dir;
   }
   return null;
@@ -258,21 +258,18 @@ function deriveOutcome(opts) {
   const verdict = verification && typeof verification.verdict === 'string' ? verification.verdict : null;
   if (verification && !verdict) add('verified', 'verification.json has no verdict field');
 
-  // Historical verification artifacts recorded review.fixLoops directly. The
-  // workflow kernel now owns retry limits; this writer only reports old data.
-  const recordedFixLoops = verification?.review?.fixLoops;
-  const fixLoops = verification
-    ? (typeof recordedFixLoops === 'number' && recordedFixLoops >= 0 ? recordedFixLoops : 0)
-    : null;
-  if (!verification) add('fix_loops', 'verification.json absent - no recorded review.fixLoops value');
+  // fix_loops comes from loop-controller, which reads the VERIFICATION OBJECT
+  // (review.fixLoops) - there is no separate loop state file. No verification
+  // artifact means no count, which is null, not 0.
+  const fixLoops = verification ? loopController.getFixLoops(verification) : null;
+  if (!verification) add('fix_loops', 'verification.json absent - loop-controller has no review.fixLoops to read');
 
   const session = sessionDir ? loadJson(path.join(sessionDir, 'session.json')) : null;
-  const sessionError = sessionEnvelopeError(session);
-  const wallTimeMs = sessionError ? null : sessionWallTimeMs(session);
+  const wallTimeMs = sessionWallTimeMs(session);
   if (wallTimeMs == null) {
-    add('wall_time_ms', sessionError || (session
-      ? 'state_envelope v2 session.json has no usable created_at/completed_at pair'
-      : 'session.json absent - no session start/end timestamps'));
+    add('wall_time_ms', session
+      ? 'session.json has no usable created_at/completed_at pair'
+      : 'session.json absent - no session start/end timestamps');
   }
 
   const timing = readAgents(repo);

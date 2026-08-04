@@ -9,7 +9,7 @@
 //   - closed schema: unknown key/section and off-enum values are rejected, and a
 //     rejected set leaves the file untouched.
 //   - the config layer never prompts; unattended + unset is INACTIVE, not an error.
-//   - portable lifecycle actions use the real reader (no dangling adapter path).
+//   - commands/close.md and commands/start.md name the real reader (no re-dangling).
 'use strict';
 
 const { test } = require('node:test');
@@ -386,5 +386,40 @@ test('tracker.label roundtrips, is unset by default, and rejects an illegal labe
     assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'phantom\n');
   } finally {
     cleanup(repo, data);
+  }
+});
+
+test('tracker.label prose in start.md names the real reader and keeps the set-semantics hazard', () => {
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'start.md'), 'utf-8');
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.includes('tracker.label'));
+  assert.ok(at >= 0, 'start.md must govern tracker.label');
+  assert.match(
+    lines[at],
+    /scripts\/phantom-config\.js" get tracker\.label/,
+    'start.md must name the real reader, not a config that does not exist',
+  );
+  // The read-modify-write hazard is the whole point of the step; a future
+  // "simplification" into a single destructive write must break this test.
+  const block = lines.slice(at, at + 8).join('\n');
+  assert.match(block, /getJiraIssue/, 'must read current labels before writing');
+  assert.match(block, /SET semantics/, 'must state the set-semantics hazard');
+  assert.match(block, /already-present/, 'must record the idempotent outcome');
+});
+
+test('jira.auto_transition prose in close.md and start.md names the real reader', () => {
+  for (const file of ['close.md', 'start.md']) {
+    const text = fs.readFileSync(path.join(REPO_ROOT, 'commands', file), 'utf-8');
+    const lines = text.split('\n');
+    const at = lines.findIndex((l) => l.includes('jira.auto_transition'));
+    assert.ok(at >= 0, file + ' must still govern jira.auto_transition');
+    assert.match(
+      lines[at],
+      /scripts\/phantom-config\.js" get jira\.auto_transition/,
+      file + ' must name the real reader, not a config that does not exist',
+    );
+    // The skip condition may sit on a following line (one sentence per line).
+    const block = lines.slice(at, at + 3).join('\n');
+    assert.match(block, /`false`/, file + ' must keep the explicitly-false skip condition');
   }
 });

@@ -17,9 +17,9 @@
 const fs = require('fs');
 const path = require('path');
 
-let timingDir, detectRepo, phantomData;
+let timingDir, detectRepo;
 try {
-  ({ timingDir, detectRepo, phantomData } = require('../scripts/lib/phantom-paths'));
+  ({ timingDir, detectRepo } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   // fail open: resolver unavailable — degrade gracefully, never crash a spawn
   const os = require('os');
@@ -28,7 +28,6 @@ try {
     (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   timingDir = () => path.join(data, 'timing');
   detectRepo = () => (process.env.PHANTOM_REPO || '_default');
-  phantomData = () => data;
 }
 
 // Native Claude Code passes the hook payload as JSON on stdin; the internal router
@@ -48,48 +47,6 @@ function readPayload() {
   return {};
 }
 
-// Blade mutex read by hooks/apex-subagent-driven-law.sh. One file per live
-// subagent, keyed by tool_use_id so a stop clears exactly its own spawn: with
-// parallel Blades a single shared flag is cleared by whichever subagent finishes
-// first, reopening the gate while its siblings still hold edits in flight.
-//
-// Deriving it here rather than asking Apex to touch and remove a marker by hand
-// is the point: an instruction Apex can forget is not a mutex, and forgetting the
-// removal fails open silently -- the law looks enforced while enforcing nothing.
-// Scoped per repository, matching the session sentinel the law reads. A global
-// directory means a Blade spawned for repository A reports "a Blade is editing" for
-// repository B, letting Apex edit B directly and defeating the per-repo isolation.
-function bladeMarkerDir() {
-  return path.join(phantomData(), '.blade-editing.d', detectRepo());
-}
-
-function syncBladeMarker(mode, id) {
-  const dir = bladeMarkerDir();
-  const safeId = typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : null;
-  if (mode === 'spawn') {
-    fs.mkdirSync(dir, { recursive: true });
-    const name = safeId || `unpaired-${process.pid}-${Date.now()}`;
-    fs.writeFileSync(path.join(dir, name), '', { flag: 'w' });
-    return;
-  }
-  if (!fs.existsSync(dir)) return;
-  if (safeId && fs.existsSync(path.join(dir, safeId))) {
-    fs.unlinkSync(path.join(dir, safeId));
-    return;
-  }
-  // A stop without a pairable id must still decrement, or the directory leaks and
-  // the law stops enforcing. Drop the oldest marker: the count stays honest even
-  // when the host does not correlate stop events with their spawn.
-  const oldest = fs.readdirSync(dir)
-    .map((name) => {
-      try { return { name, mtime: fs.statSync(path.join(dir, name)).mtimeMs }; }
-      catch (_) { return null; }
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.mtime - b.mtime)[0];
-  if (oldest) fs.unlinkSync(path.join(dir, oldest.name));
-}
-
 try {
   const mode = process.argv[2] === 'stop' ? 'stop' : 'spawn';
   const p = readPayload();
@@ -103,11 +60,34 @@ try {
     if (toolName !== 'Agent' && toolName !== 'Task') process.exit(0); // only agent spawns
     const input = p.tool_input || {};
 
-    // The native tool input is authoritative when it reports a model. Otherwise
-    // record inheritance; portable skills no longer have a second agent
-    // frontmatter tree from which to infer an effective model.
-    const model = input.model || 'inherited';
-    const modelSource = input.model ? 'param' : 'session';
+    // Resolve effective model: param > frontmatter pin > inherited-from-session.
+    let model = 'inherited';
+    let modelSource = 'session';
+    if (input.model) {
+      model = input.model;
+      modelSource = 'param';
+    } else {
+      // Strip "phantom:" prefix to get bare agent name, then read its frontmatter.
+      try {
+        const rawType = input.subagent_type || '';
+        const name = rawType.replace(/^phantom:/, '');
+        if (name) {
+          const agentFile = path.join(__dirname, '..', 'agents', name + '.md');
+          const content = fs.readFileSync(agentFile, 'utf-8');
+          // Match `model: <value>` in the YAML front-matter block (between --- delimiters).
+          const fmMatch = content.match(/^---[\s\S]*?^---/m);
+          if (fmMatch) {
+            const pinMatch = fmMatch[0].match(/^model:\s*(\S+)/m);
+            if (pinMatch) {
+              model = pinMatch[1];
+              modelSource = 'pinned';
+            }
+          }
+        }
+      } catch (_) {
+        // file absent or unreadable — fall back to 'inherited'/'session'
+      }
+    }
 
     rec = {
       event: 'spawn',
@@ -115,7 +95,7 @@ try {
       sid,
       id,
       agent: input.subagent_type || 'unknown',
-      // Model is observed from the tool input or explicitly marked inherited.
+      // model reflects the effective model (param, frontmatter pin, or session-inherited).
       model,
       modelSource,
       bg: input.run_in_background === true,
@@ -127,7 +107,6 @@ try {
   const dir = timingDir();
   fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(path.join(dir, `${detectRepo()}.jsonl`), JSON.stringify(rec) + '\n');
-  syncBladeMarker(mode, id);
 } catch (_) {
   // never break the workflow — silent on errors
 }

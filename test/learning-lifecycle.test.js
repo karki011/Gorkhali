@@ -7,7 +7,7 @@
 //      permanently by the oldest corrections and no [validated:N] entry was reachable at
 //      any prompt. Slots AND chars are now partitioned; both are pinned here, because
 //      partitioning slots alone did not fix it - chars are the binding constraint.
-//   2. Expiry (scripts/evolution-runner.js). The portable evolution reference exempts [failed]
+//   2. Expiry (scripts/evolution-runner.js). reference/evolution.md exempts [failed]
 //      entries from deletion; scanStaleness had no such exemption. Code and prose now
 //      agree, and the prose's "unless explicitly overridden" clause has a real reader.
 //   3. [validated:N]. Derived from artifacts (cited + observed verification pass), not
@@ -21,7 +21,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { execFileSync, spawn } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -65,36 +65,17 @@ function runRunner(root, args = [], extra = {}) {
 }
 
 /** Write a session whose artifacts make it count (or not) as validation evidence. */
-function writeSession(root, name, {
-  cited,
-  verdict = 'pass',
-  testsObservation = 'checked:pass',
-  schemaVersion = 2,
-  // Verification is written flat by default because that is the pre-v2 layout still
-  // present in historical sessions. `envelopeVerification` produces what
-  // phantom-state.mjs record actually writes today: the body under `evidence`.
-  envelopeVerification = false,
-}) {
+function writeSession(root, name, { cited, verdict = 'pass', testsObservation = 'checked:pass' }) {
   const dir = path.join(root, 'repos', REPO, 'sessions', name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'context.json'), JSON.stringify({
-    schema_version: schemaVersion,
-    artifact_type: 'context',
-    evidence: { ticket: name, summary: 'fixture', source: 'args', learningsCited: cited },
+    ticket: name, summary: 'fixture', source: 'args', learningsCited: cited,
   }));
-  const verificationBody = {
+  fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({
     correctness: { lint: true, build: true, tests: true, commands: ['npm test'], observations: { lint: 'checked:pass', build: 'checked:pass', tests: testsObservation } },
     review: { temperature: 0.7, findings: [], fixLoops: 0 },
     simplifyRan: true, intentAlignment: 'aligned', verdict,
-  };
-  fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify(envelopeVerification
-    ? {
-      schema_version: 2,
-      artifact_type: 'verification',
-      status: verdict === 'pass' ? 'passed' : 'failed',
-      evidence: verificationBody,
-    }
-    : verificationBody));
+  }));
 }
 
 const longText = (n) => 'y'.repeat(n);
@@ -271,18 +252,6 @@ test('a citation from a failed session is not evidence', () => {
   assert.match(out, /\[Tier 2\] Promoted: 0 patterns/, 'four is below the promote threshold');
 });
 
-test('a citation inside a retired v1 context envelope is not evidence', () => {
-  const { root } = makeWorkspace({
-    'workflow.md': 'PATTERN [p-cited]: a pattern with no tag at all on disk (2026-07-20)\n',
-  });
-  for (let i = 0; i < 4; i++) writeSession(root, `s-${i}`, { cited: ['p-cited'] });
-  writeSession(root, 's-retired', { cited: ['p-cited'], schemaVersion: 1 });
-
-  const out = runRunner(root);
-  assert.match(out, /4 verified session citations/, 'a v1 context envelope must be skipped');
-  assert.match(out, /\[Tier 2\] Promoted: 0 patterns/, 'retired state cannot reach the threshold');
-});
-
 test('a pass that was never observed is a claim, not evidence', () => {
   const { root } = makeWorkspace({
     'workflow.md': 'PATTERN [p-cited]: a pattern with no tag at all on disk (2026-07-20)\n',
@@ -326,11 +295,8 @@ test('the runner reports the untagged population rather than leaving it invisibl
 // The contradiction K4 was assigned to close: the prose exempted [failed] entries while
 // the code did not. Pinned as a two-sided assertion so a future edit cannot silently
 // re-open the gap by changing only one side.
-test('the portable evolution reference and evolution-runner.js agree on the [failed] exemption', () => {
-  const prose = fs.readFileSync(
-    path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'evolution.md'),
-    'utf8',
-  );
+test('reference/evolution.md and evolution-runner.js agree on the [failed] exemption', () => {
+  const prose = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'evolution.md'), 'utf8');
   const code = fs.readFileSync(RUNNER, 'utf8');
 
   // Two SEPARATE places must name the flag, asserted separately. A single
@@ -352,302 +318,5 @@ test('the portable evolution reference and evolution-runner.js agree on the [fai
     code.includes("includes('--prune')"),
     'evolution-runner.js must actually read --prune',
   );
-  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the citation field precisely');
-  // The chain is only trustworthy while the prose describes what the code does. It
-  // previously said the citation field did not exist yet, which stayed published long
-  // after the field was the one thing standing between capture and promotion.
-  assert.doesNotMatch(
-    prose,
-    /until that field\s+exists|report the evidence gap/,
-    'the prose must not still describe the citation field as absent',
-  );
-  assert.match(
-    prose,
-    /checked:pass/,
-    'the prose must name the exact observation that qualifies a session',
-  );
-  assert.match(
-    prose,
-    /once\s+per\s+day\s+per\s+repository/,
-    'the prose must state the automatic cadence, since an unscheduled runner promotes nothing',
-  );
-});
-
-// ── Concurrency: lifecycle writes must serialize against the capture-path lock ──
-//
-// hooks/memory-writer.js (via phantom-learning.mjs's withLearningLock) and
-// evolution-runner.js's prune/promote/flag-stale writes both rewrite the SAME domain
-// files. Before this fix, evolution-runner.js wrote with a bare fs.writeFileSync and
-// no lock at all, so a capture graduating an entry into a domain file mid-run could be
-// clobbered by a concurrent prune. This test proves REAL mutual exclusion: it holds
-// the exact lockfile the capture path holds (`<learnings>/.learning.lock`, same shape
-// phantom-learning.mjs's acquireLock writes - see test/repo-dirs-migration.test.js's
-// equivalent pattern), then asserts a prune run defers rather than clobbering, and
-// proceeds once the lock clears.
-test('a prune run defers while the capture-path learnings lock is held, and proceeds once it clears', () => {
-  const { root, learnings } = makeWorkspace({
-    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
-  });
-  const target = path.join(learnings, 'workflow.md');
-  const before = fs.readFileSync(target);
-  const lockFile = path.join(learnings, '.learning.lock');
-
-  // Simulate a concurrent capture mid-write: a live lock owned by THIS test process
-  // (so the runner's own stale-lock check can never judge it dead and take it over).
-  fs.writeFileSync(lockFile, JSON.stringify({
-    pid: process.pid, token: 'concurrent-capture', created_at: new Date().toISOString(),
-  }) + '\n');
-
-  let out;
-  try {
-    out = runRunner(root, ['--prune']);
-  } finally {
-    fs.unlinkSync(lockFile);
-  }
-
-  assert.deepEqual(fs.readFileSync(target), before,
-    'the domain file must be byte-identical - no unlocked write while the capture lock is held');
-  assert.match(out, /learnings lock unavailable/, 'contention must be reported, not silently swallowed');
-  assert.match(out, /Removed: 0/, 'nothing may be counted as removed while locked out');
-
-  // Lock cleared: the same prune now proceeds normally against the untouched file.
-  const out2 = runRunner(root, ['--prune']);
-  assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'),
-    'once the lock clears, the prune removes the entry as normal');
-  assert.match(out2, /Removed: 1/);
-});
-
-// ── Honest reporting: a per-domain skip must not be counted as removed ──────────
-//
-// P1 #4: removeEntries already detects a domain that changed on disk between scan and
-// write (TOCTOU) and returns it as skipped, but the caller reported removable.length
-// regardless - claiming entries were gone when they were still on disk. This drives a
-// REAL race: a domain with a slow `check:` predicate delays the run long enough (before
-// the locked write phase starts) for a second write to land on a DIFFERENT domain's
-// file, so that domain's on-disk content no longer matches what was scanned by the time
-// removeEntries runs.
-test('a domain that changes on disk mid-run is skipped, and the removed count/skip are reported honestly', async () => {
-  const { root, learnings } = makeWorkspace({
-    // A slow predicate creates the race window: predicates are checked BEFORE the
-    // locked write phase, so this keeps the process busy while the concurrent write
-    // below lands on workflow.md.
-    'slow.md': 'PATTERN [p-slow]: entry with a slow predicate to create a race window (2026-07-20) check:`sleep 2`\n',
-    'workflow.md': `PATTERN [p-old]: ancient removable entry (${ANCIENT})\n`,
-  });
-  fs.writeFileSync(path.join(learnings, 'INDEX.md'),
-    '- [workflow](workflow.md) - fixture domain\n- [slow](slow.md) - fixture domain\n');
-  const target = path.join(learnings, 'workflow.md');
-
-  const child = spawn('node', [RUNNER, '--prune', '--check-predicates'], { env: env(root) });
-  let out = '';
-  child.stdout.on('data', (d) => { out += d; });
-  let stderr = '';
-  child.stderr.on('data', (d) => { stderr += d; });
-
-  // Land the concurrent write while the slow predicate is still sleeping, i.e. before
-  // removeEntries has run against its scanned snapshot.
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  fs.appendFileSync(target, 'PATTERN [p-injected]: appended by a concurrent writer mid-run (2026-07-20)\n');
-
-  const exitCode = await new Promise((resolve) => child.on('exit', resolve));
-  assert.equal(exitCode, 0, `runner must exit 0 (stderr: ${stderr})`);
-
-  const after = fs.readFileSync(target, 'utf8');
-  assert.ok(after.includes('p-old'), 'the skipped domain must still hold its unremoved entry on disk - nothing may vanish silently');
-  assert.match(out, /changed on disk since scan - skipped/, 'the skip must be reported to the operator');
-  assert.match(out, /Removed: 0/, 'a skipped domain must not be counted as removed in the console summary');
-
-  const log = JSON.parse(fs.readFileSync(path.join(root, 'state', 'evolution-log.json'), 'utf8'));
-  const last = log.evolutions[log.evolutions.length - 1];
-  assert.equal(last.stale_removed, 0, 'the JSON log must report the ACTUAL removed count, not the candidate count');
-  assert.equal(last.removable_reported, 1, 'the candidate count is still reported separately');
-  assert.deepEqual(last.prune_skipped_changed_on_disk, ['workflow'], 'the skipped domain must be surfaced explicitly, not merely implied by a mismatch');
-});
-
-// ── Honest reporting: a dry run must never claim a write it did not make ───────
-//
-// Review finding, confidence 4/5: removeEntries incremented `removedCount` even under
-// --dry-run, so the console summary printed "Removed: N" for entries that were never
-// touched on disk - the number was only ever 0 in practice because no fixture entry
-// happened to be old enough, not because the code was honest. This pins the real
-// distinction: a dry run must report a prospective figure under a label that cannot be
-// mistaken for a completed write, and a real run must report the actual count under
-// the unchanged "Removed:" label.
-test('a dry run reports removable entries as prospective, never as removed, and writes nothing', () => {
-  const { root, learnings } = makeWorkspace({
-    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
-  });
-  const target = path.join(learnings, 'workflow.md');
-  const before = fs.readFileSync(target);
-
-  const out = runRunner(root, ['--dry-run', '--prune']);
-
-  assert.doesNotMatch(out, /Removed: 1/, 'a dry run must never report a removal as if it happened');
-  assert.match(out, /Would remove: 1/, 'a dry run must label the prospective count unambiguously');
-  assert.deepEqual(fs.readFileSync(target), before, 'a dry run must write nothing - byte-identical file after');
-});
-
-test('the same removable entry in a REAL run reports the actual removed count', () => {
-  const { root, learnings } = makeWorkspace({
-    'workflow.md': `PATTERN [p-ancient]: an ancient, never-cited, never-proven entry (${ANCIENT})\n`,
-  });
-  const target = path.join(learnings, 'workflow.md');
-
-  const out = runRunner(root, ['--prune']);
-
-  assert.match(out, /Removed: 1/, 'a real run must report the entry as actually removed');
-  assert.doesNotMatch(out, /Would remove:/, 'a real run must not print the dry-run-only prospective label');
-  assert.ok(!fs.readFileSync(target, 'utf8').includes('p-ancient'), 'the entry must actually be gone from disk');
-});
-
-// ── The shape phantom-state actually writes must count ─────────────────────────
-//
-// sessionPassed read `verdict` and `correctness.observations` off the top level while
-// its paired context read went through stateEvidence. Every state-envelope-v2 session
-// therefore failed the evidence check, so no citation was ever credited even once the
-// citations existed - promotion could not happen for any session Phantom writes today.
-// The fixtures hid it by writing verification flat while writing context enveloped.
-// Validation counts drive promotion, so a citation must be measured rather than
-// asserted. Merging a caller-supplied learningsCited into the recorded evidence would
-// let anything claim credit and promote a learning into a global pattern without ever
-// having been injected, destroying the one property this evidence carries.
-test('context citations come from the recall ledger, never from the caller', () => {
-  const source = fs.readFileSync(
-    path.join(REPO_ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs'),
-    'utf8',
-  );
-  assert.doesNotMatch(
-    source,
-    /payload\.learningsCited/,
-    'a caller-supplied citation must not reach the recorded evidence',
-  );
-  assert.match(
-    source,
-    /const cited = recalledLearnings\(current\.paths\)/,
-    'citations must be derived from the ledger written by the injecting component',
-  );
-});
-
-test('a state-envelope-v2 verification artifact counts as citation evidence', () => {
-  const { root } = makeWorkspace({
-    'workflow.md': 'PATTERN [p-enveloped]: entry cited by a v2 session (2026-07-20)\n',
-  });
-  writeSession(root, 's-v2-envelope', { cited: ['p-enveloped'], envelopeVerification: true });
-
-  const out = runRunner(root, [], { PHANTOM_PROMOTE_THRESHOLD: '1' });
-  assert.match(out, /1 verified session citations/, 'the enveloped verification must be observed as a pass');
-  assert.match(out, /Promoted: .*p-enveloped/, 'a cited entry in a verified v2 session must promote');
-});
-
-test('a v2 verification reporting an observed failure is still rejected', () => {
-  const { root } = makeWorkspace({
-    'workflow.md': 'PATTERN [p-enveloped-fail]: entry cited by a failing v2 session (2026-07-20)\n',
-  });
-  writeSession(root, 's-v2-fail', {
-    cited: ['p-enveloped-fail'],
-    testsObservation: 'checked:fail',
-    envelopeVerification: true,
-  });
-
-  const out = runRunner(root, [], { PHANTOM_PROMOTE_THRESHOLD: '1' });
-  assert.match(out, /0 verified session citations/, 'unwrapping the envelope must not weaken the whitelist');
-});
-
-// ── Fail-closed evidence: only an OBSERVED checked:pass counts ──────────────────
-//
-// sessionPassed used to be a BLACKLIST (only 'not_observed' was rejected), so it wrongly
-// accepted a verification with no `observations` at all, or with `observations.tests`
-// set to anything else - including 'checked:fail', a FAILING test run miscounted as
-// validation evidence. It is now a WHITELIST: the only accepted value is an explicit,
-// observed 'checked:pass'. One black-box run pins all six cases through the real CLI.
-test('citation counting is a whitelist: only an observed checked:pass counts as evidence', () => {
-  const { root } = makeWorkspace({
-    'workflow.md': 'PATTERN [p-cited]: probe entry with no tag (2026-07-20)\n',
-  });
-  const sessionDir = (name) => path.join(root, 'repos', REPO, 'sessions', name);
-
-  // 1. No verification.json at all.
-  writeSession(root, 's-no-verification', { cited: ['p-cited'] });
-  fs.unlinkSync(path.join(sessionDir('s-no-verification'), 'verification.json'));
-
-  // 2. verdict !== 'pass'.
-  writeSession(root, 's-wrong-verdict', { cited: ['p-cited'], verdict: 'fail' });
-
-  // 3. observations absent entirely (verdict pass, but no correctness.observations field).
-  writeSession(root, 's-absent-observations', { cited: ['p-cited'] });
-  fs.writeFileSync(path.join(sessionDir('s-absent-observations'), 'verification.json'), JSON.stringify({
-    correctness: { lint: true, build: true, tests: true, commands: ['npm test'] },
-    review: { temperature: 0.7, findings: [], fixLoops: 0 },
-    simplifyRan: true, intentAlignment: 'aligned', verdict: 'pass',
-  }));
-
-  // 4. observations.tests === 'not_observed' (a claim, not a measurement).
-  writeSession(root, 's-not-observed', { cited: ['p-cited'], testsObservation: 'not_observed' });
-
-  // 5. observations.tests === 'checked:fail' (an observed FAILURE - the worst case
-  //    for the old blacklist, which accepted this as evidence).
-  writeSession(root, 's-checked-fail', { cited: ['p-cited'], testsObservation: 'checked:fail' });
-
-  // 6. The one acceptance case.
-  writeSession(root, 's-checked-pass', { cited: ['p-cited'], testsObservation: 'checked:pass' });
-
-  const out = runRunner(root);
-  assert.match(out, /1 verified session citations/,
-    'only the single observed checked:pass session may count; all five rejection cases must be excluded');
-});
-
-// ── Honest reporting: a mutation that fails partway must not read as "lock unavailable" ──
-//
-// P1: withLearningLock's action() (`mutate`) runs three write stages in a fixed order
-// (flagEntriesStale, then removeEntries, then promotion+index - see the ordering
-// comment in evolution-runner.js's mutate()). Before this fix, the single catch around
-// withLearningLock treated ANY thrown error identically - whether the lock was never
-// acquired, or `mutate()` itself threw after already rewriting a domain file - as
-// "learnings lock unavailable ... all writes skipped", and zeroed stale_removed even
-// when removeEntries had already committed a real write to disk.
-//
-// This drives that exact sequence deterministically, no monkey-patching: --prune
-// removes one real entry (removeEntries succeeds and writes to disk - no lock
-// contention, nothing to fake), then the later promotion stage for a second,
-// already-[validated:5] entry fails because its target directory can never be
-// created - PATTERNS_DIR's parent (`<PHANTOM_DATA>/global`) is made a plain FILE
-// beforehand, so `fs.mkdirSync(PATTERNS_DIR, { recursive: true })` throws ENOTDIR.
-// That is a real filesystem constraint, not an injected fault.
-test('a mutation that fails partway (after a real write) reports partial failure, not lock unavailability', () => {
-  const { root, learnings } = makeWorkspace({
-    'workflow.md': [
-      `PATTERN [p-remove]: ancient removable entry, no citations (${ANCIENT})`,
-      'PATTERN [p-promote]: already-proven pattern ready to graduate [validated:5] (2026-07-20)',
-      '',
-    ].join('\n'),
-  });
-  const target = path.join(learnings, 'workflow.md');
-
-  // Force the promotion stage to fail AFTER removeEntries has already returned:
-  // making `global` a file (rather than a directory) means the promotion stage's own
-  // mkdirSync throws ENOTDIR - deterministic, and it happens strictly later in
-  // mutate()'s fixed ordering than the remove this test is checking survived.
-  fs.writeFileSync(path.join(root, 'global'), 'not a directory');
-
-  const out = runRunner(root, ['--prune']);
-
-  assert.match(out, /mutation failed partway/,
-    'a throw after the lock was held must be reported as a partial mutation failure');
-  assert.doesNotMatch(out, /learnings lock unavailable/,
-    'the lock WAS held and writes DID start - this must never be reported as lock contention');
-  assert.match(out, /Removed: 1/,
-    'the entry removeEntries already deleted must be counted - not zeroed out because a later stage failed');
-  const after = fs.readFileSync(target, 'utf8');
-  assert.ok(!after.includes('p-remove'),
-    'the removed entry must actually be gone from disk - proves the "partial" claim is real, not merely asserted');
-  assert.ok(after.includes('p-promote'),
-    'the entry that was never a removal candidate must be untouched by the later failure');
-
-  const log = JSON.parse(fs.readFileSync(path.join(root, 'state', 'evolution-log.json'), 'utf8'));
-  const last = log.evolutions[log.evolutions.length - 1];
-  assert.equal(last.mutation_failed, true, 'the JSON log must flag this run as an incomplete mutation account');
-  assert.equal(last.lock_unavailable, false, 'lock_unavailable must stay false - the lock was genuinely held');
-  assert.equal(last.stale_removed, 1, 'the log must report the real removed count, not 0');
-  assert.ok(last.mutation_error && /ENOTDIR|not a directory/i.test(last.mutation_error),
-    'the underlying error must be surfaced, not swallowed');
+  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the missing citation field precisely');
 });

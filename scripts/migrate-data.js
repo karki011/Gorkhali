@@ -15,8 +15,7 @@
 //     BASELINE (not an immutable source): before a merge modifies a pre-existing
 //     canonical file, its original bytes are copied to a content-addressed
 //     rollback backup and both hashes are recorded in the manifest.
-//   * Repository ids are mapped through the canonical identity codec plus the
-//     migrator's offline historical-alias map.
+//   * Repository ids are mapped through the T1 identity codec + persisted aliases.
 //     An id with zero/ambiguous mapping stays 'unresolved' and requires an
 //     explicit --map <srcId>=<canonicalId>; it is NEVER guessed.
 //   * Fingerprinting drives the per-item class: identical bytes at the canonical
@@ -47,13 +46,10 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { phantomData } = require('./lib/phantom-paths');
 const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const historicalAliases = require('./lib/historical-repo-aliases');
 const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
 
 const MIGRATION_VERSION = 3;
 const MANIFEST_SCHEMA = 1;
-const STATE_ENVELOPE_VERSION = require('../skills/phantom/manifest.json')
-  .contracts.state_envelope.version;
 
 // Top-level artifact-class dirs scanned in every source root. Repo-scoped state
 // lives under `repos/<id>/...` (mapped through the codec); everything else maps
@@ -240,7 +236,7 @@ function buildSources(dest, env) {
 }
 
 // --------------------------------------------------------------------------
-// Repository id mapping (codec + offline historical aliases + --map; ambiguous -> unresolved)
+// Repository id mapping (codec + aliases + --map; ambiguous -> unresolved)
 // --------------------------------------------------------------------------
 
 function stripMigratedSuffixes(id) {
@@ -259,7 +255,7 @@ function stripMigratedSuffixes(id) {
 }
 
 // Resolve a source `repos/<id>` segment to its canonical destination id.
-// Precedence: explicit --map (raw or base) > historical alias > self-canonical.
+// Precedence: explicit --map (raw or base) > codec alias > self-canonical.
 //
 // The default is PRESERVE: a safe id is kept as-is (never merged onto another repo
 // by guesswork). Duplicate hashed ids therefore migrate as DISTINCT dirs unless an
@@ -287,7 +283,7 @@ function mapRepoId(rawId, context) {
   // be auto-attributed -- resolveCanonical passes it through unchanged, so without
   // this it would fall to the self-preserve below and cross-mix distinct repos'
   // state. Route it to unresolved; an explicit --map is the only safe resolution.
-  if (historicalAliases.isAmbiguousAlias(dest, base)) {
+  if (codec.isAmbiguousAlias(dest, base)) {
     return {
       status: 'unresolved',
       id: base,
@@ -295,7 +291,7 @@ function mapRepoId(rawId, context) {
     };
   }
 
-  const canonical = historicalAliases.resolveCanonical(dest, base);
+  const canonical = codec.resolveCanonical(dest, base);
   if (canonical && canonical !== base) return { status: 'resolved', id: canonical, via: 'alias' };
 
   // Preserve the id verbatim; the data-root migrator never guesses a cross-repo
@@ -502,7 +498,7 @@ function inventory(context) {
 // --------------------------------------------------------------------------
 // Current-session pointer reconstruction
 //
-// A pointer is only reconstructed when it is a portable-v2 record whose backing
+// A pointer is only reconstructed when it is a portable-v1 record whose backing
 // session is genuinely active/paused and whose workspace still resolves to the
 // pointer's repo id through the codec. The reconstructed pointer is remapped to
 // the codec-canonical repo id and the destination session dir; the destination
@@ -510,10 +506,6 @@ function inventory(context) {
 // --------------------------------------------------------------------------
 
 function classifyPointerSchema(pointer) {
-  if (pointer && pointer.schema_version === STATE_ENVELOPE_VERSION
-    && typeof pointer.repo_id === 'string' && typeof pointer.task_id === 'string') {
-    return 'portable-v2';
-  }
   if (pointer && pointer.schema_version === 1
     && typeof pointer.repo_id === 'string' && typeof pointer.task_id === 'string') {
     return 'portable-v1';
@@ -532,9 +524,7 @@ function isSafeSegment(value) {
 }
 
 function validateSourceSession(session, pointer) {
-  if (!session
-    || session.schema_version !== STATE_ENVELOPE_VERSION
-    || session.artifact_type !== 'session') {
+  if (!session || session.schema_version !== 1 || session.artifact_type !== 'session') {
     return 'invalid-session-envelope';
   }
   if (session.repo_id !== pointer.repo_id || session.task_id !== pointer.task_id) {
@@ -563,7 +553,7 @@ function describePointer(source, file, context) {
     digest: sha256File(file),
   };
   const schema = classifyPointerSchema(pointer);
-  if (schema !== 'portable-v2') {
+  if (schema !== 'portable-v1') {
     return { ...base, class: 'skipped-live-state', reason: `unsupported-${schema}-pointer` };
   }
   if (!isSafeSegment(pointer.repo_id) || !isSafeSegment(pointer.task_id)) {
@@ -576,11 +566,11 @@ function describePointer(source, file, context) {
   const sessionReason = validateSourceSession(sourceSession, pointer);
   if (sessionReason) return { ...base, class: 'skipped-live-state', reason: `source-${sessionReason}` };
 
-  const canonicalRepoId = historicalAliases.resolveCanonical(context.dest, pointer.repo_id);
+  const canonicalRepoId = codec.resolveCanonical(context.dest, pointer.repo_id);
   const destSessionDir = path.join(context.dest, 'repos', canonicalRepoId, 'sessions', pointer.task_id);
   const destPointer = path.join(context.dest, 'state', 'current-session', `${canonicalRepoId}.json`);
   const reconstructed = {
-    schema_version: STATE_ENVELOPE_VERSION,
+    schema_version: 1,
     repo_id: canonicalRepoId,
     task_id: pointer.task_id,
     session_dir: destSessionDir,
@@ -925,11 +915,13 @@ async function apply(context, options) {
       return { status: 'already-migrated' };
     }
 
-    // This explicit offline migrator seeds its own historical aliases from the
-    // live workspace identity before inventory. Normal runtime never records
-    // aliases. Seeding remains best-effort and must never abort migration.
+    // Belt-and-suspenders: seed the alias map from the live workspace identity so a
+    // machine where no session hook ran after the codec upgrade still collapses
+    // this repo's legacy/plain/raw-hash source dirs onto the canonical id when
+    // mapRepoId -> resolveCanonical runs during inventory below. Guarded and
+    // merge-only; a seeding failure must never abort the migration.
     try {
-      historicalAliases.recordAliases(dest, codec.repoIdentity(process.cwd(), {
+      codec.recordAliases(dest, codec.repoIdentity(process.cwd(), {
         dataRoot: dest,
         phantomRepo: process.env.PHANTOM_REPO,
       }));

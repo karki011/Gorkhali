@@ -43,31 +43,6 @@ const path = require('path');
 
 const IMPLEMENTER_AGENTS = new Set(['blade', 'sweep', 'ward', 'lens', 'warden']);
 
-// timing-capture.js writes a Blade marker on every Agent/Task spawn attempt, and
-// that marker is what permits Apex to write while a subagent is editing. A spawn
-// this gate denies never produces a subagent, so its marker would be orphaned: no
-// SubagentStop will ever arrive to clear it, and until it expires Apex can edit
-// directly with no Blade running at all -- the gate's own denial would hand back
-// the permission it exists to withhold. Clearing it here keeps the mutex counting
-// only spawns that were actually allowed to happen.
-function releaseBladeMarker(payload) {
-  try {
-    const id = payload.tool_use_id || payload.toolUseId || payload.id;
-    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return;
-    let phantomData;
-    let detectRepo;
-    try {
-      ({ phantomData, detectRepo } = require('../scripts/lib/phantom-paths'));
-    } catch (_) {
-      return; // resolver unavailable → the marker expires on its own
-    }
-    const marker = path.join(phantomData(), '.blade-editing.d', detectRepo(payload.cwd), id);
-    if (fs.existsSync(marker)) fs.unlinkSync(marker);
-  } catch (_) {
-    // Never let cleanup failure change the decision.
-  }
-}
-
 const POLICY_FILE = path.join(
   __dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'
 );
@@ -120,7 +95,6 @@ function main() {
     // return, or an explicit model:"fable" on a blade spawn would already
     // satisfy RULE 2 and never reach this check.
     if (IMPLEMENTER_AGENTS.has(name) && typeof model === 'string' && /fable/i.test(model)) {
-      releaseBladeMarker(payload);
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
@@ -140,7 +114,6 @@ function main() {
     if (name !== 'blade') return;
     if (typeof model === 'string' && model.trim() !== '') return; // explicit choice made
 
-    releaseBladeMarker(payload);
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',

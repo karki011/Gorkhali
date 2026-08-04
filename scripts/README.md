@@ -8,8 +8,7 @@ Deterministic scripts for the Phantom. These do mechanical work that should not 
 
 ### `validate-artifact.js`
 
-Validates historical Phantom JSON artifact envelopes. New workflow contracts
-use the versioned schemas under `skills/phantom/schemas/`.
+Validates a Phantom JSON artifact against its canonical schema from `reference/artifact-schemas.md`.
 
 ```bash
 node validate-artifact.js <artifact-type> <file-path>
@@ -55,6 +54,69 @@ node check-learnings-index.js [learnings-dir]
 ```bash
 node check-learnings-index.js ~/.phantom/repos/feature-web-apps/learnings
 ```
+
+---
+
+### `session-health.sh`
+
+Checks a session directory for expected artifacts and validates their JSON.
+
+```bash
+./session-health.sh <session-dir> [--phase <phase>]
+```
+
+**Phases:** `A` `B` `C` `D` `verify` `wrap`
+
+**What it checks:**
+- Presence of: `context.json`, `intent.json`, `plan.json`, `execution.json`, `verification.json`, `wrap.json`, `pause-state.json` (optional)
+- JSON validity of every found artifact
+- Phase-specific required artifacts when `--phase` is given
+- Auto-detects current phase from what's present (without `--phase`)
+
+**Exit:** 0 = healthy, 1 = errors
+
+**Examples:**
+```bash
+# Auto-detect phase
+./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234
+
+# Check that all wrap-phase artifacts are present
+./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234 --phase wrap
+```
+
+---
+
+### `preamble-tier.js`
+
+Given a Phantom command name, outputs which preamble tier it belongs to and which shared context files it loads.
+
+```bash
+node preamble-tier.js [command] [--json]
+```
+
+**Without command:** prints all four tiers with their full context lists.
+
+**With command:** prints tier, shared contexts, and active Core Rules for that command.
+
+**Flags:** `--json` outputs machine-readable JSON.
+
+**Exit:** 0 always (informational), 1 if command is unknown.
+
+**Examples:**
+```bash
+# Show tier for a specific command
+node preamble-tier.js start
+node preamble-tier.js phantom:verify
+node preamble-tier.js /phantom:status
+
+# Machine-readable output
+node preamble-tier.js wrap --json
+
+# Show all tiers
+node preamble-tier.js
+```
+
+---
 
 ### `routing-report.js`
 
@@ -103,7 +165,7 @@ The existing `~/.phantom` is the destination BASELINE, never an immutable source
 - Apply requires BOTH `--apply` and a manifest from a prior dry-run, and fails closed otherwise.
 - External sources are never renamed, deleted, or symlinked; their bytes are byte-identical after apply.
 - Before a learnings merge modifies a pre-existing canonical file, its original bytes are copied to a content-addressed rollback backup under `<data>/audit/rollback-backups/` and both hashes are recorded in the manifest.
-- Repository ids map through the canonical codec plus the migrator's offline historical-alias helper; normal runtime never reads or writes aliases. An id that is not a safe path segment stays `unresolved` and requires an explicit `--map` (mappings are never guessed).
+- Repository ids map through the codec + aliases; an id that is not a safe path segment stays `unresolved` and requires an explicit `--map` (mappings are never guessed).
 - Identical bytes at a canonical path DEDUPLICATE; different bytes CONFLICT-PARK under a deterministic `.from-<source>.<hash>` suffix (the baseline is never overwritten); learnings merge append-only through the T3 learning API lock.
 - Apply takes a migration-wide lock (`<data>/locks/.data-migration.lock`) for the whole window, routes learnings merges through the per-learnings-dir lock and per-repo writes through the phantom-state lifecycle lock, so a concurrent state writer that races the migration blocks or fails closed.
 
@@ -118,8 +180,7 @@ The real apply against live machine state is a separately gated, signed-off step
 ### `migrate-repo-dirs.js`
 
 Dry-run-first, non-destructive consolidation of branch-named orphan repo dirs under `<data>/repos/*` (and the legacy repos root named by `PHANTOM_MIGRATE_LEGACY_ROOT`) into their canonical repo dir.
-Resolved targets are canonicalized through the offline historical-alias map used
-only by migration and report tooling.
+Resolved targets are canonicalized through the T1 codec alias map so consolidation agrees with every other writer.
 
 ```bash
 node migrate-repo-dirs.js                # DRY-RUN (default): computes the plan, writes a report, mutates nothing.
@@ -128,22 +189,27 @@ node migrate-repo-dirs.js --apply --force  # ignore the marker; pick up newly-ap
 node migrate-repo-dirs.js --map a=b      # pin orphan dir `a` to repo `b` (repeatable)
 ```
 
-This migrator is never run by a prompt hook. Invoke it explicitly, review the
-dry-run report, and opt into `--apply` when ready.
+The `UserPromptSubmit` hook (`hooks/session-marker.js`) auto-runs `--apply` once per data root (marker-gated).
 
 ---
 
-## Usage from skills
+## Usage from skill commands
 
-Portable skills resolve bundled helpers relative to their own `SKILL.md`.
-Repository maintenance commands resolve `scripts/` from the checked-out
-repository root. Host hook registration resolves hook paths through the host's
-installed-plugin root; no provider-specific cache path is part of the contract.
+Reference these scripts from skill `.md` files by self-resolving the plugin dir env-free (deterministic — never via `CLAUDE_PLUGIN_ROOT`, which is reserved for `hooks/hooks.json`):
+
+```
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }   # empty-guard: no cache dir → readable abort, not MODULE_NOT_FOUND
+Run: node "$PR/scripts/validate-artifact.js" verification {VERIFICATION_JSON_PATH}
+```
+
+or in a PostToolUse hook to validate artifacts immediately after they are written.
 
 ---
 
 ## Requirements
 
 - `node` (any modern version — uses only stdlib: `fs`, `path`)
+- `bash` (for `session-health.sh`)
 
 No `npm install` needed.

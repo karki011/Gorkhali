@@ -1,11 +1,7 @@
 ---
 name: recruit
-description: Request one bounded specialist role pass when isolated context or expertise adds value. Use for explicitly requested implementation, research, audit, accessibility, performance, or security work.
+description: Recruit or spawn a specialized Blade agent for a focused implementation, research, audit, accessibility, performance, security, or other one-off role.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `recruit` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/recruit.md`.
 
-Portable action: `recruit`.
-
-Treat invocation text as action input. Create one typed, bounded delegation only
-when native delegation is available and the isolated pass materially helps.
-The assignment cannot broaden write scope, authorization, or lifecycle state.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

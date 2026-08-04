@@ -1,12 +1,7 @@
 ---
 name: execute
-description: Execute an already approved Phantom workflow from its validated plan, contracts, dependencies, and authorization. Use execute for approved work, start for unplanned work, and resume for prior sessions.
+description: Run an already approved Phantom plan by loading its contracts and intent, dispatching its agents, and executing its waves. Use to run or execute an approved plan; use start for unplanned work and resume for prior sessions.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `execute` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/execute.md`.
 
-Portable action: `execute`.
-
-Treat invocation text as action input. Pass the portable execute gate, then run
-the compiled dependency graph with the smallest useful topology. Delegation is
-optional and limited to independently useful scopes. Execution never grants or
-performs shipping.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

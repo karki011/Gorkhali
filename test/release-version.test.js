@@ -18,13 +18,7 @@ const { execFileSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const SCRIPT = path.join(REPO_ROOT, 'scripts', 'release-version.js');
-const {
-  baseVerdict,
-  compareSemver,
-  setVersion,
-  status,
-  statusAtRef,
-} = require('../scripts/release-version');
+const { status, setVersion } = require('../scripts/release-version');
 
 const MANIFEST_PATHS = [
   ['.claude-plugin', 'plugin.json'],
@@ -58,29 +52,6 @@ function readManifests(dir) {
 function otherVersion(dir) {
   const [major, minor, patch] = status({ root: dir }).versions[0].split('.').map(Number);
   return [major, minor, patch + 1].join('.');
-}
-
-function makeGitVersionFixture(baseVersion = '0.0.0', currentVersion = '0.0.1') {
-  const dir = makeFixture();
-  execFileSync('git', ['init', '-q'], { cwd: dir });
-  setVersion(baseVersion, { root: dir });
-  execFileSync('git', ['add', '.'], { cwd: dir });
-  execFileSync('git', [
-    '-c', 'user.name=Subash karki',
-    '-c', 'user.email=subash@example.invalid',
-    'commit', '-q', '-m', 'base manifests',
-  ], { cwd: dir });
-  setVersion(currentVersion, { root: dir });
-  return dir;
-}
-
-function cliExit(args) {
-  try {
-    execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' });
-    return 0;
-  } catch (error) {
-    return error.status;
-  }
 }
 
 test('--check passes and exits 0 when all three manifests agree', () => {
@@ -165,56 +136,4 @@ test('CLI --set writes all three and CLI --check confirms sync afterward', () =>
   execFileSync(process.execPath, [SCRIPT, '--set', target, '--root', dir], { encoding: 'utf8' });
   assert.deepEqual(status({ root: dir }).versions, [target]);
   execFileSync(process.execPath, [SCRIPT, '--check', '--root', dir], { encoding: 'utf8' });
-});
-
-test('--base-ref requires the feature version to advance beyond the synchronized base', () => {
-  const dir = makeGitVersionFixture('0.0.0', '0.0.1');
-  const result = status({ root: dir, baseRef: 'HEAD' });
-  assert.equal(result.base.inSync, true);
-  assert.deepEqual(result.base.versions, ['0.0.0']);
-  assert.deepEqual(result.versions, ['0.0.1']);
-  assert.deepEqual(result.baseVerdict, { advanced: true, reason: '0.0.0 -> 0.0.1' });
-  assert.equal(cliExit(['--check', '--base-ref', 'HEAD', '--root', dir]), 0);
-});
-
-test('--base-ref fails closed when the feature version is unchanged or older', () => {
-  const unchanged = makeGitVersionFixture('1.2.3', '1.2.3');
-  const older = makeGitVersionFixture('1.2.3', '1.2.2');
-  assert.equal(cliExit(['--check', '--base-ref', 'HEAD', '--root', unchanged]), 1);
-  assert.equal(cliExit(['--check', '--base-ref', 'HEAD', '--root', older]), 1);
-  assert.equal(baseVerdict(status({ root: older }), statusAtRef('HEAD', { root: older })).advanced, false);
-});
-
-test('base manifest drift fails even when the current manifests agree', () => {
-  const dir = makeFixture();
-  execFileSync('git', ['init', '-q'], { cwd: dir });
-  setVersion('1.0.0', { root: dir });
-  const codex = path.join(dir, '.codex-plugin', 'plugin.json');
-  fs.writeFileSync(codex, fs.readFileSync(codex, 'utf8').replace('"version": "1.0.0"', '"version": "0.9.9"'));
-  execFileSync('git', ['add', '.'], { cwd: dir });
-  execFileSync('git', [
-    '-c', 'user.name=Subash karki',
-    '-c', 'user.email=subash@example.invalid',
-    'commit', '-q', '-m', 'drifted base manifests',
-  ], { cwd: dir });
-  setVersion('1.0.1', { root: dir });
-  assert.equal(cliExit(['--check', '--base-ref', 'HEAD', '--root', dir]), 1);
-  assert.equal(status({ root: dir, baseRef: 'HEAD' }).baseVerdict.reason, 'base manifests drift at HEAD: 1.0.0, 0.9.9');
-});
-
-test('base comparison validates refs, uses numeric semver order, and ignores poisoned Git env', () => {
-  assert.equal(compareSemver('1.10.0', '1.9.99'), 1);
-  assert.equal(compareSemver('1.2.3', '1.2.3'), 0);
-  assert.equal(compareSemver('0.9.0', '1.0.0'), -1);
-  assert.throws(() => statusAtRef('../HEAD', { root: makeFixture() }), /invalid --base-ref/);
-
-  const dir = makeGitVersionFixture();
-  const previousGitDir = process.env.GIT_DIR;
-  process.env.GIT_DIR = path.join(dir, 'does-not-exist');
-  try {
-    assert.deepEqual(statusAtRef('HEAD', { root: dir }).versions, ['0.0.0']);
-  } finally {
-    if (previousGitDir === undefined) delete process.env.GIT_DIR;
-    else process.env.GIT_DIR = previousGitDir;
-  }
 });

@@ -4,7 +4,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { pathToFileURL } = require('url');
 const {
   globalPatternsDir, learningsDir, stateDir, detectRepo, sessionsDir, completedDir,
 } = require('./lib/phantom-paths');
@@ -12,18 +11,11 @@ const {
 // a separator or a leading list dash that the real files do not use, so every tier
 // scanned 0 of 54 real entries. Never re-add a private entry regex here.
 const { parseLearningEntries, isLiveDomainFile } = require('./lib/learning-grammar.cjs');
-const STATE_ENVELOPE_VERSION = require('../skills/phantom/manifest.json')
-  .contracts.state_envelope.version;
 
 const REPO = detectRepo();
 const LEARNINGS_DIR = learningsDir(REPO);
 const PATTERNS_DIR = globalPatternsDir();
 const STATE_FILE = path.join(stateDir(), 'evolution-log.json');
-// The ONE mutex the capture path uses (skills/phantom/scripts/phantom-learning.mjs
-// withLearningLock, held at <learningsDir>/.learning.lock). This file is CJS and that
-// module is ESM; crossing the boundary via dynamic import() is the same pattern
-// scripts/check-learnings-index.js already uses to reach the same module.
-const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 
 let STALE_DAYS = 30, REMOVE_DAYS = 60, PROMOTE_THRESHOLD = 5, DISTILL_CAP = 50;
 let CITATION_FIELD = 'learningsCited';
@@ -42,19 +34,11 @@ const dryRun = process.argv.includes('--dry-run');
 // to the removal window at once, which would turn a first correct run into a mass
 // delete. Removal stays report-only behind --prune; expiry policy is owned elsewhere.
 const prune = process.argv.includes('--prune');
-// The "explicitly overridden" escape hatch that
-// skills/phantom/references/evolution.md's [failed]
+// The "explicitly overridden" escape hatch that reference/evolution.md's [failed]
 // exemption promises. It exists so the prose's clause has a reader: without it the
 // exemption would be absolute and a wrong correction recorded once would be immortal.
 // Requires --prune too, so no single flag can reach the anti-repetition corpus.
 const pruneFailed = prune && process.argv.includes('--prune-failed');
-// check:`<cmd>` predicates (K5). Two-stage opt-in, same shape as --prune/--prune-failed:
-// --check-predicates runs them and REPORTS pass/fail, changing nothing on disk.
-// --flag-stale additionally writes [stale] onto entries whose predicate failed, and
-// only takes effect alongside --check-predicates - a bare --flag-stale would tag
-// entries based on a check that never ran.
-const checkPredicates = process.argv.includes('--check-predicates');
-const flagStale = checkPredicates && process.argv.includes('--flag-stale');
 const now = new Date();
 
 function daysSince(dateStr) {
@@ -82,36 +66,17 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }
 }
 
-function stateEvidence(envelope, artifactType) {
-  if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) return null;
-  if (envelope.schema_version !== STATE_ENVELOPE_VERSION
-    || envelope.artifact_type !== artifactType
-    || !envelope.evidence
-    || typeof envelope.evidence !== 'object'
-    || Array.isArray(envelope.evidence)) return null;
-  return envelope.evidence;
-}
-
 /**
  * A session counts as evidence only when its verification actually OBSERVED a pass.
  * `verdict` alone is not enough: verification.json can carry verdict 'pass' while
- * `observations.tests` is 'not_observed' (a claim, not a measurement) or even
- * 'checked:fail' (an observed FAILURE misreported as verdict 'pass'). This is a
- * WHITELIST, not a blacklist: the only accepted evidence is an explicit, observed
- * 'checked:pass'. Anything else - missing verification, wrong verdict, absent
- * `observations`, or any `tests` value other than 'checked:pass' - is rejected,
- * fail-closed.
+ * `observations.tests` is 'not_observed', which is a claim, not a measurement - the same
+ * unverifiable judgment this whole conversion exists to remove.
  */
 function sessionPassed(verification) {
-  // A v2 verification artifact carries its body under `evidence`, exactly like the
-  // context artifact this function is paired with. Reading only the top level meant
-  // every state-envelope-v2 session failed this check, so no citation was ever
-  // credited even once the citations existed -- the flat shape below is the pre-v2
-  // layout and is still accepted so historical sessions keep counting.
-  const body = stateEvidence(verification, 'verification') || verification;
-  if (!body || body.verdict !== 'pass') return false;
-  const observed = body.correctness && body.correctness.observations;
-  return !!observed && observed.tests === 'checked:pass';
+  if (!verification || verification.verdict !== 'pass') return false;
+  const observed = verification.correctness && verification.correctness.observations;
+  if (observed && observed.tests === 'not_observed') return false;
+  return true;
 }
 
 /**
@@ -124,19 +89,17 @@ function sessionPassed(verification) {
  * nothing has ever reached the promote threshold of 5: the old increment fired only when
  * an LLM decided a pattern "was successfully used", which was unverifiable and unlogged.
  *
- * CITATION WRITER - `learningsCited: string[]` on context.json now exists, so this no
- * longer returns an empty map. hooks/memory-reader.js is the writer, because it is the
- * only component that knows which entries it injected; it runs on UserPromptSubmit,
- * before a session directory exists, so it records its selection under the host
- * session_id at state/recall/<repo>/<session-id>.json. phantom-state.mjs performs the
- * join when it records the context artifact, reading state/session-telemetry/<repo>.json
- * for the current session_id. `learningsRefs` was never usable for this: it is
- * documented as "Paths to relevant learning files", so its granularity is the file, not
- * the entry.
- *
- * Both halves of the qualification are read through the state envelope. Reading
- * verification only at the top level silently disqualified every envelope-v2 session,
- * which meant citations could exist and still never be credited.
+ * MISSING WRITER - the one input that does not exist yet. No artifact records WHICH
+ * learning entries a session recalled. context.json's `learningsRefs` is documented as
+ * "Paths to relevant learning files": file granularity, so it cannot attribute a
+ * validation to an entry. (One context.json on disk carries an undocumented freeform
+ * `learnings_applied` array of prose sentences - also not entry-identified.) The minimal
+ * field needed is `learningsCited: string[]` on context.json, holding the `[keyword]` of
+ * each injected entry; all 54 real entries carry a keyword, so it is a sufficient
+ * identity. Its only possible writer is hooks/memory-reader.js, the component that
+ * selects the entries. Until that field is written this returns an empty map and every
+ * computed count is 0 - the reader is deliberately built first so the field has a
+ * consumer the day it lands, rather than being a clause with no reader.
  */
 function computeCitedValidations() {
   const counts = new Map();
@@ -147,7 +110,7 @@ function computeCitedValidations() {
       if (!dirent.isDirectory()) continue;
       const dir = path.join(root, dirent.name);
       if (!sessionPassed(readJson(path.join(dir, 'verification.json')))) continue;
-      const context = stateEvidence(readJson(path.join(dir, 'context.json')), 'context');
+      const context = readJson(path.join(dir, 'context.json'));
       const cited = context && context[CITATION_FIELD];
       if (!Array.isArray(cited)) continue;
       for (const raw of cited) {
@@ -185,7 +148,7 @@ function scanStaleness(domains, cited) {
       // that state. Untagged is the lifecycle's ENTRY state, not a limbo class.
       const proven = effectiveValidation(entry, cited) >= PROMOTE_THRESHOLD;
       if (age >= REMOVE_DAYS && !proven) {
-        // skills/phantom/references/evolution.md "Retention classes": never delete a [failed] entry
+        // reference/evolution.md "Distillation Rules": never delete a [failed] entry
         // unless explicitly overridden. A [failed] correction is the most load-bearing
         // kind of entry - it records something that already went wrong once - and it is
         // the corpus prompt injection leans on hardest. --prune-failed is the override.
@@ -267,123 +230,6 @@ function checkDistillation(domains) {
   return oversized;
 }
 
-// --- check:`<cmd>` predicates (K5) ------------------------------------------------
-//
-// SECURITY MODEL. A learnings file is DATA - it is written by an LLM, merged and
-// synced between repos, and read on the prompt-injection hot path. Running a shell
-// command that sits inside it is an RCE vector unless every one of the following
-// holds:
-//
-//  1. NEVER on any read path. hooks/memory-reader.js runs on every prompt and must
-//     never execute anything; test/predicate-execution.test.js pins its source has
-//     no child_process import. Only this file, and only behind flag (2), executes.
-//  2. EXPLICIT OPT-IN ONLY. Nothing below runs unless --check-predicates is literally
-//     on argv (checked once, at the top of this file, same as --prune above). A bare
-//     run parses and counts predicates but never executes one.
-//  3. LOCAL CANONICAL DIR ONLY. checkAllPredicates walks `domains`, which readDomainFiles
-//     built by fs.readdirSync(LEARNINGS_DIR) - LEARNINGS_DIR itself is
-//     learningsDir(REPO), resolved directly under the canonical repository shard at
-//     module load (line 16). A file's `source` is therefore always a bare basename of
-//     that one directory; there is no code path here that reads a predicate from
-//     anywhere else, so a file arriving via merge/sync cannot buy execution by sitting
-//     in a different path.
-//  4. BOUNDED. Each predicate gets PREDICATE_TIMEOUT_MS via a non-interactive shell
-//     (stdin closed) with no stdin/stdout/stderr piped back into the process. A
-//     timeout is treated as FAILED - never as passed - so a hang can never read as
-//     healthy.
-//  5. NO SANITIZATION. The command runs verbatim through `/bin/sh -c`. This file does
-//     not attempt to allowlist or escape shell metacharacters - that produces false
-//     confidence, not a real boundary. The ONLY security boundary is (2) and (3): the
-//     explicit flag, and the fact that only entries from the local canonical dir are
-//     ever considered.
-const PREDICATE_TIMEOUT_MS = 5000;
-
-/** Run one predicate to completion or timeout. Never throws - every outcome is FAILED
- *  except a clean exit 0. */
-function runPredicate(cmd) {
-  const { execFileSync } = require('child_process');
-  try {
-    execFileSync('/bin/sh', ['-c', cmd], {
-      timeout: PREDICATE_TIMEOUT_MS,
-      killSignal: 'SIGKILL',
-      // Non-interactive: stdin closed so a predicate can never block waiting on input.
-      // Output is discarded - only the exit code is evidence.
-      stdio: ['ignore', 'ignore', 'ignore'],
-    });
-    return { ok: true, timedOut: false };
-  } catch (err) {
-    // Node's own timeout enforcement sets error.code = 'ETIMEDOUT' - the only reliable
-    // discriminator. A predicate that kills itself with SIGKILL (e.g. `kill -9 $$`)
-    // throws the SAME signal our own timeout uses but WITHOUT this code, so checking
-    // `err.signal` alone would misclassify a self-inflicted kill as a timeout.
-    return { ok: false, timedOut: !!(err && err.code === 'ETIMEDOUT') };
-  }
-}
-
-/** Execute every entry's predicate across all domains. Only ever called behind
- *  --check-predicates (see gate 2 above). */
-function checkAllPredicates(domains) {
-  const results = [];
-  for (const [name, domain] of Object.entries(domains)) {
-    for (const entry of domain.entries) {
-      if (!entry.predicate) continue;
-      results.push({ domain: name, entry, ...runPredicate(entry.predicate) });
-    }
-  }
-  return results;
-}
-
-/**
- * Write `[stale]` onto entries whose predicate failed. Only reachable behind
- * --check-predicates --flag-stale (both required - see the flagStale definition
- * above). Mirrors removeEntries' TOCTOU discipline: each target file is re-read and
- * compared byte-for-byte against what was scanned before any write, and a file that
- * changed since the scan is skipped rather than written against stale line numbers.
- *
- * `result` is MUTATED IN PLACE (`result.flagged`, `result.skipped`) rather than built
- * locally and returned at the end. If a later domain in this same loop throws (e.g. an
- * unwritable target), a plain return-at-the-end would lose every earlier domain's count,
- * even though its write already reached disk - the caller would see the untouched
- * initial value and have no way to tell "nothing ran" from "some of this ran". Mutating
- * in place means whatever completed before a throw is exactly what the caller sees.
- */
-function flagEntriesStale(domains, failedResults, result) {
-  const byDomain = {};
-  for (const r of failedResults) {
-    if (!byDomain[r.domain]) byDomain[r.domain] = [];
-    byDomain[r.domain].push(r.entry);
-  }
-  for (const [name, entries] of Object.entries(byDomain)) {
-    const target = path.join(LEARNINGS_DIR, domains[name].file);
-    let onDisk;
-    try { onDisk = fs.readFileSync(target, 'utf8'); } catch (_) { onDisk = null; }
-    if (onDisk !== domains[name].content) {
-      result.skipped.push(name);
-      console.log(`  ! ${name}: changed on disk since scan - skipped (re-run to flag)`);
-      continue;
-    }
-    const lines = onDisk.split('\n');
-    for (const entry of entries) {
-      const last = Number.isInteger(entry.endLine) ? entry.endLine : entry.lineNum;
-      if (/\[stale\]/i.test(lines[last])) continue; // already flagged
-      lines[last] = `${lines[last]} [stale]`;
-      result.flagged++;
-    }
-    const newContent = lines.join('\n');
-    if (!dryRun) {
-      fs.writeFileSync(target, newContent);
-      // Keep the scanned snapshot in sync with what was actually written. This runs
-      // BEFORE removeEntries (see the ordering comment in mutate()), and removeEntries'
-      // own TOCTOU guard compares onDisk against this same domains[name].content - if it
-      // stayed at the pre-flag scan, the flag write we just made would read as an
-      // external change and removeEntries would wrongly skip a domain nothing external
-      // touched.
-      domains[name].content = newContent;
-    }
-  }
-  return result;
-}
-
 /**
  * Remove entries from domain files, by line RANGE.
  *
@@ -392,8 +238,8 @@ function flagEntriesStale(domains, failedResults, result) {
  * 1. An entry spans lineNum..endLine - the grammar absorbs wrapped continuation lines,
  *    and real entries do wrap. Deleting only `lineNum` left the continuation lines behind
  *    as orphaned prose that no longer parses as anything. Both bounds are required.
- * 2. TOCTOU. Line numbers were computed when readDomainFiles ran; the portable
- *    learn action appends to these same files, so an append between scan and write shifts nothing
+ * 2. TOCTOU. Line numbers were computed when readDomainFiles ran; commands/learn.md
+ *    appends to these same files, so an append between scan and write shifts nothing
  *    (appends land at the end) but a concurrent distillation rewrite shifts everything,
  *    and stale offsets would delete unrelated entries. So the file is re-read and
  *    compared byte-for-byte against what was scanned, and a changed file is SKIPPED
@@ -401,28 +247,20 @@ function flagEntriesStale(domains, failedResults, result) {
  *
  * Content-addressed removal would retire hazard 2 outright; that is a grammar-level
  * change (entries need stable ids) and is not in this task's file set.
- *
- * `result` (`{ skipped, removedCount, prospectiveCount }`) is MUTATED IN PLACE, same
- * reasoning as flagEntriesStale above: this loop writes one domain's file per
- * iteration, and if a LATER domain throws (an unwritable target, disk full, whatever),
- * every EARLIER domain in this same call already has its write on disk. Building the
- * counts locally and returning them only at the end would lose that progress the
- * instant the throw happens - the caller's `pruneResult` would still read its initial
- * zero, indistinguishable from "nothing ran". Mutating the caller's object as we go
- * means a partial failure leaves an accurate partial count, not a lost one.
  */
-function removeEntries(domains, removable, result) {
+function removeEntries(domains, removable) {
   const byDomain = {};
   for (const r of removable) {
     if (!byDomain[r.domain]) byDomain[r.domain] = [];
     byDomain[r.domain].push(r.entry);
   }
+  const skipped = [];
   for (const [name, entries] of Object.entries(byDomain)) {
     const target = path.join(LEARNINGS_DIR, domains[name].file);
     let onDisk;
     try { onDisk = fs.readFileSync(target, 'utf8'); } catch (_) { onDisk = null; }
     if (onDisk !== domains[name].content) {
-      result.skipped.push(name);
+      skipped.push(name);
       console.log(`  ! ${name}: changed on disk since scan - skipped (re-run to prune)`);
       continue;
     }
@@ -432,20 +270,9 @@ function removeEntries(domains, removable, result) {
       for (let i = entry.lineNum; i <= last; i++) doomed.add(i);
     }
     const filtered = onDisk.split('\n').filter((_, i) => !doomed.has(i));
-    const newContent = filtered.join('\n');
-    if (!dryRun) {
-      fs.writeFileSync(target, newContent);
-      // Keep the snapshot in sync with what was written, same discipline as
-      // flagEntriesStale - removeEntries currently runs last (see mutate()'s ordering
-      // comment), so nothing downstream depends on this today, but a domain must never
-      // be judged against a stale scan after this function has already rewritten it.
-      domains[name].content = newContent;
-      result.removedCount += entries.length;
-    } else {
-      result.prospectiveCount += entries.length;
-    }
+    if (!dryRun) fs.writeFileSync(target, filtered.join('\n'));
   }
-  return result;
+  return skipped;
 }
 
 // Write evolution log
@@ -474,7 +301,7 @@ function describe(entry, domain) {
 }
 
 // Main
-async function run() {
+function run() {
   console.log(`\n=== Evolution Runner ${dryRun ? '(DRY RUN)' : ''} ===\n`);
 
   const domains = readDomainFiles();
@@ -499,130 +326,31 @@ async function run() {
   removable.forEach(r => console.log(`  x ${describe(r.entry, r.domain)}`));
   console.log(`[Tier 1] Past the window but PROTECTED as [failed]: ${protectedFailed.length}${pruneFailed ? ' (override active: --prune-failed)' : ''}`);
   protectedFailed.forEach(p => console.log(`  = ${describe(p.entry, p.domain)}`));
+  let pruneSkipped = [];
+  if (removable.length > 0 && prune) pruneSkipped = removeEntries(domains, removable);
 
-  // Tier 2 (read side; the write side runs inside `mutate` below)
+  // Tier 2
   const citedTotal = [...cited.values()].reduce((n, s) => n + s.size, 0);
   console.log(`[Tier 2] Computed validations from artifacts: ${cited.size} entries cited, ${citedTotal} verified session citations`);
   if (cited.size === 0) {
-    console.log(`  (no session records a '${CITATION_FIELD}' array; see skills/phantom/references/evolution.md "Computed validation")`);
+    console.log(`  (no session records a '${CITATION_FIELD}' array; see reference/evolution.md "Computed validation")`);
   }
   const promotable = findPromotable(domains, cited);
+  const promoted = [];
+  for (const p of promotable) {
+    const filename = promoteToGlobal(p.domain, p.entry, p.count);
+    if (filename) {
+      promoted.push({ ...p, filename });
+      console.log(`[Tier 2] Promoted: ${p.domain}/${filename}`);
+    }
+  }
+  if (promoted.length > 0) updatePatternsIndex(promoted);
+  console.log(`[Tier 2] Promoted: ${promoted.length} patterns\n`);
 
   // Tier 3
   const oversized = checkDistillation(domains);
-
-  // Predicates (K5). Population is always counted - parsing and counting a
-  // check:`...` clause is free and safe. Execution is not: it happens ONLY behind
-  // --check-predicates (see the security model above runPredicate), and it never
-  // writes on its own - only --flag-stale does, inside `mutate` below.
-  const withPredicate = allEntries.filter((e) => e.predicate);
-  console.log(`\n[Predicates] ${withPredicate.length} entries carry a check: predicate (population; parsed, not executed)`);
-  let predicateResults = [];
-  let predicatesPassed = 0;
-  let predicatesFailed = 0;
-  if (checkPredicates) {
-    predicateResults = checkAllPredicates(domains);
-    predicatesPassed = predicateResults.filter((r) => r.ok).length;
-    predicatesFailed = predicateResults.length - predicatesPassed;
-    console.log(`[Predicates] Checked ${predicateResults.length}: ${predicatesPassed} pass, ${predicatesFailed} fail${flagStale ? '' : ' (report-only; pass --flag-stale to mark failing entries stale)'}`);
-    predicateResults.forEach((r) => {
-      const mark = r.ok ? 'v' : (r.timedOut ? 'x [TIMED OUT]' : 'x');
-      console.log(`  ${mark} ${describe(r.entry, r.domain)}`);
-    });
-  } else if (withPredicate.length > 0) {
-    console.log(`  (pass --check-predicates to execute and report pass/fail)`);
-  }
-
-  // --- Write phase --------------------------------------------------------
-  //
-  // Every rewrite of a shared domain file (removeEntries, promoteToGlobal +
-  // updatePatternsIndex, flagEntriesStale) runs inside `mutate`, and `mutate` runs
-  // ONLY while holding the exact per-repo learnings lock the capture path holds
-  // (phantom-learning.mjs withLearningLock, <learningsDir>/.learning.lock) - the same
-  // lock a Stop-hook capture takes to graduate an entry into these same files. That
-  // makes the two writers mutually exclusive instead of racing.
-  //
-  // Fail-closed: if the lock cannot be acquired within its budget, `mutate` never
-  // runs and NOTHING is written - the runner reports zero mutations rather than
-  // falling back to an unlocked write, which would restore the exact defect this
-  // guards against. --dry-run bypasses the lock entirely: every write inside
-  // `mutate` is itself gated on `!dryRun`, so running it unlocked in dry-run mode
-  // is safe and avoids contending for a lock only to write nothing.
-  //
-  // The catch below has to tell TWO distinct failures apart, not one:
-  //   - the lock was never acquired (acquireLock hit its deadline, or the dynamic
-  //     import() of phantom-learning.mjs itself failed) - mutate() never ran, so
-  //     "all writes skipped" is true, and today's message/counters are correct.
-  //   - mutate() STARTED (the lock was held) and threw partway through - some
-  //     writes may already be on disk. Reporting that as "lock unavailable" / "all
-  //     writes skipped" would be false: pruneResult/staleFlagResult are mutated IN
-  //     PLACE by removeEntries/flagEntriesStale (see their doc comments), so they
-  //     already hold whatever completed before the throw - they must never be
-  //     zeroed out just because the overall run did not finish cleanly.
-  // `mutationStarted` is the flag that tells the two apart: it is set as mutate()'s
-  // very first statement, so it is true iff the lock was actually held when the
-  // throw happened.
-  let pruneResult = { skipped: [], removedCount: 0, prospectiveCount: 0 };
-  const promoted = [];
-  let staleFlagResult = { flagged: 0, skipped: [] };
-  let lockUnavailable = false;
-  let mutationStarted = false;
-  let mutationFailed = false;
-  let mutationErrorMessage = null;
-
-  const mutate = () => {
-    mutationStarted = true;
-    // ORDER IS LOAD-BEARING (P1 #3). flagEntriesStale only ever appends ` [stale]` to an
-    // existing line - it never adds or removes a line - so it is safe to run first,
-    // against the line numbers the original scan computed. removeEntries deletes line
-    // RANGES, which shifts every entry below the deletion, so it must run LAST: nothing
-    // after it may rely on a line number removal would invalidate. Both functions also
-    // refresh domains[name].content immediately after a write, so each guard compares
-    // against what was actually just written rather than the pre-mutation scan -
-    // otherwise flagEntriesStale's own prune-order write would make removeEntries' (or,
-    // in the old order, the reverse) TOCTOU check misread its own prior write as an
-    // external change and skip a domain nothing external touched.
-    if (checkPredicates && flagStale) {
-      const failing = predicateResults.filter((r) => !r.ok);
-      if (failing.length > 0) flagEntriesStale(domains, failing, staleFlagResult);
-    }
-
-    if (removable.length > 0 && prune) removeEntries(domains, removable, pruneResult);
-
-    for (const p of promotable) {
-      const filename = promoteToGlobal(p.domain, p.entry, p.count);
-      if (filename) {
-        promoted.push({ ...p, filename });
-        console.log(`[Tier 2] Promoted: ${p.domain}/${filename}`);
-      }
-    }
-    if (promoted.length > 0) updatePatternsIndex(promoted);
-  };
-
-  if (dryRun) {
-    mutate();
-  } else {
-    try {
-      const { withLearningLock } = await import(pathToFileURL(LEARNING_API).href);
-      withLearningLock(LEARNINGS_DIR, mutate);
-    } catch (err) {
-      mutationErrorMessage = err && err.message ? err.message : String(err);
-      if (mutationStarted) {
-        mutationFailed = true;
-        console.log(`\n! mutation failed partway (${mutationErrorMessage}) - some writes may have persisted on disk; counts below reflect only what completed before the failure, verify learnings on disk\n`);
-      } else {
-        lockUnavailable = true;
-        console.log(`\n! learnings lock unavailable (${mutationErrorMessage}) - all writes skipped this run\n`);
-      }
-    }
-  }
-
-  console.log(`[Tier 2] Promoted: ${promoted.length} patterns\n`);
   console.log(`[Tier 3] Oversized domains: ${oversized.length}`);
   oversized.forEach(o => console.log(`  ! ${o.domain}: ${o.count} entries (cap: ${o.cap})`));
-  if (checkPredicates && flagStale) {
-    console.log(`[Predicates] Flagged stale: ${staleFlagResult.flagged}`);
-  }
 
   // Log
   const result = {
@@ -630,77 +358,29 @@ async function run() {
     entries_parsed: totalEntries,
     untagged: untagged.length,
     stale_flagged: stale.length,
-    // ACTUAL count, not the candidate count: removeEntries can skip a domain whose file
-    // changed on disk between scan and write, and reporting removable.length regardless
-    // claimed entries were gone when they were still on disk (P1 #4).
-    //
-    // No `!lockUnavailable` gate here (unlike the old code): pruneResult is mutated IN
-    // PLACE by removeEntries as each domain's write actually lands, so it is already
-    // correct on its own - 0 when the lock was never acquired (removeEntries never ran),
-    // the true completed count when mutate() ran fully, and the true PARTIAL count when
-    // mutate() threw partway through. Gating on lockUnavailable would be harmless for the
-    // first case but wrong for the third: it would silently rewrite a true partial count
-    // back down to 0, i.e. exactly the defect this fix removes.
-    stale_removed: prune ? pruneResult.removedCount : 0,
+    stale_removed: prune ? removable.length : 0,
     removable_reported: removable.length,
     protected_failed: protectedFailed.length,
     prune_enabled: prune,
     prune_failed_override: pruneFailed,
-    prune_skipped_changed_on_disk: pruneResult.skipped,
+    prune_skipped_changed_on_disk: pruneSkipped,
     cited_entries: cited.size,
     cited_session_validations: citedTotal,
     promoted: promoted.length,
     distill_needed: oversized.length,
-    predicates_population: withPredicate.length,
-    predicates_checked: checkPredicates,
-    predicates_passed: predicatesPassed,
-    predicates_failed: predicatesFailed,
-    predicates_flagged_stale: staleFlagResult.flagged,
-    // Same honesty applied to stale-flagging: a domain can be skipped here too (its file
-    // changed since the scan), so surface it explicitly rather than leaving `flagged`
-    // as the only number and letting a caller assume everything failing was flagged.
-    predicates_flagged_stale_skipped: staleFlagResult.skipped,
-    flag_stale_enabled: flagStale,
-    lock_unavailable: lockUnavailable,
-    // True iff mutate() had already started (the lock WAS held) when it threw - i.e. a
-    // real, if incomplete, write attempt, never to be confused with lock_unavailable
-    // (nothing ran at all). Downstream evolve tooling must treat this run's account as
-    // incomplete rather than inferring that from a zero.
-    mutation_failed: mutationFailed,
-    mutation_error: mutationErrorMessage,
     domains_processed: domainNames
   };
   writeLog(result);
 
   console.log(`\n--- Summary ---`);
-  // Real run: report what was actually written. Dry run: report the same shape of
-  // figure but under a label a reader cannot mistake for a completed write - it is
-  // the prospective count `removeEntries` tracked separately for exactly this display,
-  // never the `removedCount` field a real write is required to earn.
-  //
-  // No `!lockUnavailable` gate here either, same reasoning as the JSON log's
-  // stale_removed above: pruneResult.removedCount is already 0 when nothing ran and
-  // already the true (possibly partial) count when mutate() ran or partially ran.
-  const removedForSummary = prune ? pruneResult.removedCount : 0;
-  const prospectiveForSummary = (prune && dryRun) ? pruneResult.prospectiveCount : 0;
-  const removedLabel = dryRun ? `Would remove: ${prospectiveForSummary}` : `Removed: ${removedForSummary}`;
-  const skippedNote = (prune && pruneResult.skipped.length > 0) ? ` (${pruneResult.skipped.length} domain(s) skipped - changed on disk, re-run needed)` : '';
-  // "Stale identified" is stale.length: entries the age scan (Tier 1) FOUND, not entries
-  // any tag was written to - scanStaleness never writes. The number of entries actually
-  // marked `[stale]` on disk is staleFlagResult.flagged, written only by the predicate
-  // path under --check-predicates --flag-stale, and is surfaced as its own field so the
-  // two unrelated counts (identified-by-age vs written-by-predicate) are never read as
-  // one number under one label.
-  const flaggedNote = (checkPredicates && flagStale) ? ` | Stale flagged (predicate): ${staleFlagResult.flagged}` : '';
-  // A partial mutation failure must never read like a clean run - flag it in the same
-  // line the rest of the counts live in, not just the earlier one-off console.log.
-  const mutationFailedNote = mutationFailed ? ' | MUTATION FAILED PARTWAY - counts above are only what completed, verify learnings on disk' : '';
-  console.log(`Entries parsed: ${totalEntries} | Stale identified (${STALE_DAYS}+ days): ${stale.length} | ${removedLabel}${skippedNote} | Promoted: ${promoted.length} | Distill needed: ${oversized.length} | Predicates: ${withPredicate.length}${checkPredicates ? ` (checked: ${predicatesPassed} pass / ${predicatesFailed} fail)` : ''}${flaggedNote}${mutationFailedNote}`);
-  console.log(dryRun ? '(No changes written - dry run)\n' : 'Evolution logged.\n');
+  console.log(`Entries parsed: ${totalEntries} | Stale flagged: ${stale.length} | Removed: ${prune ? removable.length : 0} | Promoted: ${promoted.length} | Distill needed: ${oversized.length}`);
+  console.log(dryRun ? '(No changes written — dry run)\n' : 'Evolution logged.\n');
 }
 
 // Fail open: maintenance script must never crash a session. Log and exit 0.
-run().catch((err) => {
+try {
+  run();
+} catch (err) {
   console.error(`[evolution-runner] non-fatal: ${err && err.message ? err.message : err}`);
   process.exit(0);
-});
+}

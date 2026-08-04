@@ -1,12 +1,7 @@
 ---
 name: visual
-description: Visually verify implemented UI with screenshots and design comparison. Use to inspect routes, compare supplied designs, or evaluate responsive states; repairs require separate implementation authorization.
+description: Visually verify implemented UI in a browser with screenshots and design comparison; use when asked whether UI looks right, to screenshot a route, compare against Figma, inspect responsive states, or run an autonomous visual fix loop.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `visual` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/visual.md`.
 
-Portable action: `visual`.
-
-Treat invocation text as action input. Inspect declared scenarios and
-viewports, capture available evidence, and report differences and unobserved
-states. Visual evaluation is read-only; any repair enters an authorized,
-bounded implementation node.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

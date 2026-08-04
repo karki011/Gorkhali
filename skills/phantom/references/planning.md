@@ -68,7 +68,8 @@ trigger, mitigation, and recovery. Rationale should contain 2-4 substantive
 reasons, and tasks should read as executable dossiers rather than headings.
 Quick output stays concise and must not invent filler to look comprehensive.
 
-Use `contract_version: 3` in every portable plan payload.
+Use `contract_version: 3` in a portable plan payload. Provider-specific legacy
+artifacts use their native version field while preserving the same meaning.
 Use exact JSON keys for traceability: scenarios are `{ id, given, when, then }`;
 evidence rows are `{ claim, source, status, observed_at, confidence, conflicts? }`,
 where `observed_at` is an RFC 3339 timestamp with timezone, `confidence` is from
@@ -87,10 +88,12 @@ paths inspected during planning in `read_first`. Put every touched path in
 `files`; put each intentional creation in both `files` and `new_files`, never in
 `read_first`. If a path cannot be confirmed, record the uncertainty in
 `open_questions` and set readiness to `CONCERNS` or `BLOCKED` instead of guessing.
-Every accepted standard/deep v3 plan must include the complete change-set,
-scenario, coverage, task-interface, `new_files`, and readiness fields. Refresh
-each evidence row before a canonical write and require `observed_at` plus bounded
-`confidence`; include `conflicts` only when sources materially disagree.
+Earlier v3 plans without the additive change-set, scenario, coverage, task
+interface, `new_files`, and readiness fields remain readable; new standard/deep
+plans must emit the complete enriched set. Earlier v3 evidence rows without
+freshness metadata also remain readable. Before a new canonical write, refresh
+each evidence row and require `observed_at` plus bounded `confidence`; include
+`conflicts` only when sources materially disagree.
 
 The plan records task dependencies and semantic profiles, not provider-specific
 spawn instructions. At execution time Apex derives waves from those dependencies

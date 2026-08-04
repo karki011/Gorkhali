@@ -43,13 +43,7 @@ the current runtime, strip nesting protections, or treat an arbitrary subprocess
 as a portable worker.
 
 Mark `delegation.parallel` available only when multiple native workers can run
-concurrently and their completion can be observed. This capability alone
-permits parallel read-only passes; it does not attest filesystem isolation.
-Write-bearing parallel nodes additionally require a current host-provisioned
-executor trust root and signed continuous-isolation probe. The bundle verifies
-that contract and every execution receipt but supplies no backend or signer; if
-the evidence is absent, lower the work to current-agent or sequential chain
-execution. Mark
+concurrently and their completion can be observed. Mark
 `delegation.model_select` available only when the spawn mechanism accepts a
 per-worker compute selection. A runtime-required approval is a boundary to
 honor, not a guard to bypass: request it after Apex selects delegation; if it is

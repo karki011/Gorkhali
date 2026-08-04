@@ -4,8 +4,8 @@
 // in real fixture repos (git init / remote add / worktree add) and asserts the
 // JS resolver (detectRepo) and the sh mirror (phantom_detect_repo) AGREE — both
 // route through skills/phantom/scripts/lib/shared-state.cjs. Remote-backed repos
-// resolve to a canonical `<name>-<hash>` id; no-remote repos hash their canonical
-// main root. The pure-path branches (PHANTOM_REPO,
+// resolve to a canonical `<name>-<hash>` id (normalized remote); no-remote repos
+// keep their plain main-root basename. The pure-path branches (PHANTOM_REPO,
 // walk-up, no-git, worktrees fast-path) also live in phantom-paths.test.js.
 'use strict';
 
@@ -15,7 +15,7 @@ const crypto = require('node:crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execSync, execFileSync, spawnSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
 const { detectRepo, learningsDir, resolveRepoSubdir } = require('../scripts/lib/phantom-paths');
@@ -95,13 +95,6 @@ function isolatedData() {
 // against itself.
 function expectedRemoteId(normalizedRemote, name) {
   const hash = crypto.createHash('sha256').update(normalizedRemote).digest('hex').slice(0, 10);
-  return `${name}-${hash}`;
-}
-
-function expectedLocalId(root) {
-  const canonical = fs.realpathSync(root);
-  const name = path.basename(canonical).toLowerCase();
-  const hash = crypto.createHash('sha256').update(canonical).digest('hex').slice(0, 10);
   return `${name}-${hash}`;
 }
 
@@ -215,9 +208,9 @@ test('CJS, ESM, and shell resolve one identical id for the same fixture repo', {
     assert.equal(esmDetect(remoteRepo, { data }), remoteExpected, 'ESM');
     assert.equal(shDetect(remoteRepo, { data }), remoteExpected, 'shell');
 
-    // No-remote repo: all three agree on the hashed canonical main root.
+    // No-remote repo: all three agree on the plain main-root basename.
     git(localRepo, 'init -q');
-    const localExpected = expectedLocalId(localRepo);
+    const localExpected = path.basename(localRepo);
     assert.equal(jsDetect(localRepo, { data }), localExpected, 'CJS no-remote');
     assert.equal(esmDetect(localRepo, { data }), localExpected, 'ESM no-remote');
     assert.equal(shDetect(localRepo, { data }), localExpected, 'shell no-remote');
@@ -228,54 +221,41 @@ test('CJS, ESM, and shell resolve one identical id for the same fixture repo', {
   }
 });
 
-test('step 4: no remote -> hashed canonical main root via git-common-dir', { skip: !HAS_GIT }, () => {
+test('step 4: no remote -> main-root basename via git-common-dir (js + sh agree)', { skip: !HAS_GIT }, () => {
   const repoDir = mkTmp('rd-noremote-');
   const data = isolatedData();
   try {
     git(repoDir, 'init -q'); // no remote added
     const sub = path.join(repoDir, 'pkg');
     fs.mkdirSync(sub, { recursive: true });
-    const expected = expectedLocalId(repoDir);
+    const expected = path.basename(repoDir);
 
-    assert.equal(jsDetect(sub, { data }), expected, 'js: hashed canonical root');
-    assert.equal(shDetect(sub, { data }), expected, 'sh: hashed canonical root');
+    assert.equal(jsDetect(sub, { data }), expected, 'js: main-root basename');
+    assert.equal(shDetect(sub, { data }), expected, 'sh: main-root basename');
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
     fs.rmSync(data, { recursive: true, force: true });
   }
 });
 
-test('equal no-remote basenames at different canonical roots never collide', { skip: !HAS_GIT }, () => {
-  const root = mkTmp('rd-local-collision-');
-  const first = path.join(root, 'first', 'same-name');
-  const second = path.join(root, 'second', 'same-name');
-  const data = isolatedData();
-  try {
-    fs.mkdirSync(first, { recursive: true });
-    fs.mkdirSync(second, { recursive: true });
-    git(first, 'init -q');
-    git(second, 'init -q');
-    const firstId = jsDetect(first, { data });
-    const secondId = jsDetect(second, { data });
-    assert.equal(firstId, expectedLocalId(first));
-    assert.equal(secondId, expectedLocalId(second));
-    assert.notEqual(firstId, secondId);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-    fs.rmSync(data, { recursive: true, force: true });
-  }
-});
-
-test('no-remote identity exposes only its canonical id', { skip: !HAS_GIT }, () => {
+test('no-remote identity records the pre-codec path-derived id as an alias (continuity)', { skip: !HAS_GIT }, () => {
   const repoDir = fs.realpathSync(mkTmp('rd-noremote-alias-'));
   const data = isolatedData();
   try {
     git(repoDir, 'init -q'); // no remote -> the codec's no-remote (common-dir) identity.
     const identity = codec.repoIdentity(repoDir, { dataRoot: data });
-    assert.equal(identity.id, expectedLocalId(repoDir), 'id hashes the canonical main root');
+    assert.equal(identity.id, path.basename(repoDir), 'id is the bare main-root basename');
 
-    assert.equal(Object.hasOwn(identity, 'aliases'), false, 'runtime identity carries no historical aliases');
-    assert.equal(fs.existsSync(path.join(data, 'repos', '.aliases.json')), false, 'identity lookup is side-effect free');
+    // The pre-codec resolver derived `<sanitized-lowercased-basename>-<hash-of-realpath'd-root>`.
+    // The new bare-basename identity must alias that exact id so pre-upgrade state stays reachable.
+    const legacyId = `${codec.sanitizeName(path.basename(repoDir))}-${codec.shortHash(repoDir)}`;
+    assert.deepEqual(identity.aliases, [legacyId], 'old path-derived id is the sole alias');
+    assert.ok(!identity.aliases.includes(identity.id), 'canonical id is never its own alias');
+
+    // Persisted, the legacy id resolves back to the canonical id; the canonical id is stable.
+    codec.recordAliases(data, identity);
+    assert.equal(codec.resolveCanonical(data, legacyId), identity.id, 'legacy id resolves to the codec id');
+    assert.equal(codec.resolveCanonical(data, identity.id), identity.id, 'codec id resolves to itself');
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
     fs.rmSync(data, { recursive: true, force: true });
@@ -308,7 +288,7 @@ test('worktree WITH remote: converges on the repo id, not the branch (js + sh ag
   }
 });
 
-test('worktree WITHOUT remote: step 4 hashes MAIN root, not branch directory', { skip: !HAS_GIT }, () => {
+test('worktree WITHOUT remote: step 4 returns MAIN-root basename, not branch dir', { skip: !HAS_GIT }, () => {
   const mainDir = mkTmp('rd-wt2-main-');
   const wtParent = mkTmp('rd-wt2-tree-');
   const data = isolatedData();
@@ -317,10 +297,10 @@ test('worktree WITHOUT remote: step 4 hashes MAIN root, not branch directory', {
     git(mainDir, 'commit -q --allow-empty -m init');
     const wt = path.join(wtParent, 'some-ticket');
     git(mainDir, 'worktree add -q "' + wt + '" -b some-ticket');
-    const expected = expectedLocalId(mainDir);
+    const expected = path.basename(mainDir);
 
-    assert.equal(jsDetect(wt, { data }), expected, 'js: hashed main root (worktree-safe)');
-    assert.equal(shDetect(wt, { data }), expected, 'sh: hashed main root (worktree-safe)');
+    assert.equal(jsDetect(wt, { data }), expected, 'js: main-root basename (worktree-safe)');
+    assert.equal(shDetect(wt, { data }), expected, 'sh: main-root basename (worktree-safe)');
     assert.notEqual(jsDetect(wt, { data }), 'some-ticket', 'must NOT shard under the branch');
   } finally {
     execSync('git -C "' + mainDir + '" worktree prune', { stdio: 'ignore' });
@@ -330,7 +310,7 @@ test('worktree WITHOUT remote: step 4 hashes MAIN root, not branch directory', {
   }
 });
 
-test('PHANTOM_REPO (step 2) beats git remote after safe-segment validation', { skip: !HAS_GIT }, () => {
+test('PHANTOM_REPO (step 2) beats git remote (step 3), verbatim', { skip: !HAS_GIT }, () => {
   const repoDir = mkTmp('rd-envwins-');
   const data = isolatedData();
   try {
@@ -344,29 +324,7 @@ test('PHANTOM_REPO (step 2) beats git remote after safe-segment validation', { s
   }
 });
 
-test('PHANTOM_REPO rejects traversal and multi-segment values in JS and shell', { skip: !HAS_GIT }, () => {
-  const repoDir = mkTmp('rd-env-invalid-');
-  const data = isolatedData();
-  try {
-    assert.throws(() => jsDetect(repoDir, { data, repo: '../escape' }), /safe path segment/);
-    const shell = spawnSync('sh', ['-c', `. "${SH_LIB}"; phantom_detect_repo "${repoDir}"`], {
-      env: {
-        ...process.env,
-        PHANTOM_DATA: data,
-        PHANTOM_PLUGIN_ROOT: PLUGIN_ROOT,
-        PHANTOM_REPO: '../escape',
-      },
-      encoding: 'utf8',
-    });
-    assert.equal(shell.status, 2);
-    assert.match(shell.stderr, /PHANTOM_REPO must be one safe path segment/);
-  } finally {
-    fs.rmSync(repoDir, { recursive: true, force: true });
-    fs.rmSync(data, { recursive: true, force: true });
-  }
-});
-
-test('worktrees fast-path (step 1) beats git remote with a validated segment', { skip: !HAS_GIT }, () => {
+test('worktrees fast-path (step 1) beats git remote (step 3), verbatim segment', { skip: !HAS_GIT }, () => {
   const data = isolatedData();
   try {
     // cwd is under <data>/worktrees/<seg>/... AND is a git repo with a DIFFERENT
@@ -382,7 +340,7 @@ test('worktrees fast-path (step 1) beats git remote with a validated segment', {
   }
 });
 
-test('git RUN fails -> degrades to hashed walk-up root without throwing', { skip: !HAS_GIT }, () => {
+test('git RUN fails -> degrades to walk-up basename without throwing (js + sh; [guards])', { skip: !HAS_GIT }, () => {
   const repoDir = mkTmp('rd-gitfail-');
   const data = isolatedData();
   // A `git` shim that ALWAYS exits nonzero — git is PRESENT (command -v finds it)
@@ -406,14 +364,13 @@ test('git RUN fails -> degrades to hashed walk-up root without throwing', { skip
     } finally {
       process.env.PATH = savedPath;
     }
-    const expected = expectedLocalId(repoDir);
-    assert.equal(jsResult, expected, 'js: hashed walk-up when every git RUN fails');
+    assert.equal(jsResult, path.basename(repoDir), 'js: walk-up when every git RUN fails');
 
     const out = execFileSync('/bin/sh', ['-c', '. "' + SH_LIB + '"; phantom_detect_repo "' + sub + '"'], {
       env: { ...process.env, PATH: shimPath, PHANTOM_DATA: data, PHANTOM_PLUGIN_ROOT: PLUGIN_ROOT },
       encoding: 'utf8',
     }).trim();
-    assert.equal(out, expected, 'sh: hashed walk-up when every git RUN fails');
+    assert.equal(out, path.basename(repoDir), 'sh: walk-up when every git RUN fails');
   } finally {
     fs.rmSync(shimBin, { recursive: true, force: true });
     fs.rmSync(repoDir, { recursive: true, force: true });
@@ -433,8 +390,9 @@ test('step 6: no-git dir -> "_default" (sh, mirrors the js "/" case)', { skip: !
   }
 });
 
-test('remote identity contains canonical metadata only', { skip: !HAS_GIT }, () => {
-  const repoDir = mkTmp('rd-canonical-');
+test('legacy plain and raw-hash ids remain discoverable through persisted aliases', { skip: !HAS_GIT }, () => {
+  const repoDir = mkTmp('rd-alias-');
+  const data = isolatedData();
   const rawRemote = 'git@github.com:Cloudzero/research-team-skills.git';
   try {
     git(repoDir, 'init -q');
@@ -442,34 +400,52 @@ test('remote identity contains canonical metadata only', { skip: !HAS_GIT }, () 
     const identity = codec.repoIdentity(repoDir);
     const canonicalId = expectedRemoteId('github.com/Cloudzero/research-team-skills', 'research-team-skills');
     assert.equal(identity.id, canonicalId);
-    assert.equal(identity.source, 'github.com/Cloudzero/research-team-skills');
-    assert.equal(Object.hasOwn(identity, 'aliases'), false, 'runtime identity exposes no compatibility metadata');
+
+    // The alias set covers the pre-codec plain name and the un-normalized raw-hash id.
+    const rawHash = crypto.createHash('sha256').update(rawRemote).digest('hex').slice(0, 10);
+    const rawHashId = `research-team-skills-${rawHash}`;
+    assert.ok(identity.aliases.includes('research-team-skills'), 'legacy plain name is an alias');
+    assert.ok(identity.aliases.includes(rawHashId), 'raw-hash id is an alias');
+    assert.ok(!identity.aliases.includes(canonicalId), 'canonical id is never its own alias');
+
+    // Persist, then resolve any known id back to the canonical id (merge-only).
+    codec.recordAliases(data, identity);
+    assert.equal(codec.resolveCanonical(data, 'research-team-skills'), canonicalId);
+    assert.equal(codec.resolveCanonical(data, rawHashId), canonicalId);
+    assert.equal(codec.resolveCanonical(data, canonicalId), canonicalId);
+    assert.equal(codec.resolveCanonical(data, 'never-seen'), 'never-seen', 'unknown ids pass through');
+
+    // Merge-only: a second record keeps prior aliases.
+    codec.recordAliases(data, { id: 'other-canonical', aliases: ['other-plain'] });
+    assert.equal(codec.resolveCanonical(data, 'research-team-skills'), canonicalId, 'earlier alias survives');
+    assert.equal(codec.resolveCanonical(data, 'other-plain'), 'other-canonical');
   } finally {
     fs.rmSync(repoDir, { recursive: true, force: true });
+    fs.rmSync(data, { recursive: true, force: true });
   }
 });
 
-test('detectRepo and portable identity never write or consult an alias map', { skip: !HAS_GIT }, () => {
-  const repoDir = mkTmp('rd-no-alias-');
+test('detectRepo and the portable resolver PERSIST aliases as a side effect of resolution', { skip: !HAS_GIT }, () => {
+  const repoDir = mkTmp('rd-persist-');
   const rawRemote = 'git@github.com:Cloudzero/research-team-skills.git';
   try {
     git(repoDir, 'init -q');
     git(repoDir, `remote add origin ${rawRemote}`);
     const canonicalId = expectedRemoteId('github.com/Cloudzero/research-team-skills', 'research-team-skills');
 
+    // CJS consumer: resolving through detectRepo writes <data>/repos/.aliases.json
+    // (recordAliases has no other operational caller). A fresh data root proves the
+    // write, not a pre-seeded fixture.
     const cjsData = isolatedData();
-    fs.mkdirSync(path.join(cjsData, 'repos'), { recursive: true });
-    fs.writeFileSync(path.join(cjsData, 'repos', '.aliases.json'), JSON.stringify({ obsolete: canonicalId }));
-    assert.equal(jsDetect(repoDir, { data: cjsData }), canonicalId);
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(path.join(cjsData, 'repos', '.aliases.json'), 'utf8')),
-      { obsolete: canonicalId },
-      'CJS identity leaves historical maps untouched',
-    );
+    jsDetect(repoDir, { data: cjsData });
+    assert.ok(fs.existsSync(path.join(cjsData, 'repos', '.aliases.json')), 'CJS detectRepo persisted the alias map');
+    assert.equal(codec.resolveCanonical(cjsData, 'research-team-skills'), canonicalId, 'CJS seeded the legacy plain alias');
+    assert.equal(codec.resolveCanonical(cjsData, canonicalId), canonicalId, 'canonical id resolves to itself');
 
+    // ESM consumer: the portable repoIdentity seeds the same map (own fresh root).
     const esmData = isolatedData();
-    assert.equal(esmDetect(repoDir, { data: esmData }), canonicalId);
-    assert.equal(fs.existsSync(path.join(esmData, 'repos', '.aliases.json')), false, 'ESM identity performs no alias write');
+    esmDetect(repoDir, { data: esmData });
+    assert.equal(codec.resolveCanonical(esmData, 'research-team-skills'), canonicalId, 'ESM seeded the legacy plain alias');
 
     fs.rmSync(cjsData, { recursive: true, force: true });
     fs.rmSync(esmData, { recursive: true, force: true });
@@ -478,8 +454,9 @@ test('detectRepo and portable identity never write or consult an alias map', { s
   }
 });
 
-// Canonical learnings resolution. No git fixture: the repository id is supplied
-// explicitly and PHANTOM_DATA scopes the pure path functions to a temporary root.
+// Alias-aware learnings resolution. No git fixture: the repo id is supplied
+// explicitly, and only PHANTOM_DATA has to be scoped so the pure path fns read the
+// temp root. Env is saved/restored the same way jsDetect does.
 function withData(data, fn) {
   const saved = { d: process.env.PHANTOM_DATA, r: process.env.PHANTOM_REPO };
   try {
@@ -499,43 +476,61 @@ function seedLearnings(data, repoId) {
   return dir;
 }
 
-test('learningsDir ignores populated historical ids and uses the canonical path', () => {
+test('alias-aware learningsDir: a legacy plain-named dir with learnings RESOLVES when the canonical dir is absent', () => {
   const data = isolatedData();
   const CANON = 'research-phantom-skills-490f3d276e';
   const LEGACY = 'research-phantom-skills';
   try {
-    seedLearnings(data, LEGACY);
-    fs.writeFileSync(path.join(data, 'repos', '.aliases.json'), JSON.stringify({ [LEGACY]: CANON }));
+    const legacyLearnings = seedLearnings(data, LEGACY);
+    codec.recordAliases(data, { id: CANON, aliases: [LEGACY] });
     assert.ok(!fs.existsSync(path.join(data, 'repos', CANON, 'learnings')), 'canonical dir is absent');
 
     withData(data, () => {
-      const canonical = path.join(data, 'repos', CANON, 'learnings');
-      assert.equal(learningsDir(CANON), canonical);
-      assert.equal(resolveRepoSubdir(CANON, 'learnings'), canonical);
+      assert.equal(learningsDir(CANON), legacyLearnings, 'resolves to the aliased dir that holds the learnings');
+      assert.equal(resolveRepoSubdir(CANON, 'learnings'), legacyLearnings, 'learningsDir is a thin wrapper');
     });
   } finally {
     fs.rmSync(data, { recursive: true, force: true });
   }
 });
 
-test('learningsDir remains canonical when historical and canonical dirs both exist', () => {
+test('alias-aware learningsDir: the CANONICAL dir WINS when both are populated (never serve stale knowledge)', () => {
   const data = isolatedData();
   const CANON = 'research-phantom-skills-490f3d276e';
   const LEGACY = 'research-phantom-skills';
   try {
     const canonicalLearnings = seedLearnings(data, CANON);
     seedLearnings(data, LEGACY);
-    fs.writeFileSync(path.join(data, 'repos', '.aliases.json'), JSON.stringify({ [LEGACY]: CANON }));
+    codec.recordAliases(data, { id: CANON, aliases: [LEGACY] });
 
     withData(data, () => {
-      assert.equal(learningsDir(CANON), canonicalLearnings);
+      assert.equal(learningsDir(CANON), canonicalLearnings, 'fresh canonical data always wins over an alias');
     });
   } finally {
     fs.rmSync(data, { recursive: true, force: true });
   }
 });
 
-test('learningsDir ignores a malformed historical alias map', () => {
+test('alias-aware learningsDir: an orphan id with NO alias-map entry does NOT resolve', () => {
+  const data = isolatedData();
+  // 0 references in the production alias map, so nothing maps this id to a legacy dir.
+  const CANON = 'research-phantom-skills-7be68ce7fa';
+  const LEGACY = 'research-phantom-skills';
+  try {
+    seedLearnings(data, LEGACY); // populated, but unclaimed by CANON
+    codec.recordAliases(data, { id: CANON, aliases: [] }); // no-op: no aliases recorded
+
+    withData(data, () => {
+      const resolved = learningsDir(CANON);
+      assert.equal(resolved, path.join(data, 'repos', CANON, 'learnings'), 'plain canonical join');
+      assert.ok(!resolved.split(path.sep).includes(LEGACY), 'an unmapped populated dir is never adopted');
+    });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('alias-aware learningsDir: a malformed .aliases.json does not throw and falls back to the canonical path', () => {
   const data = isolatedData();
   const CANON = 'research-phantom-skills-490f3d276e';
   try {
@@ -546,7 +541,7 @@ test('learningsDir ignores a malformed historical alias map', () => {
     withData(data, () => {
       let resolved;
       assert.doesNotThrow(() => { resolved = learningsDir(CANON); });
-      assert.equal(resolved, path.join(data, 'repos', CANON, 'learnings'));
+      assert.equal(resolved, path.join(data, 'repos', CANON, 'learnings'), 'degrades to the canonical path');
     });
   } finally {
     fs.rmSync(data, { recursive: true, force: true });

@@ -7,9 +7,9 @@
 //   <learnings>/auto-captures.md  -- the staging file for proposed captures
 //   <learnings>/<domain>.md       -- graduated `## Validated Patterns`
 //
-// Both the host-side entry point (hooks/memory-writer.js via `capture`)
-// and portable workflow prose invoke it -- the hook by shelling out to the
-// CLI, portable runtimes the same
+// Both host-side entry points (hooks/memory-writer.js via `capture`,
+// hooks/memory-consolidator.js via `consolidate`) and portable workflow prose
+// invoke it -- the hooks by shelling out to the CLI, portable runtimes the same
 // way. Every mutation runs under a per-learnings-dir advisory lock; a contended
 // writer WAITS for the lock and, if the budget is exhausted, THROWS rather than
 // running unlocked. There is intentionally no unlocked write path: a caller that
@@ -64,7 +64,6 @@ const PRUNE_TARGET = 60; // count-prune target once over the cap
 const MAX_INDEX_AUTO_LINES = 100; // INDEX.md auto-line hard cap
 const STALE_DAYS = 3; // proposed-capture staleness window
 const MIN_CONFIDENCE = 0.15; // drop proposed entries below this confidence
-const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 
 // Advisory-lock tuning, matching phantom-state.mjs's proven pattern. The wait
 // budget is generous because concurrent learning writes are fast file ops; a
@@ -269,7 +268,7 @@ function pruneEntries(entries) {
   if (pruned.length > MAX_AUTO_ENTRIES) {
     const proposed = pruned.filter((entry) => entry.isProposed);
     const rest = pruned.filter((entry) => !entry.isProposed);
-    proposed.sort((left, right) => compareText(left.date || '', right.date || ''));
+    proposed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const toRemove = Math.min(pruned.length - PRUNE_TARGET, proposed.length);
     pruned = [...rest, ...proposed.slice(toRemove)];
   }
@@ -280,7 +279,7 @@ function capIndexAutoLines(autoLines) {
   if (autoLines.length <= MAX_INDEX_AUTO_LINES) return autoLines;
   const proposed = autoLines.filter((entry) => entry.isProposed);
   const rest = autoLines.filter((entry) => !entry.isProposed);
-  proposed.sort((left, right) => compareText(left.date || '', right.date || ''));
+  proposed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const toRemove = Math.min(autoLines.length - MAX_INDEX_AUTO_LINES, proposed.length);
   return [...rest, ...proposed.slice(toRemove)];
 }
@@ -406,7 +405,7 @@ function applyCaptures(learningsDir, candidates) {
   atomicWriteText(autoPath, rebuildAutoCaptures(autoEntries));
 }
 
-// --- consolidate policy (portable-workflow `consolidate` CLI verb) ---------
+// --- consolidate policy (memory-consolidator) -------------------------------
 
 /**
  * The consolidate read-modify-write, run inside the lock. Adds high-confidence
@@ -483,18 +482,9 @@ export function validateLearningIndex(learningsDir, { knownDomains = [] } = {}) 
   }
   const indexContent = readFileSync(indexPath, 'utf8');
 
-  // A domain reference is a markdown link target `[label](file.md)` or a bare
-  // `file.md` anchored at the start of an entry line (`- file.md ...`). A token
-  // that carries a path separator (e.g. `docs/model-policy.md:40`) or one that
-  // appears mid-sentence outside a link is prose, not a domain pointer - both
-  // shapes are real entry bodies in this INDEX.md, not references.
   const referencedDomains = new Set();
-  for (const match of indexContent.matchAll(/\[[^\]]*\]\(([\w-]+\.md)\)/g)) {
+  for (const match of indexContent.matchAll(/\b([\w-]+\.md)\b/g)) {
     if (match[1] !== 'INDEX.md' && match[1] !== 'EDGES.md') referencedDomains.add(match[1]);
-  }
-  for (const line of indexContent.split('\n')) {
-    const bare = line.match(/^\s*-\s+([\w-]+\.md)\b/);
-    if (bare && bare[1] !== 'INDEX.md' && bare[1] !== 'EDGES.md') referencedDomains.add(bare[1]);
   }
 
   const actualFiles = readdirSync(learningsDir)

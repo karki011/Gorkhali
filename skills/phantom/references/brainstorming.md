@@ -63,8 +63,7 @@ the decision frame at `frame`; raw ideas at `diverge`; connections at `cluster`;
 cheapest experiment, and direction gate at `decision`. Quick brainstorms may
 omit clusters and dissent when the decision is narrow; standard/deep sessions
 require clusters from the cluster phase onward and dissent at the decision
-phase. The active phase and all fields required through that phase must be
-present.
+phase. Legacy v3 decision records without phase fields remain readable.
 
 Use these exact JSON field shapes so every host produces the same contract:
 
@@ -73,8 +72,8 @@ Use these exact JSON field shapes so every host produces the same contract:
 - `evidence[]`: `{ claim, source, status, observed_at, confidence, conflicts? }`,
   where status is `verified`, `supported`, `inferred`, or `unknown`,
   `observed_at` is an RFC 3339 timestamp with timezone, `confidence` is from
-  `0` to `1`, and `conflicts` is an optional string array. Freshness metadata is
-  required for every row.
+  `0` to `1`, and `conflicts` is an optional string array. Older v3 rows without
+  freshness metadata remain readable; new canonical writes require it.
 - `ideas[]`: `{ id, title, summary, lens, technique, evidence: [],
   assumptions: [] }`.
 - `clusters[]`: `{ id, name, insight, ideaIds: [] }`; every standard/deep idea

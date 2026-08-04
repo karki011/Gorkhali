@@ -77,13 +77,8 @@ function resolveTicket() {
   try {
     const sessionFile = path.join(stateDir(), 'current-session', repo + '.json');
     const session = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
-    // `task_id` is the field the current pointer carries; `ticket` is the pre-v2
-    // name. Reading only `ticket` meant the ticket could be resolved solely from a
-    // branch name, so a branch without an id silently disabled this gate.
-    for (const value of [session.task_id, session.ticket]) {
-      if (typeof value === 'string' && TICKET_RE.test(value)) {
-        return value.match(TICKET_RE)[0];
-      }
+    if (typeof session.ticket === 'string' && TICKET_RE.test(session.ticket)) {
+      return session.ticket.match(TICKET_RE)[0];
     }
   } catch (_) { /* fall through to git */ }
 

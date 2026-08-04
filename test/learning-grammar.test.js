@@ -1,8 +1,8 @@
 // Author: Subash Karki
 // Regression guard for scripts/lib/learning-grammar.cjs.
 //
-// The break this file exists to prevent: one writer emitted an em dash inside a
-// CORRECTION, while a formatting convention rewrote every entry
+// The break this file exists to prevent: the writer spec (commands/learn.md) specified
+// an em dash inside a CORRECTION, a standing no-em-dash convention rewrote every entry
 // on disk to a plain ' - ', and the two readers required the em dash. 54 real entries
 // parsed as 0 for months with no failing test and no error - promotion, staleness,
 // distillation and prompt injection were all silently dark. So: BOTH separator forms
@@ -39,7 +39,7 @@ test('plain-dash CORRECTION parses (the form that is actually on disk)', () => {
   assert.equal(e.date, '2026-07-02');
 });
 
-test('em-dash CORRECTION parses (the accepted alternate separator)', () => {
+test('em-dash CORRECTION parses (the form the writer spec still specifies)', () => {
   const src = `CORRECTION [tilde-in-quotes]: [wrote a tilde inside double quotes] ${EM} [use $HOME in quoted expansions] [failed] (2026-07-02)`;
   const [e] = G.parseLearningEntries(src, 'workflow.md');
   assert.equal(e.type, 'correction');
@@ -250,51 +250,6 @@ test('a CORRECTION missing its bracket pair is still an entry, never dropped', (
   assert.equal(e.failed, true);
 });
 
-// --- check:`<cmd>` predicate (K5) -------------------------------------------------
-
-test('an entry with a check: predicate parses it out and strips it from the body', () => {
-  const src = "PATTERN [no-greptile-this-repo]: greptile is not installed on this repo [validated:1] check:`gh api repos/x/y/issues/comments --jq '.[].user.login' | grep -q greptile-apps`";
-  const [e] = G.parseLearningEntries(src, 'workflow.md');
-  assert.equal(e.predicate, "gh api repos/x/y/issues/comments --jq '.[].user.login' | grep -q greptile-apps");
-  assert.equal(e.text, 'PATTERN [no-greptile-this-repo]: greptile is not installed on this repo [validated:1]');
-  assert.doesNotMatch(e.text, /check:/);
-  assert.doesNotMatch(e.content, /check:/);
-  // Existing fields must be untouched by the addition.
-  assert.equal(e.keyword, 'no-greptile-this-repo');
-  assert.equal(e.validationCount, 1);
-});
-
-test('an entry with NO check: clause is unchanged - predicate absent, body identical', () => {
-  const withoutPredicate = 'PATTERN [x]: an ordinary entry with no predicate at all [validated:1] (2026-07-02)';
-  const [e] = G.parseLearningEntries(withoutPredicate, 'w.md');
-  assert.equal(e.predicate, null);
-  assert.equal(e.text, withoutPredicate);
-  assert.equal(e.content, 'an ordinary entry with no predicate at all [validated:1] (2026-07-02)');
-});
-
-test('a malformed unterminated check: clause yields NO predicate and leaves the body intact', () => {
-  const malformed = 'PATTERN [x]: body with an unterminated check:`gh api repos/x/y --jq .foo (2026-07-02)';
-  const [e] = G.parseLearningEntries(malformed, 'w.md');
-  assert.equal(e.predicate, null, 'an unterminated backtick must never half-parse into a predicate');
-  assert.equal(e.text, malformed, 'the malformed clause must survive verbatim in the body, not be dropped or half-stripped');
-});
-
-test('the check: predicate parses at column 0 (the PREFIX shape)', () => {
-  const [e] = G.parseLearningEntries('PATTERN [k]: body [validated:2] check:`true`', 'w.md');
-  assert.equal(e.predicate, 'true');
-});
-
-test('the check: predicate parses behind a leading bullet (the older-writer shape)', () => {
-  const [e] = G.parseLearningEntries('- prefer semantic tokens [validated:7] check:`true` q:0.9 u:2026-07-01', 'ui.md');
-  assert.equal(e.predicate, 'true');
-  assert.doesNotMatch(e.content, /check:/);
-});
-
-test('an empty check: command (no command text) is treated as no predicate', () => {
-  const [e] = G.parseLearningEntries('PATTERN [x]: body [validated:1] check:``', 'w.md');
-  assert.equal(e.predicate, null);
-});
-
 // --- INDEX.md: both shapes ------------------------------------------------------
 
 test('INDEX.md bullet-list form resolves domain files (the real shape)', () => {
@@ -320,37 +275,6 @@ test('INDEX.md never resolves to itself or to a retired snapshot', () => {
   assert.equal(map.workflow, 'workflow.md');
   assert.ok(!Object.values(map).includes('INDEX.md'));
   assert.ok(!Object.values(map).includes('workflow.original.md'));
-});
-
-// --- INDEX.md: the bare bullet form is anchored, not a scan of the whole line ----
-//
-// Same defect class as the em-dash break above: a bare `.md` match that is not
-// anchored to the bullet position will happily resolve the FIRST `.md` token
-// anywhere in the line, including one sitting in an entry's prose body. The two
-// fixtures below are lifted verbatim from auto-captures.md on this repo (the
-// PR #97 mutation-audit retro and the scope-not-tier correction), reshaped only
-// from `auto: ...` prefix to a bullet so BULLET_RE accepts them - the awkward
-// real-world wording is kept intact rather than sanitized into a tidy string.
-
-test('INDEX.md bare form does not resolve a .md token sitting in the entry prose', () => {
-  const src =
-    '- a path merely ending in review.md, one where reverting the verdict enum cell left the suite passing';
-  const map = G.parseIndexDomainFiles(src);
-  assert.ok(!('review' in map));
-  assert.ok(!Object.values(map).includes('review.md'));
-});
-
-test('INDEX.md bare form does not resolve a .md token inside a path-bearing citation', () => {
-  const src =
-    '- routed nearly every subtask to an expensive profile, justified as subtle or high-consequence, the exact reason docs/model-policy.md:40 rejects';
-  const map = G.parseIndexDomainFiles(src);
-  assert.ok(!('agents' in map));
-  assert.ok(!Object.values(map).includes('agents.md'));
-});
-
-test('INDEX.md bare form still resolves when the .md token is the bullet reference itself', () => {
-  const src = '- workflow.md - em-dash-in-new-text [failed]; grep-count-exit [failed]';
-  assert.equal(G.parseIndexDomainFiles(src).workflow, 'workflow.md');
 });
 
 // --- retirement -----------------------------------------------------------------

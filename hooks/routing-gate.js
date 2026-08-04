@@ -3,29 +3,20 @@
 // routing-gate.js — PreToolUse hook that denies implementation edits in
 // phantom-known repos when no phantom session is active.
 //
-// FAIL-OPEN POLARITY — read this before editing: this is a DISCIPLINE gate, NOT
-// a safety gate. It FAILS OPEN: any crash or ambiguity in the enforce branch must
-// ALLOW the edit. Always exits 0 — the decision rides the stdout JSON.
-//
-// ALWAYS ARMED. It was previously armed only by PHANTOM_ROUTING_ENFORCE=1, which
-// meant it enforced nothing unless someone remembered to export a variable no
-// documentation told them about. Discipline that has to be armed by hand is
-// discipline that does not exist, so the flag is gone.
-//
-// The gate stays narrow rather than blunt: it fires only for a resolvable edit
-// target inside a repository Phantom already tracks, never for Phantom's own data
-// tree, and never when a session is active. PHANTOM_ADHOC=1 remains the escape
-// hatch for deliberate ad-hoc work and is logged, so a bypass is possible but
-// never invisible.
+// FAIL-OPEN POLARITY — read this before editing: this is an opt-in DISCIPLINE
+// gate, NOT a safety gate. It FAILS OPEN: any crash or ambiguity in the enforce
+// branch must ALLOW the edit. The gate is armed ONLY by the env var
+// PHANTOM_ROUTING_ENFORCE=1; with it unset (the default) the gate is a no-op.
+// Always exits 0 — the decision rides the stdout JSON.
 'use strict';
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let phantomData, stateDir, detectRepo;
+let phantomData, stateDir;
 try {
-  ({ phantomData, stateDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+  ({ phantomData, stateDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   // fail open: inline fallback matching phantom-paths.js logic
   const home = os.homedir();
@@ -33,51 +24,22 @@ try {
     (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   phantomData = () => data;
   stateDir = () => path.join(phantomData(), 'state');
-  detectRepo = () => (process.env.PHANTOM_REPO || '_default');
 }
 
-// SHARED SEMANTICS — keep identical in hooks/apex-subagent-driven-law.sh: a
-// session is active when its state file exists AND is younger than 24h. A marker
-// left by a crashed session must NOT silently disable tools forever, and the
-// recovery for a hidden file nobody documented is not something a user can find.
+// SHARED SEMANTICS — keep identical in hooks/router-nudge.js: a phantom
+// session is active when <PHANTOM_DATA>/.apex-active exists AND its mtime is
+// younger than 24h. A stale marker left by a crashed session must NOT
+// silently disable routing — older than 24h is treated as absent.
 const APEX_MARKER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-function fresh(file) {
+function sessionActive() {
   try {
-    if (!fs.existsSync(file)) return false;
-    return Date.now() - fs.statSync(file).mtimeMs < APEX_MARKER_MAX_AGE_MS;
+    const marker = path.join(phantomData(), '.apex-active');
+    if (!fs.existsSync(marker)) return false;
+    return Date.now() - fs.statSync(marker).mtimeMs < APEX_MARKER_MAX_AGE_MS;
   } catch (_) {
     return false;
   }
-}
-
-// The authority is the per-repo current-session pointer that phantom-state.mjs
-// already writes on start and clears on complete. Reading only the legacy global
-// .apex-active marker meant a real session did not satisfy this gate at all:
-// nothing in the current runtime writes that marker, so an armed gate denied edits
-// inside the very session its own message told the user to start. The legacy
-// marker stays honored so a session already in flight keeps working through an
-// upgrade.
-// Completing a session rewrites its pointer with status "completed" AND a fresh
-// updated_at, so recency alone reports finished work as live and would keep
-// allowing out-of-session edits for a further 24h.
-function pointerCompleted(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8')).status === 'completed';
-  } catch (_) {
-    return false; // unreadable pointer is not proof of completion
-  }
-}
-
-function sessionActive(cwd) {
-  try {
-    const repo = detectRepo(cwd);
-    if (repo) {
-      const pointer = path.join(stateDir(), 'current-session', `${repo}.json`);
-      if (fresh(pointer) && !pointerCompleted(pointer)) return true;
-    }
-  } catch (_) { /* identity unresolvable → fall through to the legacy marker */ }
-  return fresh(path.join(phantomData(), '.apex-active'));
 }
 
 // Resolve symlinks via the nearest EXISTING ancestor, then re-join the
@@ -107,15 +69,17 @@ function main() {
   }
 
   // Cheapest check first (existsSync+stat only, before any config read):
-  // live phantom session for THIS repo → routing requirement is satisfied.
-  const invocationCwd = payload.cwd || process.cwd();
-  if (sessionActive(invocationCwd)) return;
+  // live phantom session → routing requirement is satisfied.
+  if (sessionActive()) return;
+
+  // Opt-in only: armed solely by PHANTOM_ROUTING_ENFORCE=1 → otherwise no-op.
+  if (process.env.PHANTOM_ROUTING_ENFORCE !== '1') return;
 
   // ── Enforce branch: every error path below ALLOWS (fail open). ──
   try {
     const toolInput = payload.tool_input || {};
     const rawTarget = toolInput.file_path || toolInput.path || null;
-    const cwd = invocationCwd;
+    const cwd = payload.cwd || process.cwd();
 
     // Logged escape hatch for deliberate ad-hoc work.
     if (process.env.PHANTOM_ADHOC === '1') {
@@ -140,28 +104,17 @@ function main() {
     // FILE (worktree pointer) or a DIRECTORY — both count; existsSync covers
     // both. Repo name = basename of the dir containing `.git`.
     let dir = path.dirname(target);
-    let repoRoot = null;
+    let repoName = null;
     while (true) {
-      if (fs.existsSync(path.join(dir, '.git'))) { repoRoot = dir; break; }
+      if (fs.existsSync(path.join(dir, '.git'))) { repoName = path.basename(dir); break; }
       const parent = path.dirname(dir);
       if (parent === dir) break;
       dir = parent;
     }
-    if (!repoRoot) return; // not inside a repo → not phantom's business
+    if (!repoName) return; // not inside a repo → not phantom's business
 
-    // Gate covers ONLY phantom-known repos. Identity comes from the shared codec,
-    // because current state lives under the canonical id (a remote-derived name plus
-    // hash, or a hashed git root) while the directory basename matches only the
-    // pre-hash layout: resolving by basename alone silently allowed out-of-session
-    // edits in every repository tracked under a modern id. The basename is still
-    // accepted so repositories recorded under the older layout stay covered.
-    const candidates = [];
-    try {
-      const canonical = detectRepo(repoRoot);
-      if (canonical) candidates.push(canonical);
-    } catch (_) { /* codec unavailable → basename below is the only signal */ }
-    candidates.push(path.basename(repoRoot));
-    if (!candidates.some((name) => fs.existsSync(path.join(phantomData(), 'repos', name)))) return;
+    // Gate covers ONLY phantom-known repos (a <data>/repos/<name> dir exists).
+    if (!fs.existsSync(path.join(phantomData(), 'repos', repoName))) return;
 
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {

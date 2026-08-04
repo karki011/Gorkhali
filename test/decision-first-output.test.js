@@ -99,9 +99,6 @@ const validPlan = () => ({
       claim: 'The previous required fields were execution-centric',
       source: 'scripts/validate-artifact.js',
       status: 'verified',
-      observed_at: '2026-07-21T12:00:00Z',
-      confidence: 0.9,
-      conflicts: [],
     },
   ],
   alternatives: [
@@ -181,9 +178,6 @@ const validBrainstorm = () => ({
       claim: 'Recommendation currently renders after approaches',
       source: 'skills/phantom/references/review-html.md',
       status: 'verified',
-      observed_at: '2026-07-21T12:00:00Z',
-      confidence: 0.9,
-      conflicts: [],
     },
   ],
   openQuestions: [{ question: 'Should the recommendation lead?', blocking: true }],
@@ -267,7 +261,7 @@ test('quick plan v3 stays decision-useful without invented architecture or alter
   assert.deepEqual(validate('plan', plan), []);
 });
 
-test('portable plan contract accepts only the canonical quick shape', async () => {
+test('portable plan contract enforces canonical quick writes without breaking legacy reads', async () => {
   const { validateDecisionContract } = await portableContracts;
   const canonical = { ...validPlan(), contract_version: 3, depth: 'quick' };
   delete canonical._meta;
@@ -276,20 +270,21 @@ test('portable plan contract accepts only the canonical quick shape', async () =
   canonical.alternatives = [];
   canonical.coverage = [];
   removeFields(canonical.tasks[0], ['risk', 'recovery']);
-  assert.deepEqual(validateDecisionContract('plan', canonical), []);
+  assert.deepEqual(validateDecisionContract('plan', canonical, { enforceCanonicalQuick: true }), []);
 
   const legacy = { ...validPlan(), contract_version: 3, depth: 'quick' };
   delete legacy._meta;
   removeFields(legacy.tasks[0], ['risk', 'recovery']);
+  assert.deepEqual(validateDecisionContract('plan', legacy), []);
   assert.match(
-    validateDecisionContract('plan', legacy).join('\n'),
+    validateDecisionContract('plan', legacy, { enforceCanonicalQuick: true }).join('\n'),
     /solution_shape: omit for quick plans[\s\S]*change_set: omit for quick plans[\s\S]*readiness: omit for quick plans[\s\S]*scenarios: must be empty for quick plans[\s\S]*alternatives: must be empty for quick plans[\s\S]*coverage: must be empty for quick plans/,
   );
 
   const missingArrays = clone(canonical);
   removeFields(missingArrays, ['scenarios', 'alternatives', 'coverage']);
   assert.match(
-    validateDecisionContract('plan', missingArrays).join('\n'),
+    validateDecisionContract('plan', missingArrays, { enforceCanonicalQuick: true }).join('\n'),
     /scenarios: required empty array for quick plans[\s\S]*alternatives: required empty array for quick plans[\s\S]*coverage: required empty array for quick plans/,
   );
 });
@@ -300,7 +295,8 @@ test('portable plan paths are explicit, normalized, and distinguish intentional 
   delete base._meta;
   base.tasks[0].files.push('src/new-renderer.js');
   base.tasks[0].new_files = ['src/new-renderer.js'];
-  assert.deepEqual(validateDecisionContract('plan', base), []);
+  const strictPaths = { enforcePathProvenance: true };
+  assert.deepEqual(validateDecisionContract('plan', base, strictPaths), []);
 
   const cases = [
     ['traversal', (plan) => { plan.tasks[0].read_first = ['../secret']; }, /normalized repository-relative path/],
@@ -317,20 +313,18 @@ test('portable plan paths are explicit, normalized, and distinguish intentional 
   for (const [label, mutate, expected] of cases) {
     const plan = clone(base);
     mutate(plan);
-    assert.match(validateDecisionContract('plan', plan).join('\n'), expected, label);
+    assert.match(validateDecisionContract('plan', plan, strictPaths).join('\n'), expected, label);
   }
 
   const legacy = clone(base);
   legacy.tasks[0].files = ['src\\legacy.ts'];
-  assert.match(
-    validateDecisionContract('plan', legacy).join('\n'),
-    /normalized repository-relative path/,
-  );
+  assert.deepEqual(validateDecisionContract('plan', legacy), []);
 
   const malformed = clone(base);
   malformed.tasks[0].read_first = [null];
   assert.match(
     validateDecisionContract('plan', malformed, {
+      enforcePathProvenance: true,
       workspace: path.join(__dirname, '..'),
     }).join('\n'),
     /read_first\[0\]: required non-empty path/,
@@ -379,33 +373,24 @@ test('representative deep fixtures exercise the complete decision-review contrac
   }
 });
 
-test('portable decision contract rejects earlier and undeclared contract shapes', async () => {
+test('portable decision contract validates enriched v3 and preserves earlier v3 decision records', async () => {
   const { validateDecisionContract } = await portableContracts;
   const planPayload = { ...validPlan(), contract_version: 3 };
   delete planPayload._meta;
   assert.deepEqual(validateDecisionContract('plan', planPayload), []);
   const earlierPlan = removeFields(clone(planPayload), ['change_set', 'scenarios', 'coverage', 'readiness']);
   for (const task of earlierPlan.tasks) removeFields(task, ['consumes', 'produces']);
-  assert.match(
-    validateDecisionContract('plan', earlierPlan).join('\n'),
-    /change_set: required object[\s\S]*scenarios: required array[\s\S]*coverage: required array[\s\S]*readiness: required object/,
-  );
+  assert.deepEqual(validateDecisionContract('plan', earlierPlan), []);
   const earlierBrainstorm = { ...validBrainstorm(), contract_version: 3 };
   delete earlierBrainstorm._meta;
   removeFields(earlierBrainstorm, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
   removeFields(earlierBrainstorm.decision, ['audience', 'nonGoals']);
-  assert.match(
-    validateDecisionContract('brainstorm', earlierBrainstorm).join('\n'),
-    /depth: must be quick\|standard\|deep[\s\S]*stance: required object[\s\S]*phase: must be frame\|diverge\|cluster\|converge\|decision/,
-  );
+  assert.deepEqual(validateDecisionContract('brainstorm', earlierBrainstorm), []);
   assert.match(
     validateDecisionContract('plan', { contract_version: 3 }).join('\n'),
     /decision: required object/,
   );
-  assert.match(
-    validateDecisionContract('plan', { tasks: [] }).join('\n'),
-    /contract_version: required and must be 3/,
-  );
+  assert.deepEqual(validateDecisionContract('plan', { tasks: [] }), []);
   assert.match(
     validateDecisionContract('plan', { contract_version: 4 }).join('\n'),
     /unsupported version/,
@@ -513,31 +498,31 @@ test('portable delegation contracts validate typed tasks and consistent results'
     error: null,
   };
   assert.match(validateDelegationResultContract(legacyResult).join('\n'), /unsupported version/);
+  assert.deepEqual(validateDelegationResultContract(legacyResult, { allowVersion1: true }), []);
 });
 
-test('canonical plan and brainstorm contracts always require bounded evidence freshness', async () => {
+test('canonical plan and brainstorm writes require bounded evidence freshness without breaking v3 reads', async () => {
   const { validateDecisionContract } = await portableContracts;
   const plan = { ...validPlan(), contract_version: 3 };
   delete plan._meta;
-  delete plan.evidence[0].observed_at;
-  delete plan.evidence[0].confidence;
+  assert.deepEqual(validateDecisionContract('plan', plan), []);
   assert.match(
-    validateDecisionContract('plan', plan).join('\n'),
+    validateDecisionContract('plan', plan, { enforceEvidenceFreshness: true }).join('\n'),
     /evidence\[0\]\.observed_at: required RFC 3339[\s\S]*evidence\[0\]\.confidence: required number from 0 to 1/,
   );
   addEvidenceFreshness(plan);
   plan.evidence[0].conflicts = ['A prior document describes the old behavior'];
-  assert.deepEqual(validateDecisionContract('plan', plan), []);
+  assert.deepEqual(validateDecisionContract('plan', plan, { enforceEvidenceFreshness: true }), []);
 
   const brainstorm = { ...validBrainstorm(), contract_version: 3 };
   delete brainstorm._meta;
   addEvidenceFreshness(brainstorm);
-  assert.deepEqual(validateDecisionContract('brainstorm', brainstorm), []);
+  assert.deepEqual(validateDecisionContract('brainstorm', brainstorm, { enforceEvidenceFreshness: true }), []);
   brainstorm.evidence[0].observed_at = '2026-07-21';
   brainstorm.evidence[0].confidence = 1.1;
   brainstorm.evidence[0].conflicts = [null];
   assert.match(
-    validateDecisionContract('brainstorm', brainstorm).join('\n'),
+    validateDecisionContract('brainstorm', brainstorm, { enforceEvidenceFreshness: true }).join('\n'),
     /observed_at: required RFC 3339[\s\S]*confidence: required number from 0 to 1[\s\S]*conflicts\[0\]: required string/,
   );
 });
@@ -631,7 +616,7 @@ test('portable plan contract enforces enriched traceability and readiness', asyn
     }, /readiness\.verdict: must be READY\|CONCERNS\|BLOCKED/],
   ];
   for (const [label, mutate, expected] of cases) {
-    const plan = addEvidenceFreshness(clone(richFixture('plan')));
+    const plan = clone(richFixture('plan'));
     mutate(plan);
     assert.match(validateDecisionContract('plan', plan).join('\n'), expected, label);
   }
@@ -666,7 +651,7 @@ test('portable brainstorm contract enforces provenance and minority dissent', as
     }, /must challenge the recommended approach/],
   ];
   for (const [label, mutate, expected] of cases) {
-    const brainstorm = addEvidenceFreshness(clone(richFixture('brainstorm')));
+    const brainstorm = clone(richFixture('brainstorm'));
     mutate(brainstorm);
     assert.match(validateDecisionContract('brainstorm', brainstorm).join('\n'), expected, label);
   }

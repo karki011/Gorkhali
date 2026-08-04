@@ -1,13 +1,7 @@
 ---
 name: wrap
-description: Finalize verified Phantom work and, when explicitly authorized, request an idempotent draft pull request. Use for wrap up, an authorized draft PR, or final session handoff.
+description: Finish and ship completed Phantom work by enforcing verification, finalizing the session, recording learnings, committing and pushing, and creating a pull request; use for wrap up, ship it, create PR, finalize, or submit work.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `wrap` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/wrap.md`.
 
-Portable action: `wrap`.
-
-Treat invocation text as action input. Finalize current evidence and session
-state only after the portable completion gate passes. A draft pull request
-requires separate `ship-draft-pr` authorization bound to current artifacts and
-an idempotent capability request. Commit, push, ticket, and other external
-actions are never implied.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

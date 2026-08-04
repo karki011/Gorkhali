@@ -21,10 +21,6 @@
 //   node scripts/release-version.js                    print each manifest's
 //                                                        version + verdict
 //   node scripts/release-version.js --check             same, exit 1 on drift
-//   node scripts/release-version.js --check
-//     --base-ref origin/main                             also require the
-//                                                        feature version to
-//                                                        advance beyond base
 //   node scripts/release-version.js --set <semver>      write <semver> to all
 //                                                        three manifests
 //   node scripts/release-version.js [--json] [--root <dir>]
@@ -38,16 +34,13 @@
 'use strict';
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
 const { atomicWrite } = require('./lib/atomic');
 
 const REPO_ROOT = path.join(__dirname, '..');
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
-const SAFE_GIT_REF_RE = /^(?!.*(?:\.\.|@\{|[\\\s~^:?*\[]))[A-Za-z0-9._\/-]{1,255}$/;
 
 // Matches a JSON "version" value line exactly as these manifests write it:
 // leading indent, the key, the string value, an optional trailing comma.
@@ -57,7 +50,7 @@ const SAFE_GIT_REF_RE = /^(?!.*(?:\.\.|@\{|[\\\s~^:?*\[]))[A-Za-z0-9._\/-]{1,255
 const VERSION_LINE_RE = /^(\s*"version":\s*")[^"]*("[,]?)$/;
 
 const USAGE =
-  'usage: release-version.js [--check [--base-ref <git-ref>]] [--set <semver>] [--json] [--root <dir>]\n';
+  'usage: release-version.js [--check] [--set <semver>] [--json] [--root <dir>]\n';
 
 function usageError(msg) {
   return new PhantomError(msg, 'VALIDATION_ERROR');
@@ -140,104 +133,6 @@ function readVersion(manifest) {
   return version;
 }
 
-function versionFromRaw(raw, manifest) {
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new PhantomError(manifest.label + ': invalid base JSON - ' + err.message, 'IO_ERROR');
-  }
-  const version = manifest.within
-    ? parsed[manifest.within] && parsed[manifest.within].version
-    : parsed.version;
-  if (typeof version !== 'string') {
-    throw new PhantomError(manifest.label + ': base manifest has no version string', 'IO_ERROR');
-  }
-  return validateSemver(version);
-}
-
-function sanitizedGitEnvironment() {
-  const env = { ...process.env };
-  for (const key of Object.keys(env)) {
-    if (key === 'GIT_DIR'
-      || key === 'GIT_WORK_TREE'
-      || key === 'GIT_INDEX_FILE'
-      || key === 'GIT_OBJECT_DIRECTORY'
-      || key === 'GIT_ALTERNATE_OBJECT_DIRECTORIES'
-      || key === 'GIT_COMMON_DIR'
-      || /^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(key)) {
-      delete env[key];
-    }
-  }
-  return {
-    ...env,
-    GIT_CONFIG_COUNT: '0',
-    GIT_CONFIG_GLOBAL: os.devNull,
-    GIT_CONFIG_NOSYSTEM: '1',
-    GIT_ATTR_NOSYSTEM: '1',
-    GIT_OPTIONAL_LOCKS: '0',
-    GIT_PAGER: 'cat',
-  };
-}
-
-function statusAtRef(ref, opts = {}) {
-  if (typeof ref !== 'string' || !SAFE_GIT_REF_RE.test(ref)) {
-    throw usageError('invalid --base-ref; expected a simple Git ref such as origin/main');
-  }
-  const root = path.resolve(opts.root || REPO_ROOT);
-  const files = manifestsFor(root).map((manifest) => {
-    const repositoryPath = path.relative(root, manifest.file).split(path.sep).join('/');
-    let raw;
-    try {
-      raw = execFileSync('git', [
-        '-c', 'core.fsmonitor=false',
-        '-c', 'core.hooksPath=/dev/null',
-        '-C', root,
-        'show', `${ref}:${repositoryPath}`,
-      ], {
-        encoding: 'utf8',
-        env: sanitizedGitEnvironment(),
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-    } catch (err) {
-      const detail = String(err.stderr || err.message || err).trim();
-      throw new PhantomError(
-        `could not read ${manifest.label} from ${ref}${detail ? `: ${detail}` : ''}`,
-        'IO_ERROR'
-      );
-    }
-    return { label: manifest.label, file: manifest.file, version: versionFromRaw(raw, manifest) };
-  });
-  const versions = [...new Set(files.map((file) => file.version))];
-  return { root, ref, files, inSync: versions.length === 1, versions };
-}
-
-function compareSemver(left, right) {
-  const a = validateSemver(left).split('.').map(Number);
-  const b = validateSemver(right).split('.').map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    if (a[index] !== b[index]) return a[index] < b[index] ? -1 : 1;
-  }
-  return 0;
-}
-
-function baseVerdict(current, base) {
-  if (!base.inSync) {
-    return { advanced: false, reason: `base manifests drift at ${base.ref}: ${base.versions.join(', ')}` };
-  }
-  if (!current.inSync) return { advanced: false, reason: 'current manifests are not synchronized' };
-  const comparison = compareSemver(current.versions[0], base.versions[0]);
-  if (comparison <= 0) {
-    return {
-      advanced: false,
-      reason: comparison === 0
-        ? `feature PR version must advance beyond ${base.versions[0]}`
-        : `current version ${current.versions[0]} is older than base ${base.versions[0]}`,
-    };
-  }
-  return { advanced: true, reason: `${base.versions[0]} -> ${current.versions[0]}` };
-}
-
 /**
  * Current version of all three manifests. Read-only; mutates nothing.
  * Returns { root, files: [{ label, file, version }], inSync, versions }.
@@ -246,12 +141,7 @@ function status(opts = {}) {
   const root = opts.root || REPO_ROOT;
   const files = manifestsFor(root).map((m) => ({ label: m.label, file: m.file, version: readVersion(m) }));
   const versions = [...new Set(files.map((f) => f.version))];
-  const result = { root, files, inSync: versions.length <= 1, versions };
-  if (opts.baseRef) {
-    result.base = statusAtRef(opts.baseRef, { root });
-    result.baseVerdict = baseVerdict(result, result.base);
-  }
-  return result;
+  return { root, files, inSync: versions.length <= 1, versions };
 }
 
 /**
@@ -281,7 +171,7 @@ function setVersion(newVersion, opts = {}) {
 }
 
 function parseArgs(argv) {
-  const opts = { check: false, set: null, json: false, root: null, baseRef: null };
+  const opts = { check: false, set: null, json: false, root: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--check') opts.check = true;
@@ -289,10 +179,6 @@ function parseArgs(argv) {
       opts.set = argv[++i];
       if (!opts.set) throw usageError('--set requires a version, e.g. --set 0.2.8');
     } else if (a === '--json') opts.json = true;
-    else if (a === '--base-ref') {
-      opts.baseRef = argv[++i];
-      if (!opts.baseRef) throw usageError('--base-ref requires a Git ref such as origin/main');
-    }
     else if (a === '--root') {
       opts.root = argv[++i];
       if (!opts.root) throw usageError('--root requires a path');
@@ -300,9 +186,6 @@ function parseArgs(argv) {
   }
   if (opts.check && opts.set !== null) {
     throw usageError('--check and --set are mutually exclusive');
-  }
-  if (opts.baseRef !== null && !opts.check) {
-    throw usageError('--base-ref requires --check');
   }
   return opts;
 }
@@ -318,12 +201,6 @@ function printStatus(result) {
       (result.inSync ? 'in sync' : 'DRIFT - versions do not agree (' + result.versions.join(', ') + ')') +
       '\n'
   );
-  if (result.base) {
-    process.stdout.write(
-      `base version (${result.base.ref}): ${result.base.versions.join(', ')}\n`
-      + `version advancement: ${result.baseVerdict.advanced ? 'yes' : `NO - ${result.baseVerdict.reason}`}\n`
-    );
-  }
 }
 
 function printSet(result) {
@@ -355,25 +232,16 @@ function main(argv = process.argv.slice(2)) {
       return;
     }
 
-    const result = status({ root: opts.root, baseRef: opts.baseRef });
+    const result = status({ root: opts.root });
     if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     else printStatus(result);
-    process.exitCode = opts.check && (!result.inSync || result.baseVerdict?.advanced === false) ? 1 : 0;
+    process.exitCode = opts.check && !result.inSync ? 1 : 0;
   } catch (err) {
     reportError(err);
   }
 }
 
-module.exports = {
-  baseVerdict,
-  compareSemver,
-  manifestsFor,
-  main,
-  setVersion,
-  status,
-  statusAtRef,
-  validateSemver,
-};
+module.exports = { status, setVersion, validateSemver, manifestsFor, main };
 
 if (require.main === module) {
   main();

@@ -1,98 +1,112 @@
 # Install
 
-Phantom is distributed as one Agent Skills tree. Install the complete `skills/`
-directory so the canonical `phantom` control plane and every direct public
-action stay together.
+Installing Phantom as a portable Agent Skill or as a native plugin on Claude Code and Codex, plus upgrade paths.
 
-## Project-Scoped Agent Skills
-
-For a host that uses the shared Agent Skills convention:
+Install the same canonical directory without modifying it. Project-scoped
+examples:
 
 ```bash
+# Shared Agent Skills discovery convention
 mkdir -p .agents/skills
-cp -R /path/to/research-phantom-skills/skills/. .agents/skills/
+cp -R /path/to/research-phantom-skills/skills/phantom .agents/skills/phantom
 ```
 
-If the host uses a different discovery directory, copy the same `skills/`
-contents there without modification. User-level discovery directories can be
-used to make Phantom available across projects.
+Common project discovery locations are:
 
-Do not copy only one action directory. Each direct action reads
-`skills/phantom/SKILL.md` and its versioned references, schemas, and scripts.
+| Host | Project path |
+|---|---|
+| Claude Code | `.claude/skills/phantom/` |
+| Codex | `.agents/skills/phantom/` |
+| Gemini CLI | `.agents/skills/phantom/` |
 
-Validate the source distribution before copying:
+The copied `phantom` directory and every file inside it, including the canonical
+`manifest.json`, remain byte-identical. The manifest versions the bundle and
+its portable contracts without depending on a host-specific plugin manifest.
+Use each host's user-level skills directory instead when you want Phantom in
+every project.
 
-```bash
-npm run validate:skill
-```
+Validate the source artifact with `npm run validate:skill`. The repository test
+suite also copies it into three disposable discovery layouts, compares recursive
+SHA-256 digests, exercises semantic model resolution, and runs the full portable
+state lifecycle.
 
-The validator checks the canonical bundle, registry-derived contract resource
-digest, complete and unique ownership of every public schema, direct action
-registry, model policy, and absence of retired runtime roots.
+The continuous-integration gate also runs the pinned Agent Skills reference
+validator. Authenticated live-model conformance is intentionally kept off
+untrusted pull-request runners: run it from an isolated trusted environment with
+the same skill bytes, a disposable workspace and home directory, and ephemeral
+credentials. The copied skill includes the same validated preset registry used
+locally; the runner may supply an optional external override when needed.
 
-## Plugin Distribution
+## Native compatibility plugin
 
-The repository also includes `.claude-plugin/` and `.codex-plugin/` manifests.
-Both distributions expose the same `skills/` tree and portable action
-contracts; there is no separate command or persona implementation. The Codex
-manifest explicitly registers `hooks/hooks.json`, using the host-provided
-plugin root for executable paths.
+The native plugin ships both `.codex-plugin/plugin.json` and the legacy-compatible
+`.claude-plugin` marketplace. It exposes every public workflow under `skills/`
+for Codex while retaining Claude Code command, agent, and hook integrations.
 
-For a local marketplace checkout:
+In Codex, open the plugin browser and install Phantom from the repository
+marketplace:
 
 ```bash
 git clone git@github.com:Cloudzero/research-phantom-skills.git
 cd research-phantom-skills
-npm run validate:skill
+codex
+# Then, inside Codex:
+/plugins
 ```
 
-Then add or install that checkout with the host's plugin browser. For a
-self-hosted marketplace that accepts the repository identifier:
+Select the repository marketplace, open `phantom`, and choose **Install**. Codex
+recognizes the repository's legacy-compatible `.claude-plugin/marketplace.json`
+and installs the native `.codex-plugin/plugin.json` bundle from the repository
+root.
 
-```text
-plugin marketplace add Cloudzero/research-phantom-skills
-plugin install phantom@phantom
+For Claude Code, install it from the self-hosted marketplace in this repo:
+
+```
+/plugin marketplace add Cloudzero/research-phantom-skills
+/plugin install phantom@phantom
 ```
 
-After installation or update, start a new task or host session so its skill
-inventory reloads.
+Codex loads the plugin's bundled skills; Claude Code discovers its commands,
+agents, and hooks directly. Phantom creates mutable state and per-repository
+learnings lazily on first use. No setup command or symlink is required, and
+the config file is optional and created lazily on first `set`. Optional
+behavior is controlled by environment variables and the optional config file
+(see [Configuration](configuration.md)).
 
-Hook installation is not a complete production adapter. Before consequential
-work in an active Phantom session, a trusted host must provision
-`authority-trust.json` and externally issue fresh signed
-`capability-probe.json` records. The package contains no signing secret or
-self-attestation mechanism. External process, Git, pull-request, and tracker
-effects require a registry-signed session registration plus nonce-bound result
-attestations; no backend, provider credential, signer, or private key is
-bundled. Native command tools remain denied, and registration text without the
-matching signed execution evidence cannot enable an effect.
-
-Use `node hooks/capability-gate.mjs doctor <workspace>` to inspect these
-requirements. A missing capability remains unavailable rather than falling
-back to an unbrokered effect.
-
-## Update
-
-Update the source checkout, validate it, then refresh the installed skills or
-reinstall the plugin:
+After a new remote version is published, Codex users should pull the marketplace
+checkout, open `/plugins`, uninstall and reinstall `phantom`, then start a new
+task or CLI session so the new cached version and skills are loaded:
 
 ```bash
 git pull --ff-only
-npm run validate:skill
 ```
 
-Mutable sessions are not stored in the plugin cache. They remain under
-`${PHANTOM_DATA:-~/.phantom}` and can be resumed after an update when their
-contract versions remain supported. New workflow contracts fail closed rather
-than converting unversioned historical events.
+Claude Code users can run `/plugin update phantom`.
 
-## Requirements
+Prerequisites: Codex CLI or the Codex desktop app for Codex installation;
+Claude Code CLI for Claude installation; and git for either flow. Recommended:
+gh CLI and Atlassian MCP. Optional: Slack MCP and code-review-graph MCP.
 
-- An Agent Skills-compatible host or supported plugin browser
-- Node.js for the deterministic helpers and validation
-- Git when repository identity or Git effects are used
+## Upgrading from a pre-plugin install
 
-Issue trackers, review services, visual tools, native delegation, and native
-dependency graphs are optional capabilities. Their absence is recorded and
-uses the declared fallback; it does not change workflow meaning or approval
-gates.
+If you previously used the retired manual install, remove its exact
+`~/.claude/commands/phantom` and `~/.claude/agents/phantom` entries so Claude
+Code cannot discover a stale copy alongside the plugin. The old flow may also
+have registered these five Phantom hooks in `~/.claude/settings.json`; remove
+only those entries because `hooks/hooks.json` now owns them:
+
+- `memory-writer.js`
+- `apex-subagent-driven-law.sh`
+- `memory-reader.js`
+- `memory-consolidator.js`
+- `context-compact-guide.sh`
+
+Back up `settings.json` before editing and preserve every non-Phantom hook. If
+you need data from an old `~/.claude/team`, `~/.claude/phantom`, or
+`~/.claude/phantom-data` directory, the optional `scripts/migrate-data.js`
+utility copies its data whitelist into `PHANTOM_DATA` (or `~/.phantom` when
+unset) without modifying the source. Pre-existing destination entries always
+win; otherwise legacy collisions use `phantom-data`, then `phantom`, then
+`team` priority. The migrator reconstructs only a valid portable active-session
+pointer whose session and workspace identity still match, and reports rather
+than copying stale or unsupported root markers.

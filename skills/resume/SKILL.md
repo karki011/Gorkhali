@@ -2,11 +2,6 @@
 name: resume
 description: Resume, restore, or continue prior Phantom work from a paused session or earlier context using its saved state and plan.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `resume` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/resume.md`.
 
-Portable action: `resume`.
-
-Treat invocation text as action input. Restore the matching portable session,
-validate workspace and artifact fingerprints, and continue from the first legal
-incomplete node. Reuse only authorization still bound to current intent and
-artifacts.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

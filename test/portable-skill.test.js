@@ -14,6 +14,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'phantom');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-portable-skill.mjs');
 const CODEX_MANIFEST = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
+const CODEX_RUNTIME_RESOLVER = path.join(REPO_ROOT, 'codex-support', 'resolve-codex-runtime.mjs');
 const MANIFEST = path.join(SKILL_ROOT, 'manifest.json');
 const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
@@ -80,102 +81,187 @@ test('shared-state codec ships inside the skill and depends only on node built-i
   assert.equal(isolated.ROOT_DIRNAME, '.phantom');
 });
 
-test('action entrypoint validation rejects blank descriptions and unexpected actions', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-actions-'));
+test('command adapter validation rejects blank descriptions and orphaned adapters', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-adapters-'));
+  const commands = path.join(root, 'commands');
   const skills = path.join(root, 'skills');
+  fs.mkdirSync(commands);
   fs.mkdirSync(path.join(skills, 'start'), { recursive: true });
   fs.mkdirSync(path.join(skills, 'orphan'), { recursive: true });
+  fs.writeFileSync(path.join(commands, 'start.md'), '# Start\n');
   fs.writeFileSync(path.join(skills, 'start', 'SKILL.md'), [
     '---',
     'name: start',
     'description:',
     '---',
     '',
-    'Read `../phantom/SKILL.md` completely.',
-    '',
-    'Portable action: `start`.',
+    'Read `../../commands/start.md` completely.',
     '',
   ].join('\n'));
   fs.writeFileSync(path.join(skills, 'orphan', 'SKILL.md'), '---\nname: orphan\ndescription: Orphan.\n---\n');
 
   const validator = await import(pathToFileURL(VALIDATOR).href);
-  const errors = validator.validateActionEntrypoints(skills);
+  const errors = validator.validateCommandAdapters(commands, skills);
   assert.ok(errors.some((error) => error.includes('description must contain 1-1024 characters')));
-  assert.ok(errors.some((error) => error.includes('Unexpected or deprecated public action')));
-  assert.ok(errors.some((error) => error.includes('Public action skill is missing')));
+  assert.ok(errors.some((error) => error.includes('has no matching public command')));
+  assert.ok(errors.some((error) => error.includes('compatibility contract is missing')));
+  assert.ok(errors.some((error) => error.includes('must apply ../../codex-support/codex-compatibility.md')));
 });
 
 test('Codex manifest discovers every public workflow skill', () => {
   const manifest = JSON.parse(fs.readFileSync(CODEX_MANIFEST, 'utf8'));
   const skillRoot = path.resolve(REPO_ROOT, manifest.skills);
+  const commands = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3))
+    .sort();
   const discovered = fs.readdirSync(skillRoot)
     .filter((entry) => fs.existsSync(path.join(skillRoot, entry, 'SKILL.md')))
     .sort();
 
-  assert.ok(discovered.includes('phantom'));
-  assert.ok(discovered.includes('start'));
-  assert.ok(discovered.includes('wrap'));
-  assert.ok(!discovered.includes('q'));
-  for (const action of discovered.filter((entry) => entry !== 'phantom')) {
-    const content = fs.readFileSync(path.join(skillRoot, action, 'SKILL.md'), 'utf8');
-    assert.ok(content.includes('Portable action: `' + action + '`.'));
-  }
+  assert.deepEqual(discovered, [...commands, 'phantom'].sort());
 });
 
-test('every public action skill is tracked by git', () => {
-  const actions = fs.readdirSync(path.join(REPO_ROOT, 'skills'))
-    .filter((entry) => entry !== 'phantom')
-    .filter((entry) => fs.existsSync(path.join(REPO_ROOT, 'skills', entry, 'SKILL.md')))
+test('every public workflow adapter is tracked by git', () => {
+  const commands = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3))
     .sort();
   const tracked = new Set(execFileSync('git', ['ls-files', '--', 'skills/*/SKILL.md'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   }).trim().split('\n'));
 
-  for (const action of actions) {
-    assert.ok(tracked.has(`skills/${action}/SKILL.md`), `${action} action is not tracked`);
+  for (const command of commands) {
+    assert.ok(tracked.has(`skills/${command}/SKILL.md`), `${command} adapter is not tracked`);
   }
 });
 
-test('retired runtime surfaces contain no files', () => {
-  for (const entry of ['agents', 'codex-support', 'commands']) {
-    const root = path.join(REPO_ROOT, entry);
-    if (!fs.existsSync(root)) continue;
-    assert.deepEqual(filesUnder(root), [], `${entry}/ must remain retired`);
+test('public Claude command frontmatter names match filename stems', () => {
+  const commandsRoot = path.join(REPO_ROOT, 'commands');
+  const commands = fs.readdirSync(commandsRoot)
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .sort();
+
+  for (const entry of commands) {
+    const stem = entry.slice(0, -3);
+    const content = fs.readFileSync(path.join(commandsRoot, entry), 'utf8');
+    const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    assert.ok(frontmatter, `${entry} is missing YAML frontmatter`);
+    const name = frontmatter[1].match(/^name:\s*(\S+)\s*$/m);
+    assert.ok(name, `${entry} frontmatter is missing a name`);
+    assert.equal(name[1], stem, `${entry} frontmatter name must match filename stem`);
+    assert.doesNotMatch(name[1], /^phantom:/, `${entry} frontmatter name must not use the phantom namespace`);
   }
 });
 
-test('public action entrypoints use portable state rather than private checkpoints', () => {
-  for (const entry of fs.readdirSync(path.join(REPO_ROOT, 'skills'))) {
-    const file = path.join(REPO_ROOT, 'skills', entry, 'SKILL.md');
-    if (entry === 'phantom' || !fs.existsSync(file)) continue;
-    const content = fs.readFileSync(file, 'utf8');
-    assert.doesNotMatch(content, /checkpoint\.js|SESSION_DIR|\.claude/);
+test('documented checkpoint writes provide JSON stdin and fail open', () => {
+  const expectedWrites = [
+    'execute.md:dispatch-wave-complete',
+    'execute.md:execution-json-written',
+    'execute.md:plan-loaded',
+    'resume.md:resume-restore',
+    'start.md:brainstorm-gate1-approved',
+    'start.md:phase-a-context',
+    'start.md:phase-b-route',
+    'start.md:plan-gate-approved',
+  ];
+  const checkpointWrites = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
+    .filter((entry) => entry.endsWith('.md'))
+    .flatMap((entry) => fs.readFileSync(path.join(REPO_ROOT, 'commands', entry), 'utf8')
+      .split('\n')
+      .filter((line) => line.includes('scripts/lib/checkpoint.js" write'))
+      .map((line) => ({ entry, line })));
+
+  const observedWrites = checkpointWrites.map(({ entry, line }) => {
+    const phase = line.match(/\bwrite \{SESSION_DIR\}\/checkpoints ([a-z0-9-]+)/);
+    assert.ok(phase, `${entry} checkpoint write must name its expected phase`);
+    return `${entry}:${phase[1]}`;
+  }).sort();
+  assert.deepEqual(observedWrites, expectedWrites);
+
+  for (const { entry, line } of checkpointWrites) {
+    assert.ok(
+      line.includes('PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}";'),
+      `${entry} checkpoint write must resolve and normalize PR inline`,
+    );
+    assert.match(line, /if \[ -n "\$PR" \]; then/, `${entry} must skip when PR is empty`);
+    const input = line.match(
+      /printf '%s\\n' '([^']+)' \| node "\$PR\/scripts\/lib\/checkpoint\.js" write\b/,
+    );
+    assert.ok(input, `${entry} checkpoint write must receive JSON stdin`);
+    assert.doesNotThrow(() => JSON.parse(input[1]), `${entry} checkpoint stdin must be valid JSON`);
+    assert.equal(JSON.parse(input[1]).ticket, '{TICKET}', `${entry} checkpoint JSON must identify the ticket`);
+    assert.match(line, /\|\| :; fi/, `${entry} checkpoint write must fail open`);
   }
 });
 
-test('action entrypoints resolve the portable skill package-relatively', () => {
-  for (const entry of fs.readdirSync(path.join(REPO_ROOT, 'skills'))) {
-    const file = path.join(REPO_ROOT, 'skills', entry, 'SKILL.md');
-    if (entry === 'phantom' || !fs.existsSync(file)) continue;
-    const content = fs.readFileSync(file, 'utf8');
-    assert.match(content, /Read `\.\.\/phantom\/SKILL\.md` completely/);
-    assert.doesNotMatch(content, /absolute|plugin cache|runtime resolver/i);
-  }
+test('Codex runtime resolver returns package-relative roots and neutral state', () => {
+  const dataRoot = path.join(os.tmpdir(), 'phantom-codex-state');
+  const output = execFileSync(process.execPath, [CODEX_RUNTIME_RESOLVER], {
+    encoding: 'utf8',
+    env: { ...process.env, PHANTOM_DATA: dataRoot },
+  });
+  const runtime = JSON.parse(output);
+
+  assert.equal(runtime.plugin_root, REPO_ROOT);
+  assert.equal(runtime.portable_skill_root, path.join(REPO_ROOT, 'skills', 'phantom'));
+  assert.equal(runtime.compatibility_scripts_root, path.join(REPO_ROOT, 'scripts'));
+  assert.equal(runtime.data_root, dataRoot);
 });
 
-test('copied action bundle remains direct and self-contained', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-action-cache-'));
-  const copiedSkills = path.join(root, 'skills');
-  fs.cpSync(path.join(REPO_ROOT, 'skills'), copiedSkills, { recursive: true });
+test('installed-cache resolver loads deterministic preambles for every workflow', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-cache-'));
+  const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
+  for (const directory of ['.codex-plugin', 'codex-support', 'commands', 'scripts', 'skills']) {
+    fs.cpSync(path.join(REPO_ROOT, directory), path.join(cachedPlugin, directory), { recursive: true });
+  }
+  const resolver = path.join(cachedPlugin, 'codex-support', 'resolve-codex-runtime.mjs');
+  const commands = fs.readdirSync(path.join(cachedPlugin, 'commands'))
+    .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
+    .map((entry) => entry.slice(0, -3));
+  const expectedPreambles = {
+    T1: ['_shared.md'],
+    T2: ['_shared.md', '_shared-repo-detection.md', '_shared-auto-learning.md'],
+    T3: [
+      '_shared.md',
+      '_shared-repo-detection.md',
+      '_shared-auto-learning.md',
+      '_shared-shadows.md',
+      '_shared-discipline.md',
+      '_shared-contracts.md',
+    ],
+    T4: [
+      '_shared.md',
+      '_shared-repo-detection.md',
+      '_shared-auto-learning.md',
+      '_shared-shadows.md',
+      '_shared-discipline.md',
+      '_shared-contracts.md',
+      '_shared-hound.md',
+    ],
+  };
 
-  for (const entry of fs.readdirSync(copiedSkills)) {
-    const file = path.join(copiedSkills, entry, 'SKILL.md');
-    if (entry === 'phantom' || !fs.existsSync(file)) continue;
-    const content = fs.readFileSync(file, 'utf8');
-    assert.ok(fs.existsSync(path.resolve(path.dirname(file), '../phantom/SKILL.md')));
-    assert.ok(content.includes('Portable action: `' + entry + '`.'));
-    assert.doesNotMatch(content, /commands\/|codex-support|canonical preamble/i);
+  for (const command of commands) {
+    const runtime = JSON.parse(execFileSync(process.execPath, [resolver, '--command', command], { encoding: 'utf8' }));
+    const realPlugin = fs.realpathSync(cachedPlugin);
+    assert.equal(runtime.plugin_root, realPlugin);
+    assert.equal(runtime.command_file, path.join(realPlugin, 'commands', `${command}.md`));
+    assert.match(runtime.preamble_tier, /^T[1-4]$/);
+    const expected = command === 'hound'
+      ? [...expectedPreambles[runtime.preamble_tier], '_shared-hound.md']
+      : expectedPreambles[runtime.preamble_tier];
+    assert.deepEqual(runtime.preamble_files.map((file) => path.basename(file)), expected);
+    assert.ok(!runtime.preamble_files.some((file) => file.endsWith('_shared-brain.md')));
+    const commandContent = fs.readFileSync(runtime.command_file, 'utf8');
+    assert.match(commandContent, new RegExp(`Preamble Tier: ${runtime.preamble_tier}`));
+    for (const file of runtime.preamble_files) {
+      assert.ok(file.startsWith(path.join(realPlugin, 'commands')));
+      assert.ok(fs.existsSync(file), `${command} preamble is missing: ${file}`);
+    }
+    if (['verify', 'fix', 'hound'].includes(command)) {
+      assert.ok(runtime.conditional_preamble_files.some((entry) => entry.file.endsWith('_shared-hound.md')));
+    }
   }
 });
 
@@ -206,58 +292,22 @@ test('installed-cache portable lifecycle keeps Codex state out of .claude', () =
 
 test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
-  assert.equal(manifest.name, 'phantom');
-  assert.equal(manifest.bundle_version, '3.0.2');
-  assert.deepEqual(
-    Object.fromEntries(Object.entries(manifest.contracts).map(([name, entry]) => [name, entry.version])),
-    {
-      aggregation_result: 2,
-      authority_decision: 1,
+  assert.deepEqual(manifest, {
+    name: 'phantom',
+    bundle_version: '2.2.0',
+    contract_resource_digest: manifest.contract_resource_digest,
+    contract_versions: {
       capability_ledger: 1,
-      capability_probe: 1,
-      capability_request: 1,
+      state_envelope: 1,
       decision_artifact: 3,
       defect_proof: 1,
       delegation: 2,
-      evaluation_result: 1,
-      host_adapter_execution: 2,
-      impact_report: 1,
-      isolated_executor: 1,
       model_policy: 2,
       model_presets: 1,
       model_routing: 1,
-      state_envelope: 2,
-      workflow_event: 2,
-      workflow_output: 1,
-      workflow_plan: 2,
-      workspace_manifest: 2,
+      impact_report: 1,
     },
-  );
-  const registered = new Set(Object.values(manifest.contracts).flatMap((entry) => entry.resources));
-  const schemas = fs.readdirSync(path.join(SKILL_ROOT, 'schemas'))
-    .filter((file) => file.endsWith('.schema.json'))
-    .map((file) => `schemas/${file}`);
-  for (const schema of schemas) assert.ok(registered.has(schema), `${schema} must be registered`);
-  const migrationModules = fs.readdirSync(path.join(SKILL_ROOT, 'scripts', 'lib', 'session-migration'))
-    .filter((file) => file.endsWith('.mjs'))
-    .map((file) => `scripts/lib/session-migration/${file}`)
-    .sort();
-  for (const resource of [
-    'scripts/lib/legacy-session-classifier.mjs',
-    ...migrationModules,
-    'scripts/migrate-session-state.mjs',
-  ]) {
-    assert.ok(
-      manifest.contracts.state_envelope.resources.includes(resource),
-      `${resource} must belong to state_envelope`,
-    );
-  }
-  for (const resource of migrationModules) {
-    const owners = Object.entries(manifest.contracts)
-      .filter(([, entry]) => entry.resources.includes(resource))
-      .map(([name]) => name);
-    assert.deepEqual(owners, ['state_envelope'], `${resource} must have one manifest owner`);
-  }
+  });
   assert.match(manifest.contract_resource_digest, /^sha256:[a-f0-9]{64}$/);
   const { BUNDLE_VERSION } = await import(RESOLVER_URL);
   assert.equal(BUNDLE_VERSION, manifest.bundle_version);
@@ -265,13 +315,8 @@ test('portable bundle manifest versions every public contract', async () => {
 
 test('portable validator rejects malformed manifest contract keys and versions', () => {
   for (const [label, mutate, expected] of [
-    ['unknown-key', (manifest) => {
-      manifest.contracts.unknown = { version: 1, resources: ['SKILL.md'] };
-    }, /must contain exactly/],
-    ['invalid-version', (manifest) => { manifest.contracts.delegation.version = 99; }, /must be 2/],
-    ['missing-resource', (manifest) => {
-      manifest.contracts.delegation.resources = ['references/not-present.md'];
-    }, /resource is missing/],
+    ['unknown-key', (manifest) => { manifest.contract_versions.unknown = 1; }, /must contain exactly/],
+    ['invalid-version', (manifest) => { manifest.contract_versions.delegation = 99; }, /must be 2/],
   ]) {
     const target = copySkill(`manifest-${label}`);
     const file = path.join(target, 'manifest.json');
@@ -282,44 +327,6 @@ test('portable validator rejects malformed manifest contract keys and versions',
     assert.notEqual(result.status, 0, `${label} unexpectedly passed`);
     assert.match(result.stderr, expected);
   }
-});
-
-test('portable validator requires the same strict core SemVer as state readers', () => {
-  for (const version of ['03.0.0', '3.0.0-alpha.1', '3.0.0+build.1']) {
-    const target = copySkill(`manifest-version-${version.replaceAll(/[^A-Za-z0-9]/g, '-')}`);
-    const file = path.join(target, 'manifest.json');
-    const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
-    manifest.bundle_version = version;
-    fs.writeFileSync(file, JSON.stringify(manifest));
-
-    const result = validate(target);
-    assert.notEqual(result.status, 0, `${version} unexpectedly passed`);
-    assert.match(result.stderr, /bundle_version must be a strict core SemVer x\.y\.z string/);
-  }
-});
-
-test('portable validator rejects an unregistered public contract schema', () => {
-  const target = copySkill('unregistered-public-schema');
-  fs.writeFileSync(
-    path.join(target, 'schemas', 'new-public.schema.json'),
-    '{"$schema":"https://json-schema.org/draft/2020-12/schema"}\n',
-  );
-  const result = validate(target);
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Public contract schema is not registered/);
-});
-
-test('portable validator requires every session migration module to have one state owner', () => {
-  const target = copySkill('unregistered-session-migration-module');
-  const resource = 'scripts/lib/session-migration/unregistered.mjs';
-  fs.writeFileSync(path.join(target, resource), 'export const unregistered = true;\n');
-
-  const result = validate(target);
-  assert.notEqual(result.status, 0);
-  assert.match(
-    result.stderr,
-    new RegExp(`Session migration module must have exactly one manifest owner, state_envelope: ${resource}`),
-  );
 });
 
 test('portable validator detects stale bundle metadata after a lifecycle contract resource changes', () => {
@@ -339,19 +346,15 @@ test('portable validator detects stale bundle metadata after a lifecycle contrac
   fs.writeFileSync(manifestFile, JSON.stringify(manifest));
   const versioned = validate(staleVersion);
   assert.notEqual(versioned.status, 0);
-  assert.match(versioned.stderr, /bundle_version must be at least 3\.0\.0/);
+  assert.match(versioned.stderr, /bundle_version must be at least 2\.2\.0/);
 });
 
-test('portable validator requires every bundled planning, review, and migration resource', () => {
+test('portable validator requires every bundled planning and AI review resource', () => {
   for (const resource of [
     'references/planning.md',
     'references/brainstorming.md',
     'references/review-html.md',
     'scripts/lib/decision-contracts.mjs',
-    'scripts/lib/legacy-session-classifier.mjs',
-    'scripts/lib/session-migration/atomic-journal.mjs',
-    'scripts/lib/session-migration/durable-publication.mjs',
-    'scripts/migrate-session-state.mjs',
     'scripts/validate-review-html.mjs',
   ]) {
     const target = copySkill(`missing-${resource.replaceAll('/', '-')}`);
@@ -453,7 +456,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '3.0.2');
+    assert.equal(result.bundle_version, '2.2.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -475,7 +478,7 @@ test('critical risk elevates eligible roles before preset lookup and preserves e
   for (const [role, profile] of [
     ['apex', 'frontier'],
     ['ward', 'economy'],
-    ['sweep', 'economy'],
+    ['sweep', 'balanced'],
     ['warden', 'economy'],
   ]) {
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical']);
@@ -530,19 +533,19 @@ test('bundled presets cover every profile and resolve each role tier', () => {
     'claude-code': {
       inherit: [null, null],
       economy: ['haiku', null],
-      balanced: ['sonnet', 'medium'],
+      balanced: ['sonnet', 'high'],
       deep: ['opus', 'high'],
       frontier: ['opus', 'high'],
     },
     codex: {
       inherit: [null, null],
       economy: ['gpt-5.6-luna', 'low'],
-      balanced: ['gpt-5.6-terra', 'medium'],
+      balanced: ['gpt-5.6-terra', 'high'],
       deep: ['gpt-5.6-sol', 'high'],
-      frontier: ['gpt-5.6-sol', 'xhigh'],
+      frontier: ['gpt-5.6-sol', 'max'],
     },
   };
-  const roleForProfile = { economy: 'ward', balanced: 'blade', deep: 'sage', frontier: 'apex' };
+  const roleForProfile = { economy: 'ward', balanced: 'blade', deep: 'gaze', frontier: 'apex' };
 
   for (const [host, profiles] of Object.entries(expected)) {
     assert.deepEqual(Object.keys(presets.hosts[host].profiles).sort(), Object.keys(profiles).sort());
@@ -572,11 +575,11 @@ test('model resolution honors user choice, external map, bundled preset, then in
   assert.equal(mapped.effort, 'custom');
   assert.equal(mapped.resolution, 'external-profile-map');
 
-  fs.writeFileSync(mapFile, JSON.stringify({ profiles: { balanced: 'mapped-balanced' } }));
-  const shorthand = runJson(RESOLVER, ['--role', 'blade', '--host', 'codex', '--map', mapFile]);
-  assert.equal(shorthand.model, 'mapped-balanced');
-  assert.equal(shorthand.effort, null);
-  assert.equal(shorthand.resolution, 'external-profile-map');
+  fs.writeFileSync(mapFile, JSON.stringify({ profiles: { balanced: 'legacy-balanced' } }));
+  const legacy = runJson(RESOLVER, ['--role', 'blade', '--host', 'codex', '--map', mapFile]);
+  assert.equal(legacy.model, 'legacy-balanced');
+  assert.equal(legacy.effort, null);
+  assert.equal(legacy.resolution, 'external-profile-map');
 
   const explicit = runJson(RESOLVER, [
     '--role', 'blade',
@@ -635,7 +638,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '3.0.2');
+  assert.equal(resolver.bundle_version, '2.2.0');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -781,18 +784,14 @@ test('portable workflow makes delegation an automatic, native Apex decision', ()
 
   const gate = skill.slice(skill.indexOf('## Complete the gate'));
   const correctnessIndex = gate.indexOf('correctness checks');
-  const simplifyIndex = gate.indexOf('simplify changed files');
-  const evaluatorIndex = gate.indexOf('independent evaluator');
-  assert.ok(correctnessIndex >= 0 && correctnessIndex < simplifyIndex);
-  assert.ok(simplifyIndex < evaluatorIndex);
+  const sweepIndex = gate.indexOf('run Sweep');
+  const reviewIndex = gate.indexOf('independent review');
+  assert.ok(correctnessIndex >= 0 && correctnessIndex < sweepIndex);
+  assert.ok(sweepIndex < reviewIndex);
 
   assert.match(skill, /user supplies the goal; do not ask them to choose workers, worker count, or models/i);
   assert.match(workflows, /One clear objective; sequential or tightly coupled work; shared-write hotspot/i);
-  assert.match(workflows, /Two or more independent read-heavy investigations or adversarial reviews that do not require isolated branch writes/i);
-  assert.match(workflows, /host-provisioned executor may run a\s+write-bearing `parallel` node only through the compiler-pinned trust binding and\s+`execute-parallel\.mjs`/i);
-  assert.match(workflows, /otherwise compilation must lower the work to\s+current-agent or sequential chain nodes/i);
-  assert.match(workflows, /Do not delegate work the active agent can finish in a handful of tool calls/i);
-  assert.match(workflows, /File count alone never justifies fan-out/i);
+  assert.match(workflows, /Two or more independent read-heavy investigations, adversarial reviews, or implementation scopes/i);
   assert.match(roles, /explicit user instruction to require, limit, or disable delegation within repository safety/i);
   assert.match(roles, /runtime requires approval, request it before spawning/i);
   assert.match(roles, /without shared writes or unresolved producer-consumer edges/i);
@@ -801,7 +800,7 @@ test('portable workflow makes delegation an automatic, native Apex decision', ()
   assert.match(capabilities, /unknown optional capability behaves as unavailable/i);
   assert.match(models, /chooses the execution topology before resolving worker compute/i);
   assert.match(planning, /selects this depth and its delegation topology automatically/i);
-  assert.match(verification, /When a required evaluator cannot be delegated, run one fresh labeled pass/i);
+  assert.match(verification, /Missing delegation never removes a verification gate/i);
 });
 
 test('minimum-sufficient solution policy is ordered, automatic, inherited, and safety bounded', () => {
@@ -847,7 +846,7 @@ test('minimum-sufficient solution policy is ordered, automatic, inherited, and s
   assert.match(workflows, /Require the worker to select the first sufficient rung rather than assuming the parent's reasoning was inherited/i);
   assert.match(roles, /minimum-sufficient-solution ladder/i);
   assert.match(roles, /Do not assume parent-session policy or reasoning reaches a delegated context automatically/i);
-  assert.match(verification, /complexity check follows correctness evidence and is not a replacement/i);
+  assert.match(verification, /complexity review after correctness checks, not a replacement/i);
   assert.match(verification, /Never use line count as the quality gate/i);
 
   const sweepLadder = [
@@ -869,31 +868,49 @@ test('minimum-sufficient solution policy is ordered, automatic, inherited, and s
   assert.match(verification, /Preserve all risk-proportionate and repository-required verification/i);
 });
 
-test('portable lifecycle authority is explicit and validated', () => {
+test('portable lifecycle authority is explicit, validated, and provider mechanics cannot override it', () => {
+  const compatibility = fs.readFileSync(
+    path.join(REPO_ROOT, 'codex-support', 'codex-compatibility.md'),
+    'utf8',
+  );
   const start = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'start', 'SKILL.md'), 'utf8');
   const state = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'state.md'), 'utf8');
   const workflows = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'workflows.md'), 'utf8');
 
-  assert.match(start, /Portable action: `start`/i);
-  assert.match(start, /implementation authorization before execution/i);
-  assert.match(start, /never grants shipping\s+authority/i);
-  assert.match(state, /schema_version: 2/i);
-  assert.match(state, /required `lifecycle` object/i);
-  assert.match(state, /A missing\s+route is invalid/i);
+  const authority = [
+    'User instructions, repository instructions, and runtime safety',
+    'The portable skill and its references',
+    'Compatible legacy command intent',
+    'Legacy or provider-specific mechanics',
+  ];
+  let cursor = -1;
+  for (const level of authority) {
+    const next = compatibility.indexOf(level, cursor + 1);
+    assert.ok(next > cursor, `missing or unordered authority level: ${level}`);
+    cursor = next;
+  }
+  assert.match(
+    compatibility,
+    /legacy command text may not add or override delegation, approval,\s+phase, state-path, or lifecycle authority/i,
+  );
+  assert.match(start, /local planning and implementation only/i);
+  assert.match(start, /no implicit PR lifecycle/i);
+  assert.match(start, /draft-PR shipping requires separate, explicit authorization/i);
+  assert.match(state, /schema_version: 1/i);
+  assert.match(state, /older sessions must synthesize missing\s+pending values/i);
   assert.match(state, /worktree_fingerprint/i);
   assert.match(state, /route and material intent are immutable/i);
   assert.match(state, /Direction binds the current passed\s+`brainstorm`/i);
   assert.match(state, /wiring binds both the\s+current passed `plan` and current passed `decisions`/i);
   assert.match(state, /failed\s+artifact write must leave those lifecycle actions unchanged/i);
-  assert.match(state, /Verification and review run artifacts are unsupported/i);
-  assert.match(state, /advance-workflow\.mjs/);
+  assert.match(state, /authoritative review must have a later\s+`record_sequence`/i);
   assert.match(workflows, /`direct`.*None; implementation authorization is still required/is);
   assert.match(workflows, /`plan`.*Approved plan plus implementation authorization/is);
   assert.match(workflows, /`brainstorm`.*Approved direction before plan approval/is);
   assert.match(workflows, /`full`.*Approved direction, approved plan, approved wiring/is);
   assert.match(workflows, /`--mode to-plan` is a permanent denial of `execute` and `ship`/i);
   assert.match(workflows, /route and material intent do not change after the\s+initial start/i);
-  assert.match(workflows, /A newer fingerprint makes earlier evidence\s+stale/i);
+  assert.match(workflows, /A later\s+verification makes the earlier review stale/i);
 
   const invalid = copySkill('missing-lifecycle-contract');
   const invalidState = path.join(invalid, 'references', 'state.md');

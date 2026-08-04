@@ -8,8 +8,8 @@
 // Exit 0 = healthy, Exit 1 = problems found
 //
 // The INDEX-vs-domain-file validation itself lives in the canonical learning API
-// (skills/phantom/scripts/phantom-learning.mjs) so the writer (memory-writer)
-// and this validator all read the index by one grammar.
+// (skills/phantom/scripts/phantom-learning.mjs) so the writers (memory-writer,
+// memory-consolidator) and this validator all read the index by one grammar.
 
 'use strict';
 

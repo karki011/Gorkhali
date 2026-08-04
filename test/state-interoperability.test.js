@@ -7,7 +7,6 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createHash, generateKeyPairSync, sign } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -19,12 +18,8 @@ const STATE = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs
 const LEARNING = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 const SESSION_MARKER = path.join(ROOT, 'hooks', 'session-marker.js');
 const brain = require(path.join(ROOT, 'scripts', 'lib', 'brain-card'));
-const {
-  stateEnvelopeErrors: analyticsEnvelopeErrors,
-} = require(path.join(ROOT, 'scripts', 'lib', 'state-envelope-contract'));
 
 let sequence = 0;
-let authoritySequence = 0;
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -35,25 +30,13 @@ function fixture() {
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'planning.md'), '# Existing planning context\n');
   // A stable remote-backed repo id, identical for the portable path and the hooks.
-  execFileSync('git', ['-C', workspace, 'init', '-q', '-b', 'feat/interop']);
-  execFileSync('git', ['-C', workspace, 'config', 'user.email', 'phantom@example.invalid']);
-  execFileSync('git', ['-C', workspace, 'config', 'user.name', 'Subash Karki']);
+  execFileSync('git', ['-C', workspace, 'init', '-q']);
   execFileSync('git', ['-C', workspace, 'remote', 'add', 'origin', 'git@github.com:org/interop.git']);
-  execFileSync('git', ['-C', workspace, 'add', 'planning.md']);
-  execFileSync('git', ['-C', workspace, 'commit', '-qm', 'fixture']);
   // Pre-mark migration as done so session-marker never copies real user state in.
   fs.mkdirSync(data, { recursive: true });
   fs.writeFileSync(path.join(data, '.data-root-migrated-v2'), 'done\n');
   fs.writeFileSync(path.join(data, '.repo-dirs-migrated'), 'done\n');
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-  fs.mkdirSync(path.join(data, 'config'), { recursive: true });
-  fs.writeFileSync(path.join(data, 'config', 'authority-trust.json'), JSON.stringify({
-    schema_version: 1,
-    key_id: 'state-interop-key',
-    source: 'state-interop-host',
-    public_key: publicKey.export({ type: 'spki', format: 'pem' }),
-  }));
-  return { root, workspace, data, privateKey, env: { PHANTOM_DATA: data } };
+  return { root, workspace, data, env: { PHANTOM_DATA: data } };
 }
 
 function runState(args, env) {
@@ -71,83 +54,6 @@ function runState(args, env) {
 function ok(result) {
   assert.equal(result.code, 0, result.stderr);
   return JSON.parse(result.stdout);
-}
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) =>
-      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
-const artifactDigest = (artifact) =>
-  `sha256:${createHash('sha256').update(JSON.stringify(artifact)).digest('hex')}`;
-
-async function signedLifecycleDecision(ctx, args) {
-  const pointerDirectory = path.join(ctx.data, 'state', 'current-session');
-  const pointerFile = fs.readdirSync(pointerDirectory)
-    .filter((entry) => entry.endsWith('.json'))
-    .map((entry) => path.join(pointerDirectory, entry))[0];
-  const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
-  const session = JSON.parse(fs.readFileSync(path.join(pointer.session_dir, 'session.json'), 'utf8'));
-  const fingerprint = ok(await runState(['fingerprint', '--workspace', ctx.workspace], ctx.env))
-    .worktree_fingerprint;
-  const gateIndex = args.indexOf('--gate');
-  const scopeIndex = args.indexOf('--scope');
-  const gate = gateIndex >= 0 ? args[gateIndex + 1] : null;
-  const scope = scopeIndex >= 0 ? args[scopeIndex + 1] : null;
-  const routeGates = {
-    direct: [],
-    plan: ['plan'],
-    brainstorm: ['direction', 'plan'],
-    full: ['direction', 'plan', 'wiring'],
-  };
-  const artifactTypes = gate === 'direction'
-    ? ['brainstorm']
-    : gate === 'plan' ? ['plan'] : gate === 'wiring' ? ['plan', 'decisions'] : [];
-  const bindings = gate
-    ? artifactTypes.map((artifactType) => {
-      const artifact = JSON.parse(fs.readFileSync(path.join(pointer.session_dir, `${artifactType}.json`), 'utf8'));
-      return {
-        gate,
-        artifact_type: artifactType,
-        record_sequence: artifact.record_sequence,
-        digest: artifactDigest(artifact),
-      };
-    })
-    : routeGates[session.route].flatMap((requiredGate) =>
-      session.lifecycle.approvals[requiredGate].artifact_bindings
-        .map((binding) => ({ gate: requiredGate, ...binding })));
-  bindings.sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)));
-  authoritySequence += 1;
-  const issuedAt = new Date();
-  const unsigned = {
-    schema_version: 1,
-    repo_id: pointer.repo_id,
-    task_id: pointer.task_id,
-    decision_kind: gate ? 'approval' : 'authorization',
-    gate,
-    scope,
-    decision: gate ? 'approved' : 'authorized',
-    worktree_fingerprint: fingerprint,
-    approval_artifact_bindings: bindings,
-    issued_at: issuedAt.toISOString(),
-    expires_at: new Date(issuedAt.getTime() + 5 * 60_000).toISOString(),
-    actor: 'state-interop-test-user',
-    source: 'state-interop-host',
-    source_event_id: `state-interop-source-${authoritySequence}`,
-    replay_id: `state-interop-replay-${authoritySequence}`,
-    key_id: 'state-interop-key',
-  };
-  const decision = {
-    ...unsigned,
-    signature: sign(null, Buffer.from(canonicalJson(unsigned)), ctx.privateKey).toString('base64'),
-  };
-  const file = path.join(ctx.root, `authority-${authoritySequence}.json`);
-  fs.writeFileSync(file, JSON.stringify(decision));
-  return runState([...args, '--decision', file], ctx.env);
 }
 
 async function recordArtifact(ctx, type, payload, { status = 'passed', run } = {}) {
@@ -256,11 +162,11 @@ const portableBrainstorm = () => ({
 });
 
 // Envelopes are readable by a plain-JSON (Claude-side) reader; assert the shared
-// version-2 contract and that the workflow payload unwraps from `evidence`.
+// version-1 contract and that the workflow payload unwraps from `evidence`.
 function assertEnvelope(file, type, ctx, taskId) {
   const raw = fs.readFileSync(file, 'utf8');
   const envelope = JSON.parse(raw);
-  assert.equal(envelope.schema_version, 2, `${type} schema_version`);
+  assert.equal(envelope.schema_version, 1, `${type} schema_version`);
   assert.equal(envelope.artifact_type, type, `${type} artifact_type`);
   assert.equal(envelope.task_id, taskId, `${type} task_id`);
   assert.ok(typeof envelope.repo_id === 'string' && envelope.repo_id, `${type} repo_id`);
@@ -287,10 +193,9 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
 
   // durable task pointer (portable pointer, not telemetry)
   const pointer = JSON.parse(fs.readFileSync(path.join(ctx.data, 'state', 'current-session', `${repoId}.json`), 'utf8'));
-  assert.equal(pointer.schema_version, 2);
+  assert.equal(pointer.schema_version, 1);
   assert.equal(pointer.task_id, taskId);
   assert.equal(pointer.repo_id, repoId);
-  assert.equal(pointer.session_dir, sessionDir);
 
   // context
   await recordArtifact(ctx, 'context', {}, { status: 'pending' });
@@ -300,21 +205,27 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   // brainstorm + direction approval
   const brainstorm = await recordArtifact(ctx, 'brainstorm', portableBrainstorm());
   assert.deepEqual(assertEnvelope(brainstorm.file, 'brainstorm', ctx, taskId).evidence, portableBrainstorm());
-  ok(await signedLifecycleDecision(ctx, ['approve', ...common, '--gate', 'direction']));
+  ok(await runState(['approve', ...common, '--gate', 'direction'], ctx.env));
 
   // plan + plan approval
   const plan = await recordArtifact(ctx, 'plan', portablePlan());
   assert.deepEqual(assertEnvelope(plan.file, 'plan', ctx, taskId).evidence, portablePlan());
-  ok(await signedLifecycleDecision(ctx, ['approve', ...common, '--gate', 'plan']));
+  ok(await runState(['approve', ...common, '--gate', 'plan'], ctx.env));
 
   // decisions + wiring approval
   const decisions = await recordArtifact(ctx, 'decisions', { wiring: 'Use the approved plan dependency order.' });
   assert.equal(assertEnvelope(decisions.file, 'decisions', ctx, taskId).evidence.wiring, 'Use the approved plan dependency order.');
-  ok(await signedLifecycleDecision(ctx, ['approve', ...common, '--gate', 'wiring']));
+  ok(await runState(['approve', ...common, '--gate', 'wiring'], ctx.env));
 
   // authorize + execute
-  ok(await signedLifecycleDecision(ctx, ['authorize', ...common, '--scope', 'implementation']));
+  ok(await runState(['authorize', ...common, '--scope', 'implementation'], ctx.env));
   ok(await runState(['execute', ...common], ctx.env));
+
+  // verification + review (run artifacts)
+  const verification = await recordArtifact(ctx, 'verification', { checks: [{ name: 'unit', result: 'passed' }] }, { run: 'run-1' });
+  assertEnvelope(verification.file, 'verification', ctx, taskId);
+  const review = await recordArtifact(ctx, 'review', { verdict: 'pass', findings: [] }, { run: 'run-1' });
+  assertEnvelope(review.file, 'review', ctx, taskId);
 
   // wrap (run artifact)
   const wrap = await recordArtifact(ctx, 'wrap', { summary: 'Shipped' }, { run: 'run-1' });
@@ -326,79 +237,18 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   const resumed = ok(await runState(['resume', ...common], ctx.env));
   assert.equal(resumed.status, 'active');
 
-  // Session records cannot synthesize graph readiness or completion.
-  ok(await signedLifecycleDecision(ctx, ['authorize', ...common, '--scope', 'ship-draft-pr']));
-  for (const action of ['ship', 'complete']) {
-    const denied = await runState([action, ...common], ctx.env);
-    assert.equal(denied.code, 1);
-    assert.match(denied.stderr, /authoritative workflow replay failed/);
-  }
-  assert.ok(fs.existsSync(sessionDir), 'active session remains unarchived');
-  assertEnvelope(path.join(sessionDir, 'session.json'), 'session', ctx, taskId);
+  // authorize ship + ship + complete (the "close" class: archived, never deleted)
+  ok(await runState(['authorize', ...common, '--scope', 'ship-draft-pr'], ctx.env));
+  ok(await runState(['ship', ...common], ctx.env));
+  const completed = ok(await runState(['complete', ...common], ctx.env));
+  assert.equal(completed.status, 'completed');
+  const completedDir = path.join(ctx.data, 'repos', repoId, 'completed', taskId);
+  assert.ok(fs.existsSync(completedDir), 'session archived to completed');
+  assert.equal(fs.existsSync(sessionDir), false, 'active session dir moved, not left behind');
+  assertEnvelope(path.join(completedDir, 'session.json'), 'session', ctx, taskId);
 });
 
-test('schema-v2 lifecycle state remains readable across other strict SemVer bundle releases', async () => {
-  for (const [index, bundleVersion] of ['3.0.1', '3.1.0', '2.9.9'].entries()) {
-    const ctx = fixture();
-    const common = ['--workspace', ctx.workspace];
-    const taskId = `BUNDLE-INTEROP-${index + 1}`;
-    const started = ok(await runState([
-      'start', ...common, '--task', taskId, '--intent', 'Resume compatible v2 state', '--route', 'direct',
-    ], ctx.env));
-    ok(await runState(['pause', ...common, '--reason', 'Exercise compatible provenance'], ctx.env));
-
-    const sessionDir = path.join(ctx.data, 'repos', started.repo_id, 'sessions', taskId);
-    for (const type of ['session', 'intent']) {
-      const file = path.join(sessionDir, `${type}.json`);
-      const envelope = JSON.parse(fs.readFileSync(file, 'utf8'));
-      envelope.bundle_version = bundleVersion;
-      assert.deepEqual(analyticsEnvelopeErrors(envelope, type), [], `${bundleVersion} ${type}`);
-      fs.writeFileSync(file, JSON.stringify(envelope));
-    }
-
-    const status = ok(await runState(['status', ...common], ctx.env));
-    assert.equal(status.bundle_version, bundleVersion);
-    assert.equal(status.status, 'paused');
-    assert.equal(ok(await runState(['resume', ...common], ctx.env)).status, 'active');
-  }
-});
-
-test('state readers create a private lock directory and normalize owned legacy permissions without changing lock bytes', {
-  skip: process.platform === 'win32',
-}, async () => {
-  const created = fixture();
-  const createdLocks = path.join(created.data, 'locks');
-  ok(await runState(['status', '--workspace', created.workspace], created.env));
-  assert.equal(fs.lstatSync(createdLocks).mode & 0o777, 0o700);
-
-  const normalized = fixture();
-  const normalizedLocks = path.join(normalized.data, 'locks');
-  fs.mkdirSync(normalizedLocks, { mode: 0o755 });
-  fs.chmodSync(normalizedLocks, 0o755);
-  const sentinel = path.join(normalizedLocks, '.existing.lock');
-  const bytes = Buffer.from('existing lock bytes\n');
-  fs.writeFileSync(sentinel, bytes, { mode: 0o600 });
-
-  ok(await runState(['status', '--workspace', normalized.workspace], normalized.env));
-  assert.equal(fs.lstatSync(normalizedLocks).mode & 0o777, 0o700);
-  assert.deepEqual(fs.readFileSync(sentinel), bytes);
-});
-
-test('state readers fail closed when the lock directory is a symlink', {
-  skip: process.platform === 'win32',
-}, async () => {
-  const ctx = fixture();
-  const outside = path.join(ctx.root, 'outside-locks');
-  fs.mkdirSync(outside, { mode: 0o700 });
-  fs.symlinkSync(outside, path.join(ctx.data, 'locks'), 'dir');
-
-  const result = await runState(['status', '--workspace', ctx.workspace], ctx.env);
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /lock path must be a private current-user-owned real directory/);
-  assert.deepEqual(fs.readdirSync(outside), []);
-});
-
-test('a Claude-authored legacy top-level session is rejected by the portable path', async () => {
+test('a Claude-authored legacy top-level session is readable by the portable path', async () => {
   const ctx = fixture();
   const common = ['--workspace', ctx.workspace];
   const started = ok(await runState([
@@ -406,15 +256,16 @@ test('a Claude-authored legacy top-level session is rejected by the portable pat
   ], ctx.env));
   const sessionFile = path.join(ctx.data, 'repos', started.repo_id, 'sessions', 'LEGACY-INTEROP', 'session.json');
 
-  // Put plan-only mode at the top level the way an older writer did. Current
-  // state must use the canonical nested lifecycle contract exclusively.
+  // Rewrite as a legacy artifact: drop the lifecycle object, put plan-only mode
+  // at the TOP LEVEL the way an older Claude-side writer did.
   const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  delete legacy.lifecycle;
   legacy.to_plan = true;
   fs.writeFileSync(sessionFile, JSON.stringify(legacy));
 
-  const rejected = await runState(['status', ...common], ctx.env);
-  assert.equal(rejected.code, 1);
-  assert.match(rejected.stderr, /top-level to_plan is unsupported; use lifecycle\.mode/);
+  const recovered = ok(await runState(['status', ...common], ctx.env));
+  assert.equal(recovered.lifecycle.mode, 'to-plan', 'portable path unwraps legacy top-level mode');
+  assert.equal(recovered.lifecycle.authorizations.implementation.status, 'pending');
 });
 
 test('Claude session telemetry cannot overwrite the durable portable task pointer (hook after start)', async () => {
@@ -446,30 +297,6 @@ test('Claude session telemetry cannot overwrite the durable portable task pointe
   ));
   assert.equal(telemetry.session_id, 'claude-session-42');
   assert.ok(!('task_id' in telemetry), 'telemetry carries runtime session id, not the task pointer');
-});
-
-test('concurrent session telemetry writes use unique atomic temporary files', async () => {
-  const ctx = fixture();
-  const writers = 24;
-  await Promise.all(Array.from({ length: writers }, (_, index) => new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [SESSION_MARKER], {
-      env: { ...process.env, ...ctx.env },
-      stdio: ['pipe', 'ignore', 'pipe'],
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr || `marker exited ${code}`))));
-    child.stdin.end(JSON.stringify({ session_id: `session/${index}:exact`, cwd: ctx.workspace }));
-  })));
-
-  const directory = path.join(ctx.data, 'state', 'session-telemetry');
-  const files = fs.readdirSync(directory);
-  assert.equal(files.length, 1);
-  assert.match(files[0], /^interop-[a-f0-9]{10}\.json$/);
-  const telemetry = JSON.parse(fs.readFileSync(path.join(directory, files[0]), 'utf8'));
-  assert.match(telemetry.session_id, /^session\/\d+:exact$/);
-  assert.equal(telemetry.cwd, ctx.workspace);
 });
 
 test('learning index/domains written via the canonical API are readable by both runtimes and survive concurrent writers', async () => {

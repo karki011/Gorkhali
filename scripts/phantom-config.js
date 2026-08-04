@@ -3,8 +3,11 @@
 // phantom-config.js - the config layer: closed schema, two files, per-repo wins,
 // PROVENANCE on every resolved value.
 //
-// This is the authoritative reader for portable workflow configuration. A
-// documented setting without a schema-backed reader would be a dangling contract.
+// Why this exists: commands/close.md and commands/start.md both said "Honor config
+// `jira.auto_transition`" while no reader, no file, and no schema existed anywhere
+// in the repo. A documented setting with no implementation is a dangling reference -
+// a model reading that prose either invents a default or silently ignores it. This
+// module is the reader those two lines now name.
 //
 // Storage (created LAZILY - a fresh install needs no setup step):
 //   <data>/repos/<repo>/config.json   per-repo
@@ -17,8 +20,8 @@
 // WHY a setting has its value. An unset key is reported unset with a reason - this
 // module never fabricates a default.
 //
-// UNATTENDED RULE: nothing here ever prompts, reads stdin, or blocks. A portable
-// unattended workflow has no human present, so
+// UNATTENDED RULE: nothing here ever prompts, reads stdin, or blocks. `/phantom:loop`
+// runs with no human present (commands/loop.md: "Never ask the user a question"), so
 // an unset setting is INACTIVE, not an error. askPlan() reports that a value is unset
 // and what an interactive caller should ask; the asking itself belongs to that caller.
 'use strict';
@@ -38,7 +41,7 @@ const KEYS = {
   'tracker.provider': { type: 'enum', values: ['jira', 'linear', 'github', 'file', 'none'] },
   'tracker.ready_signal': { type: 'string' },
   // Tracker-level, not Jira-level: Jira, Linear, and GitHub Issues all have labels.
-  // Each provider applies it through its capability adapter.
+  // Each provider APPLIES it its own way (commands/start.md step 3.2c).
   'tracker.label': { type: 'label' },
   'tracker.chosen': { type: 'enum', values: ['asked', 'detected', 'explicit'] },
   'tracker.chosen_at': { type: 'iso-date' },
@@ -69,8 +72,8 @@ function invalid(message, suggestions = []) {
 // ---------------------------------------------------------------------------
 
 // Jira rejects a label containing whitespace and caps one at 255 characters; GitHub
-// labels behave badly with whitespace too. Validating here means the workflow never
-// has to guess whether a configured label is legal - an
+// labels behave badly with whitespace too. Validating here means the stamping step in
+// commands/start.md never has to guess whether a configured label is legal - an
 // illegal one is refused at `set` time, before it can reach a tracker.
 const LABEL_MAX = 255;
 
@@ -388,7 +391,8 @@ function set(key, rawValue, opts = {}) {
 // Unattended / first-run
 // ---------------------------------------------------------------------------
 
-// A non-interactive host may announce that no human is present, so nothing may ask.
+// Matches scripts/run-guard.js: an unattended run announces itself with
+// PHANTOM_UNATTENDED=1. No human is present, so nothing may ask.
 function isUnattended(env = process.env) {
   return env.PHANTOM_UNATTENDED === '1';
 }
@@ -400,7 +404,7 @@ function isUnattended(env = process.env) {
  *   guidance 'ask'      -> unset, a human is present; the CALLER asks `question`.
  *   guidance 'inactive' -> unset and unattended; the caller prints
  *                          `inactive_message` and exits 0. Unconfigured is
- *                          INACTIVE, not an error.
+ *                          INACTIVE, not an error (commands/loop.md).
  */
 function askPlan(key, opts = {}) {
   const resolved = resolve(key, opts);

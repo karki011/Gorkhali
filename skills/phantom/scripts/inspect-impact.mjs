@@ -34,7 +34,6 @@ const DEFAULTS = {
   maxResults: 200,
   maxWarnings: 500,
 };
-const compareText = (left, right) => (left < right ? -1 : (left > right ? 1 : 0));
 
 function fail(message) {
   process.stderr.write(`${message}\n`);
@@ -77,8 +76,7 @@ function walkFiles(workspace, limit) {
   let symlinks = 0;
   let truncated = false;
   const visit = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => compareText(left.name, right.name))) {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       entriesVisited += 1;
       if (entriesVisited > maxEntries) {
         truncated = true;
@@ -401,8 +399,7 @@ function buildGraph(workspace, options) {
       }
     }
   }
-  edges.sort((left, right) => compareText(left.source, right.source)
-    || compareText(left.target, right.target));
+  edges.sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target));
   return {
     bytesRead,
     discovery: discovered.discovery,
@@ -424,9 +421,7 @@ function traverse(targets, graph, depth, reverseOnly = false) {
     add(edge.source, edge.target, 'dependency');
     add(edge.target, edge.source, 'importer');
   }
-  for (const list of neighbors.values()) {
-    list.sort((left, right) => compareText(left.path, right.path));
-  }
+  for (const list of neighbors.values()) list.sort((a, b) => a.path.localeCompare(b.path));
   const seen = new Map(targets.map((path) => [path, { distance: 0, path, relation: 'target', via: null }]));
   const queue = [...targets];
   for (let index = 0; index < queue.length; index += 1) {
@@ -440,8 +435,7 @@ function traverse(targets, graph, depth, reverseOnly = false) {
       queue.push(next.path);
     }
   }
-  return [...seen.values()].sort((left, right) => left.distance - right.distance
-    || compareText(left.path, right.path));
+  return [...seen.values()].sort((a, b) => a.distance - b.distance || a.path.localeCompare(b.path));
 }
 
 function inspect(workspace, targets, options) {

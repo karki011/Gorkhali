@@ -75,18 +75,17 @@ phantom__realpath() {
 # Resolve repo id at CALL time, not source time (sourced at shell startup with
 # PWD=$HOME). Same precedence as detectRepo() in phantom-paths.js, routed
 # through the shared codec so all layers produce ONE id:
-#   1. <data>/worktrees/<seg> fast-path with a validated safe segment
-#      (phantom-MANAGED worktrees only;
+#   1. <data>/worktrees/<seg> fast-path (phantom-MANAGED worktrees only;
 #      ~/.phantom-os/worktrees is NOT this root - those ride step 3/4)
-#   2. PHANTOM_REPO env override (one validated safe segment)
+#   2. PHANTOM_REPO env override (verbatim)
 #   3. origin remote -> normalized -> `<name>-<hash>` (via codec)
-#   4. no remote -> hashed canonical Git common root (via codec; worktree-safe)
-#   5. walk up to the first `.git` entry -> hashed canonical root (via codec)
+#   4. no remote -> Git common-root basename (via codec; worktree-safe)
+#   5. walk up to the first `.git` entry basename (via codec)
 #   6. `_default`
-# Steps 1-2 stay pure-shell after validation. Steps 3-6 delegate to the
+# Steps 1-2 stay pure-shell (verbatim, node-free). Steps 3-6 delegate to the
 # codec through a small `node -e` call so the hash matches the JS/ESM layers;
-# without Node and the bundled codec, identity resolution fails closed instead
-# of producing a divergent id. Optional $1 overrides $PWD (used by tests).
+# if node is unavailable the shell degrades to a pure-shell walk-up. Never
+# errors. Optional $1 overrides $PWD (used by tests).
 phantom_detect_repo() {
   _pcwd=${1:-$PWD}
 
@@ -98,30 +97,16 @@ phantom_detect_repo() {
       "$_wtroot"/*)
         _rest=${_rcwd#"$_wtroot"/}
         _repo=${_rest%%/*}
-        case "$_repo" in
-          ''|.|..|[!A-Za-z0-9_]*|*[!A-Za-z0-9._-]*) return 2 ;;
-        esac
-        if [ "${#_repo}" -le 120 ]; then
+        if [ -n "$_repo" ]; then
           printf '%s\n' "$_repo"
           return 0
         fi
-        return 2
         ;;
     esac
   fi
 
   # (2) PHANTOM_REPO override.
   if [ -n "${PHANTOM_REPO:-}" ]; then
-    case "$PHANTOM_REPO" in
-      .|..|[!A-Za-z0-9_]*|*[!A-Za-z0-9._-]*)
-        printf '%s\n' 'PHANTOM_REPO must be one safe path segment (1-120 characters).' >&2
-        return 2
-        ;;
-    esac
-    if [ "${#PHANTOM_REPO}" -gt 120 ]; then
-      printf '%s\n' 'PHANTOM_REPO must be one safe path segment (1-120 characters).' >&2
-      return 2
-    fi
     printf '%s\n' "$PHANTOM_REPO"
     return 0
   fi
@@ -137,49 +122,50 @@ phantom_detect_repo() {
     fi
   fi
 
-  printf '%s\n' 'Phantom repository identity requires Node and the bundled codec.' >&2
-  return 2
+  # Fallback when node is unavailable: pure-shell walk up to the first `.git`
+  # entry basename, else `_default`. This degraded path keeps the shell
+  # non-fatal; the canonical remote id needs the codec.
+  d=$_pcwd
+  while [ -n "$d" ]; do
+    if [ -e "$d/.git" ]; then
+      printf '%s\n' "$(basename "$d")"
+      return 0
+    fi
+    [ "$d" = "/" ] && break
+    d=$(dirname "$d")
+  done
+
+  printf '%s\n' "_default"
 }
 
 # Per-repo dirs, all resolved at call time via phantom_detect_repo.
-phantom_repo_dir() {
-  _repo=$(phantom_detect_repo) || return $?
-  printf '%s\n' "$PHANTOM_DATA/repos/$_repo"
-}
+phantom_repo_dir()      { printf '%s\n' "$PHANTOM_DATA/repos/$(phantom_detect_repo)"; }
 
-# Current learnings always use the canonical repository id. Historical state is
-# consolidated only by explicit offline migration commands.
+# Alias-aware learnings dir, mirroring resolveRepoSubdir() in phantom-paths.js:
+# canonical wins when populated, else the first populated aliased dir, else the
+# canonical path (so a first WRITE still has a stable target). The command layer
+# reaches this dir by shelling out (commands/pause.md -> `phantom-learning.mjs
+# capture --learnings <dir>`) and cannot require() the JS resolver, so without this
+# the command layer would WRITE into the empty canonical dir while JS READS the
+# aliased one - splitting the knowledge across two directories. Delegates through
+# `node -e` exactly like phantom_detect_repo above (the JS side owns the alias-key
+# shape check, so no path is ever built from a map key here). Never errors and never
+# prints empty: any failure falls back to the canonical join.
 phantom_learnings_dir() {
-  _lrepo=$(phantom_detect_repo) || return $?
-  printf '%s\n' "$PHANTOM_DATA/repos/$_lrepo/learnings"
-}
-
-phantom_sessions_dir() {
-  _repo_dir=$(phantom_repo_dir) || return $?
-  printf '%s\n' "$_repo_dir/sessions"
-}
-
-phantom_task_segment() {
-  _codec="$PHANTOM_PLUGIN_ROOT/skills/phantom/scripts/lib/shared-state.cjs"
-  if command -v node >/dev/null 2>&1 && [ -f "$_codec" ]; then
-    node -e 'const c=require(process.argv[1]);process.stdout.write(c.taskPathSegment(process.argv[2]));' "$_codec" "$1"
-    return $?
+  _lrepo=$(phantom_detect_repo)
+  _lcanonical="$PHANTOM_DATA/repos/$_lrepo/learnings"
+  _lpaths="$PHANTOM_PLUGIN_ROOT/scripts/lib/phantom-paths.js"
+  if command -v node >/dev/null 2>&1 && [ -f "$_lpaths" ]; then
+    _ldir=$(node -e 'const p=require(process.argv[1]);process.stdout.write(String(p.resolveRepoSubdir(process.argv[2],"learnings")));' "$_lpaths" "$_lrepo" 2>/dev/null)
+    if [ -n "$_ldir" ]; then
+      printf '%s\n' "$_ldir"
+      return 0
+    fi
   fi
-  printf '%s\n' 'Phantom task identity requires Node and the bundled codec.' >&2
-  return 2
+  printf '%s\n' "$_lcanonical"
 }
 
-phantom_runs_dir() {
-  _task_segment=$(phantom_task_segment "$1") || return $?
-  _sessions_dir=$(phantom_sessions_dir) || return $?
-  printf '%s\n' "$_sessions_dir/$_task_segment/runs"
-}
-phantom_run_dir() {
-  _runs_dir=$(phantom_runs_dir "$1") || return $?
-  printf '%s\n' "$_runs_dir/$2"
-}
-
-phantom_current_run_pointer() {
-  _runs_dir=$(phantom_runs_dir "$1") || return $?
-  printf '%s\n' "$_runs_dir/current"
-}
+phantom_sessions_dir()  { printf '%s\n' "$(phantom_repo_dir)/sessions"; }
+phantom_runs_dir()         { printf '%s\n' "$(phantom_sessions_dir)/$1/runs"; }
+phantom_run_dir()          { printf '%s\n' "$(phantom_runs_dir "$1")/$2"; }
+phantom_current_run_pointer() { printf '%s\n' "$(phantom_runs_dir "$1")/current"; }

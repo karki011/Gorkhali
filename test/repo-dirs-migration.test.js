@@ -3,7 +3,7 @@
 // builds real temp trees, runs the migration for effect, and asserts the
 // resulting filesystem + report. Covers one orphan per signal class (PR,
 // gitHead, session-id) plus a collision and an unresolvable, empties pruning,
-// idempotency/force, append-only learnings merge, and the explicit-only boundary.
+// idempotency/force, append-only learnings merge, and the auto-run hook path.
 // Zero external deps: node:test + node:assert + node:fs + node:child_process.
 'use strict';
 
@@ -13,7 +13,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
 
 const SCRIPT = require.resolve('../scripts/migrate-repo-dirs.js');
 const MARKER_SCRIPT = require.resolve('../hooks/session-marker.js');
@@ -43,7 +42,6 @@ function buildWorld() {
   g(['add', '.']);
   g(['commit', '-q', '-m', 'init']);
   const betaSha = g(['rev-parse', 'HEAD']).stdout.trim();
-  const betaId = codec.repoId(beta, { dataRoot: DATA, phantomRepo: '' });
 
   // --- candidate: git repo (session-id signal target) ---
   const gamma = path.join(candParent, 'repo-gamma');
@@ -51,7 +49,6 @@ function buildWorld() {
   const gg = (args) => spawnSync('git', args, { cwd: gamma, encoding: 'utf8' });
   gg(['init', '-q']); gg(['config', 'user.email', 'a@b.c']); gg(['config', 'user.name', 'T']);
   write(path.join(gamma, 'f.txt'), 'x'); gg(['add', '.']); gg(['commit', '-q', '-m', 'i']);
-  const gammaId = codec.repoId(gamma, { dataRoot: DATA, phantomRepo: '' });
 
   // --- orphan (PR class) -> repo-alpha ---
   writeJson(path.join(reposRoot, 'br-pr', 'sessions', 'T1', 'wrap.json'),
@@ -97,7 +94,7 @@ function buildWorld() {
     PHANTOM_MIGRATE_SRC_PHANTOM: legacy,
     PHANTOM_MIGRATE_SRC_PHANTOM_DATA: legacy,
   };
-  return { root, DATA, reposRoot, env, betaSha, betaId, gammaId, SID };
+  return { root, DATA, reposRoot, env, betaSha, SID };
 }
 
 /** Run migrate-repo-dirs in a child process for env + module-cache isolation. */
@@ -133,8 +130,8 @@ test('dry-run mutates nothing but reports the full plan', () => {
     assert.equal(rep.mode, 'dry-run');
     const targets = Object.fromEntries(rep.resolved.map(r => [r.src, r.target]));
     assert.equal(targets['br-pr'], 'repo-alpha', 'PR signal');
-    assert.equal(targets['br-head'], w.betaId, 'gitHead signal');
-    assert.equal(targets['br-costs'], w.gammaId, 'session-id signal');
+    assert.equal(targets['br-head'], 'repo-beta', 'gitHead signal');
+    assert.equal(targets['br-costs'], 'repo-gamma', 'session-id signal');
     assert.equal(targets['br-collide'], 'repo-alpha', 'collision orphan resolved');
     assert.deepEqual(rep.unresolved.map(u => u.src), ['br-orphan'], 'only the signal-less orphan is unresolved');
     assert.ok(rep.canonical.some(c => c.src === 'repo-alpha'), 'canonical dir self-skips (not migrated)');
@@ -153,8 +150,8 @@ test('--apply resolves all signal classes, prunes empties, preserves bytes', () 
     assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr')), 'original name gone (renamed aside)');
 
     // gitHead + session orphans landed in their canonical dirs.
-    assert.ok(fs.existsSync(path.join(w.reposRoot, w.betaId, 'sessions', 'T2', 'wrap.json')));
-    assert.ok(fs.existsSync(path.join(w.reposRoot, w.gammaId, 'sessions', 'T3', 'costs.json')));
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'repo-beta', 'sessions', 'T2', 'wrap.json')));
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'repo-gamma', 'sessions', 'T3', 'costs.json')));
 
     // Empties pruned.
     assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-empty-1')));
@@ -369,14 +366,15 @@ test('an inherited PHANTOM_REPO override never collapses candidate resolution', 
   const prevOverride = process.env.PHANTOM_REPO;
   process.env.PHANTOM_REPO = 'evil-override';
   try {
-    // A shell-exported PHANTOM_REPO must not collapse candidate discovery.
+    // session-marker.js spawns the migrator inheriting process.env, so a
+    // shell-exported PHANTOM_REPO reaches the child exactly like this.
     runMigrate(w.env); // dry-run: candidates() resolves off two DISTINCT git checkouts
 
     const rep = latestReport(w.DATA, 'dry-run');
     const targets = Object.fromEntries(rep.resolved.map(r => [r.src, r.target]));
     // Each orphan must still land on its TRUE candidate repo, not the override.
-    assert.equal(targets['br-head'], w.betaId, 'gitHead signal unaffected by override');
-    assert.equal(targets['br-costs'], w.gammaId, 'session-id signal unaffected by override');
+    assert.equal(targets['br-head'], 'repo-beta', 'gitHead signal unaffected by override');
+    assert.equal(targets['br-costs'], 'repo-gamma', 'session-id signal unaffected by override');
     assert.notEqual(targets['br-head'], 'evil-override');
     assert.notEqual(targets['br-costs'], 'evil-override');
     // No plan merges anything into the override name — candidates never collapsed to one.
@@ -388,20 +386,39 @@ test('an inherited PHANTOM_REPO override never collapses candidate resolution', 
   }
 });
 
-test('session-marker never auto-applies the explicit repo-dir migrator', () => {
+test('auto-run hook (session-marker) is lock-aware, triggers exactly one migration, then self-gates', () => {
   const w = buildWorld();
   try {
     const env = { ...process.env, ...w.env, PHANTOM_MIGRATE_SYNC: '1' };
     const payload = JSON.stringify({ session_id: 'sess-1', cwd: w.reposRoot });
-    const result = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
-    assert.equal(result.status, 0, 'telemetry hook stays fail-open: ' + result.stderr);
-    assert.ok(!fs.existsSync(path.join(w.DATA, '.repo-dirs-migrated')), 'hook never writes the migration marker');
-    assert.ok(fs.existsSync(path.join(w.reposRoot, 'br-pr')), 'historical shard remains untouched');
-    assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'hook never consolidates data');
+
+    // Lock-awareness: while a data-root migration holds the migration-wide lock,
+    // the hook's sweep must NOT run (no marker, no consolidation).
+    const dmLock = path.join(w.DATA, 'locks', '.data-migration.lock');
+    write(dmLock, JSON.stringify({ pid: process.pid, token: 'live', created_at: new Date().toISOString() }) + '\n');
+    const rLocked = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
+    assert.equal(rLocked.status, 0, 'hook stays fail-open while locked out: ' + rLocked.stderr);
+    assert.ok(!fs.existsSync(path.join(w.DATA, '.repo-dirs-migrated')), 'no sweep while the migration-wide lock is held');
+    assert.ok(!fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'no consolidation while locked out');
+    fs.unlinkSync(dmLock);
+
+    const r1 = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
+    assert.equal(r1.status, 0, 'hook must exit 0: ' + r1.stderr);
+    assert.ok(fs.existsSync(path.join(w.DATA, '.repo-dirs-migrated')), 'hook ran the migration');
+    assert.ok(fs.existsSync(path.join(w.reposRoot, 'br-pr.migrated-away')), 'orphans consolidated via hook');
+
+    const applyReports = () => fs.readdirSync(path.join(w.DATA, 'audit'))
+      .filter(f => f.startsWith('repo-dirs-migration-apply-'));
+    assert.equal(applyReports().length, 1, 'exactly one apply run');
+
+    // Second prompt: marker present -> migrator must NOT run again.
+    const r2 = spawnSync(process.execPath, [MARKER_SCRIPT], { env, input: payload, encoding: 'utf8' });
+    assert.equal(r2.status, 0);
+    assert.equal(applyReports().length, 1, 'no second migration — marker self-gates');
   } finally { cleanup(w.root); }
 });
 
-test('a resolved target is canonicalized through the offline historical alias map', () => {
+test('a resolved target is canonicalized through the codec alias map', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdm-codec-'));
   const DATA = path.join(root, 'data');
   const reposRoot = path.join(DATA, 'repos');
@@ -410,7 +427,7 @@ test('a resolved target is canonicalized through the offline historical alias ma
   const legacy = path.join(root, 'legacy-absent');
   mkdirp(reposRoot); mkdirp(candParent); mkdirp(projects);
 
-  // Offline historical map: an earlier repo id maps to its canonical id.
+  // T1 codec alias map: a legacy repo id maps to its canonical id.
   writeJson(path.join(reposRoot, '.aliases.json'), { 'repo-legacy': 'repo-canonical' });
   // An orphan whose PR signal resolves to the PRE-alias legacy id.
   writeJson(path.join(reposRoot, 'br-x', 'sessions', 'T', 'wrap.json'),

@@ -5,7 +5,7 @@
 //
 // The read-modify-write of the shared learning files lives entirely in
 // skills/phantom/scripts/phantom-learning.mjs (the single write path shared with
-// portable workflows). That API takes the advisory
+// memory-consolidator.js and portable workflows). That API takes the advisory
 // lock and NEVER writes unlocked; if it cannot take the lock within its budget it
 // throws, and this hook drops the capture rather than clobbering a concurrent
 // writer. Dropping an occasional best-effort capture is acceptable; a torn or

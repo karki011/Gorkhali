@@ -47,6 +47,8 @@ const duplicateIds = (items, path, errors) => {
   return ids;
 };
 
+const hasAnyField = (value, fields) => fields.some((field) => value[field] !== undefined);
+
 const isWithin = (root, candidate) => {
   const offset = relative(root, candidate);
   return offset === '' || (!offset.startsWith(`..${sep}`) && offset !== '..' && !isAbsolute(offset));
@@ -149,18 +151,22 @@ const validateTaskPaths = (task, index, errors, workspace) => {
   });
 };
 
-const validateEvidence = (items, errors) => {
+const validateEvidence = (items, errors, { requireFreshness = false } = {}) => {
   const states = new Set(['verified', 'supported', 'inferred', 'unknown']);
   items.forEach((item, index) => {
     if (!isObject(item)) errors.push(`evidence[${index}]: required object`);
     else {
       requireTextFields(item, `evidence[${index}]`, ['claim', 'source'], errors);
       if (!states.has(item.status)) errors.push(`evidence[${index}].status: invalid evidence state`);
-      if (!isObservedAt(item.observed_at)) {
-        errors.push(`evidence[${index}].observed_at: required RFC 3339 timestamp with timezone`);
+      if (requireFreshness || item.observed_at !== undefined) {
+        if (!isObservedAt(item.observed_at)) {
+          errors.push(`evidence[${index}].observed_at: required RFC 3339 timestamp with timezone`);
+        }
       }
-      if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1) {
-        errors.push(`evidence[${index}].confidence: required number from 0 to 1`);
+      if (requireFreshness || item.confidence !== undefined) {
+        if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1) {
+          errors.push(`evidence[${index}].confidence: required number from 0 to 1`);
+        }
       }
       if (item.conflicts !== undefined) {
         requireTextArray(item.conflicts, `evidence[${index}].conflicts`, errors);
@@ -229,6 +235,25 @@ const validateDelegationVersion = (payload, errors, allowed) => {
   return true;
 };
 
+const validateDelegationResultV1 = (payload, errors) => {
+  requireTextFields(payload, 'result', ['task_id'], errors);
+  requireEnum(payload.status, 'result.status', ['ok', 'error'], errors);
+  if (payload.status === 'ok') {
+    if (!isObject(payload.output)) errors.push('result.output: required object when status is ok');
+    if (payload.error !== null) errors.push('result.error: must be null when status is ok');
+  }
+  if (payload.status === 'error') {
+    if (payload.output !== null) errors.push('result.output: must be null when status is error');
+    if (!isObject(payload.error)) errors.push('result.error: required object when status is error');
+    else {
+      requireTextFields(payload.error, 'result.error', ['code', 'message'], errors);
+      if (typeof payload.error.retryable !== 'boolean') {
+        errors.push('result.error.retryable: required boolean');
+      }
+    }
+  }
+};
+
 export function validateDelegationTaskContract(payload) {
   const errors = [];
   if (!validateDelegationVersion(payload, errors, [2])) return errors;
@@ -278,9 +303,13 @@ export function validateDelegationTaskContract(payload) {
   return errors;
 }
 
-export function validateDelegationResultContract(payload) {
+export function validateDelegationResultContract(payload, { allowVersion1 = false } = {}) {
   const errors = [];
-  if (!validateDelegationVersion(payload, errors, [2])) return errors;
+  if (!validateDelegationVersion(payload, errors, allowVersion1 ? [1, 2] : [2])) return errors;
+  if (payload.contract_version === 1) {
+    validateDelegationResultV1(payload, errors);
+    return errors;
+  }
 
   requireMaxBytes(payload, 'result', DELEGATION_RESULT_MAX_BYTES, errors);
   requireTextFields(payload, 'result', ['task_id', 'delegation_id'], errors);
@@ -379,13 +408,23 @@ const validateTaskGraph = (tasks, errors) => {
   return ids;
 };
 
-const validatePlan = (payload, errors, { workspace } = {}) => {
+const validatePlan = (
+  payload,
+  errors,
+  {
+    enforceCanonicalQuick = false,
+    enforceEvidenceFreshness = false,
+    enforcePathProvenance = false,
+    workspace,
+  } = {},
+) => {
   for (const key of ['decision', 'outcome', 'scope', 'validation']) {
     if (!isObject(payload[key])) errors.push(`${key}: required object`);
   }
   const depth = payload.depth;
+  const enriched = hasAnyField(payload, ['change_set', 'scenarios', 'coverage', 'readiness']);
   requireEnum(depth, 'depth', ['quick', 'standard', 'deep'], errors);
-  if (depth === 'quick') {
+  if (depth === 'quick' && enforceCanonicalQuick) {
     for (const field of ['solution_shape', 'change_set', 'readiness']) {
       if (payload[field] !== undefined) errors.push(`${field}: omit for quick plans`);
     }
@@ -415,20 +454,22 @@ const validatePlan = (payload, errors, { workspace } = {}) => {
     requireArray(payload.solution_shape.components, 'solution_shape.components', errors, true);
     requireArray(payload.solution_shape.dataFlow, 'solution_shape.dataFlow', errors, true);
   }
-  if (depth !== 'quick' && !isObject(payload.change_set)) errors.push('change_set: required object');
+  if (enriched && depth !== 'quick' && !isObject(payload.change_set)) errors.push('change_set: required object');
   if (isObject(payload.change_set)) {
     const changes = ['added', 'modified', 'removed', 'unchanged']
       .flatMap((field) => requireArray(payload.change_set[field], `change_set.${field}`, errors));
-    if (depth !== 'quick' && changes.length === 0) errors.push('change_set: at least one change is required');
+    if (enriched && depth !== 'quick' && changes.length === 0) errors.push('change_set: at least one change is required');
   }
-  const scenarios = requireArray(payload.scenarios, 'scenarios', errors, depth !== 'quick');
+  const scenarios = payload.scenarios === undefined && (!enriched || depth === 'quick')
+    ? []
+    : requireArray(payload.scenarios, 'scenarios', errors, enriched && depth !== 'quick');
   scenarios.forEach((scenario, index) => {
     if (!isObject(scenario)) errors.push(`scenarios[${index}]: required object`);
     else requireTextFields(scenario, `scenarios[${index}]`, ['id', 'given', 'when', 'then'], errors);
   });
   const scenarioIds = duplicateIds(scenarios, 'scenarios', errors);
   const evidence = requireArray(payload.evidence, 'evidence', errors, true);
-  validateEvidence(evidence, errors);
+  validateEvidence(evidence, errors, { requireFreshness: enforceEvidenceFreshness });
   const alternatives = requireArray(payload.alternatives, 'alternatives', errors);
   if (depth !== 'quick' && alternatives.length === 0) errors.push('alternatives: required non-empty array');
   requireArray(payload.assumptions, 'assumptions', errors);
@@ -446,11 +487,11 @@ const validatePlan = (payload, errors, { workspace } = {}) => {
       requireTextFields(task, `tasks[${index}]`, ['id', 'description', 'action', 'verify'], errors);
       requireArray(task.read_first, `tasks[${index}].read_first`, errors, true);
       requireArray(task.files, `tasks[${index}].files`, errors, true);
-      validateTaskPaths(task, index, errors, workspace);
+      if (enforcePathProvenance) validateTaskPaths(task, index, errors, workspace);
       requireArray(task.acceptance_criteria, `tasks[${index}].acceptance_criteria`, errors, true);
       for (const field of ['consumes', 'produces']) {
-        if (task[field] !== undefined || depth !== 'quick') {
-          requireArray(task[field], `tasks[${index}].${field}`, errors, depth !== 'quick');
+        if (task[field] !== undefined || (enriched && depth !== 'quick')) {
+          requireArray(task[field], `tasks[${index}].${field}`, errors, enriched && depth !== 'quick');
         }
       }
       if (task.dependsOn !== undefined && !Array.isArray(task.dependsOn)) {
@@ -472,7 +513,9 @@ const validatePlan = (payload, errors, { workspace } = {}) => {
     }
   });
   const taskIds = validateTaskGraph(tasks, errors);
-  const coverage = requireArray(payload.coverage, 'coverage', errors, depth !== 'quick');
+  const coverage = payload.coverage === undefined && (!enriched || depth === 'quick')
+    ? []
+    : requireArray(payload.coverage, 'coverage', errors, enriched && depth !== 'quick');
   const coveredTasks = new Set();
   coverage.forEach((item, index) => {
     if (!isObject(item)) {
@@ -491,10 +534,10 @@ const validatePlan = (payload, errors, { workspace } = {}) => {
       else coveredTasks.add(id);
     });
   });
-  if (depth !== 'quick') {
+  if (enriched && depth !== 'quick') {
     for (const id of taskIds) if (!coveredTasks.has(id)) errors.push(`coverage: task "${id}" is not covered`);
   }
-  if (depth !== 'quick' && !isObject(payload.readiness)) errors.push('readiness: required object');
+  if (enriched && depth !== 'quick' && !isObject(payload.readiness)) errors.push('readiness: required object');
   if (isObject(payload.readiness)) {
     requireEnum(payload.readiness.verdict, 'readiness.verdict', ['READY', 'CONCERNS', 'BLOCKED'], errors);
     requireArray(payload.readiness.reasons, 'readiness.reasons', errors, true);
@@ -502,28 +545,33 @@ const validatePlan = (payload, errors, { workspace } = {}) => {
   }
 };
 
-const validateBrainstorm = (payload, errors) => {
+const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false } = {}) => {
+  const enriched = hasAnyField(payload, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
   const depth = payload.depth;
   const phase = payload.phase;
   const phases = ['frame', 'diverge', 'cluster', 'converge', 'decision'];
   const phaseAtLeast = (target) => phases.includes(phase) && phases.indexOf(phase) >= phases.indexOf(target);
-  requireEnum(depth, 'depth', ['quick', 'standard', 'deep'], errors);
-  if (!isObject(payload.stance)) errors.push('stance: required object');
-  else {
-    requireEnum(payload.stance.mode, 'stance.mode', ['facilitator', 'creative-partner', 'generate-for-me'], errors);
-    requireTextFields(payload.stance, 'stance', ['reason'], errors);
+  if (enriched) {
+    requireEnum(depth, 'depth', ['quick', 'standard', 'deep'], errors);
+    if (!isObject(payload.stance)) errors.push('stance: required object');
+    else {
+      requireEnum(payload.stance.mode, 'stance.mode', ['facilitator', 'creative-partner', 'generate-for-me'], errors);
+      requireTextFields(payload.stance, 'stance', ['reason'], errors);
+    }
+    requireEnum(phase, 'phase', phases, errors);
   }
-  requireEnum(phase, 'phase', phases, errors);
   if (!isObject(payload.decision)) errors.push('decision: required object');
   else {
     requireTextFields(payload.decision, 'decision', ['question', 'outcome'], errors);
     requireArray(payload.decision.constraints, 'decision.constraints', errors);
-    requireArray(payload.decision.audience, 'decision.audience', errors, true);
-    requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
+    if (enriched) {
+      requireArray(payload.decision.audience, 'decision.audience', errors, true);
+      requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
+    }
     requireArray(payload.decision.evaluationCriteria, 'decision.evaluationCriteria', errors, true);
   }
   const evidence = requireArray(payload.evidence, 'evidence', errors, true);
-  validateEvidence(evidence, errors);
+  validateEvidence(evidence, errors, { requireFreshness: enforceEvidenceFreshness });
   requireArray(payload.openQuestions, 'openQuestions', errors);
   const ideas = payload.ideas === undefined && !phaseAtLeast('diverge')
     ? []
@@ -558,7 +606,7 @@ const validateBrainstorm = (payload, errors) => {
   if (phaseAtLeast('cluster') && depth !== 'quick') {
     for (const id of ideaIds) if (!clusteredIdeas.has(id)) errors.push(`clusters: idea "${id}" is not connected`);
   }
-  const approachesRequired = phaseAtLeast('converge');
+  const approachesRequired = !enriched || phaseAtLeast('converge');
   const approaches = payload.approaches === undefined && !approachesRequired
     ? []
     : requireArray(payload.approaches, 'approaches', errors, approachesRequired);
@@ -587,7 +635,7 @@ const validateBrainstorm = (payload, errors) => {
     if (isText(approach.id)) ids.push(approach.id);
   });
   if (new Set(ids).size !== ids.length) errors.push('approaches[].id: duplicate approach id');
-  if (ideas.length < approaches.length) {
+  if (enriched && ideas.length < approaches.length) {
     errors.push('ideas: divergence must contain at least as many ideas as shortlisted approaches');
   }
   approaches.forEach((approach, index) => {
@@ -600,13 +648,13 @@ const validateBrainstorm = (payload, errors) => {
       }
     }
   });
-  const decisionStage = phase === 'decision';
+  const decisionStage = !enriched || phase === 'decision';
   if (decisionStage && !isObject(payload.recommendedDefault)) errors.push('recommendedDefault: required object');
   if (isObject(payload.recommendedDefault)) {
     requireTextFields(payload.recommendedDefault, 'recommendedDefault', ['id', 'reason'], errors);
     if (!ids.includes(payload.recommendedDefault.id)) errors.push('recommendedDefault.id: unknown approach id');
   }
-  const shortlistRequired = phaseAtLeast('converge');
+  const shortlistRequired = enriched && phaseAtLeast('converge');
   const shortlist = payload.shortlist === undefined && !shortlistRequired
     ? []
     : requireArray(payload.shortlist, 'shortlist', errors, shortlistRequired);
@@ -650,15 +698,21 @@ const validateBrainstorm = (payload, errors) => {
 export function validateDecisionContract(
   type,
   payload,
-  { workspace } = {},
+  {
+    requireV3 = false,
+    enforceCanonicalQuick = false,
+    enforceEvidenceFreshness = false,
+    enforcePathProvenance = false,
+    workspace,
+  } = {},
 ) {
   const errors = [];
   if (!isObject(payload)) {
-    errors.push('payload: required object');
+    if (requireV3) errors.push('payload: required object');
     return errors;
   }
   if (payload.contract_version === undefined) {
-    errors.push('contract_version: required and must be 3');
+    if (requireV3) errors.push('contract_version: required and must be 3');
     return errors;
   }
   if (payload.contract_version !== 3) {
@@ -670,8 +724,13 @@ export function validateDecisionContract(
     return errors;
   }
   if (type === 'plan') {
-    validatePlan(payload, errors, { workspace });
+    validatePlan(payload, errors, {
+      enforceCanonicalQuick,
+      enforceEvidenceFreshness,
+      enforcePathProvenance,
+      workspace,
+    });
   }
-  else validateBrainstorm(payload, errors);
+  else validateBrainstorm(payload, errors, { enforceEvidenceFreshness });
   return errors;
 }

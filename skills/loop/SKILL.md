@@ -1,12 +1,7 @@
 ---
 name: loop
-description: Run one read-only Mission Control triage pass over ready work and propose bounded next actions. Any implementation, ticket change, or remote mutation requires separate authorization.
+description: Run one Mission Control pass over ready Jira tickets, triaging and dispatching solid work or planning ambiguous work; supports read-only status checks.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `loop` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/loop.md`.
 
-Portable action: `loop`.
-
-Treat invocation text as action input. Inspect available work, classify route
-and readiness, and return a bounded proposal. Do not implement, assign,
-transition, comment, or otherwise mutate external work without a separately
-authorized workflow and capability request.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

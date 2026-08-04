@@ -11,8 +11,8 @@
 //                           ticket reference (e.g. "(CP-43187)"). Traceless
 //                           entries produce ZERO cards.
 //   3  transcript MANIFEST only — maps ticket -> transcript JSONL paths WITHOUT
-//      reading transcript content. Distillation is a separate bounded workflow
-//      pass driven from the manifest.
+//      reading transcript content. Distillation is a separate bounded-parallel
+//      Blade pass driven off the manifest (see commands/evolve.md --backfill).
 //
 // CLI:
 //   node scripts/brain-backfill.js [--repo <name>] [--tiers 1,2] [--apply]

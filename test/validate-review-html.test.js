@@ -9,9 +9,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const SCRIPT = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'validate-review-html.mjs');
-const BRAINSTORM_SKILL = path.join(__dirname, '..', 'skills', 'brainstorm', 'SKILL.md');
-const BUNDLE_VERSION = require('../skills/phantom/manifest.json').bundle_version;
-const TIMESTAMP = '2026-07-31T12:00:00.000Z';
+const BRAINSTORM_COMMAND = path.join(__dirname, '..', 'commands', 'brainstorm.md');
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
 
@@ -28,26 +26,6 @@ const brainstorm = () => ({
   approaches: [{ id: 'direct-html', name: 'Direct AI HTML' }],
   recommendedDefault: { id: 'direct-html', reason: 'It removes the renderer layer.' },
   directionGate: { question: 'Choose the direct HTML approach?' },
-});
-
-const stateEnvelope = (type, evidence) => ({
-  schema_version: 2,
-  artifact_type: type,
-  repo_id: 'review-html-repo',
-  task_id: 'REVIEW-HTML-1',
-  status: 'passed',
-  created_at: TIMESTAMP,
-  updated_at: TIMESTAMP,
-  producer: { role: 'apex', compute_profile: 'frontier' },
-  bundle_version: BUNDLE_VERSION,
-  record_sequence: 1,
-  model_routing: {
-    requested_profile: 'frontier',
-    actual_profile: null,
-    fallback_reason: null,
-    outcome: 'passed',
-  },
-  evidence,
 });
 
 const page = (content, extraHead = '') => `<!doctype html>
@@ -84,69 +62,10 @@ test('accepts a valid brainstorm candidate', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
-test('accepts an explicitly raw decision payload with its own evidence field', () => {
-  const source = { ...plan(), evidence: [{ source: 'focused-test' }] };
-  const result = run(fixtureDir(), 'plan', source, planPage());
-  assert.equal(result.status, 0, result.stderr);
-});
-
 test('accepts a canonical payload inside a portable state envelope', () => {
-  const source = stateEnvelope('plan', plan());
+  const source = { schema_version: 1, artifact_type: 'plan', evidence: plan() };
   const result = run(fixtureDir(), 'plan', source, planPage());
   assert.equal(result.status, 0, result.stderr);
-});
-
-test('rejects a retired v1 portable state envelope without falling back to its evidence', () => {
-  const dir = fixtureDir();
-  const source = stateEnvelope('plan', plan());
-  source.schema_version = 1;
-  const result = run(dir, 'plan', source, planPage());
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /source envelope plan\.json schema_version must be 2/);
-  assert.equal(fs.existsSync(result.outputPath), false);
-});
-
-test('rejects normalized artifacts missing any required outer envelope field', () => {
-  for (const field of [
-    'schema_version', 'artifact_type', 'repo_id', 'task_id', 'status', 'created_at', 'updated_at',
-    'producer', 'bundle_version', 'record_sequence', 'model_routing', 'evidence',
-  ]) {
-    const source = stateEnvelope('plan', plan());
-    delete source[field];
-    const result = run(fixtureDir(), 'plan', source, planPage());
-    assert.equal(result.status, 1, `${field} should be required`);
-    assert.match(result.stderr, new RegExp(`${field} is required`));
-  }
-});
-
-test('rejects malformed governed envelope identity, time, bundle, producer, and routing values', () => {
-  for (const [name, mutate, expected] of [
-    ['artifact type', (source) => { source.artifact_type = 'brainstorm'; }, /artifact_type must be plan/],
-    ['repo id', (source) => { source.repo_id = ''; }, /repo_id must be a non-empty string/],
-    ['task id', (source) => { source.task_id = ''; }, /task_id must be a non-empty string/],
-    ['timestamp', (source) => { source.created_at = 'yesterday'; }, /created_at must be an ISO timestamp/],
-    [
-      'bundle',
-      (source) => { source.bundle_version = '03.0.0'; },
-      /bundle_version must be a strict core SemVer x\.y\.z string/,
-    ],
-    ['producer', (source) => { source.producer.runtime = 'legacy'; }, /producer\.runtime is unsupported/],
-    ['routing', (source) => { source.model_routing.runtime = 'legacy'; }, /model_routing\.runtime is unsupported/],
-  ]) {
-    const source = stateEnvelope('plan', plan());
-    mutate(source);
-    const result = run(fixtureDir(), 'plan', source, planPage());
-    assert.equal(result.status, 1, `${name} should be canonical`);
-    assert.match(result.stderr, expected);
-  }
-});
-
-test('rejects unknown legacy_payload outside normalized artifact evidence', () => {
-  const source = stateEnvelope('plan', plan());
-  source.legacy_payload = { schema_version: 1 };
-  const result = run(fixtureDir(), 'plan', source, planPage());
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /legacy_payload is unsupported/);
 });
 
 test('accepts policy-equivalent CSP meta attribute order, quotes, and extra attributes', () => {
@@ -193,11 +112,11 @@ test('rejects canonical decision text hidden inside a quoted main attribute', ()
   assert.match(result.stderr, /missing canonical review text/);
 });
 
-test('brainstorm entrypoint delegates artifact placement to the portable contract', () => {
-  const skill = fs.readFileSync(BRAINSTORM_SKILL, 'utf8');
-  assert.match(skill, /Portable action: `brainstorm`/);
-  assert.match(skill, /canonical brainstorming decision artifact/);
-  assert.doesNotMatch(skill, /commands\/|codex-support|TEAM_DIR/);
+test('keeps brainstorm candidate and accepted HTML inside the ticket session directory', () => {
+  const command = fs.readFileSync(BRAINSTORM_COMMAND, 'utf8');
+  assert.match(command, /--candidate \{TEAM_DIR\}\/sessions\/\{TICKET\}\/brainstorm\.candidate\.html/);
+  assert.match(command, /--out \{TEAM_DIR\}\/sessions\/\{TICKET\}\/brainstorm\.html/);
+  assert.doesNotMatch(command, /<(?:brainstorm\.candidate|brainstorm)\.html>/);
 });
 
 test('requires static document structure and canonical review text', () => {

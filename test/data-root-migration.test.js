@@ -28,7 +28,6 @@ const SCRIPT = require.resolve('../scripts/migrate-data.js');
 const LEARNING = require.resolve('../skills/phantom/scripts/phantom-learning.mjs');
 const STATE = require.resolve('../skills/phantom/scripts/phantom-state.mjs');
 const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const historicalAliases = require('../scripts/lib/historical-repo-aliases');
 const HAS_GIT = (() => {
   try { require('child_process').execSync('git --version', { stdio: 'ignore' }); return true; } catch (_) { return false; }
 })();
@@ -300,8 +299,8 @@ test('the migrator SEEDS aliases from the live workspace and collapses a legacy 
     assert.match(canonicalId, /^seeded-repo-[0-9a-f]{10}$/, 'remote-backed canonical id');
     const legacyPlain = 'seeded-repo';
 
-    // A source dir under the historical plain id. Normal runtime does not seed the
-    // offline migration map.
+    // A source dir under the LEGACY plain id (an alias of the canonical id). No
+    // session ran after the codec upgrade, so nothing has seeded the alias map yet.
     writeJson(path.join(src, 'repos', legacyPlain, 'sessions', 'S', 'wrap.json'), { legacy: true });
 
     const env = {
@@ -315,7 +314,7 @@ test('the migrator SEEDS aliases from the live workspace and collapses a legacy 
     };
     delete env.PHANTOM_REPO;
 
-    // Run from the repo workspace so the explicit migrator can derive its historical ids.
+    // Run FROM the repo workspace so apply seeds the alias map from its identity.
     const dry = spawnSync(process.execPath, [SCRIPT], { cwd: repo, env, encoding: 'utf8' });
     assert.equal(dry.status, 0, dry.stderr);
     const manifest = saveManifest(root, JSON.parse(dry.stdout));
@@ -336,7 +335,7 @@ test('the migrator SEEDS aliases from the live workspace and collapses a legacy 
   }
 });
 
-test('the migrator collapses a v1 no-remote basename onto the hashed canonical-root id', { skip: !HAS_GIT }, () => {
+test('the migrator collapses a legacy NO-REMOTE path-derived id onto the codec bare-basename id', { skip: !HAS_GIT }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-nore-'));
   const DEST = path.join(root, 'phantom');
   const src = path.join(root, 'legacy-src');
@@ -347,21 +346,16 @@ test('the migrator collapses a v1 no-remote basename onto the hashed canonical-r
 
     const identity = codec.repoIdentity(repo, { dataRoot: DEST });
     const newId = identity.id;
-    assert.equal(
-      newId,
-      `${codec.sanitizeName(path.basename(repo))}-${codec.shortHash(repo)}`,
-      'the no-remote id hashes the canonical main root',
-    );
-    const legacyId = path.basename(repo);
-    assert.deepEqual(
-      historicalAliases.aliasesForIdentity(identity),
-      [legacyId],
-      'offline mapper derives the v1 bare-basename id',
-    );
+    assert.equal(newId, path.basename(repo), 'the no-remote id is the bare main-root basename');
+    // The pre-codec resolver hashed the realpath'd main root and prefixed the
+    // sanitized, lowercased basename; the codec must record THAT exact id as the
+    // sole alias so pre-upgrade state under it stays discoverable.
+    const legacyId = `${codec.sanitizeName(path.basename(repo))}-${codec.shortHash(repo)}`;
+    assert.deepEqual(identity.aliases, [legacyId], 'old path-derived id is the sole alias');
     assert.notEqual(legacyId, newId);
 
-    // Pre-existing state lives under the old path-derived id; normal runtime has
-    // not touched the offline migration map.
+    // Pre-existing state lives under the OLD path-derived id; nothing has seeded the
+    // alias map yet (no session ran after the codec upgrade).
     writeJson(path.join(src, 'repos', legacyId, 'sessions', 'S', 'wrap.json'), { legacy: true });
 
     const env = {
@@ -375,7 +369,7 @@ test('the migrator collapses a v1 no-remote basename onto the hashed canonical-r
     };
     delete env.PHANTOM_REPO;
 
-    // Run from the no-remote workspace so the explicit migrator can derive its historical id.
+    // Run FROM the no-remote workspace so apply seeds the alias map from its identity.
     const dry = spawnSync(process.execPath, [SCRIPT], { cwd: repo, env, encoding: 'utf8' });
     assert.equal(dry.status, 0, dry.stderr);
     const manifest = saveManifest(root, JSON.parse(dry.stdout));
@@ -405,18 +399,18 @@ test('a plain alias shared by two repos flips to AMBIGUOUS and the migrator leav
     // alias; the SECOND must not silently last-write-win it.
     const canonA = hashedId('shared-repo', 'github.com/OwnerA/shared-repo');
     const canonB = hashedId('shared-repo', 'github.com/OwnerB/shared-repo');
-    historicalAliases.recordAliases(DEST, { id: canonA, aliases: ['shared-repo'] });
-    assert.equal(historicalAliases.resolveCanonical(DEST, 'shared-repo'), canonA, 'first mapping claims the plain alias');
-    historicalAliases.recordAliases(DEST, { id: canonB, aliases: ['shared-repo'] });
+    codec.recordAliases(DEST, { id: canonA, aliases: ['shared-repo'] });
+    assert.equal(codec.resolveCanonical(DEST, 'shared-repo'), canonA, 'first detection claims the plain alias');
+    codec.recordAliases(DEST, { id: canonB, aliases: ['shared-repo'] });
 
     // The plain alias is now ambiguous: resolveCanonical passes it through unchanged
     // and isAmbiguousAlias reports it -- it belongs to NEITHER repo now.
-    assert.equal(historicalAliases.resolveCanonical(DEST, 'shared-repo'), 'shared-repo', 'ambiguous alias no longer collapses');
-    assert.equal(historicalAliases.isAmbiguousAlias(DEST, 'shared-repo'), true, 'alias marked ambiguous');
+    assert.equal(codec.resolveCanonical(DEST, 'shared-repo'), 'shared-repo', 'ambiguous alias no longer collapses');
+    assert.equal(codec.isAmbiguousAlias(DEST, 'shared-repo'), true, 'alias marked ambiguous');
     // A later re-detection of A must never resurrect the mapping.
-    historicalAliases.recordAliases(DEST, { id: canonA, aliases: ['shared-repo'] });
-    assert.equal(historicalAliases.isAmbiguousAlias(DEST, 'shared-repo'), true, 'ambiguity is permanent');
-    assert.equal(historicalAliases.resolveCanonical(DEST, 'shared-repo'), 'shared-repo', 're-detection never un-ambiguates');
+    codec.recordAliases(DEST, { id: canonA, aliases: ['shared-repo'] });
+    assert.equal(codec.isAmbiguousAlias(DEST, 'shared-repo'), true, 'ambiguity is permanent');
+    assert.equal(codec.resolveCanonical(DEST, 'shared-repo'), 'shared-repo', 're-detection never un-ambiguates');
 
     // Legacy state under the shared plain dir: the migrator must import it under
     // NEITHER repo -- it classifies the dir unresolved (an explicit --map required).
@@ -726,15 +720,12 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     ]);
     const legacyPointer = path.join(w.phantomData, 'state', 'current-session', `${started.repo_id}.json`);
     // Invalid pointers that must each be classified skipped-live-state, never copied:
-    // a legacy-hook schema, a retired portable-v1 schema, an unknown schema,
-    // and an unsafe-segment portable-v2.
+    // a legacy-hook schema, an unknown schema, and an unsafe-segment portable-v1.
     writeJson(path.join(w.phantom, 'state', 'current-session', 'legacy.json'),
       { session_id: 'old-session', cwd: w.root, ticket: 'OLD-1' });
-    writeJson(path.join(w.phantom, 'state', 'current-session', 'portable-v1.json'),
-      { schema_version: 1, repo_id: 'portable-v1', task_id: 'OLD-1' });
     writeJson(path.join(w.phantom, 'state', 'current-session', 'unknown.json'), { arbitrary: 'marker' });
     writeJson(path.join(w.team, 'state', 'current-session', 'repo.json'),
-      { schema_version: 2, repo_id: 'repo', task_id: '..' });
+      { schema_version: 1, repo_id: 'repo', task_id: '..' });
 
     const res = apply(w.env, saveManifest(w.root, dryRun(w.env)));
     assert.equal(res.status, 0, res.stderr);
@@ -742,7 +733,6 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     // Reconstructed pointer lands at the canonical root, remapped to the dest dir.
     const destPointer = path.join(w.DEST, 'state', 'current-session', `${started.repo_id}.json`);
     const pointer = JSON.parse(fs.readFileSync(destPointer, 'utf8'));
-    assert.equal(pointer.schema_version, 2);
     assert.equal(pointer.task_id, 'MIG-1');
     assert.equal(pointer.session_dir, path.join(w.DEST, 'repos', started.repo_id, 'sessions', 'MIG-1'));
 
@@ -753,12 +743,10 @@ test('valid current-session pointers are reconstructed to the canonical root; in
 
     // Every invalid pointer is classified skipped-live-state and never copied.
     assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'legacy.json')));
-    assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'portable-v1.json')));
     assert.ok(!fs.existsSync(path.join(w.DEST, 'state', 'current-session', 'unknown.json')));
     const report = reportOf(res);
     const pointerReasons = report.items.filter((i) => i.kind === 'pointer').map((i) => i.reason || '');
     assert.ok(pointerReasons.some((r) => /unsupported-legacy-hook/.test(r)), 'legacy-hook pointer classified');
-    assert.ok(pointerReasons.some((r) => /unsupported-portable-v1/.test(r)), 'portable-v1 pointer classified');
     assert.ok(pointerReasons.some((r) => /unsupported-unknown/.test(r)), 'unknown-schema pointer classified');
     assert.ok(pointerReasons.some((r) => /unsafe-pointer-segment/.test(r)), 'unsafe-segment pointer classified');
     // The source pointer is preserved byte-for-byte.

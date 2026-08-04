@@ -1,24 +1,43 @@
-# Phantom workflow
+# Agents
 
-Use the portable Phantom skills under `skills/`. The public actions compile to
-one provider-neutral workflow contract; there is no separate command or agent
-prompt layer.
+Multi-agent shadows for this repository. Compatible with Claude Code, Cursor, Windsurf.
 
-## Responsibilities
+## Shadows
 
-Phantom may assign bounded role passes such as planning, implementation,
-verification, review, investigation, or visual inspection. Roles are
-responsibilities in the workflow graph, not checked-in agent definitions.
-Delegation is conditional: use it only when work is independently sizeable and
-parallelizable, and keep the active agent for work that fits in a handful of
-tool calls.
+| Agent | Role |
+|-------|------|
+| Apex | Orchestrator - plans, decomposes, coordinates, triages failures |
+| Blade | Implementation - infers specialization from task domain |
+| Ward | Verification - repo-aware lint/build/test |
+| Gaze | Quality gate - code review, scored 0-10 |
+| Sage | On-demand guidance for stuck agents (<100 words) |
+| Lens | Visual - Figma extraction + browser-based UI verification |
 
-Compute profiles are defined by
-`skills/phantom/references/model-policy.json` and resolved through
-`skills/phantom/references/model-presets.json`. Do not hard-code a provider
-model outside that controlled adapter registry.
+Model pins are GENERATED, not hand-maintained: `scripts/gen-agent-frontmatter.js`
+stamps each `agents/*.md` `model:` line from the role-to-profile mapping in
+`skills/phantom/references/model-policy.json`, resolved to a concrete model per
+host by `skills/phantom/references/model-presets.json`. A drift test fails CI
+if a pin is hand-edited out of sync with that policy. Do not hand-edit a pin or
+restate a concrete model name here - change the policy file instead.
+
+Only Apex inherits the session model (Opus 5 recommended); every other role
+pins a profile with an opus hard ceiling. Two roles pin the top tier
+deliberately, not as leftover aliases:
+- Gaze pins the top tier, now that Fable is retired from Phantom's routing. Do not "fix" this down to a cheaper profile.
+- Sage pins the top tier so escalations from a cheaper Blade always reach it. No plugin-source edits needed.
+
+## Workflow
+
+```
+Plan (Apex) → Challenge (Rival) → Build (Blade) → Verify (Ward) → Simplify → Review (Gaze)
+```
 
 ## Usage
 
-Invoke the installed `phantom:start` skill with a ticket or task description.
-Implementation and draft-PR shipping require separate authorization.
+```bash
+/phantom:start "ticket or description"
+```
+
+## Configuration
+
+See the installed plugin dir for the full skill system (self-resolve: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && echo "phantom: plugin dir not found - run /plugin to install"`).

@@ -5,17 +5,18 @@
 // not (no CLAUDE_SESSION_ID env), so this marker is how skill-driven scripts
 // (scripts/cost-link.js) bind a ticket to the session working on it.
 //
-// Writes <data>/state/session-telemetry/<repo>.json = { session_id, cwd, ts }.
+// Writes <data>/state/current-session/<repo>.json = { session_id, cwd, ts }.
 // Silent + never throws — must never break a prompt.
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { spawn, spawnSync } = require('child_process');
 
-let detectRepo, learningsDir, sessionTelemetryDir;
+let stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir;
 try {
-  ({ detectRepo, learningsDir, sessionTelemetryDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
   const base = process.cwd();
   const data = process.env.PHANTOM_DATA
@@ -23,23 +24,44 @@ try {
     : process.env.HOME
       ? path.resolve(base, process.env.HOME, '.phantom')
       : path.join(base, '.phantom');
-  detectRepo = () => {
-    const repo = String(process.env.PHANTOM_REPO || '_default').trim();
-    if (!/^[A-Za-z0-9_][A-Za-z0-9._-]{0,119}$/.test(repo) || repo === '.' || repo === '..') {
-      throw new TypeError('PHANTOM_REPO must be one safe path segment.');
-    }
-    return repo;
-  };
+  stateDir = () => path.join(data, 'state');
+  detectRepo = () => (process.env.PHANTOM_REPO || '_default');
+  phantomData = () => data;
   learningsDir = (repo) => path.join(data, 'repos', repo, 'learnings');
   sessionTelemetryDir = () => path.join(data, 'state', 'session-telemetry');
 }
 
-let atomicWrite, sweepStaleArtifacts;
+let sweepStaleArtifacts;
 try {
-  ({ atomicWrite, sweepStaleArtifacts } = require('../scripts/lib/atomic'));
+  ({ sweepStaleArtifacts } = require('../scripts/lib/atomic'));
 } catch (_) {
-  atomicWrite = null;
   sweepStaleArtifacts = () => 0; // atomic.js missing -> sweep is a no-op, never block the prompt
+}
+
+// Auto-run: consolidate branch-named orphan repo dirs into their canonical dirs.
+// This is idempotent, marker-gated, and safe to run every prompt.
+//
+// The cross-root DATA-ROOT migration (scripts/migrate-data.js) is deliberately NOT
+// auto-applied here: it is dry-run-FIRST and its apply is an explicitly gated,
+// operator-reviewed step (a prior dry-run manifest is required, and the real apply
+// is signed off separately). The prompt path never auto-mutates the accumulated
+// cross-root knowledge; it only runs the in-root repo-dirs sweep.
+function maybeSweepRepoDirs() {
+  try {
+    const dataRoot = phantomData();
+    const repoMarker = path.join(dataRoot, '.repo-dirs-migrated');
+    if (fs.existsSync(repoMarker)) return;
+    const script = path.join(__dirname, '..', 'scripts', 'migrate-repo-dirs.js');
+    if (!fs.existsSync(script)) return;
+    const args = [script, '--apply'];
+    if (process.env.PHANTOM_MIGRATE_SYNC) {
+      spawnSync(process.execPath, args, { stdio: 'ignore', timeout: 30000 });
+    } else {
+      const child = spawn(process.execPath, args, { stdio: 'ignore', detached: true });
+      child.on('error', () => {});
+      child.unref();
+    }
+  } catch (_) { /* silent - the sweep must never break a prompt */ }
 }
 
 function readPayload() {
@@ -59,8 +81,8 @@ function readPayload() {
 
 // First-prompt-of-session sweep: reclaim orphaned `*.lock.stale.<pid>.<nonce>`
 // takeover artifacts (scripts/lib/atomic.js sweepStaleArtifacts) from this repo's
-// learnings dir - the only path anything in this repo ever locks (memory-writer's
-// INDEX.md). Gated on the marker's PREVIOUS session_id so
+// learnings dir - the only path anything in this repo ever locks (memory-writer/
+// memory-consolidator's INDEX.md). Gated on the marker's PREVIOUS session_id so
 // it fires once per session, not once per prompt; best-effort, never blocks.
 function maybeSweepStaleLocks(markerFile, sessionId, repo) {
   try {
@@ -87,10 +109,13 @@ try {
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, repo + '.json');
     maybeSweepStaleLocks(file, sessionId, repo);
-    const content = JSON.stringify({ session_id: sessionId, cwd, ts: Date.now() });
-    if (!atomicWrite) throw new Error('atomic session marker writer is unavailable');
-    atomicWrite(file, content);
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ session_id: sessionId, cwd, ts: Date.now() }));
+    fs.renameSync(tmp, file);
   }
 } catch (_) { /* silent — never block the prompt */ }
+
+// Runs after the primary marker job so a sweep hiccup can never affect it.
+maybeSweepRepoDirs();
 
 process.exit(0);

@@ -2,10 +2,6 @@
 name: validate
 description: Retroactively audit a finished Phantom session for plan completeness and contract or requirements coverage; use for validating sessions, checking outputs against contracts, or confirming all requirements were covered, not for code review or test runs.
 ---
-Read `../phantom/SKILL.md` completely and apply its contracts directly.
+Apply `../../codex-support/codex-compatibility.md` for workflow `validate` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/validate.md`.
 
-Portable action: `validate`.
-
-Treat invocation text as action input. Rebuild the expected workflow state from
-recorded evidence, then report missing, contradictory, stale, or out-of-scope
-artifacts against the accepted contract. This action is read-only.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.

@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // seam-integration.test.js — THE regression test for the layout-reconciliation seam.
 //
-// The bug: workflow actions WRITE corrections into per-repo learnings
+// The bug: command-defs / agents WRITE corrections into per-repo learnings
 // (<data>/repos/<repo>/learnings/), but the memory-reader hook used to READ from
 // a FLAT <data>/learnings/ dir. The seam was open: failures recorded by one half
 // were invisible to the other. Wave 1+2 closed it by routing both halves through
@@ -19,7 +19,6 @@ const { execFileSync, execSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const HOOK = path.join(REPO_ROOT, 'hooks', 'memory-reader.js');
-const TIMING_HOOK = path.join(REPO_ROOT, 'hooks', 'timing-capture.js');
 const EVO_RUNNER = path.join(REPO_ROOT, 'scripts', 'evolution-runner.js');
 const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
 
@@ -28,7 +27,7 @@ const HAS_GIT = (() => {
 })();
 
 const REPO = 'testrepo';
-// A real CORRECTION line in the canonical learning grammar.
+// A real CORRECTION line, exactly the shape agents/command-defs write.
 const CORRECTION =
   'CORRECTION [branch-compare]: assumed origin — must fetch correct remote [failed]';
 
@@ -49,6 +48,20 @@ function runHook(env, payload) {
       stderr: (e.stderr || '').toString(),
     };
   }
+}
+
+function shellSnippetThrough(content, markerCommand) {
+  const snippet = [...content.matchAll(/`([^`\n]+)`/g)]
+    .map(match => match[1])
+    .find(candidate => candidate.includes(markerCommand));
+  if (!snippet) return null;
+  return snippet.slice(0, snippet.indexOf(markerCommand) + markerCommand.length);
+}
+
+function fencedShellSnippetContaining(content, markerCommand) {
+  return [...content.matchAll(/```(?:bash)?\n([\s\S]*?)```/g)]
+    .map(match => match[1])
+    .find(candidate => candidate.includes(markerCommand)) || null;
 }
 
 function seedRepoLearnings(dataDir, repo) {
@@ -190,57 +203,50 @@ test('evolution-runner: non-existent PHANTOM_DATA -> exit 0, no throw', () => {
   assert.equal(code, 0, `evolution-runner must fail open (exit 0). stderr: ${stderr}`);
 });
 
-test('timing capture records only an explicit tool model or session inheritance', () => {
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'seam-timing-'));
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: REPO };
-  const invoke = (payload) => execFileSync(process.execPath, [TIMING_HOOK, 'spawn'], {
-    input: JSON.stringify(payload),
-    env,
-    encoding: 'utf8',
-  });
-
-  try {
-    invoke({
-      session_id: 'session-explicit',
-      tool_use_id: 'tool-explicit',
-      tool_name: 'Agent',
-      tool_input: { subagent_type: 'phantom:blade', model: 'opus' },
-    });
-    invoke({
-      session_id: 'session-inherited',
-      tool_use_id: 'tool-inherited',
-      tool_name: 'Task',
-      tool_input: { subagent_type: 'phantom:ward' },
-    });
-
-    const records = fs.readFileSync(path.join(data, 'timing', `${REPO}.jsonl`), 'utf8')
-      .trim()
-      .split('\n')
-      .map(JSON.parse);
-    assert.deepEqual(
-      records.map(({ model, modelSource }) => ({ model, modelSource })),
-      [
-        { model: 'opus', modelSource: 'param' },
-        { model: 'inherited', modelSource: 'session' },
-      ],
-    );
-  } finally {
-    fs.rmSync(data, { recursive: true, force: true });
-  }
-});
-
-test('native plugin is zero-setup and retired runtime surfaces stay absent', () => {
-  for (const retiredPath of [
-    'agents/apex.md',
-    'codex-support/codex-compatibility.md',
-    'commands/start.md',
-    'setup.sh',
-    'install.sh',
-  ]) {
+test('native plugin is zero-setup and marker commands create their data root', () => {
+  for (const retiredPath of ['commands/setup.md', 'setup.sh', 'install.sh']) {
     assert.equal(
       fs.existsSync(path.join(REPO_ROOT, retiredPath)),
       false,
-      `${retiredPath} must not expose a retired runtime file`,
+      `${retiredPath} must stay retired; native plugin discovery replaces setup and symlinks`,
     );
+  }
+
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-zero-setup-'));
+  try {
+    for (const command of ['start.md', 'execute.md', 'fix.md', 'visual.md', 'recruit.md']) {
+      const content = fs.readFileSync(path.join(REPO_ROOT, 'commands', command), 'utf8');
+      const snippet = shellSnippetThrough(content, 'touch "$D/.blade-editing"');
+      assert.ok(snippet, `${command} must create PHANTOM_DATA before writing its blade marker`);
+
+      const dataRoot = path.join(sandbox, command);
+      execFileSync('/bin/sh', ['-c', snippet], {
+        env: { ...process.env, PHANTOM_DATA: dataRoot },
+      });
+      assert.equal(fs.existsSync(path.join(dataRoot, '.blade-editing')), true);
+    }
+
+    const start = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'start.md'), 'utf8');
+    const snippet = shellSnippetThrough(start, 'touch "$ROOT/.apex-active"');
+    assert.ok(snippet, 'start must create the state directory before activating a fresh session');
+
+    const dataRoot = path.join(sandbox, 'apex');
+    execFileSync('/bin/sh', ['-c', snippet], {
+      env: { ...process.env, PHANTOM_DATA: dataRoot },
+    });
+    assert.equal(fs.existsSync(path.join(dataRoot, '.apex-active')), true);
+    assert.equal(fs.statSync(path.join(dataRoot, 'state')).isDirectory(), true);
+
+    fs.writeFileSync(path.join(dataRoot, '.blade-editing'), '');
+    const wrap = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'wrap', 'evolution.md'), 'utf8');
+    const cleanup = fencedShellSnippetContaining(wrap, 'rm -f');
+    assert.ok(cleanup, 'wrap must define lifecycle marker cleanup');
+    execFileSync('/bin/sh', ['-c', cleanup], {
+      env: { ...process.env, PHANTOM_DATA: dataRoot },
+    });
+    assert.equal(fs.existsSync(path.join(dataRoot, '.apex-active')), false);
+    assert.equal(fs.existsSync(path.join(dataRoot, '.blade-editing')), false);
+  } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
   }
 });

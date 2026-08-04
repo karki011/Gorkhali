@@ -3,7 +3,7 @@
 // auto-captures. Dep-free apart from the domain taxonomy (scripts/lib/domains.js).
 //
 // WHY THIS MODULE EXISTS
-// Portable learning writers emit prose and the readers were private regexes
+// The writers are prose (commands/learn.md) and the readers were private regexes
 // (scripts/evolution-runner.js, hooks/memory-reader.js). The writer spec said the
 // separator inside a CORRECTION was an em dash; a standing no-em-dash convention then
 // rewrote every entry on disk to a plain ' - '. Both readers required the em dash, so
@@ -33,12 +33,6 @@
 // column-0 line ending in a date is ordinary prose (these files contain committed chat
 // preamble and commentary), and matching it would inflate the counts the lifecycle
 // arithmetic depends on.
-//
-// OPTIONAL PREDICATE: any shape above may carry a trailing check:`<shell command>`,
-// e.g. `PATTERN [kw]: body [validated:1] check:`gh api ... | grep -q x``. It is parsed
-// into `entry.predicate` and stripped from `content`/`text` - this module only parses
-// it. Whether/when it runs is entirely owned by scripts/evolution-runner.js, behind
-// two opt-in flags; nothing in this file, or on any read path, executes anything.
 
 'use strict';
 
@@ -57,28 +51,6 @@ const EM_DASH = '—';
 const EN_DASH = '–';
 // Any dash a writer might have used between the two halves of a correction.
 const DASH_CLASS = `[-${EN_DASH}${EM_DASH}]`;
-
-// check:`<shell command>` - an OPTIONAL machine-checkable predicate appended AFTER the
-// existing trailing tokens ([validated:N], q:, u:, dates). Backtick-delimited so the
-// command text cannot be confused with those tokens or with a following entry head.
-// This module only PARSES the clause - it never runs it. Execution, its two opt-in
-// flags and every security constraint live in scripts/evolution-runner.js.
-const CHECK_RE = /\s*check:`([^`]*)`/;
-
-/**
- * Split a `check:`...`` clause off a body/text string. Fail open on the one failure
- * mode this shape has: an opening backtick with no matching close. CHECK_RE requires
- * the closing backtick to match at all, so an unterminated clause simply does not
- * match - no half-parse, no throw, the string comes back byte-identical. An empty
- * command (`` check:`` `` ``) is treated the same as absent: a predicate with nothing
- * to run is not a predicate.
- */
-function extractPredicate(text) {
-  const s = String(text == null ? '' : text);
-  const m = s.match(CHECK_RE);
-  if (!m || !m[1]) return { text: s, predicate: null };
-  return { text: (s.slice(0, m.index) + s.slice(m.index + m[0].length)).trim(), predicate: m[1] };
-}
 
 const PREFIX_TYPES = { CORRECTION: 'correction', PATTERN: 'pattern', LEARNING: 'learning' };
 const PREFIXES = Object.keys(PREFIX_TYPES);
@@ -149,7 +121,7 @@ function matchEntryHead(line) {
   const prefixed = line.match(ENTRY_HEAD_RE);
   if (prefixed) {
     const type = PREFIX_TYPES[prefixed[1].toUpperCase()];
-    const { text: body, predicate } = extractPredicate(prefixed[3]);
+    const body = prefixed[3];
     const pair = body.match(CORRECTION_PAIR_RE);
     return {
       type,
@@ -158,28 +130,24 @@ function matchEntryHead(line) {
       content: body.trim(),
       wrong: pair ? pair[1].trim() : null,
       right: pair ? pair[2].trim() : null,
-      predicate,
     };
   }
 
   const tagged = line.match(TAGGED_BULLET_RE);
   if (tagged && LIFECYCLE_TAG_RE.test(tagged[1])) {
-    const { text: body, predicate } = extractPredicate(tagged[1]);
     return {
       type: /\[failed\]/i.test(tagged[1]) ? 'correction' : 'pattern',
       prefix: null,
       keyword: '',
-      content: body.trim(),
+      content: tagged[1].trim(),
       wrong: null,
       right: null,
-      predicate,
     };
   }
 
   const dated = line.match(DATED_BULLET_RE);
   if (dated) {
-    const { text: body, predicate } = extractPredicate(dated[1]);
-    return { type: 'entry', prefix: null, keyword: '', content: body.trim(), wrong: null, right: null, predicate };
+    return { type: 'entry', prefix: null, keyword: '', content: dated[1].trim(), wrong: null, right: null };
   }
 
   return null;
@@ -221,17 +189,9 @@ function parseLearningEntries(content, source = '') {
     }
 
     const raw = rawLines.join('\n');
-    // flat is built from the RAW lines, independent of head.content (which only ever
-    // covers the first line), so a check: clause is stripped here too - this is what
-    // actually keeps it out of `text` for both single-line entries and ones where the
-    // predicate lands on a wrapped continuation line. lifecycleOf runs on the STRIPPED
-    // flat, not the raw one, so a date-like or dash-like substring inside the shell
-    // command itself can never be mistaken for a lifecycle tag.
-    const flatRaw = rawLines.map((l) => l.trim()).join(' ').replace(/\*\*/g, '');
-    const { text: flat, predicate: flatPredicate } = extractPredicate(flatRaw);
+    const flat = rawLines.map((l) => l.trim()).join(' ').replace(/\*\*/g, '');
     entries.push({
       ...head,
-      predicate: head.predicate || flatPredicate,
       ...lifecycleOf(flat),
       section,
       source,
@@ -271,10 +231,6 @@ function isTemplatePlaceholder(text) {
  * a markdown table (`| Domain | `file.md` |`) and a bullet list (`- file.md - ...`
  * or `- [infra](infra.md) - ...`). The reader previously accepted the table only,
  * against a bullet-list INDEX, so no domain ever resolved.
- *
- * The bare bullet form is anchored to the position immediately after the bullet
- * marker so a `.md` token sitting in an entry's prose body is never mistaken for
- * the domain reference.
  */
 function parseIndexDomainFiles(indexContent) {
   const map = {};
@@ -304,7 +260,7 @@ function parseIndexDomainFiles(indexContent) {
       continue;
     }
 
-    const bare = line.match(new RegExp(`^\\s*[-*+]\\s+${FILENAME_RE}`));
+    const bare = line.match(new RegExp(FILENAME_RE));
     if (bare) put(bare[1].replace(/\.md$/, ''), bare[1]);
   }
 
@@ -336,7 +292,6 @@ module.exports = {
   parseIndexDomainFiles,
   parseAutoCaptures,
   matchEntryHead,
-  extractPredicate,
   lifecycleOf,
   lifecycleClass,
   isTemplatePlaceholder,

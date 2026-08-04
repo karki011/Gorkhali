@@ -1,4 +1,4 @@
-# Role contracts
+# Shadow role contracts
 
 Roles are behavioral passes. Use native delegation when available; otherwise
 perform them sequentially and label their outputs. The output contract remains
@@ -9,10 +9,10 @@ the same in either mode.
 | Apex | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
 | Blade | `balanced` | scoped | Implement one bounded assignment. Output files changed, checks run, risks, and unresolved items. |
 | Ward | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
-| Gaze | `balanced` | none | Perform independent quality review. Output complete findings by severity and a separate gate decision. |
+| Gaze | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
 | Sage | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
 | Lens | `balanced` | none | Inspect visual behavior. Output scenarios, evidence, differences, and unverified states. |
-| Archer | `balanced` | none | Review cross-file structure and integration. Output dependency risks and complete findings by severity. |
+| Archer | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
 | Rival | `balanced` | none | Challenge a proposed plan. Output missing assumptions, counterexamples, and verdict. |
 | Plan-checker | `balanced` | none | Validate scope, ordering, learnings, coverage, and blast radius before execution. |
 | Hound | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
@@ -24,10 +24,9 @@ the same in either mode.
 Apex decides automatically whether delegation adds value; the user does not
 need to choose workers, worker count, or models. Work directly when the task is
 small, single-pass, tightly coupled, dominated by shared writes, or cheaper to
-coordinate in one context. Delegate automatically when two or more sizeable,
-bounded workstreams are independent or a specialist must isolate genuinely
-noisy context. Do not delegate work that fits in a handful of tool calls, and
-do not create a worker only to verify or repeat the active agent's work.
+coordinate in one context. Delegate automatically when two or more bounded
+workstreams are independent, a specialist should isolate noisy context, or a
+fresh adversarial review materially improves confidence.
 
 Honor an explicit user instruction to require, limit, or disable delegation
 within repository safety, runtime permissions, and dependency constraints. When
@@ -99,12 +98,8 @@ Checks use `{ name, status, summary? }`, where status is `passed`, `failed`, or
 240 bytes. For `status: "error"`, `output` is `null` and `error` remains
 `{ code, message, retryable }`.
 
-`findings` contains every evidence-backed supported severity. The result must
-not discard lower-severity findings or conflate the complete finding record
-with the deterministic acceptance decision.
-
-Delegation tasks and results must both use version `2`; other versions fail
-validation.
+Version `1` tasks cannot be newly recorded. A version `1` result is accepted
+only to finish a matching version `1` task already recorded in the same run.
 
 The worker must return the selected rung and brief evidence when that choice
 materially shapes the implementation. Do not assume parent-session policy or
@@ -118,17 +113,12 @@ writes or unresolved producer-consumer edges. Apex waits for every required
 return, resolves conflicts against repository evidence and acceptance criteria,
 and produces one synthesized result.
 
-User-facing coordination stays sparse: announce the overall action once, then
-update only for a material finding, blocker, or direction change. Do not emit a
-separate narration line for every assignment or tool call.
-
 ## Sequential fallback
 
-When delegation is unavailable, the active agent performs only the role passes
-required by the compiled workflow. Reset an independent evaluator's objective,
-re-read the artifact under review, and avoid using implementation intent as
-evidence. Do not add a sequential pass solely because native delegation is
-missing.
+When delegation is unavailable, Apex performs each required role as a separate
+pass. Reset the pass objective, re-read the artifact under review, and avoid
+using implementation intent as evidence. A sequential Gaze pass must still
+search for defects independently rather than narrating the implementation.
 When structured output is unavailable, preserve the same task and result fields
 as labeled prose and validate them manually. Lack of a structured-output API
 must not disable the sequential workflow or discard its acceptance gate.

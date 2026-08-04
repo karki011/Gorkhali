@@ -1,19 +1,8 @@
 # AI-authored review HTML
 
-Author: Subash Karki
-
 `plan.html` and `brainstorm.html` are disposable review surfaces. The canonical
 JSON artifact remains the source of truth; neither HTML file is parsed back or
 manually patched.
-
-## Length calibration
-
-Generate HTML only for a route that has a human decision gate. A `direct` route
-does not receive a review page. For `plan`, target at most 64 KiB; for
-`brainstorm` and `full`, target at most 192 KiB. The validator's 512 KiB limit
-is a safety ceiling, not a content target. Omit empty sections, repeated
-summaries, boilerplate methodology, and information already clear in a compact
-table. Add depth only when it changes approval, scope, risk, or validation.
 
 ## Generate
 
