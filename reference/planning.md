@@ -24,7 +24,7 @@ Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 
 ## Rival (mandatory, every plan)
 
-Spawn sage agent (top tier via agent definition — opus / Opus 5; no tools, blocking):
+Spawn sage agent (top tier via agent definition — opus / Opus 5; no tools, blocking; `name: "sage-apex"` — this gate spawns directly from Apex rather than from a Blade, the one documented exception to Sage's normal `sage-{parent-name}` derivation, per `reference/roster.md`):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.
@@ -32,7 +32,7 @@ Spawn sage agent (top tier via agent definition — opus / Opus 5; no tools, blo
 
 ## Codebase Research
 
-Spawn Explore (session model) + Plan (session model) agents for:
+Spawn Explore (session model, `name: "explore-fenn"`) + Plan (session model, `name: "planner-rooke"`; `subagent_type` passed to `Agent` is still `Plan` — see `reference/roster.md`'s Explore / Planner note) agents for:
 - File structure and patterns
 - Existing similar implementations
 - Import/dependency chains

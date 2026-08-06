@@ -14,7 +14,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 1. Parse the requested role focus from arguments (e.g., "data migration", "performance", "security", "accessibility")
 2. Load active contracts and session context
 3. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
-4. Spawn a Blade with the specified ROLE FOCUS directive baked into the prompt (`subagent_type: "blade"`, `mode: "bypassPermissions"`) (effort = session `high`; model per `reference/agents.md` → Model Routing)
+4. Spawn a Blade with the specified ROLE FOCUS directive baked into the prompt (`subagent_type: "blade"`, `name: "blade-ossian"`, `mode: "bypassPermissions"`) (effort = session `high`; model per `reference/agents.md` → Model Routing)
 5. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 6. The Blade output follows the same Post-Agent Hook as core shadows
 7. Record Blade (ROLE FOCUS) participation in session state

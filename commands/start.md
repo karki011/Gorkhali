@@ -66,7 +66,8 @@ Agent spawn rules (all routes):
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 4. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
    Jira type, or branch prefix → classify `workKind: "investigation"` in
-   `context.json` and `intent.json`, then spawn Hound and write
+   `context.json` and `intent.json`, then spawn Hound (`subagent_type: "hound"`,
+   `name: "hound-corva"` per `reference/roster.md`) and write
    `{SESSION_DIR}/defect-proof.json` per `reference/defect-proof.md`.
    - Before any Blade mutation, require observed reproduction evidence and a
      traced root-cause claim confirmed by the user. Only
@@ -97,11 +98,17 @@ READ `reference/router.md` for full algorithm.
    `reference/defect-proof.md`; otherwise STOP in
    `waiting_for_evidence` / `unconfirmed_defect`.
 2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+2.5. **Dispatch table (mandatory, before the spawn below):** render the pre-dispatch routing
+   table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
+   from `intent.json` (file targets) and the roster-assigned `name` (`blade-doven`, DIRECT's
+   fixed slot per `reference/roster.md` Spawn-Site Slot Table). `Wave` is always `1` for DIRECT
+   — there is no wave fan-out.
 3. **Spawn Blade agent** via Agent tool:
    ```
    Agent call:
      description: "Blade: {1-line task summary}"
      subagent_type: "blade"
+     name: "blade-doven"
      mode: "bypassPermissions"
      # model: Apex picks per Model Routing (default: task-appropriate tier — sonnet for mechanical/well-scoped, escalate to opus (implementer ceiling - never fable) for complex). effort = session high.
      prompt: |

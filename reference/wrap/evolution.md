@@ -2,9 +2,9 @@
 
 > **Context:** Called during `/phantom:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
 
-## Evolution Check (Haiku sidecar)
+## Evolution Check (Ward sidecar, haiku-pinned)
 
-Spawn Haiku agent (model: haiku, mode: bypassPermissions, run_in_background: false):
+Spawn the Ward sidecar (`subagent_type: "ward"`, `name: "ward-isolde"`, `mode: bypassPermissions`, `run_in_background: false`; ward pins `haiku` in its agent definition — this is one site, not a separate "Haiku agent"):
 
 Prompt: "Scan learnings/INDEX.md. Find:
 1. Entries with [validated:5+] -> Tier 1 (auto-promote to reference/)

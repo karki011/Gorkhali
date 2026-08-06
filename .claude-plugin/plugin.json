@@ -1,6 +1,6 @@
 {
   "name": "phantom",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Phantom — provider-adaptive multi-agent development for Claude Code and Codex. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer.",
   "author": {
     "name": "Subash Karki"

@@ -29,7 +29,7 @@ Dependency topology from plan.json. Main LLM = **coordinator**: validate prereqs
 
 ## Step 2: Spawn Dependency Analyst
 
-Agent tool — `subagent_type: "blade"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing):
+Agent tool — `subagent_type: "blade"`, `name: "blade-sennor"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing):
 
 ```
 description: "Wire topology for {TICKET}: {task_count} tasks"
@@ -91,7 +91,7 @@ If validation finds errors (circular deps, missing produces): report specific er
 ## Rules
 
 - Coordinator does NOT run analysis — delegates entirely to the Blade agent.
-- Agent spawn MUST use `subagent_type: "blade"` (ROLE FOCUS: dependency analyst), `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+- Agent spawn MUST use `subagent_type: "blade"` (ROLE FOCUS: dependency analyst), `name: "blade-sennor"`, `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
 - BLOCK if plan.json missing. No exceptions.
 - HUMAN GATE on FULL route mandatory. Do not skip.
 - Task count <= 2 with no shared files → skip wiring entirely (inform user why).

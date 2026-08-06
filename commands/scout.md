@@ -30,7 +30,9 @@ Matched card `id`s go into each scout's prompt as extra context; cite them in
 
 ## Step 2: Spawn Scout Agents (Parallel)
 
-One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `name:` per `reference/roster.md` slot table - consecutive `scout-*` slots in area order (`scout-pike`, `scout-ravel`, `scout-tessa`, `scout-korin`, `scout-nettle` for the 5 default areas: design, api, patterns, deps, tests), `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+
+Areas come from `$ARGUMENTS`, so the area count is user-unbounded - do not keep counting past the 5 default slots into the roster's remaining character names. A 6th (or later) area is bare roster-length overflow, `scout-10`, `scout-11`, ... (past the FULL 9-name `scout` roster), never `scout-6` - slots 6-9 (`quorra`, `haldis`, `brint`, `silven`) are dedicated to `brainstorm.md` and `reference/evolution.md` and must never be reused here.
 
 Prompt template per scout:
 ```
@@ -79,7 +81,7 @@ After ALL background scouts complete:
 
 - Coordinator does NOT explore — delegates entirely to scout agents.
 - All scouts `run_in_background: true` (parallel).
-- All scouts `subagent_type: "blade"` with read-only ROLE FOCUS: scout directive — effort = session `high`; model per `reference/agents.md` → Model Routing.
+- All scouts `subagent_type: "blade"` with read-only ROLE FOCUS: scout directive — named from the `scout` roster row, not `blade` (see `reference/roster.md`) — effort = session `high`; model per `reference/agents.md` → Model Routing.
 - All agents `mode: "bypassPermissions"`.
 - Only 1 area requested → still spawn as background agent (consistent pattern).
 - Scout results feed planning — write `scout-results.json` so `/phantom:start` can consume it.

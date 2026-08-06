@@ -31,22 +31,22 @@ READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns,
 
 ### Parallel Research Agents
 
-Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive. (effort = session `high`; model per `reference/agents.md` → Model Routing)
+Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive, named from the `scout` roster row per `reference/roster.md` (`scout-quorra`, `scout-haldis`, `scout-brint` in spawn order below). (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 **Agent 1: Codebase Explorer** (always spawned)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-quorra"`, mode: `bypassPermissions`, run_in_background: `true`
 - Scans existing patterns, conventions, and related code in the project
 - Checks how similar problems were solved before
 - Returns: relevant files, patterns found, reusable abstractions
 
 **Agent 2: Constraint Mapper** (always spawned)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-haldis"`, mode: `bypassPermissions`, run_in_background: `true`
 - Checks `learnings/INDEX.md` for `[failed]` and `[validated:5+]` entries matching the problem space
 - Checks package constraints, API contracts, type boundaries
 - Returns: hard constraints, soft constraints, learnings that apply
 
 **Agent 3: Domain Researcher** (optional — only for unfamiliar domains)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-brint"`, mode: `bypassPermissions`, run_in_background: `true`
 - Explores documentation, type definitions, external API patterns
 - Only spawn when the problem touches a domain the codebase hasn't solved before
 - Returns: relevant API patterns, type signatures, integration examples

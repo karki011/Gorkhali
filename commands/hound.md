@@ -35,7 +35,7 @@ are unavailable.
 
 ## Step 2: Spawn Hound Agent
 
-Agent tool — `subagent_type: "hound"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing). Prompt:
+Agent tool — `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing). Prompt:
 
 ```
 You are the HOUND — forensic investigator for codebase bugs and regressions.
@@ -137,6 +137,6 @@ Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When tr
 - One hypothesis at a time. Rank by confidence, present highest first.
 - Max investigation time: 10 min. Still low confidence → escalate with findings so far.
 - Record outcomes to learnings (via `_shared-auto-learning.md`).
-- Agent spawn MUST use `subagent_type: "hound"`, `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+- Agent spawn MUST use `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
 
 </constraints>

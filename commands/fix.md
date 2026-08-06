@@ -32,14 +32,14 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).
 
-4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.), create fix packet with assigned owners. (effort = session `high`; model per `reference/agents.md` → Model Routing)
+4. **Triage** — spawn triage agent (`subagent_type: "gaze"`, `name: "gaze-elden"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.) and write the ordered fix packet with assigned owners to `{SESSION_DIR}/fix-packet.json`. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 5. Show fix packet. **CHAINED (`--chained` present) → AUTO-PROCEED past approval (the loop ceiling + step-9 exhaustion escalation is the safety net). STANDALONE (token absent) → wait for user approval.**
 6. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
-7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `mode: "bypassPermissions"`) → deactivate marker (`rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
+7. Spawn scoped repair Blade(s) (`subagent_type: "blade"`, `name:` per `reference/roster.md`'s reserved fix-packet range — `blade-dorik`, `blade-lenna`, `blade-pravo`, `blade-quist` (slots 9-12), overflow beyond 4 → `blade-24`, `blade-25`, ... — assigned in the order each owner entry appears in `{SESSION_DIR}/fix-packet.json`, so names stay derivable from disk even after context compaction, `mode: "bypassPermissions"`) → deactivate marker (`rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
 8. **If re-verify passes** → exit, proceed to wrap.
    **If fails:** same class → scrap-and-redo (step 8.5) + write correction. Different class → increment loop, return to step 1.
 
-**8.5. Scrap-and-redo:** Document what was learned. `git checkout -- <touched files>`. Spawn fresh agent with synthesized learnings (not failed code). Re-verify.
+**8.5. Scrap-and-redo:** Document what was learned. `git checkout -- <touched files>`. Spawn fresh agent (`subagent_type: "blade"`, `name: "blade-redo-{N}"` where `N` is the 1-based position of the failed owner entry in `{SESSION_DIR}/fix-packet.json`, per `reference/roster.md`'s Scrap-and-Redo rule - never reuse the failed attempt's original `blade-dorik`-style name, `mode: "bypassPermissions"`) with synthesized learnings (not failed code). Re-verify.
 
 9. **Structured escalation** (controller `shouldContinue` returns stop — at ceiling with no operator override, or scope expanded). `{CEILING}` = the controller's `FIX_LOOP_CEILING`:
    ```

@@ -40,6 +40,12 @@ per-spawn effort knob. Full rule: `reference/agents.md` → Model Routing.
 
 For full agent details, spawn rules, and tier classification: `reference/agents.md`
 
+**Naming:** Apex assigns names per `reference/roster.md` - static slots from the
+task's `plan.json` index (execute waves) or the file's Spawn-Site Slot Table
+(every other spawn site), never a runtime counter or memory. Render the
+pre-dispatch routing table before each wave - full column spec and definition:
+`reference/agents.md` → Pre-Dispatch Routing Table.
+
 ## Phases (see start.md for details)
 
 - **Phase A — Context Loading**: Detect ticket, load learnings, read project docs

@@ -156,8 +156,8 @@ read-only and different from the implementing Blade. A minimum record is:
 ```json
 {
   "taskId": "t1",
-  "implementer": "blade-pagination",
-  "verifier": "ward-pagination",
+  "implementer": "blade-kaze",
+  "verifier": "ward-torvan",
   "status": "passed",
   "checkedPaths": ["src/hooks/usePagination.ts"],
   "checks": [

@@ -27,7 +27,7 @@ Single ship ceremony. All git operations happen here — no commits, pushes, or 
 Wrap is reasoning-heavy, so it stays on the **session model** for judgment steps and pushes only the **mechanical plumbing** down to the pinned cheap `warden` agent:
 
 - **Session model (Apex)** — Steps 2 (diff/scope review), 3 (defense brief), 5 (session eval), 6 (learnings + session brief). Step 4 (RPSL) already runs on pinned `archer`; Step 8 evolution already runs on pinned `ward`.
-- **Pinned `warden` (sonnet)** — the mechanical tail: Step 7 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 11 cost report, and the Step 9 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
+- **Pinned `warden` (sonnet)** — the mechanical tail: Step 7 ship ceremony git ops (stage/commit/push, PR create, Jira transition), Step 11 cost report, and the Step 9 `wrap.json` artifact write. Spawn `Agent({ subagent_type: "warden", name: "warden-gorath", mode: "bypassPermissions", run_in_background: true })` with the resolved branch, PR title/body, ticket, and artifact fields; it reports results back for the SESSION WRAPPED box.
 
 `warden` does plumbing only — never scope judgment, session-brief authoring, or learnings synthesis (those stay with Apex). If `warden` is unavailable (older install), run the mechanical tail inline. The Greptile loop (`phantom:greploop`) is its own skill and runs as before.
 </execution>
@@ -77,7 +77,7 @@ Legacy grill quiz remains available via `--grill` (runs `phantom:grill` in ADDIT
 
 See [reference/wrap/rpsl.md] for full protocol.
 
-4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). Writes `review-panel.json`.
+4 parallel agents (Scope, Regression, Architecture, Skeptic) review `git diff main...HEAD`. Each agent: `subagent_type: "archer"`, `name:` one of `archer-scope`, `archer-regression`, `archer-architecture`, `archer-skeptic` per `reference/roster.md` Rule 2 (function-named, not character-named), `mode: "bypassPermissions"`, `run_in_background: true` (model + effort come from the agent definition). Writes `review-panel.json`.
 
 Any perspective that returns **FAIL** stops the wrap before git operations. No override. No skip flag. The user fixes the blockers and re-runs `/phantom:wrap`.
 
@@ -116,7 +116,7 @@ The PR body must include a `## Validation` section built from session artifacts:
 
 See [reference/wrap/evolution.md] for full protocol.
 
-Evolution check (Ward sidecar, `subagent_type: "ward"`, `mode: "bypassPermissions"`; model + effort come from the agent definition) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
+Evolution check (Ward sidecar, `subagent_type: "ward"`, `name: "ward-isolde"`, `mode: "bypassPermissions"`; model + effort come from the agent definition) -> archive session -> memory layer sync -> Core Discipline #13 audit -> deactivate hook -> clear goal -> shut down shadows.
 
 **Confirm subagents terminated:** before declaring the session wrapped, verify no spawned subagent is still running or idle (check `TaskList` / running-agent state). Any lingering agent must be explicitly stopped — a wrap with live background agents is not complete.
 

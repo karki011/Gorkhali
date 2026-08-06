@@ -7,7 +7,7 @@ Reference for Gaze agent — full gauntlet steps, dual-lens protocol, and re-rev
 When Apex requests gauntlet mode:
 
 1. `git add .` -- baseline all changes
-2. Spawn sweep agent (`agents/sweep.md`) + `pr-review-toolkit:silent-failure-hunter` in parallel
+2. Spawn sweep agent (`agents/sweep.md`, `subagent_type: "sweep"`, `name: "sweep-oda"`) + `pr-review-toolkit:silent-failure-hunter` (`name: "hunter-vane"`) in parallel — names per `reference/roster.md`
 3. Review sweep diff -- **APPROVE** (keep simplification) or **REJECT** (revert)
 4. Full verify: lint + typecheck + build + tests
 5. Final report:
@@ -18,7 +18,8 @@ When Apex requests gauntlet mode:
 
 ## Dual-Lens Protocol
 
-Apex may spawn a second reviewer alongside Gaze on the same diff for dual-lens coverage.
+Apex may spawn a second reviewer alongside Gaze on the same diff for dual-lens coverage
+(`subagent_type: "gaze"`, `name: "gaze-sura"` per `reference/roster.md`).
 
 **How it works:**
 - Both reviews run in parallel on the same changeset

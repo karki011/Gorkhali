@@ -38,6 +38,7 @@ Spawn a single **Ward** agent for all requested layers. Ward runs scripts sequen
 
 **Agent configuration:**
 - subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
+- name: `ward-brann`
 - mode: `bypassPermissions`
 - If only one layer requested, Ward runs that layer's script. For `all`, Ward runs all three in sequence.
 

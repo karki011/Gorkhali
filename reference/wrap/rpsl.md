@@ -6,7 +6,7 @@
 
 Multi-perspective collision analysis. Four agents review the full `git diff main...HEAD` in parallel, each from a different angle. All four must pass for a clean ship.
 
-**Spawn 4 agents in parallel** (all session-model, mode: bypassPermissions, run_in_background: false):
+**Spawn 4 agents in parallel** (all session-model, mode: bypassPermissions, run_in_background: false) using the exact spawn spec in `commands/wrap.md` Step 4 — `name:` one of `archer-scope`, `archer-regression`, `archer-architecture`, `archer-skeptic` per `reference/roster.md` Rule 2 (function-named, not character-named):
 
 Apex creates `{SESSION_DIR}/reviews/` before spawning agents to ensure all four can write their verdict files concurrently without path errors. In the same step it deletes `reviews/scope.json`, `reviews/regression.json`, `reviews/architecture.json` and `reviews/skeptic.json` if they exist.
 

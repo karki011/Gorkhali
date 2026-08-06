@@ -27,7 +27,7 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 
 4. **Auth handling:** Automatic — Lens detects login walls and handles credentials per `reference/smart-auth.md` (credential sources, redirect-aware detection, MFA escalation). Session cookies persist across routes.
 
-5. **Spawn Lens** (`subagent_type: "lens"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (effort = session `high`; model per `reference/agents.md` → Model Routing)
+5. **Spawn Lens** (`subagent_type: "lens"`, `name: "lens-yara"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 6. **State Matrix:** Before inspection, identify all parent states the changed component reacts to. Lens cycles through every parent state x feature state combination and screenshots each.
 
@@ -41,7 +41,7 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 
 1. Lens outputs structured fix packet (issue, screenshot, element ref, expected vs actual, affected file)
 2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
-3. Apex dispatches Blade (`subagent_type: "blade"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
+3. Apex dispatches Blade (`subagent_type: "blade"`, `name: "blade-brakka"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
 4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
 5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
 6. Re-spawn Lens on same routes

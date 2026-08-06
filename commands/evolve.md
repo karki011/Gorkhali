@@ -28,6 +28,7 @@ Check if evolution is warranted:
 Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 
 - subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
+- name: `ward-corben`
 - mode: `bypassPermissions`
 
 **Ward prompt must include:**
@@ -105,7 +106,12 @@ pass — the manifest is the work-list:
 1. Read the manifest; partition `tickets[]` into batches of **≤ 5 tickets per Blade**
    (`[parallel-partition]` — each Blade owns the output cards for its DISJOINT ticket
    set, so no two Blades write the same `makeCardId`).
-2. Spawn the batch of Blades in parallel (`bypassPermissions`). Each Blade:
+2. Spawn the batch of Blades in parallel (`subagent_type: "blade"`, `bypassPermissions`,
+   `name: "blade-backfill-{batchIndex}-{slotInBatch}"` — both indices are each Blade's
+   1-based position read directly off `backfill-manifest.json`'s partition order
+   (`batchIndex` = the batch's position, `slotInBatch` = the Blade's position within
+   that batch), per `reference/roster.md`'s Backfill Fan-Out rule, so every name stays
+   reconstructible from the manifest alone even after context compaction). Each Blade:
    - reads only its assigned transcript JSONLs,
    - distills 1–N cards per ticket via `scripts/lib/brain-card.js writeCard`
      (type `episode`/`decision`; trace.transcript = the JSONL it read,

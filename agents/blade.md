@@ -41,7 +41,7 @@ Understand the problem first (read the touched code, trace the flow), then stop 
 ## Sage Escalation
 
 When stuck (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach
+- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach, and `name: "sage-{your-own-full-spawn-name}"` per `reference/roster.md` Rule 4 (e.g. `blade-kaze` spawning Sage passes `name: "sage-blade-kaze"`) — use your OWN full name, never a role-stripped character
 - Max 3 consultations per task. Beyond that, escalate to Apex.
 
 ## Subtask Execution Protocol

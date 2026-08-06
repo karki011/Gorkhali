@@ -48,13 +48,14 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 6. **Dispatch per plan**:
    - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
    - READ `reference/agents.md` for spawn patterns and task tier classification
+   - **Dispatch table (mandatory, before each wave's spawns):** render the pre-dispatch routing
+     table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
+     from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
+     `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `blade-kaze`).
    - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
      (see `reference/agents.md` → Model Routing):
      # default: task-appropriate tier — `model: "sonnet"` for mechanical & well-scoped, contract-backed subtasks; escalate to opus (implementer ceiling - never fable) for complex, ambiguous, or cross-cutting work.
      # effort is uniform high (session-inherited) — there is no per-spawn effort param.
-   - **Scope check before spawn:** before spawning each Blade, write the one-line scope check
-     (`scope: … · floor-sufficient? … · reason`) from `reference/agents.md` → Model Routing, visibly
-     in output; escalating above the floor without a concrete per-subtask reason is a routing error.
    - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
      spawn `subagent_type: blade` with `model: "haiku"` override.
    - All agents: `mode: "bypassPermissions"`.
@@ -66,13 +67,17 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
      in. After an agent returns, Apex verifies via fs/git spot-check (file exists, ≥1 commit, no
      `Self-Check: FAILED`/verdict-failure line), NOT by re-reading the file or pulling its full output back.
-   - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/<agent-name>.json` (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass `name: "<agent-name>"` — the same string as the stub filename. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
+   - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/{name}.json`, where `{name}` is the roster-assigned name for that task per `reference/roster.md`'s Execute-Wave Reservation (blade derivation + overflow rule; e.g. task 1 → `blade-kaze`) (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass that identical `{name}` as `name: "{name}"` — the stub filename and the spawn's `name:` param are the SAME string, never independently derived. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
    - **Independent verification assignment**: every implementation task in the
      plan MUST name a Ward or other read-only verifier that is independent of
-     its implementing Blade. After that Blade returns, the verifier reruns the
-     task's acceptance checks and writes
+     its implementing Blade. The verifier's name derives from the same task
+     index as the task's Blade per `reference/roster.md`'s Execute-Wave
+     Reservation (ward derivation + overflow rule; e.g. task 1 → `ward-torvan`),
+     which keeps concurrent verifiers collision-free across a parallel SHADOWS
+     wave since task indexes are unique within it. After that Blade returns, the
+     verifier reruns the task's acceptance checks and writes
      `{SESSION_DIR}/scope-verifications/{task-id}.json` per
      `reference/defect-proof.md`; for confirmed defects it also reruns the
      reproduction and focused regression check recorded in
@@ -101,14 +106,14 @@ Execute a plan from artifacts. Used by start.md router or standalone.
        {
          "id": "t1",
          "status": "done",
-         "agent": "blade-pagination",
+         "agent": "blade-kaze",
          "filesChanged": ["src/hooks/usePagination.ts"],
          "filesRead": ["src/api/client.ts"],
          "selfReviewScore": 8,
          "testResult": { "passed": true, "summary": "5 tests green" },
          "independentVerification": {
            "record": "scope-verifications/t1.json",
-           "verifier": "ward-pagination",
+           "verifier": "ward-torvan",
            "status": "passed",
            "summary": "Reproduction and focused regression check pass"
          },

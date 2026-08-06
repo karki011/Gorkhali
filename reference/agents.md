@@ -69,6 +69,42 @@ design decision, cross-file coupling, or genuine ambiguity. "It's subtle/tricky"
 If you can't name why the floor fails, the floor wins. Weak scoping is fixed by re-decomposing, not
 by escalating.
 
+## Naming
+
+Every `Agent` spawn MUST pass `name:` per `reference/roster.md` - that file is the
+SSoT for deterministic agent naming (roster table, fungible-slot rule, panel
+function-naming, overflow fallback, and the stub-filename binding).
+Slots are static: execute-wave agents use their task's index from `plan.json`;
+every other spawn site has a fixed slot in that file's Spawn-Site Slot Table.
+Never count slots at runtime.
+
+## Pre-Dispatch Routing Table (the ONE definition)
+
+Before spawning any wave of agents - one task (DIRECT) or many (SOLO/SHADOWS) -
+Apex renders, visibly in its output, a markdown table with exactly these 7
+columns:
+
+`| Task | Scope (files) | Agent | Name | Model | Wave | Routing reason |`
+
+- **Task** - the plan task id (`t1`, `t2`, ...; DIRECT has a single implicit task).
+- **Scope (files)** - the task's file targets from `plan.json` (or `intent.json` for DIRECT).
+- **Agent** - the `subagent_type` being spawned.
+- **Name** - the roster-assigned `name:` per `reference/roster.md` - the
+  Execute-Wave Reservation for wave tasks, or the file's Spawn-Site Slot Table
+  row for every other site.
+- **Model** - the `model:` param chosen per Model Routing above.
+- **Wave** - the wave number this spawn belongs to (`1` for a single-task
+  dispatch with no fan-out, e.g. DIRECT).
+- **Routing reason** - the one-line scope check (`scope:
+  mechanical|standard|complex · floor-sufficient? Y/N · reason`) from
+  "Articulate before you escalate" above. This column cell IS that scope
+  check, not a separate step; escalating above the floor without a concrete
+  per-subtask reason recorded here is a routing error.
+
+This is the single canonical definition of the pre-dispatch table.
+`agents/apex.md`, `commands/execute.md`, and `commands/start.md`'s DIRECT route
+all point here rather than restating the columns.
+
 ## Spawning Rules
 
 - All agents: `mode: "bypassPermissions"`

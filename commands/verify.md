@@ -30,7 +30,7 @@ Judge pass/fail on the captured status (non-zero = fail), not on the pipe's defa
 
 If ANY fail → run hound failure scan (Step 1.5), name every failing command explicitly (never a bare "failed"). **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report the failures, close with `help[1]:\n  Run /phantom:fix to repair the failing command(s) named above`, and stop.**
 
-Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (effort = session `high`; model per `reference/agents.md` → Model Routing)
+Spawn sweep agent (`subagent_type: "sweep"`, `name: "sweep-nix"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 ### Step 1.5: Hound Failure Scan (auto, on failure)
 
@@ -44,7 +44,7 @@ Spawn sweep agent (`subagent_type: "sweep"`, `mode: "bypassPermissions"`) on cha
 
 Delete `{SESSION_DIR}/reviews/gaze.json` if it exists, before spawning Gaze - the same pre-spawn clear Apex does for the four panel role files in `reference/wrap/rpsl.md`, and for the same reason. The clear is load-bearing on a re-run: the guard below checks that the file is present and carries a `findings` key, it does not check freshness. A Gaze that truncates before rewriting the file leaves the previous run's verdict in place, this step reads it as a satisfied review, skips the resume, and verification can print `review: 0 P0/P1 findings` against a diff nobody reviewed. Clear it again before each Step 3 re-review, which is another Gaze run on a changed diff. The clear belongs here and not in `agents/gaze.md`: a truncated agent may never reach its own cleanup, which is the failure mode being defended against.
 
-Spawn ONE review agent (`subagent_type: "gaze"`, `mode: "bypassPermissions"`):
+Spawn ONE review agent (`subagent_type: "gaze"`, `name: "gaze-varel"`, `mode: "bypassPermissions"`):
 - Input: `git diff main...HEAD` + intent from session
 - Prompt: load from `reference/temperature-review.md` — "Review Agent Prompt" section
 - Output: `{SESSION_DIR}/reviews/gaze.json`, whose `findings` key holds the P0/P1 array (P2/P3 dropped)
@@ -63,7 +63,7 @@ Only a written empty array earns the definitive empty-result line. Reporting an 
 
 ## Step 3: Auto-Address (only if P0/P1 exist)
 
-1. Spawn 1 fix agent (`subagent_type: "blade"`, `mode: "bypassPermissions"`) with scoped findings
+1. Spawn 1 fix agent (`subagent_type: "blade"`, `name: "blade-talvik"`, `mode: "bypassPermissions"`) with scoped findings
 2. Re-run Step 1 correctness only
 3. Re-review ONLY the fix diff
 4. Loop until the fix-loop ceiling (`FIX_LOOP_CEILING` from `scripts/lib/constants.js`, enforced by `hooks/loop-controller.js`; protocol: `reference/temperature-review.md`). Clean → pass. Still P0/P1 → escalate to user.
