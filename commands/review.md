@@ -1,34 +1,55 @@
 ---
 name: review
-description: "Use when you want a CODE review of current changes — quality, KISS/DRY, architecture, a second opinion on the diff. Spawns Gaze for KISS/DRY enforcement, architecture review, and simplification gauntlet. Also use when user says 'review my changes', 'review my code', 'code review this', 'second opinion on this code', or 'is this code quality good'. NOT for test/build checks (use phantom:verify) or requirements coverage (use phantom:validate)."
+description: "Run one independent Gaze review of the current verified diff. Adds Lens or Archer only for explicit risk triggers."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads `_shared.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md`
 
 # /phantom:review
 
-Trigger Gaze quality gate on current work.
+1. Resolve the active portable session and current worktree fingerprint.
+2. Require the latest portable verification artifact to be passed, current, and
+   bound to that fingerprint. If it is absent or stale, stop with `blocked` and
+   direct the caller to `/phantom:verify`; do not recreate Ward evidence here.
+   Read its `requiredSpecialists` role-string array as the authoritative
+   selection; do not reclassify the diff in this command.
+3. Load the intent, repository rules, current changed-file list, and diff.
+4. Delete only `{SESSION_DIR}/reviews/gaze.json`, then run one fresh, read-only Gaze pass
+   using `agents/gaze.md`. This prevents a failed or truncated run from reusing
+   an older verdict.
+5. Run exactly the roles named by verification's `requiredSpecialists`. For
+   each required role, create
+   `{SESSION_DIR}/reviews/specialists/`, delete only that role's file immediately
+   before spawning it, then spawn the specialist:
+   - Lens: `{SESSION_DIR}/reviews/specialists/lens.json`
+   - Archer: `{SESSION_DIR}/reviews/specialists/archer.json`
 
-1. Load current session's contracts and handoff notes
+   Do not delete, require, or spawn a role absent from the persisted array. The
+   targeted pre-spawn delete makes any later named file fresh for this review
+   run. An empty array means Gaze is the only reviewer.
+6. Read Gaze's verdict from `{SESSION_DIR}/reviews/gaze.json`, not its final
+   message. If the file is missing or unreadable, give the same agent one
+   `SendMessage` resume (never a respawn). If it remains absent, record
+   `not_observed`/`blocked`, never an approval. For every required specialist,
+   read its named file rather than its final message and require: the matching
+   `role`; `verdict: pass|fail|blocked`; `findings` as an array; and
+   `observationGaps` as an array. Missing or invalid evidence is blocked.
+7. Record the merged outcome through the portable helper:
 
-**Codebase-wide review → recommend a workflow.** For a large-diff or repo-wide pre-PR review,
-recommend running the sweep as a Claude Code dynamic workflow per
-`reference/workflow-delegation.md`: independent agents cross-check and filter findings before they
-reach context (READ-ONLY — "Audit and REPORT only — do not modify files"). Fall back to
-turn-by-turn review for normal-sized diffs or when workflows are unavailable.
+   ```text
+   node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>
+   ```
 
-2. Delete `{SESSION_DIR}/reviews/gaze.json` if it exists, then spawn Gaze (`subagent_type: "gaze"`, `name: "gaze-ombric"`, `mode: "bypassPermissions"`) with: (effort = session `high`; model per `reference/agents.md` → Model Routing)
-   - All files touched in this session
-   - Active contracts
-   - Repo rules from `.claude/rules/`
+   Copy each valid required artifact unchanged into the review payload's
+   `specialists` array. Do not introduce another reducer or fingerprint. A
+   specialist `fail` forces overall review status `failed`; a missing, invalid,
+   or `blocked` specialist forces `blocked`. Overall `passed` requires Gaze pass
+   and every role named by verification's `requiredSpecialists` to pass.
 
-   That pre-spawn clear is the same one Apex does for the four panel role files in `reference/wrap/rpsl.md`, and it is load-bearing on a repeated review: step 4 below checks that the file is present and carries a `verdict`, it does not check freshness. A Gaze that truncates before rewriting the file leaves the previous run's verdict on disk, step 4 reads it as a satisfied review, skips the resume, and records an APPROVED produced against an earlier revision. The clear belongs to this caller rather than to `agents/gaze.md`: a truncated agent may never reach its own cleanup, which is the failure mode being defended against.
-3. Gaze produces:
-   - CRITICAL / WARNING / INFO findings
-   - VERDICT: APPROVED or NEEDS WORK
-   - Specific file:line references
-4. Record the verdict in session state by reading the `verdict` field of `{SESSION_DIR}/reviews/gaze.json`, not by transcribing Gaze's final message: the artifact survives a truncated turn that destroys the message. If the file is absent or carries no verdict, give Gaze ONE `SendMessage` resume (by agent id or name, never a respawn), then record what is on disk; if it is still absent, record the verdict as `not_observed` rather than assuming APPROVED.
-5. If NEEDS WORK: list specific items to address
-
-For high-risk work, run Gaze (gauntlet mode) instead (simplify -> Gaze review -> full verify).
+The helper is authoritative for fingerprint and ordering: review must be newer
+than the current verification, and its single merged record binds all specialist
+evidence to that worktree fingerprint. Report findings with file/component,
+evidence, impact, and smallest remediation. Review is read-only; never auto-fix
+or start a fix loop. The optional RPSL preset is invoked explicitly for
+unusually deep review and is not part of this normal command.

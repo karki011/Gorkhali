@@ -75,6 +75,31 @@ When issues are found, output each as a structured fix packet:
 ### VERDICT: VISUAL PASS / VISUAL ISSUES FOUND
 ```
 
+## Durable Specialist Artifact
+
+After inspecting the assigned routes and collecting evidence, create
+`{SESSION_DIR}/reviews/specialists/` and write
+`{SESSION_DIR}/reviews/specialists/lens.json` before refining the chat summary
+or running another long command. The caller deletes this exact file immediately
+before spawning you, so never use another role's filename. Keep the file current
+if later inspection changes the verdict.
+
+```json
+{
+  "role": "lens",
+  "verdict": "pass|fail|blocked",
+  "findings": [],
+  "observationGaps": []
+}
+```
+
+Use `pass` only when every assigned visual question was observed and no blocking
+issue remains. Use `fail` for an observed blocking visual defect. Use `blocked`
+when a required route, browser, authentication step, viewport, or comparison
+cannot be observed; name every gap in `observationGaps`. Put structured visual
+findings, including route and screenshot evidence, in `findings`. The file is
+the deliverable; the final message is only a summary.
+
 ## Rules
 
 - NEVER make code changes. You inspect only.

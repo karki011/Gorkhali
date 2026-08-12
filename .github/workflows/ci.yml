@@ -20,6 +20,8 @@ jobs:
           node-version: lts/*
       - name: Install ripgrep (T4 recipe dependency)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+      - name: Plugin manifest versions are in sync
+        run: npm run version:check
       - run: npm test
       - name: Validate portable Agent Skill boundary
         run: npm run validate:skill

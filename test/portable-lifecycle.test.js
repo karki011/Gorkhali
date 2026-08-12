@@ -89,8 +89,8 @@ async function recordGate(context, type, status = 'passed') {
   gateSequence += 1;
   const common = ['--workspace', context.workspace];
   const payload = type === 'verification'
-    ? { checks: [{ name: 'focused tests', result: 'passed' }] }
-    : { verdict: 'pass', findings: [] };
+    ? { checks: [{ name: 'focused tests', result: 'passed' }], requiredSpecialists: [] }
+    : { verdict: 'pass', findings: [], specialists: [] };
   const input = path.join(context.root, `${type}-${gateSequence}.json`);
   fs.writeFileSync(input, JSON.stringify(payload));
   return parse(await run([
@@ -102,6 +102,13 @@ async function recordGate(context, type, status = 'passed') {
     '--input', input,
   ], context.env));
 }
+
+const passedSpecialist = (role) => ({
+  role,
+  verdict: 'pass',
+  findings: [],
+  observationGaps: [],
+});
 
 const portablePlan = () => ({
   contract_version: 3,
@@ -236,10 +243,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.2.0');
+  assert.equal(started.bundle_version, '2.2.1');
   assert.deepEqual(started.producer, { role: 'apex', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.1');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -252,12 +259,15 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.2.0');
+  assert.equal(resumed.bundle_version, '2.2.1');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
   const evidenceFile = path.join(context.root, 'evidence.json');
-  fs.writeFileSync(evidenceFile, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
+  fs.writeFileSync(evidenceFile, JSON.stringify({
+    checks: [{ name: 'unit', result: 'passed' }],
+    requiredSpecialists: [],
+  }));
   const recorded = parse(await run([
     'record',
     ...common,
@@ -271,7 +281,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.2.0');
+  assert.equal(recorded.artifact.bundle_version, '2.2.1');
   assert.deepEqual(recorded.artifact.producer, { role: 'ward', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -285,7 +295,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.ok(fs.existsSync(recorded.file));
 
   const reviewFile = path.join(context.root, 'review.json');
-  fs.writeFileSync(reviewFile, JSON.stringify({ verdict: 'pass', findings: [] }));
+  fs.writeFileSync(reviewFile, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const reviewed = parse(await run([
     'record',
     ...common,
@@ -519,7 +529,10 @@ test('concurrent artifact writes remain complete JSON and leave no temporary fil
   ], context.env));
   await authorizeAndExecute(context);
   const evidence = path.join(context.root, 'verification.json');
-  fs.writeFileSync(evidence, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
+  fs.writeFileSync(evidence, JSON.stringify({
+    checks: [{ name: 'unit', result: 'passed' }],
+    requiredSpecialists: [],
+  }));
 
   const results = await Promise.all(Array.from({ length: 8 }, (_, index) => run([
     'record',
@@ -583,13 +596,80 @@ test('record rejects undocumented statuses and empty passed gate evidence', asyn
   assert.equal(unsupported.code, 1);
   assert.match(unsupported.stderr, /Unsupported artifact status/);
 
-  for (const type of ['verification', 'review']) {
-    const empty = await run([
-      'record', ...common, '--type', type, '--status', 'passed', '--run', `empty-${type}`,
+  const emptyVerification = await run([
+    'record', ...common, '--type', 'verification', '--status', 'passed', '--run', 'empty-verification',
+  ], context.env);
+  assert.equal(emptyVerification.code, 1);
+  assert.match(emptyVerification.stderr, /Invalid passed verification evidence/);
+
+  await recordGate(context, 'verification');
+  const emptyReview = await run([
+    'record', ...common, '--type', 'review', '--status', 'passed', '--run', 'empty-review',
+  ], context.env);
+  assert.equal(emptyReview.code, 1);
+  assert.match(emptyReview.stderr, /Invalid passed review evidence/);
+});
+
+test('required specialist evidence is enforced when reviews record and ship', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'SPECIALIST-1', '--intent', 'Enforce specialist evidence', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  parse(await run(['authorize', ...common, '--scope', 'ship-draft-pr'], context.env));
+  await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: ['lens', 'archer'],
+  });
+
+  const invalidReviews = [
+    ['missing', [passedSpecialist('lens')]],
+    ['failed', [passedSpecialist('lens'), { ...passedSpecialist('archer'), verdict: 'fail' }]],
+    ['blocked', [passedSpecialist('lens'), { ...passedSpecialist('archer'), verdict: 'blocked' }]],
+    ['duplicate', [passedSpecialist('lens'), passedSpecialist('lens'), passedSpecialist('archer')]],
+    ['unrequired', [passedSpecialist('lens'), passedSpecialist('archer'), passedSpecialist('ward')]],
+    ['invalid', [
+      { ...passedSpecialist('lens'), findings: 'not-an-array' },
+      { ...passedSpecialist('archer'), observationGaps: 'not-an-array' },
+    ]],
+    ['gapped', [
+      { ...passedSpecialist('lens'), observationGaps: ['browser unavailable'] },
+      passedSpecialist('archer'),
+    ]],
+  ];
+
+  for (const [label, specialists] of invalidReviews) {
+    const input = path.join(context.root, `invalid-review-${label}.json`);
+    fs.writeFileSync(input, JSON.stringify({ verdict: 'pass', findings: [], specialists }));
+    const result = await run([
+      'record', ...common, '--type', 'review', '--status', 'passed',
+      '--run', `invalid-review-${label}`, '--input', input,
     ], context.env);
-    assert.equal(empty.code, 1);
-    assert.match(empty.stderr, new RegExp(`Invalid passed ${type} evidence`));
+    assert.equal(result.code, 1, `${label} specialist evidence must not record as passed`);
+    assert.match(result.stderr, /specialist|required/i);
   }
+
+  const validReview = await recordArtifact(context, 'review', {
+    verdict: 'pass',
+    findings: [],
+    specialists: [passedSpecialist('lens'), passedSpecialist('archer')],
+  });
+  const shipped = parse(await run(['ship', ...common], context.env));
+  assert.equal(shipped.lifecycle.actions.ship.status, 'ready');
+
+  const tampered = JSON.parse(fs.readFileSync(validReview.file, 'utf8'));
+  tampered.evidence.specialists[1].observationGaps = ['required path was not observed'];
+  fs.writeFileSync(validReview.file, JSON.stringify(tampered));
+  const rejectedGap = await run(['ship', ...common], context.env);
+  assert.equal(rejectedGap.code, 1);
+  assert.match(rejectedGap.stderr, /observation gaps/i);
+
+  tampered.evidence.specialists = [passedSpecialist('lens')];
+  fs.writeFileSync(validReview.file, JSON.stringify(tampered));
+  const rejected = await run(['ship', ...common], context.env);
+  assert.equal(rejected.code, 1);
+  assert.match(rejected.stderr, /specialist|required/i);
 });
 
 test('record validates provider-neutral routing diagnostics', async () => {
@@ -655,7 +735,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.2.0');
+  assert.equal(task.artifact.bundle_version, '2.2.1');
   assert.deepEqual(task.artifact.producer, { role: 'blade', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -911,8 +991,11 @@ test('completion revalidates persisted gate evidence and envelope identity', asy
 
   const verificationInput = path.join(context.root, 'verification.json');
   const reviewInput = path.join(context.root, 'review.json');
-  fs.writeFileSync(verificationInput, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
-  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  fs.writeFileSync(verificationInput, JSON.stringify({
+    checks: [{ name: 'unit', result: 'passed' }],
+    requiredSpecialists: [],
+  }));
+  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const verification = parse(await run([
     'record', ...common, '--type', 'verification', '--status', 'passed', '--run', 'tamper', '--input', verificationInput,
   ], context.env));
@@ -938,8 +1021,11 @@ test('a newer failed gate overrides an older passed gate', async () => {
 
   const verificationInput = path.join(context.root, 'verification.json');
   const reviewInput = path.join(context.root, 'review.json');
-  fs.writeFileSync(verificationInput, JSON.stringify({ checks: [{ name: 'unit', result: 'passed' }] }));
-  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  fs.writeFileSync(verificationInput, JSON.stringify({
+    checks: [{ name: 'unit', result: 'passed' }],
+    requiredSpecialists: [],
+  }));
+  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const older = parse(await run([
     'record', ...common, '--type', 'verification', '--status', 'passed', '--run', 'zzz-older', '--input', verificationInput,
   ], context.env));
@@ -1152,7 +1238,7 @@ test('shipping and completion reject stale or superseded worktree evidence', asy
 
   await recordGate(context, 'verification', 'failed');
   const rejectedReviewInput = path.join(context.root, 'review-after-failed-verification.json');
-  fs.writeFileSync(rejectedReviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  fs.writeFileSync(rejectedReviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const rejectedReview = await run([
     'record', ...common, '--type', 'review', '--status', 'passed',
     '--run', 'review-after-failed-verification',
@@ -1344,6 +1430,7 @@ test('record failures do not advance execution or verification lifecycle state',
   const verificationInput = path.join(context.root, 'atomic-verification.json');
   fs.writeFileSync(verificationInput, JSON.stringify({
     checks: [{ name: 'atomic persistence', result: 'passed' }],
+    requiredSpecialists: [],
   }));
   const runDirectory = path.join(
     context.data,
@@ -1390,7 +1477,7 @@ test('review requires current passed verification and becomes stale after later 
   await authorizeAndExecute(context);
   parse(await run(['verify', ...common], context.env));
   const reviewInput = path.join(context.root, 'ordered-review.json');
-  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [] }));
+  fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const premature = await run([
     'record', ...common, '--type', 'review', '--status', 'passed',
     '--run', 'premature', '--input', reviewInput,

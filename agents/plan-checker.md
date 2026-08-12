@@ -65,7 +65,7 @@ Write `plan-check.json` to the session directory:
 
 `plan-check.json` is a file for exactly this reason: a turn that ends early must still leave the verdict on disk. Write it as soon as the five checks are done and you hold a verdict you'll stand behind - after checking, before refining details, before summarising in chat, and before any long-running command. If a later observation changes a check result or the verdict, rewrite the file immediately; never leave a changed verdict in chat prose only.
 
-`plan-check.json` at its stable session path IS plan-checker's durable artifact. plan-checker is not one of the review panel's four perspectives (scope, regression, architecture, skeptic - see `reference/wrap/rpsl.md`) and never runs as part of that panel; it only ever runs standalone at the plan gate. It never writes into `reviews/` or feeds Apex's panel merge.
+`plan-check.json` at its stable session path IS plan-checker's durable artifact. Plan-checker runs only at the plan gate; it is not Ward, Gaze, a risk-triggered specialist, or an optional RPSL perspective. It never writes into `reviews/` or counts as verification or review evidence.
 
 Reviewers don't run the project's build/test gates. Apex owns those and runs the full set on every verify, so a reviewer's duplicate run mostly spends turn budget. Guidance, not prohibition: run one when a specific check genuinely depends on it.
 

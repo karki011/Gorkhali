@@ -1,85 +1,56 @@
 # `review-panel.json` Schema
 
-Written by wrap's Pre-Ship Review Panel (RPSL). Must pass before PR creation.
+Optional output of the explicitly invoked RPSL deep-review preset. Normal
+shipping requires current portable Ward and Gaze artifacts, not this panel.
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| perspectives | object[] | yes | Array of perspective verdicts |
-| perspectives[].role | `"scope"` \| `"regression"` \| `"architecture"` \| `"skeptic"` | yes | Reviewer perspective |
-| perspectives[].verdict | `"pass"` \| `"fail"` \| `"not_observed"` | yes | Pass/fail for this perspective, or `not_observed` if this perspective never produced a verdict |
-| perspectives[].findings | string[] | yes | Key findings (empty if pass) |
-| perspectives[].confidence | `"checked:clean"` \| `"checked:concerns"` \| `"not_observed"` | yes | Observation confidence |
-| allPass | boolean | yes | True only if EVERY `perspectives[].verdict` is `pass`. A single `fail` or `not_observed` makes it false. |
-| blockers | string[] | yes | Aggregated blocking issues (empty if allPass) |
+|---|---|---|---|
+| `preset` | `"rpsl"` | yes | Identifies the optional preset |
+| `worktreeFingerprint` | string | yes | Portable fingerprint reviewed |
+| `perspectives` | object[] | yes | Only explicitly selected perspectives |
+| `perspectives[].role` | `"scope"` \| `"regression"` \| `"architecture"` \| `"operations"` | yes | Non-overlapping perspective |
+| `perspectives[].question` | string | yes | Bounded question assigned before spawn |
+| `perspectives[].verdict` | `"pass"` \| `"fail"` \| `"blocked"` | yes | Observed result |
+| `perspectives[].findings` | object[] | yes | Evidence-backed findings; empty only after a clean review |
+| `perspectives[].observationGaps` | string[] | yes | Unobserved parts of the assigned question |
+| `allPass` | boolean | yes | True only when every selected perspective passed |
+| `blockers` | string[] | yes | Failed, blocked, or missing selected evidence |
 
-## The three verdicts
+Rules:
 
-`pass` and `fail` are both observations: a reviewer looked and reached a conclusion. `not_observed` is the absence of one - the perspective was spawned but no verdict reached disk, so nobody knows. Reviewers never write it about themselves; Apex writes it during the merge for a role file still missing or verdict-less after the single resume in `reference/wrap/rpsl.md`. It always carries a matching `blockers[]` entry naming the unreviewed perspective.
+- Select perspectives before spawning and include only those that apply.
+- Roles are unique and their questions must not overlap.
+- A missing selected artifact is represented as `blocked` with a blocker naming
+  the missing evidence. It is never converted to pass.
+- `allPass` is true only when `perspectives` is non-empty and every verdict is
+  `pass` with no unresolved observation gap.
+- Omitted, non-triggered perspectives are not synthetic failures.
+- The fingerprint must equal the portable current worktree fingerprint. A
+  changed worktree makes the panel stale.
 
-**`verdict: "pass"` with `confidence: "not_observed"` is invalid.** Nothing was observed, so there is no basis for a pass, and writing one respells an unreviewed perspective as a reviewed clean one, moving the same hole from the verdict axis to the confidence axis. Use `verdict: "not_observed"`. The legal pairings:
+Example:
 
-| verdict | legal confidence |
-|---------|------------------|
-| `pass` | `checked:clean`, `checked:concerns` |
-| `fail` | `checked:clean`, `checked:concerns` |
-| `not_observed` | `not_observed` only |
-
-`fail` and `not_observed` are not interchangeable either. A `fail` stops the wrap with no override; a `not_observed` ships a draft PR that names the gap. See the Panel Decision in `reference/wrap/rpsl.md`.
-
-`review-panel.json` is not machine-validated: `scripts/validate-artifact.js` carries schemas for context, intent, brainstorm, decisions, plan, execution, verification and wrap, but none for review-panel. This document plus `test/reviewer-artifact-durability.test.js` are the whole contract, so an invalid combination gets written happily and only the tests notice.
-
-**Example:**
 ```json
 {
-  "_meta": { "...": "..." },
+  "preset": "rpsl",
+  "worktreeFingerprint": "sha256:...",
   "perspectives": [
     {
-      "role": "scope",
+      "role": "regression",
+      "question": "Does the public parser retain v1 input compatibility?",
       "verdict": "pass",
       "findings": [],
-      "confidence": "checked:clean"
+      "observationGaps": []
     },
     {
-      "role": "regression",
+      "role": "operations",
+      "question": "Does an interrupted migration fail safely without data loss?",
       "verdict": "pass",
-      "findings": ["No removed test coverage detected"],
-      "confidence": "checked:clean"
-    },
-    {
-      "role": "architecture",
-      "verdict": "pass",
-      "findings": ["Follows existing hook pattern from useCostData"],
-      "confidence": "checked:clean"
-    },
-    {
-      "role": "skeptic",
-      "verdict": "pass",
-      "findings": ["API error path could surface better UX — logged as INFO, not blocking"],
-      "confidence": "checked:concerns"
+      "findings": [],
+      "observationGaps": []
     }
   ],
   "allPass": true,
   "blockers": []
 }
 ```
-
-**Example with an unobserved perspective** (the skeptic file was still missing after the single resume):
-```json
-{
-  "perspectives": [
-    { "role": "scope", "verdict": "pass", "findings": [], "confidence": "checked:clean" },
-    { "role": "regression", "verdict": "pass", "findings": [], "confidence": "checked:clean" },
-    { "role": "architecture", "verdict": "pass", "findings": [], "confidence": "checked:clean" },
-    {
-      "role": "skeptic",
-      "verdict": "not_observed",
-      "findings": ["No verdict on disk after one resume - this perspective did not review the diff"],
-      "confidence": "not_observed"
-    }
-  ],
-  "allPass": false,
-  "blockers": ["skeptic perspective not_observed - production-risk review did not run"]
-}
-```
-
-`allPass` is `false` with no `fail` anywhere. That combination is what tells the ship ceremony to create the draft PR and name the skeptic gap in its body.

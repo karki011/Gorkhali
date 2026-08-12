@@ -23,7 +23,9 @@ const RAW_TEXT_TAGS = new Set(['style', 'title', 'textarea', 'script']);
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
 
-const normalizedArtifact = (artifact) => isObject(artifact?.evidence) ? artifact.evidence : artifact;
+const isEnvelope = (artifact) => isObject(artifact) && isText(artifact.artifact_type) && isObject(artifact.evidence);
+
+const normalizedArtifact = (artifact) => isEnvelope(artifact) ? artifact.evidence : artifact;
 
 const normalizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 

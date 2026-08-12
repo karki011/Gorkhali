@@ -1,6 +1,6 @@
 ---
 name: verify
-description: "Use to RUN correctness checks — execute the tests, build, and lint and observe whether they pass. Also use when user says 'run the tests', 'does it pass', 'check the build', 'lint it', 'run verification', or 'is the build green'. NOT for repairing a known failure (use phantom:fix), code-quality review (use phantom:review), or requirements coverage (use phantom:validate). Runs correctness checks (lint + build + tests) then a power level for quality."
+description: "Run the repository's correctness checks, simplify the changed files, and obtain an independent review. Reports failures; it never edits code to make a check pass."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
@@ -8,84 +8,156 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 # /phantom:verify
 
-Three-step verification: correctness commands → power level → auto-address.
+Use the portable lifecycle and artifact contract as the authority. This command is
+an adapter for the ordered quality pipeline; it must not create a second
+fingerprint, freshness rule, or verification store.
 
-<instructions>
+## Preconditions
 
-Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
+1. Resolve the active portable skill directory and session.
+2. Run the portable `verify` gate before checks:
 
-## Step 1: Correctness (commands, no agents)
+   ```text
+   node <skill-directory>/scripts/phantom-state.mjs verify --workspace <workspace>
+   ```
 
-Discover verify commands from repo (see `_shared-repo-detection.md` protocol, `reference/verification.md` for tier precedence).
+3. Inspect the current changed-file list and diff. Preserve unrelated changes.
 
-Run each command piped through `scripts/lib/log-capture.js --label <command>` and read the bounded summary it returns. **`log-capture.js` always exits 0** (it fails open so a capture bug never hides the real output), so a bare pipe makes `$?` reflect the capture script, not your command — a red lint/build/test would read as green. Enable `set -o pipefail` first and capture the wrapped command's status, mirroring the snippet documented in `log-capture.js`'s header:
+If execution has not started or the lifecycle gate rejects the request, report
+the exact missing prerequisite and stop.
 
-```sh
-set -o pipefail
-pnpm test 2>&1 | node scripts/lib/log-capture.js --label test
-test_status=$?
+## Ordered pipeline
+
+### 1. Ward — deterministic correctness evidence
+
+Run one read-only Ward pass using `agents/ward.md`. Ward discovers commands by
+`reference/verification.md`, runs every applicable command without modifying the
+worktree, and returns exact commands, exit codes, and evidence states. A failed,
+blocked, or missing Ward result blocks verification. Do not invoke a fix skill.
+
+### 2. Sweep — minimum-sufficient simplification
+
+Run Sweep on every changed file after Ward. Sweep may simplify within the
+approved scope only. Record either the files it changed or an evidence-backed
+no-change result.
+
+### 3. Affected Ward rerun
+
+If Sweep changed files, rerun Ward for every affected check. Merge the original
+and rerun results so the newest observation for each check is authoritative. If
+Sweep changed nothing, record that the rerun was not applicable.
+
+Make the semantic risk decision once against the final post-Sweep diff using the
+trigger table in `reference/verification.md`. Convert the result to a unique
+`requiredSpecialists` array containing only the role strings `lens` and/or
+`archer`; use an empty array when no trigger applies. This selection belongs to
+verification and must not be recomputed by review or wrap.
+
+Write a provider-neutral verification evidence payload containing at least:
+
+```json
+{
+  "checks": [
+    { "name": "test", "command": "<exact command>", "result": "passed", "exit_code": 0 }
+  ],
+  "sweep": { "result": "passed", "changed_files": [] },
+  "requiredSpecialists": ["lens", "archer"],
+  "observation_gaps": []
+}
 ```
 
-Judge pass/fail on the captured status (non-zero = fail), not on the pipe's default exit code. Grep the full log at the path in the hint line for anything the summary trimmed. Report one line per command as `<command>: pass` or `<command>: fail`, then close with the pre-computed aggregate — `count: N of M commands passed` — never leave the reader to tally the lines above themselves.
+Use only `passed`, `failed`, `blocked`, or `not-applicable`. Record it through
+the portable helper; the helper binds it to the complete current worktree
+fingerprint and advances lifecycle state atomically:
 
-If ANY fail → run hound failure scan (Step 1.5), name every failing command explicitly (never a bare "failed"). **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")`. STANDALONE (token absent) → report the failures, close with `help[1]:\n  Run /phantom:fix to repair the failing command(s) named above`, and stop.**
+```text
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type verification --status <status> --run <run-id> --input <evidence-file>
+```
 
-Spawn sweep agent (`subagent_type: "sweep"`, `name: "sweep-nix"`, `mode: "bypassPermissions"`) on changed files using `agents/sweep.md`. If changes produced → re-run correctness. (effort = session `high`; model per `reference/agents.md` → Model Routing)
+Never hand-author `worktree_fingerprint`. The portable helper binds both the
+checks and `requiredSpecialists` selection to the final worktree.
+Missing passed Ward evidence blocks the pipeline and records a non-passing verification. A
+failed required command or unexplained skipped required command also stops
+before review.
 
-### Step 1.5: Hound Failure Scan (auto, on failure)
+### 4. Gaze — one default independent reviewer
 
-1. Extract failing file paths from output
-2. Hotspot + coupling check on failing files (recipes from `_shared-hound.md`)
-3. Recent changes: `git log --oneline --since="2.weeks" -- {failing_files}`
-4. Add `hound` field to verification.json (schema in `reference/detective/depth-levels.md`)
-5. Report: "{file} has {N} changes in 6mo, coupled with {other_file} (strength {S})"
+Delete only `{SESSION_DIR}/reviews/gaze.json`, then run one fresh, read-only Gaze pass
+using `agents/gaze.md`. Gaze reviews the current diff, intent, repository rules,
+and the current portable Ward evidence. It does not run fixes, tests, or Sweep.
+The targeted delete prevents a failed or truncated run from reusing an older
+verdict. Read its durable artifact rather than inferring a verdict from the
+agent's final message.
 
-## Step 2: Power Level (1 agent)
+For the compatibility artifact, read `{SESSION_DIR}/reviews/gaze.json` and its
+`findings` key. If it is missing or unreadable, give the same Gaze agent one
+`SendMessage` resume (never a respawn) to finish the artifact. If it remains
+missing, record `not_observed`/`blocked`; never substitute an empty findings
+array or a clean verdict.
 
-Delete `{SESSION_DIR}/reviews/gaze.json` if it exists, before spawning Gaze - the same pre-spawn clear Apex does for the four panel role files in `reference/wrap/rpsl.md`, and for the same reason. The clear is load-bearing on a re-run: the guard below checks that the file is present and carries a `findings` key, it does not check freshness. A Gaze that truncates before rewriting the file leaves the previous run's verdict in place, this step reads it as a satisfied review, skips the resume, and verification can print `review: 0 P0/P1 findings` against a diff nobody reviewed. Clear it again before each Step 3 re-review, which is another Gaze run on a changed diff. The clear belongs here and not in `agents/gaze.md`: a truncated agent may never reach its own cleanup, which is the failure mode being defended against.
+Read `requiredSpecialists` from the current passed verification artifact. Do not
+inspect the diff to select roles again. Give each required specialist a bounded
+question that does not duplicate Gaze's general review. If `lens` is required,
+create
+`{SESSION_DIR}/reviews/specialists/`, delete only
+`{SESSION_DIR}/reviews/specialists/lens.json`, and then immediately spawn Lens.
+If `archer` is required, create the same directory, delete only
+`{SESSION_DIR}/reviews/specialists/archer.json`, and then immediately spawn
+Archer. Do not clear or spawn a role absent from `requiredSpecialists`, and do
+not clear any other review file.
 
-Spawn ONE review agent (`subagent_type: "gaze"`, `name: "gaze-varel"`, `mode: "bypassPermissions"`):
-- Input: `git diff main...HEAD` + intent from session
-- Prompt: load from `reference/temperature-review.md` — "Review Agent Prompt" section
-- Output: `{SESSION_DIR}/reviews/gaze.json`, whose `findings` key holds the P0/P1 array (P2/P3 dropped)
+After each required specialist returns, require the newly written named file
+to be valid. It must contain exactly the role it represents, a `verdict` of
+`pass`, `fail`, or `blocked`, a `findings` array, and an `observationGaps`
+array. The pre-spawn delete makes a present file evidence from this run rather
+than stale evidence. Read the file, not the specialist's final message.
+An empty `requiredSpecialists` array means no normal specialist pass. The
+optional RPSL preset remains separate and is not part of normal verify.
 
-Read the findings from `reviews/gaze.json`, not from Gaze's final message: the file is the deliverable and survives a truncated turn that destroys the message. If the file is absent, unreadable, or carries no `findings` key, give Gaze ONE `SendMessage` resume (by agent id or name, never a respawn) asking it to write the artifact, then compute from what is on disk. That is the same resume-then-proceed guard as the Empty-Result Guard in `reference/wrap/rpsl.md`, and for the same reason: recover a lost deliverable without becoming a second gate that can wedge the session.
+Record the final review only after the current passed verification artifact:
 
-Three outcomes. They must not collapse into one another:
+```json
+{
+  "verdict": "pass",
+  "findings": [],
+  "specialists": [
+    {
+      "role": "lens",
+      "verdict": "pass",
+      "findings": [],
+      "observationGaps": []
+    }
+  ],
+  "observation_gaps": []
+}
+```
 
-| On disk | Means | Report |
-|---|---|---|
-| `findings: []` | reviewed, genuinely clean | `review: 0 P0/P1 findings (gaze against git diff main...HEAD)` - definitive, with its scope. Skip Step 3, proceed to Step 4 (visual). |
-| `findings` non-empty | N blockers | `review: N P0/P1 findings`, with each finding named below it, not just the count. Go to Step 3. |
-| still absent after the one resume | not reviewed. Unknown, NOT zero | `review: not_observed - reviews/gaze.json absent after one resume`, reusing the `not_observed` vocabulary `reference/schemas/verification.md` already defines for correctness observations. Do not write an empty `review.findings`, and never print `review: 0 P0/P1 findings`. |
+Merge each required role's artifact unchanged into `specialists`; do not add a
+second reducer or fingerprint. Gaze plus these specialists form the one review
+payload recorded below, so the portable helper binds the merged evidence to the
+current worktree fingerprint. A required specialist `fail` makes the overall
+review `failed`. A missing, invalid, or `blocked` required specialist makes the
+overall review `blocked`. Only Gaze pass plus every role named by verification's
+`requiredSpecialists` passing may record an overall passed review.
 
-Only a written empty array earns the definitive empty-result line. Reporting an absent artifact as zero findings asserts a clean review nobody performed, which is precisely the lost-deliverable failure this artifact exists to prevent.
+```text
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>
+```
 
-## Step 3: Auto-Address (only if P0/P1 exist)
-
-1. Spawn 1 fix agent (`subagent_type: "blade"`, `name: "blade-talvik"`, `mode: "bypassPermissions"`) with scoped findings
-2. Re-run Step 1 correctness only
-3. Re-review ONLY the fix diff
-4. Loop until the fix-loop ceiling (`FIX_LOOP_CEILING` from `scripts/lib/constants.js`, enforced by `hooks/loop-controller.js`; protocol: `reference/temperature-review.md`). Clean → pass. Still P0/P1 → escalate to user.
-
-## Step 4: Visual Verification (auto — UI changes only)
-
-If `HAS_UI = true` (per `_shared-repo-detection.md`) AND `git diff --name-only main...HEAD` touches UI files, a browser agent must confirm the change actually renders before anything ships — correctness commands don't catch visual regressions.
-
-- **CHAINED (`--chained` present)** → auto-invoke `Skill(skill="phantom:visual", args="--autonomous")`. Lens drives a real browser: screenshots the affected routes across viewports/states, compares against intent/Figma, and runs its own ≤3-iteration fix loop. Do not wait for the human.
-- **STANDALONE (token absent)** → `Skill(skill="phantom:visual")` (interactive: shows results, asks before fixing).
-
-Fold Lens's outcome into the verdict and record it in `visualVerification` (verification.json): resolved → pass; `partial`/unresolved after the loop ceiling → escalate, do not silently pass. State the outcome definitively either way — `visual: resolved (N route(s)/viewport(s) checked)` or `visual: partial — <what's still wrong>` — never a bare "done". Skip (and note why, e.g. `visual: skipped — no UI files changed`) only when `HAS_UI = false`, no UI files changed, or `agent-browser` is unavailable (per `phantom:visual` step 3).
-
-</instructions>
-
-## Write Artifact
-
-Write `{TEAM_DIR}/sessions/{TICKET}/verification.json`. Schema in `reference/schemas/verification.md`.
-
-Key fields: `_meta`, `correctness` (lint/build/tests/commands), `review` (temperature/findings/fixLoops), `simplifyRan`, `intentAlignment`, `verdict`, `score`.
+The helper enforces that review is newer than verification and bound to the same
+worktree fingerprint. Missing Gaze or triggered-specialist evidence is
+`blocked`, never zero findings and never an approval. Any later worktree change
+makes the merged review stale; rerun the affected pipeline rather than patching
+metadata.
 
 ## Result
 
-- **PASS** → print the definitive verdict — `verdict: pass`, the Step 1 `count: N of M commands passed`, and `review: 0 P0/P1 findings` (or the resolved fix-loop count if Step 3 ran) — then proceed to `/phantom:wrap`. A self-contained pass needs no `help[N]:` block. Print the zero-findings line only for the Step 2 outcome that earns it, a `reviews/gaze.json` whose `findings` array was read and was empty; if Step 2 ended at `not_observed`, carry that label through and do not substitute a zero.
-- **FAIL** → name every failing command and finding explicitly (never a bare "failed"), then close with `help[1]:\n  Run /phantom:fix to repair the failures named above`. **CHAINED (`--chained` present) → auto-invoke `Skill(skill="phantom:fix", args="--chained")` (do not wait for the human). STANDALONE (token absent) → report + the help block above, and stop.**
+Report the ordered evidence: Ward checks, Sweep result, affected Ward rerun,
+Gaze verdict, triggered specialists, and portable artifact locations. End with:
+
+- `done` only when required checks and review passed;
+- `done-with-caveat` only for a genuinely optional unavailable capability; or
+- `blocked` with exact failures or missing evidence.
+
+This command reports and records. It never auto-fixes findings, retries code
+changes, or proceeds to wrap on its own.

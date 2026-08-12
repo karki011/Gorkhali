@@ -1,64 +1,83 @@
 # Verification Protocol
 
-## Command Discovery (4-tier precedence)
+The portable state and verification contracts are authoritative for lifecycle,
+worktree fingerprints, artifact freshness, evidence states, and ordering. This
+reference defines repository command discovery for compatibility adapters.
 
-1. **CLAUDE.md** — check for explicit lint/test/build commands
-2. **Repo scripts** — check package.json scripts, Makefile targets
-3. **Stack defaults** — infer from detected stack (pnpm/yarn/npm + framework)
-4. **Monorepo affected** — run only on affected packages
+## Ordered quality path
 
-## Stack Defaults (placeholder resolution)
+Normal verification is exactly:
 
-Single home for concrete commands. Every `{TEST_CMD}` / `{LINT_CMD}` / `{BUILD_CMD}` / `{TYPECHECK_CMD}` placeholder elsewhere in this plugin resolves here — but only after tiers 1-2 yield nothing. Node package manager is selected by lockfile per `commands/_shared-repo-detection.md`.
+1. Ward runs deterministic, read-only correctness checks.
+2. Sweep simplifies every changed file within scope.
+3. Ward reruns checks affected by Sweep changes.
+4. Verification classifies the final diff's risk once and persists the unique
+   required role strings in `requiredSpecialists`.
+5. The final Ward evidence and `requiredSpecialists` are recorded together as
+   fingerprint-bound portable `verification` evidence.
+6. One independent Gaze reviews the same fingerprint and is recorded as the
+   portable `review` evidence.
+7. Review runs exactly the persisted Lens/Archer roles and merges their results
+   into `specialists`; review and wrap never reclassify the diff.
 
-| Stack (marker) | {TEST_CMD} | {LINT_CMD} | {BUILD_CMD} | {TYPECHECK_CMD} |
-|----------------|------------|------------|-------------|-----------------|
-| pnpm (`pnpm-lock.yaml`) | `pnpm test` | `pnpm lint` | `pnpm build` | `pnpm exec tsc --noEmit` |
-| yarn (`yarn.lock`) | `yarn test` | `yarn lint` | `yarn build` | `yarn tsc --noEmit` |
-| bun (`bun.lockb`) | `bun test` | `bun run lint` | `bun run build` | `bunx tsc --noEmit` |
-| npm (`package-lock.json`) | `npm test` | `npm run lint` | `npm run build` | `npx tsc --noEmit` |
-| Go (`go.mod`) | `go test ./...` | `go vet ./...` | `go build ./...` | — |
-| Rust (`Cargo.toml`) | `cargo test` | `cargo clippy` | `cargo build` | `cargo check` |
-| Python (`pyproject.toml` / `setup.py`) | `pytest` | — | — | — |
-| Make (`Makefile`, tier 2) | `make test` | `make lint` | `make build` | — |
+No stage auto-fixes a failure. Missing required Ward or Gaze evidence blocks.
 
-`—` = no stack default: resolve via tier 1/2 or report `not_observed`. Make rows apply only when the target exists in the Makefile.
+## Command discovery precedence
 
-## Stack Detection
+1. Repository instructions (`AGENTS.md`, `CLAUDE.md`, or equivalent).
+2. CI configuration and repository scripts (`package.json`, Makefile, task
+   runner, workspace tooling).
+3. Narrow commands already used by nearby tests or packages.
+4. Stack defaults below, only when the repository exposes no command.
 
-| Marker | Stack |
-|--------|-------|
-| go.mod | Go |
-| Cargo.toml | Rust |
-| package.json | Node.js |
-| pyproject.toml / setup.py | Python |
-| mix.exs | Elixir |
-| pom.xml / build.gradle | JVM |
+For monorepos, run affected-package checks plus any repository-required root
+gate. Record the exact resolution source for each command.
 
-## UI Detection
+## Stack defaults
 
-HAS_UI = true if any of:
-- package.json has react/vue/svelte/angular dependency
-- src/ contains *.tsx, *.jsx, *.vue, *.svelte files
-- Framework detected: Next.js, Remix, Vite with React
+| Stack marker | Test | Lint/static | Build | Typecheck |
+|---|---|---|---|---|
+| `pnpm-lock.yaml` | `pnpm test` | `pnpm lint` | `pnpm build` | `pnpm exec tsc --noEmit` |
+| `yarn.lock` | `yarn test` | `yarn lint` | `yarn build` | `yarn tsc --noEmit` |
+| `bun.lockb` | `bun test` | `bun run lint` | `bun run build` | `bunx tsc --noEmit` |
+| `package-lock.json` | `npm test` | `npm run lint` | `npm run build` | `npx tsc --noEmit` |
+| `go.mod` | `go test ./...` | `go vet ./...` | `go build ./...` | — |
+| `Cargo.toml` | `cargo test` | `cargo clippy` | `cargo build` | `cargo check` |
+| `pyproject.toml` | `pytest` | repository-defined | repository-defined | repository-defined |
 
-## Observation Confidence Protocol
+Use a default only when its executable and configuration are present. `—` or a
+missing command is `not-applicable` when genuinely irrelevant, otherwise
+`blocked` with the reason.
 
-Every verification step MUST report one of three states:
+## Ward evidence
 
-| State | Meaning | Example |
-|-------|---------|---------|
-| `checked:pass` | Ran the check, it passed | "lint: checked:pass — 0 errors" |
-| `checked:fail` | Ran the check, it failed | "build: checked:fail — TS2345 in foo.ts:42" |
-| `not_observed` | Could not run the check | "tests: not_observed — no test runner configured" |
+Ward is read-only. It records, for every applicable check:
 
-**`not_observed != absent`** — never claim an area is clean without running the check. If a command doesn't exist, times out, or is skipped for any reason, report `not_observed` with the reason.
+- stable check name;
+- exact command;
+- exit code;
+- `passed`, `failed`, `blocked`, or `not-applicable`;
+- concise evidence and any observation gap; and
+- whether the worktree remained unchanged.
 
-This feeds into Gaze's `observation_confidence` gate. Areas marked `not_observed` are surfaced in the review, not hidden.
+A passed portable verification contains at least one named passed check. Never
+translate absent, skipped, timed-out, or truncated output into a pass.
 
-## Ward Protocol
+## Risk triggers
 
-1. Discover commands per tier precedence
-2. Run each command, capture full output
-3. Read output completely (don't truncate)
-4. Report: checked:pass / checked:fail / not_observed per command with relevant error lines
+| Observed diff risk | Specialist |
+|---|---|
+| User-visible UI/visual behavior | Lens |
+| Auth, authorization, permissions | Archer |
+| Money, destructive operations, data-loss risk | Archer |
+| Migration or public API compatibility | Archer |
+| Concurrency or broad cross-module architecture | Archer |
+| Infrastructure/deploy or dependency changes | Archer |
+
+Resolve this table once against the final post-Sweep diff. Persist a unique
+`requiredSpecialists` array containing only `"lens"` and/or `"archer"`; persist
+`[]` when no row applies. The portable review/ship gate compares this selection
+with the merged review's `specialists` results. Each required role receives one
+bounded, non-overlapping question; missing, failed, blocked, duplicate, or
+unexpected specialist evidence blocks. RPSL remains an explicit optional
+deep-review preset, never a normal shipping prerequisite.

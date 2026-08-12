@@ -44,6 +44,7 @@ import {
 } from './lib/defect-proof.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
+const SPECIALIST_ROLES = new Set(['lens', 'archer']);
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
   direct: [],
@@ -837,28 +838,99 @@ function verify(workspace) {
 function gateEvidenceErrors(type, evidence) {
   if (!isObject(evidence)) return [`${type} evidence must be an object.`];
   if (type === 'verification') {
+    const errors = [];
     if (!Array.isArray(evidence.checks) || evidence.checks.length === 0) {
-      return ['Passed verification evidence requires at least one check.'];
+      errors.push('Passed verification evidence requires at least one check.');
+    } else {
+      errors.push(...evidence.checks.flatMap((check, index) => {
+        if (!isObject(check)) return [`Verification check ${index + 1} must be an object.`];
+        const checkErrors = [];
+        if (typeof check.name !== 'string' || !check.name.trim()) {
+          checkErrors.push(`Verification check ${index + 1} requires a name.`);
+        }
+        if (check.result !== 'passed') {
+          checkErrors.push(`Verification check ${index + 1} must have result "passed".`);
+        }
+        return checkErrors;
+      }));
     }
-    return evidence.checks.flatMap((check, index) => {
-      if (!isObject(check)) return [`Verification check ${index + 1} must be an object.`];
-      const errors = [];
-      if (typeof check.name !== 'string' || !check.name.trim()) {
-        errors.push(`Verification check ${index + 1} requires a name.`);
+    if (!Array.isArray(evidence.requiredSpecialists)) {
+      errors.push('Passed verification evidence requires a requiredSpecialists array.');
+    } else {
+      const seen = new Set();
+      for (const role of evidence.requiredSpecialists) {
+        if (!SPECIALIST_ROLES.has(role)) {
+          errors.push(`Unsupported required specialist role: ${String(role)}.`);
+        } else if (seen.has(role)) {
+          errors.push(`Required specialist role is duplicated: ${role}.`);
+        } else {
+          seen.add(role);
+        }
       }
-      if (check.result !== 'passed') {
-        errors.push(`Verification check ${index + 1} must have result "passed".`);
-      }
-      return errors;
-    });
+    }
+    return errors;
   }
   if (type === 'review') {
     const errors = [];
     if (evidence.verdict !== 'pass') errors.push('Passed review evidence requires verdict "pass".');
     if (!Array.isArray(evidence.findings)) errors.push('Passed review evidence requires a findings array.');
+    if (!Array.isArray(evidence.specialists)) {
+      errors.push('Passed review evidence requires a specialists array.');
+      return errors;
+    }
+    const seen = new Set();
+    evidence.specialists.forEach((specialist, index) => {
+      if (!isObject(specialist)) {
+        errors.push(`Review specialist ${index + 1} must be an object.`);
+        return;
+      }
+      const { role } = specialist;
+      if (!SPECIALIST_ROLES.has(role)) {
+        errors.push(`Review specialist ${index + 1} has unsupported role: ${String(role)}.`);
+      } else if (seen.has(role)) {
+        errors.push(`Review specialist role is duplicated: ${role}.`);
+      } else {
+        seen.add(role);
+      }
+      if (specialist.verdict !== 'pass') {
+        errors.push(`Review specialist ${index + 1} must have verdict "pass".`);
+      }
+      if (!Array.isArray(specialist.findings)) {
+        errors.push(`Review specialist ${index + 1} requires a findings array.`);
+      }
+      if (!Array.isArray(specialist.observationGaps)) {
+        errors.push(`Review specialist ${index + 1} requires an observationGaps array.`);
+      } else if (specialist.observationGaps.length > 0) {
+        errors.push(`Review specialist ${index + 1} cannot pass with observation gaps.`);
+      }
+    });
     return errors;
   }
   return [];
+}
+
+function requiredSpecialistEvidenceErrors(verificationEvidence, reviewEvidence) {
+  if (!Array.isArray(verificationEvidence?.requiredSpecialists)
+    || !Array.isArray(reviewEvidence?.specialists)) {
+    return [];
+  }
+  const required = new Set(verificationEvidence.requiredSpecialists);
+  const observed = new Map(reviewEvidence.specialists.map((specialist) => [specialist?.role, specialist]));
+  const errors = [];
+  for (const role of required) {
+    const specialist = observed.get(role);
+    if (!specialist) {
+      errors.push(`Required specialist evidence is missing for role: ${role}.`);
+    } else if (specialist.verdict !== 'pass') {
+      errors.push(`Required specialist evidence is not passed for role: ${role}.`);
+    }
+  }
+  for (const role of observed.keys()) {
+    if (SPECIALIST_ROLES.has(role) && !required.has(role)) {
+      errors.push(`Review contains unrequired specialist evidence for role: ${role}.`);
+    }
+  }
+  return errors;
 }
 
 function gateArtifactErrors(type, artifact, current, fingerprint) {
@@ -982,6 +1054,12 @@ function record(workspace, args) {
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
   const current = requireCurrent(workspace);
   const payload = args.input ? JSON.parse(readFileSync(args.input, 'utf8')) : {};
+  const fingerprint = ['verification', 'review'].includes(args.type)
+    ? worktreeFingerprint(current.paths.repo.root)
+    : null;
+  const verificationForReview = args.type === 'review'
+    ? requireCurrentPassedVerification(current, 'record review', fingerprint)
+    : null;
   const runId = args.run || `run-${Date.now()}`;
   const delegatedTask = args.type === 'delegation-result'
     ? readJson(join(current.paths.sessionDir, 'runs', runId, 'delegation-task.json'))
@@ -1042,7 +1120,12 @@ function record(workspace, args) {
     }
   }
   if (args.status === 'passed' && REQUIRED_GATES.includes(args.type)) {
-    const evidenceErrors = gateEvidenceErrors(args.type, payload);
+    const evidenceErrors = [
+      ...gateEvidenceErrors(args.type, payload),
+      ...(args.type === 'review'
+        ? requiredSpecialistEvidenceErrors(verificationForReview.evidence, payload)
+        : []),
+    ];
     if (evidenceErrors.length) throw new Error(`Invalid passed ${args.type} evidence: ${evidenceErrors.join('; ')}`);
   }
   const role = args.role
@@ -1056,15 +1139,9 @@ function record(workspace, args) {
   const risk = args.type === 'delegation-task' ? payload.risk : delegatedTaskPayload?.risk;
   const profile = resolveProfile({ role, profile: profileOverride, risk }).requested_profile;
   const routing = modelRouting(args, profile);
-  const fingerprint = ['verification', 'review'].includes(args.type)
-    ? worktreeFingerprint(current.paths.repo.root)
-    : null;
   let lifecycle = lifecycleFor(current.session);
   if (args.type === 'execution') lifecycle = prepareExecute(current);
   else if (args.type === 'verification') lifecycle = prepareVerify(current);
-  else if (args.type === 'review') {
-    requireCurrentPassedVerification(current, 'record review', fingerprint);
-  }
   const recordSequence = Math.max(
     Number.isInteger(current.session.last_record_sequence) ? current.session.last_record_sequence : 0,
     latestRecordSequence(current.paths.sessionDir),
@@ -1129,6 +1206,13 @@ function requireCurrentPassedGates(current, action) {
       throw new Error(`Cannot ${action}: ${errors.join(' ')}`);
     }
     artifacts[gate] = artifact;
+  }
+  const specialistErrors = requiredSpecialistEvidenceErrors(
+    artifacts.verification.evidence,
+    artifacts.review.evidence,
+  );
+  if (specialistErrors.length > 0) {
+    throw new Error(`Cannot ${action}: ${specialistErrors.join(' ')}`);
   }
   if (artifacts.review.record_sequence <= artifacts.verification.record_sequence) {
     throw new Error(

@@ -68,6 +68,24 @@ test('accepts a canonical payload inside a portable state envelope', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts a bare plan whose own canonical evidence field is an object', () => {
+  const source = { ...plan(), evidence: { sources: ['ticket-123'], findings: ['root cause confirmed'] } };
+  const result = run(fixtureDir(), 'plan', source, planPage());
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('accepts a bare brainstorm whose own canonical evidence field is an object', () => {
+  const source = { ...brainstorm(), evidence: { sources: ['ticket-123'], findings: ['root cause confirmed'] } };
+  const result = run(fixtureDir(), 'brainstorm', source, brainstormPage());
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('accepts a brainstorm canonical payload inside a portable state envelope', () => {
+  const source = { schema_version: 1, artifact_type: 'brainstorm', evidence: brainstorm() };
+  const result = run(fixtureDir(), 'brainstorm', source, brainstormPage());
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('accepts policy-equivalent CSP meta attribute order, quotes, and extra attributes', () => {
   const escapedPolicy = CSP.replaceAll("'", '&apos;');
   const flexibleMeta = `<meta data-review="plan" content='${escapedPolicy}' http-equiv='Content-Security-Policy'>`;

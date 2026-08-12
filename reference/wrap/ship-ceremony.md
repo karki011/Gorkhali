@@ -1,6 +1,6 @@
 # Ship Ceremony
 
-> **Context:** Called during `/phantom:wrap` once RPSL has returned no FAIL. A FAIL never reaches this file; an unobserved perspective does, and section 4 requires the PR body to name it. No git operations happened before this point — all prior work was local-only. Expects `{TEAM_DIR}/sessions/{TICKET}/execution.json` and `verification.json` to exist.
+> **Context:** Called during `/phantom:wrap` only after the portable ship gate confirms current passed Ward verification and Gaze review, plus every risk-triggered specialist. Missing, failed, blocked, or stale required evidence stops before this ceremony. No git operations happened before this point — all prior work was local-only.
 
 ## 1. Stage Changed Files
 
@@ -58,27 +58,15 @@ PR body:
 {verification results from verification.json if available}
 
 ## Validation
-{verify verdict + test counts from verification.json}
-{RPSL panel outcome, including any fixes applied during the panel, from review-panel.json}
-{any not_observed perspective, named - see "Unreviewed perspectives" below}
-{grill verdict from wrap.json}
+{Ward commands and outcomes from the current portable verification artifact}
+{Gaze verdict and findings count from the current portable review artifact}
+{each triggered specialist and outcome from the current portable review artifact}
+{optional RPSL outcome only when deep review was explicitly selected}
 ```
 
-Omit a subsection if its artifact is missing; never invent content to fill it.
-
-### Unreviewed perspectives (required when any verdict is `not_observed`)
-
-Read `perspectives[]` from `review-panel.json`. For every entry whose `verdict` is `not_observed`, the `## Validation` section MUST name that perspective and say it did not review the diff. This is not optional and it is not satisfied by reporting `allPass: false` alone: `allPass` is written to artifacts but no code branches on it, so a bare `false` reads to a human exactly like a pass. Name the role or the gap is invisible.
-
-```
-Panel: 3 of 4 perspectives reviewed. `allPass: false`.
-Not reviewed: **skeptic** - no verdict reached disk after one resume, so production-risk
-review did not run on this diff. Weigh that when marking this PR ready-to-review.
-```
-
-Why the PR body and not just a terminal line: the reviewers, the panel merge and the printed summary all die with the session, and the PR is the only artifact the human actually reads before marking it ready-to-review. The PR body is therefore the reader that gives `not_observed` its meaning. A `not_observed` recorded in `review-panel.json` and left out of the PR body is a false pass with extra steps.
-
-If section 4 skipped the PR entirely, carry the same named gap into the skip message and into `wrap.json` `reviewPanel.blockers`, so it is not lost just because no PR was created.
+Never omit required validation or invent content to fill it. Missing required Ward,
+Gaze, or triggered-specialist evidence is a blocked ship gate, not a PR caveat.
+Omit only optional validation that was not selected.
 
 If `gh` not available: print branch name + "run `gh pr create --draft` when ready"
 

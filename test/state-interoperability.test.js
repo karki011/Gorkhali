@@ -222,9 +222,16 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   ok(await runState(['execute', ...common], ctx.env));
 
   // verification + review (run artifacts)
-  const verification = await recordArtifact(ctx, 'verification', { checks: [{ name: 'unit', result: 'passed' }] }, { run: 'run-1' });
+  const verification = await recordArtifact(ctx, 'verification', {
+    checks: [{ name: 'unit', result: 'passed' }],
+    requiredSpecialists: [],
+  }, { run: 'run-1' });
   assertEnvelope(verification.file, 'verification', ctx, taskId);
-  const review = await recordArtifact(ctx, 'review', { verdict: 'pass', findings: [] }, { run: 'run-1' });
+  const review = await recordArtifact(ctx, 'review', {
+    verdict: 'pass',
+    findings: [],
+    specialists: [],
+  }, { run: 'run-1' });
   assertEnvelope(review.file, 'review', ctx, taskId);
 
   // wrap (run artifact)
