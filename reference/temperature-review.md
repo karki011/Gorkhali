@@ -79,11 +79,6 @@ In unattended mode, enforcement happens at the Skill-tool boundary via
 `hooks/fix-loop-gate.js`; an agent that keeps looping WITHOUT re-invoking
 `phantom:fix` is outside this gate — prose discipline and wrap review still apply.
 
-> **NOT this loop:** the VISUAL fix loop (`commands/visual.md`,
-> `agents/reference/visual-protocol.md`) is a SEPARATE iteration loop with its own
-> ceiling (`VISUAL_LOOP_CEILING` in `scripts/lib/constants.js`, default 3, env override
-> `PHANTOM_VISUAL_LOOP_CEILING`). Do not conflate the two — they count different things.
-
 ## Auto-Address Loop
 
 1. If findings[] is empty → verdict: pass. Write verification.json.

@@ -15,6 +15,7 @@ const { pathToFileURL } = require('node:url');
 
 const ROOT = path.join(__dirname, '..');
 const STATE = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const DECISION_CONTRACTS = path.join(ROOT, 'skills', 'phantom', 'scripts', 'lib', 'decision-contracts.mjs');
 const LEARNING = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
 const SESSION_MARKER = path.join(ROOT, 'hooks', 'session-marker.js');
 const brain = require(path.join(ROOT, 'scripts', 'lib', 'brain-card'));
@@ -39,9 +40,23 @@ function fixture() {
   return { root, workspace, data, env: { PHANTOM_DATA: data } };
 }
 
+function treeSnapshot(root) {
+  const snapshot = {};
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      const relative = path.relative(root, file);
+      if (entry.isDirectory()) visit(file);
+      else snapshot[relative] = fs.readFileSync(file).toString('base64');
+    }
+  };
+  visit(root);
+  return snapshot;
+}
+
 function runState(args, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [STATE, ...args], { env: { ...process.env, ...env } });
+    const child = spawn(process.execPath, [STATE, ...args, '--json'], { env: { ...process.env, ...env } });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => { stdout += d; });
@@ -56,12 +71,60 @@ function ok(result) {
   return JSON.parse(result.stdout);
 }
 
+async function recordGazeDelegation(ctx, runId) {
+  const { delegationTaskDigest } = await import(pathToFileURL(DECISION_CONTRACTS).href);
+  const task = {
+    contract_version: 2,
+    task_id: `gaze-${runId}`,
+    delegation_id: `gaze-${runId}-attempt-1`,
+    role: 'gaze',
+    profile: 'deep',
+    risk: 'moderate',
+    requires_judgment: true,
+    objective: 'Independently review the verified work',
+    locked_decisions: [], corrections: [], constraints: [],
+    deliverables: ['Review verdict'],
+    acceptance_criteria: ['Review completes'],
+    write_scope: [], context_refs: [],
+  };
+  const taskInput = path.join(ctx.root, `${runId}-gaze-task.json`);
+  fs.writeFileSync(taskInput, JSON.stringify(task));
+  ok(await runState([
+    'record', '--workspace', ctx.workspace, '--type', 'delegation-task',
+    '--status', 'pending', '--run', runId, '--input', taskInput,
+  ], ctx.env));
+  const result = {
+    contract_version: 2,
+    task_id: task.task_id,
+    delegation_id: task.delegation_id,
+    task_digest: delegationTaskDigest(task),
+    status: 'ok',
+    output: {
+      summary: 'Independent review complete', files_changed: [], checks: [{
+        name: 'user-verification-classification',
+        status: 'passed',
+        summary: 'The final diff is correctly classified for user verification',
+      }],
+      findings: [], risks: [], blocker: null,
+    },
+    error: null,
+  };
+  const resultInput = path.join(ctx.root, `${runId}-gaze-result.json`);
+  fs.writeFileSync(resultInput, JSON.stringify(result));
+  ok(await runState([
+    'record', '--workspace', ctx.workspace, '--type', 'delegation-result',
+    '--status', 'passed', '--run', runId, '--input', resultInput,
+  ], ctx.env));
+}
+
 async function recordArtifact(ctx, type, payload, { status = 'passed', run } = {}) {
   sequence += 1;
+  if (type === 'review') await recordGazeDelegation(ctx, run);
   const input = path.join(ctx.root, `${type}-${sequence}.json`);
   fs.writeFileSync(input, JSON.stringify(payload));
   const args = ['record', '--workspace', ctx.workspace, '--type', type, '--status', status, '--input', input];
   if (run) args.push('--run', run);
+  if (type === 'review') args.push('--role', 'gaze');
   return ok(await runState(args, ctx.env));
 }
 
@@ -225,6 +288,7 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   const verification = await recordArtifact(ctx, 'verification', {
     checks: [{ name: 'unit', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }, { run: 'run-1' });
   assertEnvelope(verification.file, 'verification', ctx, taskId);
   const review = await recordArtifact(ctx, 'review', {
@@ -270,9 +334,64 @@ test('a Claude-authored legacy top-level session is readable by the portable pat
   legacy.to_plan = true;
   fs.writeFileSync(sessionFile, JSON.stringify(legacy));
 
+  const before = treeSnapshot(ctx.data);
   const recovered = ok(await runState(['status', ...common], ctx.env));
   assert.equal(recovered.lifecycle.mode, 'to-plan', 'portable path unwraps legacy top-level mode');
   assert.equal(recovered.lifecycle.authorizations.implementation.status, 'pending');
+  assert.deepEqual(treeSnapshot(ctx.data), before, 'legacy inspection must not rewrite or migrate state');
+});
+
+test('legacy completed sessions remain readable without mutation', async () => {
+  const ctx = fixture();
+  const common = ['--workspace', ctx.workspace];
+  const started = ok(await runState([
+    'start', ...common, '--task', 'LEGACY-COMPLETE', '--intent', 'Inspect completed legacy state', '--route', 'direct',
+  ], ctx.env));
+  const repoRoot = path.join(ctx.data, 'repos', started.repo_id);
+  const activeDirectory = path.join(repoRoot, 'sessions', 'LEGACY-COMPLETE');
+  const completedDirectory = path.join(repoRoot, 'completed', 'LEGACY-COMPLETE');
+  const sessionFile = path.join(activeDirectory, 'session.json');
+  const pointerFile = path.join(ctx.data, 'state', 'current-session', `${started.repo_id}.json`);
+  const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  delete legacy.lifecycle;
+  legacy.status = 'completed';
+  fs.writeFileSync(sessionFile, JSON.stringify(legacy));
+  fs.mkdirSync(path.dirname(completedDirectory), { recursive: true });
+  fs.renameSync(activeDirectory, completedDirectory);
+  const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
+  fs.writeFileSync(pointerFile, JSON.stringify({
+    ...pointer,
+    status: 'completed',
+    session_dir: completedDirectory,
+  }));
+
+  const before = treeSnapshot(ctx.data);
+  const recovered = ok(await runState(['status', ...common], ctx.env));
+  assert.equal(recovered.status, 'completed');
+  assert.equal(recovered.lifecycle.mode, 'standard');
+  assert.deepEqual(treeSnapshot(ctx.data), before, 'completed legacy inspection must be read-only');
+});
+
+test('unsupported or missing session schema representations fail closed without mutation', async () => {
+  const ctx = fixture();
+  const common = ['--workspace', ctx.workspace];
+  const started = ok(await runState([
+    'start', ...common, '--task', 'FUTURE-SCHEMA', '--intent', 'Reject unknown state', '--route', 'direct',
+  ], ctx.env));
+  const sessionFile = path.join(
+    ctx.data, 'repos', started.repo_id, 'sessions', 'FUTURE-SCHEMA', 'session.json',
+  );
+  const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  for (const unsupported of ['2', 1.5, 0, null, 2, undefined]) {
+    const candidate = { ...session, schema_version: unsupported };
+    if (unsupported === undefined) delete candidate.schema_version;
+    fs.writeFileSync(sessionFile, JSON.stringify(candidate));
+    const before = treeSnapshot(ctx.data);
+    const result = await runState(['status', ...common], ctx.env);
+    assert.equal(result.code, 1, `schema ${JSON.stringify(unsupported)} must fail closed`);
+    assert.match(result.stderr, /Unsupported Phantom session schema version/);
+    assert.deepEqual(treeSnapshot(ctx.data), before, 'failed inspection must not rewrite unsupported state');
+  }
 });
 
 test('Claude session telemetry cannot overwrite the durable portable task pointer (hook after start)', async () => {

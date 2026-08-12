@@ -14,9 +14,6 @@
 // question one level up: may this loop keep going? scripts/run-guard.js is its
 // I/O shell (observes spend, records the halt); this file stays pure.
 //
-// NOT the VISUAL fix loop (commands/visual.md, agents/reference/visual-protocol.md),
-// which is a separate iteration loop with its own ceiling (VISUAL_LOOP_CEILING in
-// scripts/lib/constants.js).
 'use strict';
 
 let FIX_LOOP_CEILING = 2;

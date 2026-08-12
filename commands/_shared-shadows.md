@@ -19,7 +19,7 @@
 | rival | sonnet (frontmatter pin) | adversarial plan review |
 | plan-checker | sonnet (frontmatter pin) · escalate for large/complex plans | plan validation |
 | ward | haiku (frontmatter pin) | build/test QA |
-| lens | sonnet | visual QA |
+| lens | sonnet (frontmatter pin; explicit user opt-in only) | advisory visual inspection |
 | sweep | sonnet | simplification |
 
 - `opus` resolves to `claude-opus-5` (Phantom's top tier); `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
@@ -42,7 +42,7 @@ Agents load ONLY what they need — Apex holds the full picture.
 | **Ward** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | discipline tiers |
 | **Gaze** | Persona + full diff + `coding-principles.md` | discipline/planning tiers |
 | **Sage** | Decision context passed by Blade only | Everything — never loads files |
-| **Lens** | Persona + Figma specs (extraction) or route list (verification) | Full shared context |
+| **Lens** | Explicit routes, expected behavior, worktree path/branch, and resolved URL when known | All shared context; loaded only after opt-in |
 
 ---
 

@@ -1,129 +1,119 @@
-# Decision-first planning
+# Planning
 
-Planning exists to help a human understand and approve a researched direction.
-Tasks and dependency waves are an execution appendix, not the primary result.
+Load this phase when starting, resuming, investigating, choosing direction, or
+preparing implementation. Planning produces decision-useful artifacts; it does
+not authorize code mutation or external lifecycle actions.
 
-## Select depth
+## Establish current truth
 
-- `quick`: scope, pattern, risk, and deterministic verification are known. Use a
-  concise plan and no fan-out.
-- `standard`: dependencies or several components need inspection. Use targeted
-  research and one independent critic.
-- `deep`: the request is ambiguous, cross-cutting, hard to reverse, externally
-  researched, or lacks a reliable verifier. Use bounded research fan-out.
+1. Run compact `status` before creating or changing state. Resume a matching
+   active session rather than replacing it.
+2. Read the nearest repository instructions and relevant learnings. A recorded
+   failed correction blocks repeating that approach unless current evidence
+   explains why this case differs.
+3. Trace the current code path and existing repository patterns. For shared or
+   refactored surfaces, inspect dependency impact with a native graph or the
+   bundled read-only impact analyzer.
+4. Record capability availability without destructive probes. A fallback must
+   be visible and must preserve the same decision or evidence contract.
+5. Apply the minimum-sufficient ladder after understanding the code path:
+   omit unnecessary machinery, reuse the repository, prefer standard or native
+   behavior, reuse installed dependencies, then write the smallest custom
+   implementation that completely satisfies the approved outcome.
 
-Apex selects this depth and its delegation topology automatically from evidence;
-do not ask the user to choose worker count or models. Quick planning does not
-fan out; required execution or review passes may still use native delegation.
-Standard work uses only the targeted passes it needs. Deep work fans out only
-independent uncertainty and still uses the smallest useful worker set.
+## Classify the route
 
-For a newly persisted `quick` plan, omit `solution_shape`, `change_set`, and
-`readiness`; emit `scenarios`, `alternatives`, and `coverage` as empty arrays.
-Do not use `null`, placeholder objects, or invented entries to fill the contract.
+Routing selects decision gates and artifacts, not worker count.
 
-Apex stays on the `frontier` profile for framing and synthesis. Delegate scoped
-reasoning to `balanced`, difficult specialist work to `deep`, and deterministic
-checks to `economy`. If model selection is unavailable, inherit the active model
-and record the fallback.
+- `direct`: one clear, low-risk outcome with no material design choice.
+- `plan`: a known outcome whose execution needs an explicit plan.
+- `brainstorm`: materially ambiguous direction requiring researched options.
+- `full`: ambiguous direction plus architectural or cross-scope wiring risk.
 
-## Build the artifact
+The route and material intent are immutable for an active session. Capture a
+material change as a revision or start a new task; never silently retain old
+approvals across changed intent.
 
-Capture these sections before decomposing work:
+Plan-only mode is conservative and permanent. Pick safe defaults, record
+assumptions, produce the plan, and stop without implementation, verification,
+shipping, worktree creation, or other git mutation.
 
-1. `summary`: one cohesive, plain-language paragraph that states the problem
-   and its impact, the chosen direction, what the plan will put in place, and
-   the expected outcome. Use 3-5 sentences. Do not mention task IDs, waves,
-   agent roles, model names, files, or commands.
-2. `decision`: approval question, recommendation, evidence-backed rationale,
-   and `pending` or explicitly delegated status.
-3. `outcome`: observable goal and definition of done.
-4. `scope`: included work, exclusions, and hard constraints.
-5. `solution_shape`: architecture summary, components, and data flow for
-   standard/deep plans. Omit it for quick work when there is no meaningful
-   architecture decision.
-6. `change_set`: explicit `added`, `modified`, `removed`, and `unchanged`
-   behavior or surfaces for standard/deep plans.
-7. `scenarios`: observable Given/When/Then behavior with stable IDs.
-8. `evidence`: claim, source, `verified`, `supported`, `inferred`, or `unknown`
-   status, observation time, confidence, and any material conflicts.
-9. `alternatives`: materially different options and why they were not selected.
-   Use an empty array for quick work with one obvious path; do not invent filler.
-10. `assumptions`, `open_questions`, and `risks`, including reversibility and
-   recovery.
-11. `validation`: strategy, concrete checks, and definition of done.
-12. `coverage`: map every requirement to scenarios, task IDs, and concrete
-    checks. Reject unknown references and uncovered standard/deep tasks.
-13. `tasks`: research-free actions with `read_first`, owned files, explicit
-    `new_files`, dependencies, `consumes`, `produces`, acceptance criteria,
-    verification, risk, recovery, and delegated profile.
-14. `readiness`: `READY`, `CONCERNS`, or `BLOCKED`, with reasons and unresolved
-    items. Readiness never invents or replaces human approval.
+## Investigate defects before planning a fix
 
-For `standard` and `deep` output, make every section decision-grade rather than
-merely present. Give evidence a concrete implication; alternatives distinct
-benefits, costs, rejection reasons, and reconsideration conditions; assumptions
-confidence, impact, and a validation path; and risks likelihood, impact,
-trigger, mitigation, and recovery. Rationale should contain 2-4 substantive
-reasons, and tasks should read as executable dossiers rather than headings.
-Quick output stays concise and must not invent filler to look comprehensive.
+Classify a bug, defect, incident, regression, or flaky failure as an
+investigation. Reproduce the current failure, preserve its observable evidence,
+trace the exact causal code path, form one falsifiable root-cause claim, and ask
+the user to confirm that claim before implementation.
 
-Use `contract_version: 3` in a portable plan payload. Provider-specific legacy
-artifacts use their native version field while preserving the same meaning.
-Use exact JSON keys for traceability: scenarios are `{ id, given, when, then }`;
-evidence rows are `{ claim, source, status, observed_at, confidence, conflicts? }`,
-where `observed_at` is an RFC 3339 timestamp with timezone, `confidence` is from
-`0` to `1`, and `conflicts` is an optional string array;
-coverage rows are `{ requirement, scenarioIds: [], taskIds: [], checks: [] }`;
-tasks are `{ id, description, read_first: [], action, files: [], dependsOn: [],
-new_files: [], consumes: [], produces: [], acceptance_criteria: [], verify, risk,
-recovery, profile }`; and readiness is `{ verdict, reasons: [], unresolved: [] }`,
-where verdict is `READY`, `CONCERNS`, or `BLOCKED`. IDs are stable within the
-artifact, coverage references must resolve, and every standard/deep task must be
-covered.
+Record complete proof as confirmed and ready for fix. If reproduction or
+confirmation is incomplete, record the waiting state and pause. Diagnostic
+instrumentation requires a bounded grant naming its purpose, allowed actions,
+paths, expiry, and cleanup. It authorizes evidence collection only.
 
-Use normalized `/`-separated repository-relative paths only. Never emit absolute
-paths, `..`, globs, placeholders, or guessed paths. Put only existing workspace
-paths inspected during planning in `read_first`. Put every touched path in
-`files`; put each intentional creation in both `files` and `new_files`, never in
-`read_first`. If a path cannot be confirmed, record the uncertainty in
-`open_questions` and set readiness to `CONCERNS` or `BLOCKED` instead of guessing.
-Earlier v3 plans without the additive change-set, scenario, coverage, task
-interface, `new_files`, and readiness fields remain readable; new standard/deep
-plans must emit the complete enriched set. Earlier v3 evidence rows without
-freshness metadata also remain readable. Before a new canonical write, refresh
-each evidence row and require `observed_at` plus bounded `confidence`; include
-`conflicts` only when sources materially disagree.
+The state engine validates the proof against the active repository, task, and
+fingerprint before execution. Do not reproduce that validation in prose or
+infer a pass from narrative confidence.
 
-The plan records task dependencies and semantic profiles, not provider-specific
-spawn instructions. At execution time Apex derives waves from those dependencies
-and delegates only tasks whose independence and write boundaries are established.
+## Build decision artifacts
 
-## Review HTML
+Use the current versioned decision contracts accepted by the state helper.
+JSON is canonical; HTML is a disposable human review projection and is never
+parsed back into state.
 
-Run Plan-checker for structural defects, then one Rival pass for a false
-assumption, missing failure mode, or simpler direction. Revise once. A second
-review is justified only when the first produced new evidence.
+A plan should communicate only what a reviewer or implementer needs:
 
-Create the portable v3 JSON payload first and persist it when file writing is
-available. Validate the JSON before generating HTML; an active session's
-`phantom-state.mjs record --type plan --status pending --input <json-file>`
-validates it while persisting the canonical envelope. Only after validation
-succeeds, create `plan.candidate.html` from the current JSON using
-`<skill-directory>/references/review-html.md`, then run
-`<skill-directory>/scripts/validate-review-html.mjs` against it. Do not repair stale HTML:
-update the JSON and regenerate the disposable review page.
+- decision question, recommendation, intended outcome, and scope boundaries;
+- inspected evidence with observation time, confidence, and conflicts;
+- alternatives and substantive tradeoffs;
+- affected and newly created repository-relative paths;
+- risks, triggers, recovery, validation, and acceptance criteria;
+- bounded tasks with dependencies, read-first context, write ownership, and
+  required outputs.
 
-Render the self-contained, offline implementation dossier in this order:
-plain-language plan summary; chosen direction and human gate;
-added/modified/removed/unchanged change ledger; outcome, scope, and
-Given/When/Then scenarios; architecture and requirement coverage; evidence,
-alternatives, and risks; validation; readiness verdict; then task interfaces and
-execution dossiers in a final appendix collapsed by default. If file writing is
-unavailable, present the payload in one fenced `json` block and state that it was
-not persisted or presented. If JSON can be written but HTML generation or viewing is
-unavailable, keep the JSON artifact and present the same hierarchy in chat.
+Quick plans stay compact. Standard and deep plans include executable task
+contracts and coverage of every acceptance criterion. Never guess a path or
+fill required fields with generic prose; unresolved material uncertainty makes
+the plan concerned or blocked.
 
-Replan only when a precondition is disproven, a new hard constraint appears,
-blast radius changes materially, a required capability is unavailable,
-verification disproves the diagnosis, or the same failure class repeats.
+For brainstorm routes, research multiple genuinely distinct approaches before
+convergence. Record what evidence would change the recommendation, then promote
+the approved direction into a plan. For full routes, record the approved
+cross-scope decisions after the plan.
+
+Record canonical artifacts through the engine:
+
+```text
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type brainstorm --status passed --input <json-file>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type plan --status passed --input <json-file>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type decisions --status passed --input <json-file>
+```
+
+The input path is a transport into the canonical record, not a second durable
+copy inside the session.
+
+Validate canonical JSON before creating any human review page. When a review
+page is useful, follow [review HTML guidance](review-html.md), generate the
+disposable HTML from the validated JSON, and run
+`scripts/validate-review-html.mjs` before presenting it. If file writing is
+unavailable, present one fenced `json` block; if HTML generation or viewing is
+unavailable, preserve JSON and present the same decision hierarchy in chat.
+
+## Collect approvals
+
+Approvals follow the route and bind to the current passed decision artifacts:
+
+```text
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate direction
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate plan
+node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
+```
+
+`direct` has no decision approval; `plan` requires plan approval;
+`brainstorm` requires direction before plan; `full` additionally requires
+wiring. New decision artifacts invalidate dependent approvals through the
+engine. Never carry approval forward manually.
+
+After the required decision gates pass, ask for explicit implementation
+authorization. If it is denied, unavailable, or ambiguous, pause with the plan
+and exact next safe action. Shipping authorization is deliberately not part of
+this phase.

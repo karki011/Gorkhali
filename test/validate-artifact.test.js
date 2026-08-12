@@ -319,3 +319,176 @@ test('execution: an unknown observation value is rejected', () => {
     /tasks\[0\]\.testResult\.observation: must be one of checked:pass\|checked:fail\|not_observed if present, got "maybe"/
   );
 });
+
+// --- verification: user-verification contract ---
+
+const verificationArtifact = (userVerification, verdict = 'pass') => ({
+  _meta: metaFor(),
+  correctness: {
+    lint: true,
+    build: true,
+    tests: true,
+    commands: ['npm test'],
+    observations: {
+      lint: 'checked:pass',
+      build: 'checked:pass',
+      tests: 'checked:pass',
+    },
+  },
+  review: { temperature: 0.7, findings: [], fixLoops: 0 },
+  simplifyRan: true,
+  intentAlignment: 'aligned',
+  ...(userVerification !== undefined ? { userVerification } : {}),
+  verdict,
+});
+
+test('verification: explicit user confirmation passes', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'confirmed',
+    routes: ['/dashboard'],
+    confirmedBy: 'user',
+    observations: ['Dashboard renders correctly'],
+  }));
+  assert.equal(res.code, 0, `expected valid confirmation, got stderr: ${res.stderr}`);
+});
+
+test('verification: compact non-UI classification passes without user interaction', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: false,
+  }));
+  assert.equal(res.code, 0, `expected valid non-UI classification, got stderr: ${res.stderr}`);
+});
+
+test('verification: pending required user verification cannot produce a passing verdict', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'pending',
+    routes: ['/dashboard'],
+    observations: [],
+  }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /verdict: cannot be pass while required user verification is pending/);
+});
+
+test('verification: pending required user verification is valid with a failing verdict', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'pending',
+    routes: ['/dashboard'],
+    observations: [],
+  }, 'fail'));
+  assert.equal(res.code, 0, `pending verification must remain representable, got stderr: ${res.stderr}`);
+});
+
+test('verification: confirmed status requires user provenance', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'confirmed',
+    routes: ['/dashboard'],
+    observations: ['Looks good'],
+  }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /userVerification\.confirmedBy: must be "user"/);
+});
+
+test('verification: user verification requires a routes string array', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'confirmed',
+    confirmedBy: 'user',
+    observations: ['Looks good'],
+  }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /userVerification\.routes: required string array/);
+});
+
+test('verification: required user verification needs at least one route', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'confirmed',
+    routes: [],
+    confirmedBy: 'user',
+    observations: ['Looks good'],
+  }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /userVerification\.routes: must be non-empty/);
+});
+
+test('verification: passed verdict requires explicit user-verification classification', () => {
+  for (const userVerification of [undefined, null]) {
+    const res = runValidator('verification', verificationArtifact(userVerification));
+    assert.equal(res.code, 1, `classification ${userVerification} must fail closed`);
+    assert.match(res.stderr, /userVerification: required object for passed verdict/);
+  }
+});
+
+test('verification: user verification requires an observations string array', () => {
+  const res = runValidator('verification', verificationArtifact({
+    required: true,
+    status: 'confirmed',
+    routes: ['/dashboard'],
+    confirmedBy: 'user',
+  }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /userVerification\.observations: required string array/);
+});
+
+test('verification: user-verification strings and not-applicable provenance are strict', () => {
+  for (const [label, userVerification, expected] of [
+    ['blank-route', {
+      required: true,
+      status: 'confirmed',
+      routes: ['   '],
+      confirmedBy: 'user',
+      observations: ['Looks good'],
+    }, /userVerification\.routes/],
+    ['blank-observation', {
+      required: true,
+      status: 'confirmed',
+      routes: ['/dashboard'],
+      confirmedBy: 'user',
+      observations: ['   '],
+    }, /userVerification\.observations/],
+    ['non-required-route', {
+      required: false,
+      routes: ['/dashboard'],
+    }, /userVerification\.routes: must be omitted/],
+    ['non-required-actor', {
+      required: false,
+      confirmedBy: 'user',
+    }, /userVerification\.confirmedBy: must be omitted/],
+    ['non-required-unknown', {
+      required: false,
+      userConfirmed: true,
+    }, /userVerification\.userConfirmed: must be omitted/],
+    ['required-unknown', {
+      required: true,
+      status: 'confirmed',
+      routes: ['/dashboard'],
+      confirmedBy: 'user',
+      observations: [],
+      userConfirmed: true,
+    }, /userVerification\.userConfirmed: unsupported field/],
+  ]) {
+    const res = runValidator('verification', verificationArtifact(userVerification));
+    assert.equal(res.code, 1, label);
+    assert.match(res.stderr, expected, label);
+  }
+});
+
+test('verification: legacy visualVerification is rejected', () => {
+  const artifact = verificationArtifact(undefined);
+  artifact.visualVerification = { status: 'pass', routes: ['/dashboard'], fixLoops: 0 };
+  const res = runValidator('verification', artifact);
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /visualVerification: unsupported; use userVerification/);
+});
+
+test('verification: duplicate top-level user-verification decision is rejected', () => {
+  const artifact = verificationArtifact({ required: false });
+  artifact.userVerificationRequired = false;
+  const res = runValidator('verification', artifact);
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /userVerificationRequired: unsupported; use userVerification\.required/);
+});

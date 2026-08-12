@@ -95,7 +95,7 @@ test('command adapter validation rejects blank descriptions and orphaned adapter
     'description:',
     '---',
     '',
-    'Read `../../commands/start.md` completely.',
+    'Read `../phantom/SKILL.md` and `../phantom/references/planning.md`.',
     '',
   ].join('\n'));
   fs.writeFileSync(path.join(skills, 'orphan', 'SKILL.md'), '---\nname: orphan\ndescription: Orphan.\n---\n');
@@ -105,7 +105,6 @@ test('command adapter validation rejects blank descriptions and orphaned adapter
   assert.ok(errors.some((error) => error.includes('description must contain 1-1024 characters')));
   assert.ok(errors.some((error) => error.includes('has no matching public command')));
   assert.ok(errors.some((error) => error.includes('compatibility contract is missing')));
-  assert.ok(errors.some((error) => error.includes('must apply ../../codex-support/codex-compatibility.md')));
 });
 
 test('Codex manifest discovers every public workflow skill', () => {
@@ -294,7 +293,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.2.1',
+    bundle_version: '2.2.6',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -351,7 +350,9 @@ test('portable validator detects stale bundle metadata after a lifecycle contrac
 
 test('portable validator requires every bundled planning and AI review resource', () => {
   for (const resource of [
+    'references/execution.md',
     'references/planning.md',
+    'references/shipping.md',
     'references/brainstorming.md',
     'references/review-html.md',
     'scripts/lib/decision-contracts.mjs',
@@ -368,25 +369,15 @@ test('portable validator requires every bundled planning and AI review resource'
 test('planning instructions enforce JSON validation before AI-generated HTML', () => {
   const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
-  const workflows = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'workflows.md'), 'utf8');
-
-  for (const [label, content] of [['skill', skill], ['planning', planning], ['workflows', workflows]]) {
-    const normalized = content.replace(/\s+/g, ' ');
-    const json = normalized.search(/(?:create|persist).{0,80}JSON/i);
-    const afterJson = normalized.slice(json);
-    const validateJson = afterJson.search(/validate (?:the JSON|its decision contract|JSON)/i);
-    const afterValidation = afterJson.slice(validateJson);
-    const generate = afterValidation.search(/(?:generate|create).{0,500}(?:HTML|review page)/i);
-    assert.ok(json >= 0 && validateJson >= 0 && generate >= 0, `${label} sequencing is ambiguous`);
-    assert.match(normalized, /(?:review-html\.md|review HTML guidance)/i, label);
-    assert.match(normalized, /validate-review-html\.mjs/i, label);
-    const fileWriting = normalized.indexOf('file writing is unavailable');
-    const fencedJson = normalized.indexOf('fenced `json` block');
-    assert.ok(
-      fileWriting >= 0 && fencedJson >= 0 && Math.abs(fileWriting - fencedJson) <= 200,
-      `${label} fenced JSON fallback is ambiguous`,
-    );
-  }
+  const normalized = planning.replace(/\s+/g, ' ');
+  const validateJson = normalized.search(/Validate canonical JSON/i);
+  const generate = normalized.search(/generate the disposable HTML/i);
+  const validateHtml = normalized.search(/validate-review-html\.mjs/i);
+  assert.ok(validateJson >= 0 && validateJson < generate && generate < validateHtml);
+  assert.match(normalized, /review HTML guidance/i);
+  assert.match(normalized, /file writing is unavailable.*fenced `json` block/i);
+  assert.match(skill, /\[Planning\]\(references\/planning\.md\)/);
+  assert.doesNotMatch(skill, /validate-review-html\.mjs/i, 'router must not duplicate phase procedure');
 });
 
 test('official skill validator accepts the canonical skill when available', (context) => {
@@ -456,7 +447,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.2.1');
+    assert.equal(result.bundle_version, '2.2.6');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -465,6 +456,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   assert.equal(policy.roles.apex, 'frontier');
   assert.equal(policy.roles.rival, 'balanced');
   assert.equal(policy.roles['plan-checker'], 'balanced');
+  assert.equal(policy.roles.lens, 'balanced');
 });
 
 test('critical risk elevates eligible roles before preset lookup and preserves exemptions', () => {
@@ -514,6 +506,7 @@ test('portable validator pins the delegation-v2 critical-risk model policy', () 
     ['risk-levels', (policy) => { policy.risk_levels = ['critical']; }, /risk_levels must be/],
     ['eligible', (policy) => { policy.critical_elevation.eligible_roles.pop(); }, /eligible_roles is invalid/],
     ['exempt', (policy) => { policy.critical_elevation.exempt_roles = []; }, /exempt_roles is invalid/],
+    ['missing-lens', (policy) => { delete policy.roles.lens; }, /exactly the active portable roles/],
     ['rival', (policy) => { policy.roles.rival = 'deep'; }, /ordinary rival must use balanced/],
   ]) {
     const target = copySkill(`invalid-model-policy-${label}`);
@@ -638,7 +631,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.2.1');
+  assert.equal(resolver.bundle_version, '2.2.6');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -730,7 +723,7 @@ test('capability contract preserves all required degradation paths', () => {
     'Compute selection',
     'Dependency graph',
     'Hooks',
-    'Visual browser',
+    'Visual presentation',
     'Web research',
     'Issue integration',
     'Review publishing',
@@ -746,126 +739,57 @@ test('capability contract preserves all required degradation paths', () => {
 test('portable workflow makes delegation an automatic, native Apex decision', () => {
   const read = (file) => fs.readFileSync(path.join(SKILL_ROOT, file), 'utf8').replace(/\s+/g, ' ');
   const skill = read('SKILL.md');
-  const workflows = read('references/workflows.md');
+  const execution = read('references/execution.md');
   const roles = read('references/roles.md');
   const capabilities = read('references/capabilities.md');
   const models = read('references/models.md');
-  const planning = read('references/planning.md');
   const verification = read('references/verification.md');
 
-  const stateInspectIndex = skill.indexOf('Inspect durable state and resume a matching active session');
-  const traceIndex = skill.indexOf('Trace the current behavior and gather minimum-sufficient-solution evidence');
-  const capabilityIndex = skill.indexOf('Build a capability ledger');
-  const routeIndex = skill.indexOf('Classify the route');
-  const roleIndex = skill.indexOf('Select required role passes');
-  const solutionIndex = skill.indexOf('select a solution rung from the gathered evidence');
-  const delegationIndex = skill.indexOf('automatically chooses');
-  const modelIndex = skill.indexOf('Resolve compute');
-  const stateCreateIndex = skill.indexOf('After route, topology, solution timing, and compute resolution are known');
-  for (const [label, index] of Object.entries({
-    stateInspectIndex,
-    capabilityIndex,
-    traceIndex,
-    routeIndex,
-    delegationIndex,
-    roleIndex,
-    solutionIndex,
-    modelIndex,
-    stateCreateIndex,
-  })) assert.ok(index >= 0, `missing startup stage: ${label}`);
-  assert.ok(stateInspectIndex < traceIndex);
-  assert.ok(traceIndex < capabilityIndex);
-  assert.ok(capabilityIndex < routeIndex);
-  assert.ok(routeIndex < roleIndex);
-  assert.ok(roleIndex < solutionIndex);
-  assert.ok(roleIndex < delegationIndex);
-  assert.ok(delegationIndex < modelIndex);
-  assert.ok(modelIndex < stateCreateIndex);
-
-  const gate = skill.slice(skill.indexOf('## Complete the gate'));
-  const correctnessIndex = gate.indexOf('correctness checks');
-  const sweepIndex = gate.indexOf('run Sweep');
-  const reviewIndex = gate.indexOf('independent review');
-  assert.ok(correctnessIndex >= 0 && correctnessIndex < sweepIndex);
-  assert.ok(sweepIndex < reviewIndex);
-
-  assert.match(skill, /user supplies the goal; do not ask them to choose workers, worker count, or models/i);
-  assert.match(workflows, /One clear objective; sequential or tightly coupled work; shared-write hotspot/i);
-  assert.match(workflows, /Two or more independent read-heavy investigations, adversarial reviews, or implementation scopes/i);
+  assert.match(skill, /\[Execution\]\(references\/execution\.md\)/);
+  assert.match(execution, /current agent for one tightly coupled scope/i);
+  assert.match(execution, /serial isolated passes/i);
+  assert.match(execution, /parallel delegates only for proven independent scopes/i);
+  assert.match(execution, /non-overlapping write ownership/i);
+  assert.match(execution, /Use native delegation only/i);
+  assert.match(execution, /labeled sequential passes without removing any gate/i);
   assert.match(roles, /explicit user instruction to require, limit, or disable delegation within repository safety/i);
   assert.match(roles, /runtime requires approval, request it before spawning/i);
   assert.match(roles, /without shared writes or unresolved producer-consumer edges/i);
+  assert.match(roles, /\| Lens \|.*explicit user request.*advisory evidence.*never.*lifecycle gate/is);
   assert.match(capabilities, /dedicated native mechanism for bounded worker contexts or sessions/i);
   assert.match(capabilities, /Never recursively launch another copy of the current runtime/i);
   assert.match(capabilities, /unknown optional capability behaves as unavailable/i);
   assert.match(models, /chooses the execution topology before resolving worker compute/i);
-  assert.match(planning, /selects this depth and its delegation topology automatically/i);
-  assert.match(verification, /Missing delegation never removes a verification gate/i);
+  assert.match(verification, /independent review/i);
+  assert.match(verification, /user verification in the ordinary verification artifact/i);
+  assert.match(verification, /does not create a specialist artifact/i);
 });
 
 test('minimum-sufficient solution policy is ordered, automatic, inherited, and safety bounded', () => {
   const read = (file) => fs.readFileSync(path.join(SKILL_ROOT, file), 'utf8').replace(/\s+/g, ' ');
   const skill = read('SKILL.md');
-  const workflows = read('references/workflows.md');
-  const roles = read('references/roles.md');
+  const planning = read('references/planning.md');
+  const execution = read('references/execution.md');
   const verification = read('references/verification.md');
 
   const ladder = [
-    'does not need to exist',
-    'repository already provides',
-    "standard library provides",
-    'native platform provides',
-    'already-installed dependency provides',
-    'one clear, direct expression',
+    'omit unnecessary machinery',
+    'reuse the repository',
+    'prefer standard or native behavior',
+    'reuse installed dependencies',
     'smallest custom implementation',
   ];
   let cursor = -1;
   for (const rung of ladder) {
-    const next = skill.indexOf(rung, cursor + 1);
+    const next = planning.indexOf(rung, cursor + 1);
     assert.ok(next > cursor, `missing or unordered solution rung: ${rung}`);
     cursor = next;
   }
 
-  assert.match(skill, /Apply this ladder automatically; do not make the user answer seven routine questions/i);
-  assert.match(skill, /Minimize implementation surface, files, dependencies, agents, and models—not comprehension or verification/i);
-  assert.match(skill, /Never simplify away explicit requirements, trust-boundary validation, data-loss prevention, security, accessibility/i);
-  assert.match(skill, /ensure at least one focused runnable check covers it, preferring an existing repository-native check/i);
-  assert.match(workflows, /Select the first solution rung that fully satisfies the contract and safety bounds/i);
-  assert.match(workflows, /For `direct` and `plan`, use the traced evidence; for `brainstorm` and `full`, use the converged approaches/i);
-  const brainstormStep = workflows.indexOf('For a `brainstorm` or `full` route');
-  const solutionStep = workflows.indexOf('Select the first solution rung');
-  const recommendationStep = workflows.indexOf('recommend the selected direction');
-  const planningStep = workflows.indexOf('For a planned route');
-  const roleStep = workflows.indexOf('Select required role passes');
-  const houndStep = workflows.indexOf('For a defect, use Hound');
-  assert.ok(roleStep >= 0 && roleStep < houndStep, 'Hound runs before role and topology selection');
-  assert.ok(roleStep < brainstormStep, 'brainstorm runs before role and topology selection');
-  assert.ok(brainstormStep >= 0 && brainstormStep < solutionStep, 'solution selection precedes brainstorm convergence');
-  assert.ok(solutionStep < recommendationStep, 'solution ladder must shape the brainstorm recommendation');
-  assert.ok(solutionStep < planningStep, 'solution selection must shape the plan');
-  assert.match(workflows, /Require the worker to select the first sufficient rung rather than assuming the parent's reasoning was inherited/i);
-  assert.match(roles, /minimum-sufficient-solution ladder/i);
-  assert.match(roles, /Do not assume parent-session policy or reasoning reaches a delegated context automatically/i);
-  assert.match(verification, /complexity review after correctness checks, not a replacement/i);
-  assert.match(verification, /Never use line count as the quality gate/i);
-
-  const sweepLadder = [
-    'deletion',
-    'existing repository behavior',
-    'standard library',
-    'native platform capability',
-    'installed dependency',
-    'one clear direct expression',
-    'smallest custom code',
-  ];
-  let sweepCursor = verification.indexOf('Review each material change in order');
-  assert.ok(sweepCursor >= 0, 'Sweep does not declare ordered review');
-  for (const rung of sweepLadder) {
-    const next = verification.indexOf(rung, sweepCursor + 1);
-    assert.ok(next > sweepCursor, `missing or unordered Sweep rung: ${rung}`);
-    sweepCursor = next;
-  }
-  assert.match(verification, /Preserve all risk-proportionate and repository-required verification/i);
+  assert.match(skill, /Prefer omission, reuse, standard or native behavior, and installed dependencies before custom machinery/i);
+  assert.match(execution, /selected minimum-sufficient solution/i);
+  assert.match(verification, /may not remove approved behavior, validation, compatibility, accessibility, security controls, or evidence/i);
+  assert.match(verification, /rerun every affected correctness check/i);
 });
 
 test('portable lifecycle authority is explicit, validated, and provider mechanics cannot override it', () => {
@@ -874,8 +798,11 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
     'utf8',
   );
   const start = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'start', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const state = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'state.md'), 'utf8');
-  const workflows = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'workflows.md'), 'utf8');
+  const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
+  const verification = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'verification.md'), 'utf8');
+  const shipping = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'shipping.md'), 'utf8');
 
   const authority = [
     'User instructions, repository instructions, and runtime safety',
@@ -896,6 +823,13 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
   assert.match(start, /local planning and implementation only/i);
   assert.match(start, /no implicit PR lifecycle/i);
   assert.match(start, /draft-PR shipping requires separate, explicit authorization/i);
+  assert.doesNotMatch(start, /codex-compatibility|commands\/start|_shared/i);
+  assert.match(skill, /scripts\/phantom-state\.mjs` is the sole lifecycle authority/i);
+  assert.match(skill, /`direct`.*None; implementation authorization is still required/is);
+  assert.match(skill, /`plan`.*Approved plan/is);
+  assert.match(skill, /`brainstorm`.*Approved direction, then approved plan/is);
+  assert.match(skill, /`full`.*Approved direction, plan, and wiring/is);
+  assert.match(skill, /`--mode to-plan` is permanently plan-only/i);
   assert.match(state, /schema_version: 1/i);
   assert.match(state, /older sessions must synthesize missing\s+pending values/i);
   assert.match(state, /worktree_fingerprint/i);
@@ -904,13 +838,10 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
   assert.match(state, /wiring binds both the\s+current passed `plan` and current passed `decisions`/i);
   assert.match(state, /failed\s+artifact write must leave those lifecycle actions unchanged/i);
   assert.match(state, /authoritative review must have a later\s+`record_sequence`/i);
-  assert.match(workflows, /`direct`.*None; implementation authorization is still required/is);
-  assert.match(workflows, /`plan`.*Approved plan plus implementation authorization/is);
-  assert.match(workflows, /`brainstorm`.*Approved direction before plan approval/is);
-  assert.match(workflows, /`full`.*Approved direction, approved plan, approved wiring/is);
-  assert.match(workflows, /`--mode to-plan` is a permanent denial of `execute` and `ship`/i);
-  assert.match(workflows, /route and material intent do not change after the\s+initial start/i);
-  assert.match(workflows, /A later\s+verification makes the earlier review stale/i);
+  assert.match(planning, /route and material intent are immutable/i);
+  assert.match(planning, /`brainstorm` requires direction before plan/i);
+  assert.match(verification, /A later verification\s+also makes an earlier review stale/i);
+  assert.match(shipping, /Local implementation\s+authorization never authorizes shipping/i);
 
   const invalid = copySkill('missing-lifecycle-contract');
   const invalidState = path.join(invalid, 'references', 'state.md');

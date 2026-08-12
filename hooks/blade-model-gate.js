@@ -3,7 +3,7 @@
 // blade-model-gate.js - PreToolUse hook enforcing two implementer model rules
 // and the roster name rule on Agent/Task spawns.
 //
-// RULE 1 (fable-deny): blade|sweep|ward|lens|warden are implementer agents -
+// RULE 1 (fable-deny): blade|sweep|ward|lens|warden are bounded worker agents -
 // none may run on a Fable-tier model (bare alias "fable" or full id like
 // "claude-fable-5"). Fable is retired from Phantom's routing (opus/Opus 5 is
 // the top tier); this rule stays as a defensive guard so a stray fable pin
@@ -61,7 +61,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const IMPLEMENTER_AGENTS = new Set(['blade', 'sweep', 'ward', 'lens', 'warden']);
+const FABLE_DENIED_WORKERS = new Set(['blade', 'sweep', 'ward', 'lens', 'warden']);
 
 // Roles carried by reference/roster.md - every one of them has a static name and
 // a `agent-records/<name>.json` stub, so RULE 3 requires a `name:` on their
@@ -293,15 +293,14 @@ function main() {
     // RULE 1: fable-deny - must run before RULE 2's non-empty-model early
     // return, or an explicit model:"fable" on a blade spawn would already
     // satisfy RULE 2 and never reach this check.
-    if (IMPLEMENTER_AGENTS.has(name) && typeof model === 'string' && /fable/i.test(model)) {
+    if (FABLE_DENIED_WORKERS.has(name) && typeof model === 'string' && /fable/i.test(model)) {
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
           permissionDecisionReason:
-            'IMPLEMENTER MODEL GATE: Fable is retired from Phantom\'s routing ' +
-            'and is never a legal implementer model for "blade", "sweep", ' +
-            '"ward", "lens", or "warden". Re-spawn with the model this role\'s ' +
+            `WORKER MODEL GATE: Fable is not legal for Phantom role "${name}". ` +
+            'Re-spawn with the model this role\'s ' +
             'policy profile resolves to.' + policyGuidance(name) +
             ' See reference/agents.md → Model Routing.',
         },

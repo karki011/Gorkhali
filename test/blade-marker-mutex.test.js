@@ -74,7 +74,7 @@ test('concurrent Blade and Sweep starts get independent markers', () => {
 test('read-only Blade-typed scout and other agents never create markers', () => {
   const f = sandbox();
   try {
-    for (const agent_type of ['scout-quorra', 'ward-brann', 'lens-yara', 'gaze-elden', 'warden-gorath']) {
+    for (const agent_type of ['scout-quorra', 'ward-brann', 'gaze-elden', 'warden-gorath']) {
       runHook('start', { agent_id: agent_type, agent_type, session_id: 's1' }, f);
     }
     assert.deepEqual(markerNames(f), []);

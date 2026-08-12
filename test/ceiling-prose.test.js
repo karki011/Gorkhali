@@ -1,8 +1,8 @@
 // Author: Subash Karki
 // ceiling-prose.test.js — pins two invariants:
 // NEGATIVE: no file in commands/ reference/ agents/ templates/ contains a
-//   "max 3 fix attempts"-class phrase for the verify/fix loop (visual-loop
-//   and oracle/sage budget mentions excluded by context).
+//   "max 3 fix attempts"-class phrase for the verify/fix loop (oracle/sage
+//   budget mentions excluded by context).
 // POSITIVE: scripts/lib/constants.js FIX_LOOP_CEILING default is 2, and
 //   reference/temperature-review.md contains the canonical
 //   "fix-loop ceiling is 2" statement.
@@ -37,7 +37,7 @@ function gitGrep(pattern, dirs) {
   }
 }
 
-test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (visual-loop and oracle/sage context excluded)', () => {
+test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (oracle/sage context excluded)', () => {
   // Pattern: max/maximum followed by optional gap then 3/three then fix/attempt(s)
   // OR: fix then 3/three then attempt(s)
   const raw = gitGrep(
@@ -45,12 +45,9 @@ test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (visual-loop and o
     SCAN_DIRS
   );
 
-  // Allowed exclusions: lines that reference the visual fix loop or sage/oracle budget —
-  // those are distinct counters, not the verify/fix loop ceiling.
+  // Allowed exclusions: sage/oracle budget lines use a distinct counter.
   const stragglers = raw.filter(line => {
     const lower = line.toLowerCase();
-    // Exclude visual-loop context (commands/visual.md fix loop is a different counter)
-    if (lower.includes('visual')) return false;
     // Exclude sage/oracle budget context
     if (lower.includes('oracle') || lower.includes('sage')) return false;
     return true;

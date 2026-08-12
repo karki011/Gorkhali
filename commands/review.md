@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Run one independent Gaze review of the current verified diff. Adds Lens or Archer only for explicit risk triggers."
+description: "Run one independent Gaze review of the current verified diff. Adds Archer only for explicit risk triggers; UI confirmation remains a user verification step."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
@@ -21,9 +21,8 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 5. Run exactly the roles named by verification's `requiredSpecialists`. For
    each required role, create
    `{SESSION_DIR}/reviews/specialists/`, delete only that role's file immediately
-   before spawning it, then spawn the specialist:
-   - Lens: `{SESSION_DIR}/reviews/specialists/lens.json`
-   - Archer: `{SESSION_DIR}/reviews/specialists/archer.json`
+   before spawning it, then spawn Archer at
+   `{SESSION_DIR}/reviews/specialists/archer.json`.
 
    Do not delete, require, or spawn a role absent from the persisted array. The
    targeted pre-spawn delete makes any later named file fresh for this review

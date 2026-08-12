@@ -312,13 +312,13 @@
       "id": 40,
       "kind": "convention",
       "skill": "phantom:visual",
-      "prompt": "visual check the new pricing card — does it look right across viewports?",
-      "setup": "vite.config.ts sets server: { port: 5173 }. The dev server is running on 5173. No other port configuration exists.",
+      "prompt": "use Phantom Lens to visual check the new pricing card across viewports",
+      "setup": "The canonical worktree is /workspace/pricing-card on branch feature/pricing-card. The workspace manager at localhost:3333 has one exact-path matching running card whose displayed Dev link is http://localhost:4312. vite.config.ts mentions port 5173 for another checkout.",
       "expected_check": {
         "type": "regex",
-        "pattern": "^(?![\\s\\S]*localhost:3000)[\\s\\S]*localhost:5173"
+        "pattern": "^(?![\\s\\S]*localhost:5173)[\\s\\S]*localhost:3333[\\s\\S]*localhost:4312"
       },
-      "expected_behavior": "The visual flow resolves {DEV_PORT} from the dev-server config (vite.config.ts) and Lens navigates to localhost:5173; it never assumes or mentions the fixed default localhost:3000"
+      "expected_behavior": "The optional Lens flow opens localhost:3333, matches the current workspace by exact canonical path before branch, and follows only that card's displayed localhost:4312 Dev link; it never uses the unrelated Vite port"
     },
     {
       "id": 41,

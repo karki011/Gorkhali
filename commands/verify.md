@@ -48,10 +48,11 @@ and rerun results so the newest observation for each check is authoritative. If
 Sweep changed nothing, record that the rerun was not applicable.
 
 Make the semantic risk decision once against the final post-Sweep diff using the
-trigger table in `reference/verification.md`. Convert the result to a unique
-`requiredSpecialists` array containing only the role strings `lens` and/or
-`archer`; use an empty array when no trigger applies. This selection belongs to
-verification and must not be recomputed by review or wrap.
+trigger table in `reference/verification.md`. Convert non-visual specialist risk
+to a unique `requiredSpecialists` array containing only `archer`; use an empty
+array when no Archer trigger applies. For user-visible UI, prepare the
+`/phantom:visual` checklist and wait for explicit user confirmation. This
+selection belongs to verification and must not be recomputed by review or wrap.
 
 Write a provider-neutral verification evidence payload containing at least:
 
@@ -61,10 +62,24 @@ Write a provider-neutral verification evidence payload containing at least:
     { "name": "test", "command": "<exact command>", "result": "passed", "exit_code": 0 }
   ],
   "sweep": { "result": "passed", "changed_files": [] },
-  "requiredSpecialists": ["lens", "archer"],
+  "requiredSpecialists": ["archer"],
+  "userVerification": {
+    "required": true,
+    "status": "confirmed",
+    "routes": ["/dashboard"],
+    "confirmedBy": "user",
+    "observations": []
+  },
   "observation_gaps": []
 }
 ```
+
+For non-UI work, omit the confirmation details and record only the explicit,
+compact classification: `"userVerification": { "required": false }`. Never
+omit `userVerification` from passed verification evidence. Ward classifies the
+complete final diff: select `required: true` whenever any changed source, data,
+configuration, or asset affects rendered behavior, regardless of its path or
+extension.
 
 Use only `passed`, `failed`, `blocked`, or `not-applicable`. Record it through
 the portable helper; the helper binds it to the complete current worktree
@@ -74,8 +89,8 @@ fingerprint and advances lifecycle state atomically:
 node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type verification --status <status> --run <run-id> --input <evidence-file>
 ```
 
-Never hand-author `worktree_fingerprint`. The portable helper binds both the
-checks and `requiredSpecialists` selection to the final worktree.
+Never hand-author `worktree_fingerprint`. The portable helper binds the checks,
+user confirmation, and `requiredSpecialists` selection to the final worktree.
 Missing passed Ward evidence blocks the pipeline and records a non-passing verification. A
 failed required command or unexplained skipped required command also stops
 before review.
@@ -85,6 +100,13 @@ before review.
 Delete only `{SESSION_DIR}/reviews/gaze.json`, then run one fresh, read-only Gaze pass
 using `agents/gaze.md`. Gaze reviews the current diff, intent, repository rules,
 and the current portable Ward evidence. It does not run fixes, tests, or Sweep.
+It independently checks the `userVerification` classification against the
+complete diff and treats any user-visible behavior paired with `required:
+false` as a blocking finding. The lifecycle binds both Ward and Gaze to the
+same full worktree fingerprint; it never guesses UI semantics from filenames.
+The accepted Gaze result must include exactly one passed check named
+`user-verification-classification`; missing, duplicate, failed, or skipped
+blocks the review record.
 The targeted delete prevents a failed or truncated run from reusing an older
 verdict. Read its durable artifact rather than inferring a verdict from the
 agent's final message.
@@ -96,12 +118,9 @@ missing, record `not_observed`/`blocked`; never substitute an empty findings
 array or a clean verdict.
 
 Read `requiredSpecialists` from the current passed verification artifact. Do not
-inspect the diff to select roles again. Give each required specialist a bounded
-question that does not duplicate Gaze's general review. If `lens` is required,
-create
-`{SESSION_DIR}/reviews/specialists/`, delete only
-`{SESSION_DIR}/reviews/specialists/lens.json`, and then immediately spawn Lens.
-If `archer` is required, create the same directory, delete only
+inspect the diff to select roles again. User visual confirmation is already
+bound to verification and is not a review artifact. If `archer` is required,
+create `{SESSION_DIR}/reviews/specialists/`, delete only
 `{SESSION_DIR}/reviews/specialists/archer.json`, and then immediately spawn
 Archer. Do not clear or spawn a role absent from `requiredSpecialists`, and do
 not clear any other review file.
@@ -122,7 +141,7 @@ Record the final review only after the current passed verification artifact:
   "findings": [],
   "specialists": [
     {
-      "role": "lens",
+      "role": "archer",
       "verdict": "pass",
       "findings": [],
       "observationGaps": []
@@ -153,7 +172,8 @@ metadata.
 ## Result
 
 Report the ordered evidence: Ward checks, Sweep result, affected Ward rerun,
-Gaze verdict, triggered specialists, and portable artifact locations. End with:
+Gaze verdict, user visual confirmation when required, triggered specialists,
+and portable artifact locations. End with:
 
 - `done` only when required checks and review passed;
 - `done-with-caveat` only for a genuinely optional unavailable capability; or

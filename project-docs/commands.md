@@ -15,7 +15,7 @@ Every command the native compatibility plugin exposes, with the route it takes.
 | `/phantom:resume` | - | Restore session from saved state |
 | `/phantom:hound` | - | Forensic investigation with HTML report |
 | `/phantom:review` | - | Trigger Gaze quality gate |
-| `/phantom:visual` | - | Trigger Lens visual inspection |
+| `/phantom:visual` | - | Present a UI checklist; optionally run advisory Lens with explicit `--lens` |
 | `/phantom:visualflow` | - | Visual flow pass for net-new UI (auto-recommended, user-gated) |
 | `/phantom:scout` | - | Background research agents |
 | `/phantom:recruit` | - | Spawn specialist agent (role focus) |

@@ -21,6 +21,7 @@ function repositoryFiles(excludeFiles = []) {
   )
     .split('\n')
     .filter(Boolean)
+    .filter(file => fs.existsSync(path.join(ROOT, file)))
     .filter(file => !excludeFiles.includes(file));
 }
 

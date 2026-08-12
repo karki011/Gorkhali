@@ -45,7 +45,10 @@ const requiredContractVersions = {
 };
 const lifecycleContractResources = [
   'references/state.md',
-  'references/workflows.md',
+  'references/planning.md',
+  'references/execution.md',
+  'references/verification.md',
+  'references/shipping.md',
   'scripts/lib/defect-proof.mjs',
   'scripts/phantom-state.mjs',
 ];
@@ -61,6 +64,10 @@ const criticalEligibleRoles = [
   'hound',
 ];
 const criticalExemptRoles = ['apex', 'ward', 'sweep', 'warden'];
+const activeRoles = [
+  'apex', 'blade', 'ward', 'gaze', 'sage', 'lens', 'archer', 'rival', 'plan-checker',
+  'hound', 'sweep', 'warden',
+];
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -222,6 +229,10 @@ function validateModelPolicy(policy, errors) {
     }
   }
   if (policy.roles?.apex !== 'frontier') errors.push('Model policy Apex must use frontier.');
+  if (JSON.stringify(Object.keys(policy.roles || {}).sort())
+    !== JSON.stringify([...activeRoles].sort())) {
+    errors.push('Model policy roles must contain exactly the active portable roles.');
+  }
   for (const role of ['rival', 'plan-checker']) {
     if (policy.roles?.[role] !== 'balanced') {
       errors.push(`Model policy ordinary ${role} must use balanced.`);
@@ -318,29 +329,36 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       errors.push(`skills/${command}/SKILL.md: ${error.message}`);
     }
 
-    if (!content.includes(`../../commands/${command}.md`)) {
-      errors.push(`skills/${command}/SKILL.md must reference ../../commands/${command}.md.`);
-    }
-    if (!content.includes(codexCompatibilityReference)) {
-      errors.push(`skills/${command}/SKILL.md must apply ${codexCompatibilityReference}.`);
-    }
-    if (content.indexOf(codexCompatibilityReference) > content.indexOf(`../../commands/${command}.md`)) {
-      errors.push(`skills/${command}/SKILL.md must apply Codex compatibility before reading its command.`);
-    }
-    if (!content.includes(`workflow \`${command}\``)) {
-      errors.push(`skills/${command}/SKILL.md must identify workflow \`${command}\`.`);
-    }
     if (command === 'start') {
       const normalizedContent = content.replace(/\s+/g, ' ');
-      for (const requirement of [
-        'local planning and implementation only',
-        'implementation authorization',
-        'no implicit PR lifecycle',
-        'separate, explicit authorization',
-      ]) {
-        if (!normalizedContent.includes(requirement)) {
-          errors.push(`skills/start/SKILL.md must define ${requirement}.`);
+      for (const reference of ['../phantom/SKILL.md', '../phantom/references/planning.md']) {
+        if (!content.includes(reference)) errors.push(`skills/start/SKILL.md must directly load ${reference}.`);
+      }
+      for (const legacyReference of [codexCompatibilityReference, '../../commands/start.md', '_shared']) {
+        if (content.includes(legacyReference)) {
+          errors.push(`skills/start/SKILL.md normal activation must not load ${legacyReference}.`);
         }
+      }
+      for (const [label, pattern] of [
+        ['local planning and implementation only', /local planning and implementation only/i],
+        ['implementation authorization', /implementation\s+authorization/i],
+        ['no implicit PR lifecycle', /no implicit PR lifecycle/i],
+        ['separate explicit shipping authorization', /shipping requires separate, explicit authorization/i],
+      ]) {
+        if (!pattern.test(normalizedContent)) errors.push(`skills/start/SKILL.md must define ${label}.`);
+      }
+    } else {
+      if (!content.includes(`../../commands/${command}.md`)) {
+        errors.push(`skills/${command}/SKILL.md must reference ../../commands/${command}.md.`);
+      }
+      if (!content.includes(codexCompatibilityReference)) {
+        errors.push(`skills/${command}/SKILL.md must apply ${codexCompatibilityReference}.`);
+      }
+      if (content.indexOf(codexCompatibilityReference) > content.indexOf(`../../commands/${command}.md`)) {
+        errors.push(`skills/${command}/SKILL.md must apply Codex compatibility before reading its command.`);
+      }
+      if (!content.includes(`workflow \`${command}\``)) {
+        errors.push(`skills/${command}/SKILL.md must identify workflow \`${command}\`.`);
       }
     }
   }
@@ -444,9 +462,11 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     'references/model-policy.json',
     'references/model-presets.json',
     'references/brainstorming.md',
+    'references/execution.md',
     'references/planning.md',
     'references/review-html.md',
     'references/roles.md',
+    'references/shipping.md',
     'references/state.md',
     'references/workflows.md',
     'references/verification.md',
@@ -473,19 +493,6 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       'record_sequence',
       'SHA-256 digest',
       'The authoritative review must have a later',
-    ],
-    'references/workflows.md': [
-      '`direct`',
-      '`plan`',
-      '`brainstorm`',
-      '`full`',
-      'direction before plan approval',
-      'approved wiring',
-      '`--mode to-plan`',
-      '`ship-draft-pr` authorization is separate',
-      'route and material intent do not change',
-      'wiring approval binds the current passed plan plus decisions',
-      'A later verification makes the earlier review stale',
     ],
     'scripts/phantom-state.mjs': [
       "const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full'])",

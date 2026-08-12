@@ -74,7 +74,7 @@ change artifact schemas, approval gates, route semantics, or completion rules.
 | Compute selection | Request the role's semantic profile. | Inherit the active model with no selector. |
 | Dependency graph | Query related files and blast radius. | Run the bundled one-shot analyzer through command execution, then manually supplement partial coverage. Without command execution, search definitions, references, imports, tests, and history. |
 | Hooks | Enforce checkpoints automatically. | Execute and record checkpoints explicitly. |
-| Visual browser | Inspect rendered output. | Run static checks and mark visual evidence missing. |
+| Visual presentation | Prepare routes, states, and optional captures for the user to inspect. | Present the same checklist in chat and wait for explicit user confirmation. |
 | Web research | Verify current external facts. | Ask for supplied sources or mark the claim unverified. |
 | Issue integration | Read and update lifecycle state directly. | Use user-provided context and prepare an update for publishing. |
 | Review publishing | Create or update a review request. | Prepare title, body, evidence, and exact next action. |

@@ -32,6 +32,7 @@ import {
 } from './lib/portable.mjs';
 import { BUNDLE_VERSION, resolveProfile } from './resolve-profile.mjs';
 import {
+  canonicalDelegationJson,
   delegationTaskDigest,
   validateDecisionContract,
   validateDelegationResultContract,
@@ -44,7 +45,9 @@ import {
 } from './lib/defect-proof.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
-const SPECIALIST_ROLES = new Set(['lens', 'archer']);
+const SPECIALIST_ROLES = new Set(['archer']);
+const LEGACY_LENS_GATE_RECOVERY = 'Legacy Lens gate requirements are unsupported because optional Lens is advisory only. '
+  + 'Record fresh verification with explicit userVerification evidence.';
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
   direct: [],
@@ -78,6 +81,10 @@ const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;
 const lockWaiter = new Int32Array(new SharedArrayBuffer(4));
+
+function approvalsForRoute(route) {
+  return Object.hasOwn(ROUTE_APPROVALS, route) ? ROUTE_APPROVALS[route] : null;
+}
 
 function fail(message) {
   process.stderr.write(`${message}\n`);
@@ -149,9 +156,7 @@ function hashFileState(hash, workspace, relativePath, gitlink = false) {
   }
 }
 
-export function worktreeFingerprint(workspace) {
-  const hash = createHash('sha256');
-  hash.update(`workspace\0${workspace}\0`);
+function workspaceFiles(workspace) {
   let indexRecords = [];
   let files = [];
   let gitlinks = new Set();
@@ -192,6 +197,13 @@ export function worktreeFingerprint(workspace) {
     files.sort();
   }
 
+  return { files, gitlinks, indexRecords };
+}
+
+export function worktreeFingerprint(workspace) {
+  const hash = createHash('sha256');
+  hash.update(`workspace\0${workspace}\0`);
+  const { files, gitlinks, indexRecords } = workspaceFiles(workspace);
   for (const record of indexRecords) hash.update(`index\0${record}\0`);
   for (const relativePath of files) {
     hashFileState(hash, workspace, relativePath, gitlinks.has(relativePath));
@@ -215,10 +227,40 @@ function isPortablePath(value) {
     && !value.split('/').includes('..');
 }
 
+function isPortablePathSegment(value) {
+  return typeof value === 'string'
+    && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value)
+    && value !== '.'
+    && value !== '..';
+}
+
 function nearestExistingParent(candidate) {
   let current = candidate;
   while (!existsSync(current) && current !== dirname(current)) current = dirname(current);
   return current;
+}
+
+function resolveThroughExistingParent(candidate) {
+  if (existsSync(candidate)) return resolve(realpathSync(candidate));
+  const parent = nearestExistingParent(candidate);
+  return resolve(realpathSync(parent), relative(parent, candidate));
+}
+
+function runDirectory(current, runId) {
+  if (!isPortablePathSegment(runId)) {
+    throw new Error(
+      'record --run must be one portable path segment using only letters, numbers, dot, underscore, or hyphen.',
+    );
+  }
+  const sessionRoot = resolve(realpathSync(current.paths.sessionDir));
+  const runsRoot = join(current.paths.sessionDir, 'runs');
+  const resolvedRunsRoot = resolveThroughExistingParent(runsRoot);
+  const candidate = join(runsRoot, runId);
+  const resolvedCandidate = resolveThroughExistingParent(candidate);
+  if (!isWithin(sessionRoot, resolvedRunsRoot) || !isWithin(resolvedRunsRoot, resolvedCandidate)) {
+    throw new Error('record --run resolves outside the active session runs directory.');
+  }
+  return candidate;
 }
 
 function validateContextReferences(payload, current) {
@@ -421,6 +463,11 @@ function currentSession(workspace) {
   const session = readJson(join(sessionDirectory, 'session.json'));
   paths.sessionDir = sessionDirectory;
   if (!session) return null;
+  if (session.schema_version !== 1) {
+    throw new Error(
+      `Unsupported Phantom session schema version: ${JSON.stringify(session.schema_version)}.`,
+    );
+  }
   const sessionHadWorkKind = session.work_kind !== undefined;
   session.lifecycle = lifecycleFor(session);
   if (!sessionHadWorkKind) {
@@ -470,7 +517,7 @@ function start(workspace, args) {
         + `${existingWorkKind} to ${requestedWorkKind}.`,
       );
     }
-    if (existing.route && existing.route !== route) {
+    if (ROUTES.has(existing.route) && existing.route !== route) {
       throw new Error(
         `Cannot change route for active task ${paths.task} from ${existing.route} to ${route}. `
         + 'Record the change as a revision, or complete this session and restart with a new task id.',
@@ -497,7 +544,7 @@ function start(workspace, args) {
   });
   session.bundle_version = BUNDLE_VERSION;
   session.status = 'active';
-  session.route = existing?.route || route;
+  session.route = ROUTES.has(existing?.route) ? existing.route : route;
   session.work_kind = requestedWorkKind;
   session.lifecycle = lifecycleFor(existing ? session : { ...session, mode: requestedMode });
   session.intent_summary = existing?.intent_summary || args.intent;
@@ -522,6 +569,126 @@ function start(workspace, args) {
 function status(workspace) {
   const current = currentSession(workspace);
   return current?.session || { schema_version: 1, status: 'none', workspace };
+}
+
+function decisionStatuses(decisions) {
+  return Object.fromEntries(
+    Object.entries(decisions).map(([name, decision]) => [name, decision?.status || 'pending']),
+  );
+}
+
+function statusNext(result, lifecycle, workspace) {
+  if (result.status === 'none') return 'start';
+  if (result.status === 'completed') return null;
+  if (result.status === 'paused') return 'resume';
+  const current = currentSession(workspace);
+  if (lifecycle.mode === 'to-plan') {
+    const plan = readJson(join(current.paths.sessionDir, 'plan.json'));
+    return approvalArtifactErrors('plan', plan, current).length > 0 ? 'record:plan' : null;
+  }
+  const requiredApprovals = approvalsForRoute(result.route);
+  if (!requiredApprovals) return 'recover:route';
+  for (const gate of requiredApprovals) {
+    const assessment = approvalBindingAssessment(current, gate, lifecycle.approvals[gate]);
+    if (assessment.invalid) return `record:${assessment.invalid.type}`;
+    if (assessment.approvalKind !== 'current') return `approve:${gate}`;
+  }
+  if (!granted(lifecycle.authorizations.implementation)) return 'authorize:implementation';
+  if (lifecycle.actions.execute.status !== 'started') return 'execute';
+  if (lifecycle.actions.verify.status !== 'started') return 'verify';
+  const runsDirectory = join(current.paths.sessionDir, 'runs');
+  const fingerprint = worktreeFingerprint(current.paths.repo.root);
+  const verification = existsSync(runsDirectory)
+    ? latestGateArtifact(runsDirectory, 'verification')
+    : null;
+  const verificationErrors = gateArtifactErrors(
+    'verification', verification, current, fingerprint,
+  );
+  if (verificationErrors.length > 0) {
+    if (verification?.evidence?.requiredSpecialists?.includes('lens')) {
+      return 'record:verification-with-user-verification';
+    }
+    if (verification?.status === 'passed'
+      && !isObject(verification?.evidence?.userVerification)) {
+      return 'record:verification-with-user-verification-decision';
+    }
+    return ['failed', 'blocked'].includes(verification?.status)
+      ? 'resolve:verification'
+      : 'record:verification';
+  }
+  const review = latestGateArtifact(runsDirectory, 'review');
+  const reviewErrors = gateArtifactErrors('review', review, current, fingerprint);
+  if (reviewErrors.length > 0
+    || review.record_sequence <= verification.record_sequence
+    || requiredSpecialistEvidenceErrors(verification.evidence, review.evidence).length > 0) {
+    return ['failed', 'blocked'].includes(review?.status) ? 'resolve:review' : 'record:review';
+  }
+  if (lifecycle.actions.ship.status === 'ready') return 'complete';
+  return 'complete-or-request-shipping';
+}
+
+function statusProjection(result, workspace) {
+  if (result.status === 'none') {
+    return { schema_version: 1, ok: true, command: 'status', status: 'none', next: 'start' };
+  }
+  const lifecycle = lifecycleFor(result);
+  return {
+    schema_version: 1,
+    ok: true,
+    command: 'status',
+    status: result.status,
+    task_id: result.task_id,
+    route: result.route || null,
+    mode: lifecycle.mode,
+    approvals: decisionStatuses(lifecycle.approvals),
+    authorizations: decisionStatuses(lifecycle.authorizations),
+    actions: decisionStatuses(lifecycle.actions),
+    next: statusNext(result, lifecycle, workspace),
+  };
+}
+
+function receiptNext(command, result) {
+  if (command === 'start' || command === 'resume' || command === 'approve' || command === 'authorize') return 'status';
+  if (command === 'pause') return 'resume';
+  if (command === 'execute') return 'verify';
+  if (command === 'verify') return 'record:verification';
+  if (command === 'ship') return 'complete';
+  if (command === 'complete') return null;
+  if (command === 'record') {
+    if (result.artifact.status !== 'passed'
+      && REQUIRED_GATES.includes(result.artifact.artifact_type)) {
+      return `resolve:${result.artifact.artifact_type}`;
+    }
+    if (result.artifact.artifact_type === 'verification') return 'record:review';
+    if (result.artifact.artifact_type === 'review') return 'complete-or-request-shipping';
+    return 'status';
+  }
+  return 'status';
+}
+
+function compactProjection(command, result, workspace) {
+  if (command === 'status') return statusProjection(result, workspace);
+  if (command === 'fingerprint') {
+    return { ...result, ok: true, command: 'fingerprint' };
+  }
+  if (command === 'record') {
+    return {
+      schema_version: 1,
+      ok: true,
+      command,
+      artifact_type: result.artifact.artifact_type,
+      status: result.artifact.status,
+      next: receiptNext(command, result),
+    };
+  }
+  return {
+    schema_version: 1,
+    ok: true,
+    command,
+    status: result.status,
+    task_id: result.task_id,
+    next: receiptNext(command, result),
+  };
 }
 
 function fingerprint(workspace) {
@@ -586,16 +753,13 @@ function approvalArtifactErrors(type, artifact, current) {
   return errors;
 }
 
-function currentApprovalBindings(current, gate, action) {
+function approvalBindingState(current, gate) {
   const bindings = [];
   for (const type of APPROVAL_ARTIFACTS[gate]) {
     const artifact = readJson(join(current.paths.sessionDir, `${type}.json`));
     const errors = approvalArtifactErrors(type, artifact, current);
     if (errors.length) {
-      throw new Error(
-        `Cannot ${action}: ${errors.join('; ')}. `
-        + `Record a fresh passed ${type} artifact, then approve ${gate} again.`,
-      );
+      return { bindings, invalid: { type, errors } };
     }
     bindings.push({
       artifact_type: type,
@@ -603,27 +767,56 @@ function currentApprovalBindings(current, gate, action) {
       digest: artifactDigest(artifact),
     });
   }
-  return bindings;
+  return { bindings, invalid: null };
+}
+
+function currentApprovalBindings(current, gate, action) {
+  const state = approvalBindingState(current, gate);
+  if (state.invalid) {
+    throw new Error(
+      `Cannot ${action}: ${state.invalid.errors.join('; ')}. `
+      + `Record a fresh passed ${state.invalid.type} artifact, then approve ${gate} again.`,
+    );
+  }
+  return state.bindings;
+}
+
+function approvalBindingAssessment(current, gate, approval) {
+  const state = approvalBindingState(current, gate);
+  let approvalKind = 'current';
+  if (!granted(approval)) approvalKind = 'missing';
+  else if (!Array.isArray(approval.artifact_bindings)) approvalKind = 'unbound';
+  else if (!state.invalid
+    && JSON.stringify(approval.artifact_bindings) !== JSON.stringify(state.bindings)) {
+    approvalKind = 'stale';
+  }
+  return { ...state, approvalKind };
 }
 
 function requireCurrentApproval(current, gate, action) {
   const approval = current.session.lifecycle.approvals[gate];
-  if (!granted(approval)) {
+  const assessment = approvalBindingAssessment(current, gate, approval);
+  if (assessment.approvalKind === 'missing') {
     missingPrerequisite(
       action,
       `${gate} approval is missing for route ${current.session.route}`,
       `phantom-state.mjs approve --gate ${gate} --workspace <path>`,
     );
   }
-  if (!Array.isArray(approval.artifact_bindings)) {
+  if (assessment.approvalKind === 'unbound') {
     throw new Error(
       `Cannot ${action}: ${gate} approval has no artifact binding and cannot be safely recovered. `
       + `Record a fresh passed ${APPROVAL_ARTIFACTS[gate].join(' and ')} artifact, `
       + `then run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
     );
   }
-  const currentBindings = currentApprovalBindings(current, gate, action);
-  if (JSON.stringify(approval.artifact_bindings) !== JSON.stringify(currentBindings)) {
+  if (assessment.invalid) {
+    throw new Error(
+      `Cannot ${action}: ${assessment.invalid.errors.join('; ')}. `
+      + `Record a fresh passed ${assessment.invalid.type} artifact, then approve ${gate} again.`,
+    );
+  }
+  if (assessment.approvalKind === 'stale') {
     throw new Error(
       `Cannot ${action}: ${gate} approval is stale for the current passed artifact. `
       + `Review it and run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
@@ -637,7 +830,7 @@ function approve(workspace, args) {
   }
   const current = requireCurrent(workspace);
   const { route } = current.session;
-  if (!ROUTE_APPROVALS[route]?.includes(args.gate)) {
+  if (!approvalsForRoute(route)?.includes(args.gate)) {
     throw new Error(`Cannot approve ${args.gate}: route ${route} does not use that approval gate.`);
   }
   if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)
@@ -787,7 +980,7 @@ function prepareExecute(current) {
       'phantom-state.mjs authorize --scope implementation --workspace <path>',
     );
   }
-  const requiredApprovals = ROUTE_APPROVALS[current.session.route];
+  const requiredApprovals = approvalsForRoute(current.session.route);
   if (!requiredApprovals) {
     throw new Error(
       'Cannot execute: the recovered session has no supported route. '
@@ -798,6 +991,7 @@ function prepareExecute(current) {
   for (const gate of requiredApprovals) {
     requireCurrentApproval(current, gate, 'execute');
   }
+  if (lifecycle.actions.execute.status === 'started') return lifecycle;
   lifecycle.actions.execute = {
     status: 'started',
     decided_at: now(),
@@ -859,12 +1053,72 @@ function gateEvidenceErrors(type, evidence) {
     } else {
       const seen = new Set();
       for (const role of evidence.requiredSpecialists) {
-        if (!SPECIALIST_ROLES.has(role)) {
+        if (role === 'lens') {
+          errors.push(LEGACY_LENS_GATE_RECOVERY);
+        } else if (!SPECIALIST_ROLES.has(role)) {
           errors.push(`Unsupported required specialist role: ${String(role)}.`);
         } else if (seen.has(role)) {
           errors.push(`Required specialist role is duplicated: ${role}.`);
         } else {
           seen.add(role);
+        }
+      }
+    }
+    if (evidence.visualVerification !== undefined) {
+      errors.push('Verification visualVerification is unsupported; use userVerification.');
+    }
+    if (evidence.userVerificationRequired !== undefined) {
+      errors.push('Verification userVerificationRequired is unsupported; classify in userVerification.required.');
+    }
+    const userVerification = evidence.userVerification;
+    if (!isObject(userVerification)) {
+      errors.push(
+        'Passed verification evidence requires userVerification classification; '
+        + 'use {"required":false} when user verification is not needed.',
+      );
+    } else {
+      if (typeof userVerification.required !== 'boolean') {
+        errors.push('Verification userVerification requires a boolean required field.');
+      } else if (userVerification.required === false) {
+        const unexpected = Object.keys(userVerification).filter((field) => field !== 'required');
+        for (const field of unexpected) {
+          errors.push(`Non-required userVerification must omit ${field}.`);
+        }
+      } else {
+        const allowed = new Set(['required', 'status', 'routes', 'confirmedBy', 'observations']);
+        for (const field of Object.keys(userVerification).filter((key) => !allowed.has(key))) {
+          errors.push(`Required userVerification has unsupported field: ${field}.`);
+        }
+        if (!['confirmed', 'pending'].includes(userVerification.status)) {
+          errors.push(
+            'Verification userVerification status must be "confirmed" or "pending".',
+          );
+        }
+        const routes = userVerification.routes;
+        if (!Array.isArray(routes)
+          || routes.some((route) => typeof route !== 'string' || !route.trim())) {
+          errors.push('Verification userVerification requires a routes string array.');
+        }
+        if (!Array.isArray(userVerification.observations)
+          || userVerification.observations.some(
+            (observation) => typeof observation !== 'string' || !observation.trim(),
+          )) {
+          errors.push('Verification userVerification requires an observations string array.');
+        }
+        if (userVerification.status !== 'confirmed'
+            || userVerification.confirmedBy !== 'user'
+            || !Array.isArray(routes)
+            || routes.length === 0) {
+          errors.push(
+            'Required userVerification must be confirmed by the user with at least one route.',
+          );
+        }
+        if (userVerification.status === 'confirmed') {
+          if (userVerification.confirmedBy !== 'user') {
+            errors.push('Confirmed userVerification must set confirmedBy to "user".');
+          }
+        } else if (userVerification.confirmedBy !== undefined) {
+          errors.push('Verification userVerification confirmedBy must be omitted unless confirmed.');
         }
       }
     }
@@ -918,6 +1172,10 @@ function requiredSpecialistEvidenceErrors(verificationEvidence, reviewEvidence) 
   const observed = new Map(reviewEvidence.specialists.map((specialist) => [specialist?.role, specialist]));
   const errors = [];
   for (const role of required) {
+    if (role === 'lens') {
+      errors.push(LEGACY_LENS_GATE_RECOVERY);
+      continue;
+    }
     const specialist = observed.get(role);
     if (!specialist) {
       errors.push(`Required specialist evidence is missing for role: ${role}.`);
@@ -931,6 +1189,128 @@ function requiredSpecialistEvidenceErrors(verificationEvidence, reviewEvidence) 
     }
   }
   return errors;
+}
+
+function reviewDelegationProvenance(current, runId, verificationSequence) {
+  const directory = runDirectory(current, runId);
+  const task = readJson(join(directory, 'delegation-task.json'));
+  const result = readJson(join(directory, 'delegation-result.json'));
+  const errors = [];
+  for (const [label, artifact, artifactType] of [
+    ['task', task, 'delegation-task'],
+    ['result', result, 'delegation-result'],
+  ]) {
+    if (!isObject(artifact)) {
+      errors.push(`same-run ${artifactType}.json is missing`);
+      continue;
+    }
+    if (artifact.schema_version !== 1) errors.push(`${label} envelope schema version is unsupported`);
+    if (artifact.artifact_type !== artifactType) errors.push(`${label} envelope artifact type does not match`);
+    if (artifact.repo_id !== current.paths.repo.id) errors.push(`${label} envelope belongs to another repository`);
+    if (artifact.task_id !== current.paths.task) errors.push(`${label} envelope belongs to another session task`);
+  }
+  if (errors.length > 0) throw new Error(errors.join('; '));
+
+  errors.push(...validateDelegationTaskContract(task.evidence));
+  errors.push(...validateDelegationResultContract(result.evidence));
+  if (task.evidence?.role !== 'gaze') errors.push('delegation task evidence role must be gaze');
+  if (result.status !== 'passed') errors.push('delegation result envelope status must be passed');
+  if (result.evidence?.status !== 'ok') errors.push('delegation result evidence status must be ok');
+  if (result.producer?.role !== 'gaze') errors.push('delegation result producer role must be gaze');
+  if (task.evidence?.task_id !== result.evidence?.task_id) {
+    errors.push('delegation result task_id must match the task');
+  }
+  if (task.evidence?.delegation_id !== result.evidence?.delegation_id) {
+    errors.push('delegation result delegation_id must match the task');
+  }
+  if (isObject(task.evidence)
+    && result.evidence?.task_digest !== delegationTaskDigest(task.evidence)) {
+    errors.push('delegation result task_digest must match the accepted canonical task');
+  }
+  if (!Number.isInteger(task.record_sequence) || task.record_sequence < 1) {
+    errors.push('delegation task has no stable record sequence');
+  }
+  if (!Number.isInteger(result.record_sequence) || result.record_sequence < 1) {
+    errors.push('delegation result has no stable record sequence');
+  }
+  if (!Number.isInteger(verificationSequence) || verificationSequence < 1) {
+    errors.push('authoritative verification has no stable record sequence');
+  } else {
+    if (task.record_sequence <= verificationSequence) {
+      errors.push('Gaze delegation task must be recorded after authoritative verification');
+    }
+    if (result.record_sequence <= verificationSequence) {
+      errors.push('Gaze delegation result must be recorded after authoritative verification');
+    }
+  }
+  if (Number.isInteger(task.record_sequence)
+    && Number.isInteger(result.record_sequence)
+    && result.record_sequence <= task.record_sequence) {
+    errors.push('Gaze delegation result must be recorded after its task');
+  }
+  if (errors.length > 0) throw new Error(errors.join('; '));
+  return {
+    reference: {
+      run_id: runId,
+      verification_sequence: verificationSequence,
+      task_sequence: task.record_sequence,
+      result_sequence: result.record_sequence,
+      result_digest: artifactDigest(result),
+    },
+    result_evidence: result.evidence,
+  };
+}
+
+function reviewResultEvidenceErrors(reviewEvidence, resultEvidence) {
+  const errors = [];
+  if (resultEvidence?.output?.blocker !== null) {
+    errors.push('passed review cannot accept a Gaze result with a blocker');
+  }
+  const classificationChecks = resultEvidence?.output?.checks?.filter(
+    (check) => check?.name === 'user-verification-classification',
+  ) || [];
+  if (classificationChecks.length !== 1 || classificationChecks[0].status !== 'passed') {
+    errors.push(
+      'passed review requires exactly one passed Gaze user-verification-classification check',
+    );
+  }
+  if (canonicalDelegationJson(reviewEvidence?.findings)
+    !== canonicalDelegationJson(resultEvidence?.output?.findings)) {
+    errors.push('passed review findings must exactly match the accepted Gaze result findings');
+  }
+  return errors;
+}
+
+function reviewProvenanceErrors(review, current) {
+  if (!isObject(review.review_provenance)) {
+    return ['review artifact has no independent delegation provenance.'];
+  }
+  const provenance = review.review_provenance;
+  if (typeof provenance.run_id !== 'string' || !provenance.run_id) {
+    return ['review artifact delegation provenance has no run id.'];
+  }
+  try {
+    const runsDirectory = join(current.paths.sessionDir, 'runs');
+    const verification = existsSync(runsDirectory)
+      ? latestGateArtifact(runsDirectory, 'verification')
+      : null;
+    const currentProvenance = reviewDelegationProvenance(
+      current, provenance.run_id, verification?.record_sequence,
+    );
+    if (provenance.verification_sequence !== currentProvenance.reference.verification_sequence
+      || provenance.task_sequence !== currentProvenance.reference.task_sequence
+      || provenance.result_sequence !== currentProvenance.reference.result_sequence
+      || provenance.result_digest !== currentProvenance.reference.result_digest) {
+      return ['review artifact delegation provenance is stale or tampered.'];
+    }
+    const evidenceErrors = reviewResultEvidenceErrors(
+      review.evidence, currentProvenance.result_evidence,
+    );
+    if (evidenceErrors.length > 0) return evidenceErrors.map((error) => `${error}.`);
+  } catch (error) {
+    return [`review artifact delegation provenance is invalid: ${error.message}.`];
+  }
+  return [];
 }
 
 function gateArtifactErrors(type, artifact, current, fingerprint) {
@@ -950,6 +1330,7 @@ function gateArtifactErrors(type, artifact, current, fingerprint) {
     );
   }
   errors.push(...gateEvidenceErrors(type, artifact.evidence));
+  if (type === 'review') errors.push(...reviewProvenanceErrors(artifact, current));
   return errors;
 }
 
@@ -986,8 +1367,9 @@ function modelRouting(args, requestedProfile) {
 
 function latestGateArtifact(runsDirectory, type) {
   let latest = null;
-  for (const runId of readdirSync(runsDirectory)) {
-    const file = join(runsDirectory, runId, `${type}.json`);
+  for (const entry of readdirSync(runsDirectory, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const file = join(runsDirectory, entry.name, `${type}.json`);
     const artifact = readJson(file);
     if (!artifact) continue;
     const sequence = Number.isInteger(artifact.record_sequence) ? artifact.record_sequence : 0;
@@ -1053,6 +1435,31 @@ function record(workspace, args) {
   if (!Object.hasOwn(ARTIFACTS, args.type)) throw new Error(`Unsupported artifact type: ${args.type}`);
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
   const current = requireCurrent(workspace);
+  if (args.type === 'review' && args.role !== 'gaze') {
+    const received = args.role === undefined ? 'no explicit role' : args.role;
+    throw new Error(
+      `Review evidence requires explicit independent role provenance via --role gaze; received ${received}.`,
+    );
+  }
+  if (args.type === 'review' && !args.run) {
+    throw new Error('Review evidence requires explicit --run with same-run Gaze delegation evidence.');
+  }
+  const runId = args.run || `run-${Date.now()}`;
+  const directory = ARTIFACTS[args.type].run ? runDirectory(current, runId) : null;
+  const file = ARTIFACTS[args.type].run
+    ? join(directory, `${args.type}.json`)
+    : join(current.paths.sessionDir, `${args.type}.json`);
+  if (args.input) {
+    const resolvedInput = resolve(realpathSync(args.input));
+    const resolvedSession = resolve(realpathSync(current.paths.sessionDir));
+    const resolvedDestination = resolveThroughExistingParent(file);
+    if (isWithin(resolvedSession, resolvedInput) && resolvedInput !== resolvedDestination) {
+      throw new Error(
+        'record --input cannot use a transport file inside the active session because that '
+        + 'would duplicate durable evidence. Use an external temporary path or stdin through an adapter.',
+      );
+    }
+  }
   const payload = args.input ? JSON.parse(readFileSync(args.input, 'utf8')) : {};
   const fingerprint = ['verification', 'review'].includes(args.type)
     ? worktreeFingerprint(current.paths.repo.root)
@@ -1060,9 +1467,21 @@ function record(workspace, args) {
   const verificationForReview = args.type === 'review'
     ? requireCurrentPassedVerification(current, 'record review', fingerprint)
     : null;
-  const runId = args.run || `run-${Date.now()}`;
+  let reviewProvenance;
+  let reviewResultEvidence;
+  if (args.type === 'review') {
+    try {
+      const provenance = reviewDelegationProvenance(
+        current, runId, verificationForReview.record_sequence,
+      );
+      reviewProvenance = provenance.reference;
+      reviewResultEvidence = provenance.result_evidence;
+    } catch (error) {
+      throw new Error(`Cannot record review: ${error.message}.`);
+    }
+  }
   const delegatedTask = args.type === 'delegation-result'
-    ? readJson(join(current.paths.sessionDir, 'runs', runId, 'delegation-task.json'))
+    ? readJson(join(directory, 'delegation-task.json'))
     : null;
   if (args.type === 'delegation-result' && !delegatedTask) {
     throw new Error('Delegation result requires a task recorded under the same run.');
@@ -1123,7 +1542,10 @@ function record(workspace, args) {
     const evidenceErrors = [
       ...gateEvidenceErrors(args.type, payload),
       ...(args.type === 'review'
-        ? requiredSpecialistEvidenceErrors(verificationForReview.evidence, payload)
+        ? [
+          ...requiredSpecialistEvidenceErrors(verificationForReview.evidence, payload),
+          ...reviewResultEvidenceErrors(payload, reviewResultEvidence),
+        ]
         : []),
     ];
     if (evidenceErrors.length) throw new Error(`Invalid passed ${args.type} evidence: ${evidenceErrors.join('; ')}`);
@@ -1161,11 +1583,9 @@ function record(workspace, args) {
       : {}),
     producer: { role, compute_profile: profile },
     model_routing: routing,
+    ...(args.type === 'review' ? { review_provenance: reviewProvenance } : {}),
     evidence: payload,
   });
-  const file = ARTIFACTS[args.type].run
-    ? join(current.paths.sessionDir, 'runs', runId, `${args.type}.json`)
-    : join(current.paths.sessionDir, `${args.type}.json`);
   const previousArtifact = readJson(file);
   const previousSession = readJson(join(current.paths.sessionDir, 'session.json'));
   const previousPointer = readJson(current.paths.currentFile);
@@ -1300,7 +1720,10 @@ function main() {
         + '<start|status|fingerprint|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
       );
     });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    const output = args.json === true
+      ? JSON.stringify(result, null, 2)
+      : JSON.stringify(compactProjection(command, result, workspace));
+    process.stdout.write(`${output}\n`);
   } catch (error) {
     fail(error.message);
   }

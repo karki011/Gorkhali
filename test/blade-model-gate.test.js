@@ -61,9 +61,9 @@ const DEFAULT_NAMES = {
   blade: 'blade-kaze',
   sweep: 'sweep-nix',
   ward: 'ward-brann',
-  lens: 'lens-yara',
   warden: 'warden-gorath',
   gaze: 'gaze-elden',
+  lens: 'lens-yara',
   archer: 'archer-sylas',
   hound: 'hound-fenrik',
   rival: 'rival-dask',
@@ -83,11 +83,11 @@ function agentSpawn(subagentType, toolInput = {}) {
   };
 }
 
-function assertImplementerDeny(res) {
+function assertWorkerDeny(res) {
   assert.equal(res.code, 0, 'decision rides the JSON, not the exit code');
   const out = JSON.parse(res.stdout);
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(out.hookSpecificOutput.permissionDecisionReason, /IMPLEMENTER MODEL GATE/);
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /WORKER MODEL GATE/);
 }
 
 test('1. blade spawn, no model → DENY', () => {
@@ -132,17 +132,23 @@ test('8. garbage/non-JSON stdin → ALLOW, exit 0', () => {
 
 test('9. blade + model:"fable" → DENY (implementer fable-deny)', () => {
   const res = runGate(agentSpawn('blade', { model: 'fable' }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
 });
 
 test('10. subagent_type:"phantom:sweep" + model:"fable" → DENY (prefix stripped, exact match)', () => {
   const res = runGate(agentSpawn('phantom:sweep', { model: 'fable' }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
 });
 
 test('11. warden + model:"claude-fable-5" → DENY (full model id, not just bare alias)', () => {
   const res = runGate(agentSpawn('warden', { model: 'claude-fable-5' }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
+});
+
+test('11b. lens + model:"fable" → DENY with role-specific guidance', () => {
+  const res = runGate(agentSpawn('lens', { model: 'fable' }));
+  assertWorkerDeny(res);
+  assert.match(JSON.parse(res.stdout).hookSpecificOutput.permissionDecisionReason, /role "lens"/);
 });
 
 test('12. blade + model:"opus" → ALLOW', () => {
@@ -167,12 +173,12 @@ test('15. subagent_type:"phantom:reference:blade-conventions" + model:"fable" �
 
 test('16. subagent_type:"Blade" (capitalized) + model:"fable" → DENY (case-insensitive matching)', () => {
   const res = runGate(agentSpawn('Blade', { model: 'fable' }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
 });
 
 test('17. subagent_type:"PHANTOM:SWEEP" (uppercase) + model:"fable" → DENY (case-insensitive, prefix stripped)', () => {
   const res = runGate(agentSpawn('PHANTOM:SWEEP', { model: 'fable' }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
 });
 
 // ── RULE 3: roster name gate ────────────────────────────────────────────────
@@ -231,7 +237,7 @@ test('27. name gate precedes the missing-model rule (blade, no name, no model �
 
 test('28. fable-deny still wins over the name gate (both violated → implementer deny)', () => {
   const res = runGate(agentSpawn('blade', { model: 'fable', name: undefined }));
-  assertImplementerDeny(res);
+  assertWorkerDeny(res);
 });
 
 test('29. escape hatch PHANTOM_BLADE_MODEL_GATE=0 disables the name gate too', () => {
@@ -324,7 +330,7 @@ test('34b. only escalation-eligible roles may parent a sage name', () => {
   for (const name of ['sage-blade-kaze', 'sage-ward-torvan', 'sage-sweep-nix', 'sage-archer-scope']) {
     assertAllow(runGate(agentSpawn('sage', { name })), name);
   }
-  for (const name of ['sage-warden-sena', 'sage-gaze-elden', 'sage-lens-yara', 'sage-rival-dask']) {
+  for (const name of ['sage-warden-sena', 'sage-gaze-elden', 'sage-rival-dask']) {
     assertNameDeny(runGate(agentSpawn('sage', { name })));
   }
   // Sage is not its own parent — a consultation cannot be consulted.
@@ -351,7 +357,8 @@ test('35. every name reference/roster.md actually assigns is ALLOWED by the gate
   const spawns = [
     ['archer', 'archer-sylas'], ['archer', 'archer-scope'], ['blade', 'council-chairman'],
     ['blade', 'council-mvp'], ['blade', 'blade-doven'], ['gaze', 'gaze-sura'],
-    ['hound', 'hound-corva'], ['lens', 'lens-yara'], ['rival', 'rival-dask'],
+    ['lens', 'lens-thal'],
+    ['hound', 'hound-corva'], ['rival', 'rival-dask'],
     ['sweep', 'sweep-oda'], ['ward', 'ward-corben'], ['warden', 'warden-sena'],
     ['plan-checker', 'plan-checker-castor'],
   ];

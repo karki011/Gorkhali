@@ -11,7 +11,6 @@ const CONSTANTS_PATH = require.resolve('../scripts/lib/constants');
 
 const OVERRIDE_ENVS = [
   'PHANTOM_FIX_LOOP_CEILING',
-  'PHANTOM_VISUAL_LOOP_CEILING',
   'PHANTOM_GRADUATION_THRESHOLD',
   'PHANTOM_PROMOTE_THRESHOLD',
   'PHANTOM_EXTRACT_TIMEOUT_MS',
@@ -45,7 +44,6 @@ function freshConstants(overrides = {}) {
 test('defaults match the pre-centralization literals exactly', () => {
   const C = freshConstants();
   assert.equal(C.FIX_LOOP_CEILING, 2);
-  assert.equal(C.VISUAL_LOOP_CEILING, 3);
   assert.equal(C.GRADUATION_THRESHOLD, 5);
   assert.equal(C.PROMOTE_THRESHOLD, 5);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 5000);
@@ -70,7 +68,6 @@ test('PHANTOM_DATA_DIRNAME is legacy-only; the canonical data-root dirname is co
 test('env overrides apply to every numeric constant', () => {
   const C = freshConstants({
     PHANTOM_FIX_LOOP_CEILING: '4',
-    PHANTOM_VISUAL_LOOP_CEILING: '6',
     PHANTOM_GRADUATION_THRESHOLD: '7',
     PHANTOM_PROMOTE_THRESHOLD: '8',
     PHANTOM_EXTRACT_TIMEOUT_MS: '9000',
@@ -79,7 +76,6 @@ test('env overrides apply to every numeric constant', () => {
     PHANTOM_LEARNING_DISTILL_CAP: '25',
   });
   assert.equal(C.FIX_LOOP_CEILING, 4);
-  assert.equal(C.VISUAL_LOOP_CEILING, 6);
   assert.equal(C.GRADUATION_THRESHOLD, 7);
   assert.equal(C.PROMOTE_THRESHOLD, 8);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 9000);
@@ -91,24 +87,20 @@ test('env overrides apply to every numeric constant', () => {
 test('garbage env values fail open to the defaults', () => {
   const C = freshConstants({
     PHANTOM_FIX_LOOP_CEILING: 'banana',
-    PHANTOM_VISUAL_LOOP_CEILING: '-1',
     PHANTOM_EXTRACT_TIMEOUT_MS: '',
     PHANTOM_GRADUATION_THRESHOLD: 'NaN',
   });
   assert.equal(C.FIX_LOOP_CEILING, 2);
-  assert.equal(C.VISUAL_LOOP_CEILING, 3);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 5000);
   assert.equal(C.GRADUATION_THRESHOLD, 5);
 });
 
-test('loop ceilings reject floats (2.5 → default) but accept hex (0x10 → 16); non-ceiling floats unchanged', () => {
+test('loop ceilings reject floats while non-ceiling floats remain valid', () => {
   const C = freshConstants({
     PHANTOM_FIX_LOOP_CEILING: '2.5',
-    PHANTOM_VISUAL_LOOP_CEILING: '0x10',
     PHANTOM_EXTRACT_TIMEOUT_MS: '2500.5',
   });
   assert.equal(C.FIX_LOOP_CEILING, 2);
-  assert.equal(C.VISUAL_LOOP_CEILING, 16);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 2500.5);
 });
 

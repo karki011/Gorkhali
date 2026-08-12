@@ -111,7 +111,7 @@ Every JSON artifact must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "2.2.1",
+  "bundle_version": "2.2.6",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"
@@ -210,6 +210,8 @@ one never implies the other. Starting with `--mode to-plan` (or `--to-plan`)
 sets a permanent plan-only mode for that session. It can produce planning
 artifacts and record authorization decisions, but `execute` and `ship` remain
 denied. Verification still cannot start because execution never started.
+Compact status returns `record:plan` until the canonical plan is valid, then
+returns no next action; it never recommends an action the mode will reject.
 For an existing active task, route and material intent are immutable. `start`
 may backfill a missing route on a legacy session, but a route or intent change
 must be captured as an explicit revision or restarted under a new task id. It
@@ -290,6 +292,18 @@ contract in [roles](roles.md) before the result can be synthesized.
   the same fingerprint. The authoritative review must have a later
   `record_sequence`; any later verification makes an earlier review stale and
   blocks `ship` and `complete` until review runs again.
+- Every new passed verification records exactly one user-verification decision:
+  `{ "required": false }` for non-UI work, or confirmed user evidence for UI
+  work. The first form does not prompt the user. The helper stores that decision
+  atomically with the complete current worktree fingerprint; any later file,
+  index, mode, deletion, symlink, gitlink, or untracked-content change makes it
+  stale. Active legacy sessions missing this decision remain inspectable and project
+  `record:verification-with-user-verification-decision`; they require fresh
+  verification and review rather than migration. Completed sessions remain
+  read-only and inspectable.
+- Ward classifies rendered behavior from the complete final diff; the state
+  engine does not infer UI semantics from filenames. Gaze independently checks
+  that classification against the same diff and blocks a false non-UI decision.
 - Never delete a session to complete it; move or copy it to `completed`.
 
 ## Learning index

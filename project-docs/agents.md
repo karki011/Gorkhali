@@ -11,7 +11,7 @@ The agent roster, the single policy file that routes each role to a model, and t
 | Ward | QA - lint, build, test verification |
 | Gaze | Quality gate - power level (scored, P0-P3) |
 | Sage | Advisory - guidance for stuck agents (<100 words) |
-| Lens | Visual verification - screenshot + diff |
+| Lens | Explicit opt-in visual inspection - advisory screenshots and observations |
 | Archer | Cross-file review - pre-PR structural analysis |
 | Rival | Plan challenger - adversarial review (no tools, forced precision) |
 | Plan-checker | Pre-execution plan validator - learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
@@ -22,7 +22,7 @@ The agent roster, the single policy file that routes each role to a model, and t
 Role-to-profile mapping lives in `skills/phantom/references/model-policy.json`, and profile-to-model per host lives in `skills/phantom/references/model-presets.json`.
 `scripts/gen-agent-frontmatter.js` generates each `agents/*.md` `model:` pin from that policy, and a drift test fails CI on a hand-edited pin.
 
-Implementer roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap profiles, and `model-policy.json` never routes them above the `deep` profile, which resolves to opus.
+Bounded worker roles (**Blade**, **Sweep**, **Ward**, **Lens**, **Warden**) pin cheap profiles, and `model-policy.json` never routes them above the `deep` profile, which resolves to opus.
 That opus ceiling is a property of the policy file, not a runtime check: `hooks/blade-model-gate.js` denies only a retired Fable-tier pin on an implementer and a `blade` spawn that set no explicit model.
 The escalation ladder is re-decompose -> sonnet -> opus.
 If a subtask can't be scoped to fit within opus, the scoping failed - Apex re-decomposes.

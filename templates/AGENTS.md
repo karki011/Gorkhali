@@ -11,7 +11,7 @@ Multi-agent shadows for this repository. Compatible with Claude Code, Cursor, Wi
 | Ward | Verification - repo-aware lint/build/test |
 | Gaze | Quality gate - code review, scored 0-10 |
 | Sage | On-demand guidance for stuck agents (<100 words) |
-| Lens | Visual - Figma extraction + browser-based UI verification |
+| Lens | Explicit opt-in visual inspection - advisory only |
 
 Model pins are GENERATED, not hand-maintained: `scripts/gen-agent-frontmatter.js`
 stamps each `agents/*.md` `model:` line from the role-to-profile mapping in

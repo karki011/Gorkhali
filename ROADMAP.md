@@ -5,7 +5,7 @@
 **Branch of record:** `model-routing-scope-check`
 
 > This document SUPERSEDES `docs/team-skill-improvement-plan.md` (dated 2026-05-11).
-> That plan names agents that no longer exist (Spark, Sentinel, Prism, Cortex) against today's roster (apex, blade, gaze, ward, warden, archer, sweep, rival, plan-checker, sage, hound, lens).
+> That plan names agents that no longer exist (Spark, Sentinel, Prism, Cortex) against today's roster (apex, blade, gaze, ward, warden, archer, sweep, rival, plan-checker, sage, hound).
 > Treat it as history only; it is archived by B7.
 
 Research basis: `docs/research/agnostic-improvement-research.md` is AUTHORITATIVE for the peer landscape, the portability matrix, the per-hook verdicts, and the derivation of B1-B8.
@@ -114,7 +114,7 @@ These are the starting numbers every future change is compared against.
 | Cost coverage | 21/191 |
 | Greptile ran | 50/191 sessions |
 
-Agent spawns: blade 1157, archer 464, sweep 300, gaze 113, warden 107, rival 50, plan-checker 44, ward 38, lens 18, sage 14, hound 13, apex 0.
+Historical agent spawns at the time of measurement: blade 1157, archer 464, sweep 300, gaze 113, warden 107, rival 50, plan-checker 44, ward 38, retired visual-agent role 18, sage 14, hound 13, apex 0.
 
 `wrap.json` carries 89 distinct top-level keys, and `pr.status` had 16 free-text variants.
 That schema drift is WHY measurement never happened before this session, and it is precisely what B0 fixed.

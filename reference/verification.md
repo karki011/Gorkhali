@@ -17,8 +17,8 @@ Normal verification is exactly:
    fingerprint-bound portable `verification` evidence.
 6. One independent Gaze reviews the same fingerprint and is recorded as the
    portable `review` evidence.
-7. Review runs exactly the persisted Lens/Archer roles and merges their results
-   into `specialists`; review and wrap never reclassify the diff.
+7. Review runs exactly the persisted Archer role when required and merges its
+   result into `specialists`; review and wrap never reclassify the diff.
 
 No stage auto-fixes a failure. Missing required Ward or Gaze evidence blocks.
 
@@ -67,17 +67,27 @@ translate absent, skipped, timed-out, or truncated output into a pass.
 
 | Observed diff risk | Specialist |
 |---|---|
-| User-visible UI/visual behavior | Lens |
+| User-visible UI/visual behavior | Explicit user verification before passed verification evidence |
 | Auth, authorization, permissions | Archer |
 | Money, destructive operations, data-loss risk | Archer |
 | Migration or public API compatibility | Archer |
 | Concurrency or broad cross-module architecture | Archer |
 | Infrastructure/deploy or dependency changes | Archer |
 
-Resolve this table once against the final post-Sweep diff. Persist a unique
-`requiredSpecialists` array containing only `"lens"` and/or `"archer"`; persist
-`[]` when no row applies. The portable review/ship gate compares this selection
-with the merged review's `specialists` results. Each required role receives one
-bounded, non-overlapping question; missing, failed, blocked, duplicate, or
+Resolve this table once against the final post-Sweep diff. For UI work, present
+the affected routes/states and wait for explicit user confirmation; record it in
+verification evidence as `userVerification`. Persist a unique
+`requiredSpecialists` array containing only `"archer"`, or `[]` when no Archer
+row applies. Missing user confirmation when required blocks passed verification.
+The portable review/ship gate compares the specialist selection with the merged
+review's `specialists` results. Missing, failed, blocked, duplicate, or
 unexpected specialist evidence blocks. RPSL remains an explicit optional
 deep-review preset, never a normal shipping prerequisite.
+
+Passed non-UI verification records the compact classification
+`userVerification: { "required": false }`; it does not prompt the user. Passed
+UI verification uses `required: true` and cannot record until the user confirms.
+Ward classifies the complete final diff, including source, data, configuration,
+and assets whose paths do not look UI-specific. Gaze independently checks that
+classification against the same fingerprint-bound diff. Any user-visible
+behavior paired with `required: false` is a blocking review finding.

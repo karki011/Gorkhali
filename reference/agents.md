@@ -9,7 +9,7 @@
 | Ward | haiku (frontmatter pin) | QA — runs verify commands, checks contracts | agents/ward.md |
 | Gaze | opus (pinned — review tier) | Quality gate — power level, scoring | agents/gaze.md |
 | Sage | opus (pinned — top tier) | Advisory — <100 words, no tools, no user output | agents/sage.md |
-| Lens | sonnet (frontmatter pin) | Visual — browser verification, screenshots | agents/lens.md |
+| Lens | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/lens.md |
 | Archer | opus (pinned — review tier) | Cross-file — cache coherence, regression, dead code | agents/archer.md |
 | Rival | sonnet (frontmatter pin) | Plan challenger — 5 categories, verdict | agents/rival.md |
 | Plan Checker | sonnet (frontmatter pin) · escalate for large/complex plans | Pre-execution validator — learnings, blast radius, coverage, scope, deps | agents/plan-checker.md |
@@ -19,7 +19,7 @@
 
 ## Model Routing (Apex decides at spawn)
 
-**Implementer roles (Blade, Sweep, Ward, Lens, Warden) are capped at opus and never run fable;
+**Implementer roles (Blade, Sweep, Ward, Warden) are capped at opus and never run fable;
 the escalation ladder is re-decompose -> sonnet -> opus. If a subtask can't be scoped to fit within
 opus, the scoping failed - Apex re-decomposes.**
 
@@ -58,7 +58,7 @@ When decomposing, keep tagging each subtask `mechanical | standard | complex`. C
 **Precedence (highest wins):** explicit spawn `model:` param > config override (`config.yaml`
 `models:` block, if present) > agent frontmatter pin > this rubric default. Frontmatter pins are
 honored, and any user-supplied config override is honored on top of them — the rubric only fills the
-gap when nothing more specific is set. For implementer roles (blade, sweep, ward, lens, warden) any
+gap when nothing more specific is set. For implementer roles (blade, sweep, ward, warden) any
 override above opus is invalid - `hooks/blade-model-gate.js` denies fable regardless of source.
 Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
 

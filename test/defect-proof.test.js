@@ -22,7 +22,7 @@ const DEFECT_PROOF = path.join(
 
 function run(args, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [STATE, ...args], {
+    const child = spawn(process.execPath, [STATE, ...args, '--json'], {
       env: { ...process.env, ...env },
     });
     let stdout = '';

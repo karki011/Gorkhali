@@ -11,7 +11,7 @@ the same in either mode.
 | Ward | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
 | Gaze | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
 | Sage | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
-| Lens | `balanced` | none | Inspect visual behavior. Output scenarios, evidence, differences, and unverified states. |
+| Lens | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
 | Archer | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
 | Rival | `balanced` | none | Challenge a proposed plan. Output missing assumptions, counterexamples, and verdict. |
 | Plan-checker | `balanced` | none | Validate scope, ordering, learnings, coverage, and blast radius before execution. |

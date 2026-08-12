@@ -62,7 +62,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 $PR/scripts/validate-plan.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
-Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> Lens -> User Feedback), Lens inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
+Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> User Feedback), user-verification inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
 
 ### Layer: `output`
 
@@ -78,7 +78,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 $PR/scripts/validate-session.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
-Checks: required fields, phase/task status enums, verification block after verify phase, visual verification block when visualVerify: true, loop count bounds, board JSON freshness.
+Checks: required fields, phase/task status enums, verification block after verify phase, user-verification block when user verification is required, loop count bounds, board JSON freshness.
 
 ### Layer: `all`
 

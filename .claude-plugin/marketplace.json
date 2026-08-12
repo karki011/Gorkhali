@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Phantom — provider-adaptive multi-agent development for Claude Code and Codex.",
-    "version": "0.3.7"
+    "version": "0.3.10"
   },
   "plugins": [
     {

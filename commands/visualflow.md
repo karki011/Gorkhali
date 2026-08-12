@@ -11,7 +11,7 @@ allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 Pre-implementation visual flow planning — produces a reviewable HTML flow artifact (`visualflow.html`) BEFORE any code is written.
 
-> **Counterpart to [`/phantom:visual`](visual.md)** — `phantom:visual` is POST-implementation browser verification (Lens screenshots the built UI). `phantom:visualflow` is the PRE-implementation mirror: it plans the flow and gates it with a human before code exists. Run `visualflow` first to lock the flow, then `visual` later to verify the implementation against it.
+> **Counterpart to [`/phantom:visual`](visual.md)** — `phantom:visual` is the POST-implementation human verification handoff. `phantom:visualflow` is the PRE-implementation mirror: it plans the flow and gates it with a human before code exists. Run `visualflow` first to lock the flow, then `visual` later to present the implemented routes and states for user confirmation.
 
 ## Modes
 

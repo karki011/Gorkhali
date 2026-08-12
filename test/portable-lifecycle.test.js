@@ -33,7 +33,7 @@ function runScript(script, args, env) {
   });
 }
 
-const run = (args, env) => runScript(STATE, args, env);
+const run = (args, env) => runScript(STATE, [...args, '--json'], env);
 
 function parse(result) {
   assert.equal(result.code, 0, result.stderr);
@@ -49,6 +49,19 @@ function fixture() {
   return { root, workspace, data, env: { PHANTOM_DATA: data } };
 }
 
+function treeSnapshot(root) {
+  const snapshot = {};
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(file);
+      else snapshot[path.relative(root, file)] = fs.readFileSync(file).toString('base64');
+    }
+  };
+  visit(root);
+  return snapshot;
+}
+
 async function authorizeAndExecute(context, approvals = []) {
   const common = ['--workspace', context.workspace];
   for (const gate of approvals) {
@@ -61,8 +74,68 @@ async function authorizeAndExecute(context, approvals = []) {
   return parse(await run(['execute', ...common], context.env));
 }
 
+async function recordGazeDelegation(
+  context,
+  runId,
+  { classificationStatuses = ['passed'] } = {},
+) {
+  const { delegationTaskDigest } = await import(pathToFileURL(DECISION_CONTRACTS).href);
+  const common = ['--workspace', context.workspace];
+  const task = {
+    contract_version: 2,
+    task_id: `gaze-${runId}`,
+    delegation_id: `gaze-${runId}-attempt-1`,
+    role: 'gaze',
+    profile: 'deep',
+    risk: 'moderate',
+    requires_judgment: true,
+    objective: 'Independently review the verified work',
+    locked_decisions: [],
+    corrections: [],
+    constraints: [],
+    deliverables: ['Independent review verdict'],
+    acceptance_criteria: ['Review evidence is recorded'],
+    write_scope: [],
+    context_refs: [],
+  };
+  const taskInput = path.join(context.root, `${runId}-gaze-task.json`);
+  fs.writeFileSync(taskInput, JSON.stringify(task));
+  parse(await run([
+    'record', ...common, '--type', 'delegation-task', '--status', 'pending',
+    '--run', runId, '--input', taskInput,
+  ], context.env));
+  const result = {
+    contract_version: 2,
+    task_id: task.task_id,
+    delegation_id: task.delegation_id,
+    task_digest: delegationTaskDigest(task),
+    status: 'ok',
+    output: {
+      summary: 'Independent review completed',
+      files_changed: [],
+      checks: classificationStatuses.map((status) => ({
+        name: 'user-verification-classification',
+        status,
+        summary: 'The final diff is correctly classified for user verification',
+      })),
+      findings: [],
+      risks: [],
+      blocker: null,
+    },
+    error: null,
+  };
+  const resultInput = path.join(context.root, `${runId}-gaze-result.json`);
+  fs.writeFileSync(resultInput, JSON.stringify(result));
+  return parse(await run([
+    'record', ...common, '--type', 'delegation-result', '--status', 'passed',
+    '--run', runId, '--input', resultInput,
+  ], context.env));
+}
+
 async function recordArtifact(context, type, payload, status = 'passed') {
   gateSequence += 1;
+  const runId = `artifact-${gateSequence}`;
+  if (type === 'review') await recordGazeDelegation(context, runId);
   const input = path.join(context.root, `${type}-${gateSequence}.json`);
   fs.writeFileSync(input, JSON.stringify(payload));
   return parse(await run([
@@ -70,7 +143,8 @@ async function recordArtifact(context, type, payload, status = 'passed') {
     '--workspace', context.workspace,
     '--type', type,
     '--status', status,
-    '--run', `artifact-${gateSequence}`,
+    '--run', runId,
+    ...(type === 'review' ? ['--role', 'gaze'] : []),
     '--input', input,
   ], context.env));
 }
@@ -87,9 +161,15 @@ async function recordApprovalArtifacts(context, gate) {
 
 async function recordGate(context, type, status = 'passed') {
   gateSequence += 1;
+  const runId = `gate-${gateSequence}`;
+  if (type === 'review') await recordGazeDelegation(context, runId);
   const common = ['--workspace', context.workspace];
   const payload = type === 'verification'
-    ? { checks: [{ name: 'focused tests', result: 'passed' }], requiredSpecialists: [] }
+    ? {
+      checks: [{ name: 'focused tests', result: 'passed' }],
+      requiredSpecialists: [],
+      userVerification: { required: false },
+    }
     : { verdict: 'pass', findings: [], specialists: [] };
   const input = path.join(context.root, `${type}-${gateSequence}.json`);
   fs.writeFileSync(input, JSON.stringify(payload));
@@ -98,7 +178,8 @@ async function recordGate(context, type, status = 'passed') {
     ...common,
     '--type', type,
     '--status', status,
-    '--run', `gate-${gateSequence}`,
+    '--run', runId,
+    ...(type === 'review' ? ['--role', 'gaze'] : []),
     '--input', input,
   ], context.env));
 }
@@ -243,10 +324,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.2.1');
+  assert.equal(started.bundle_version, '2.2.6');
   assert.deepEqual(started.producer, { role: 'apex', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.1');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.6');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -259,7 +340,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.2.1');
+  assert.equal(resumed.bundle_version, '2.2.6');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -267,6 +348,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   fs.writeFileSync(evidenceFile, JSON.stringify({
     checks: [{ name: 'unit', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }));
   const recorded = parse(await run([
     'record',
@@ -281,7 +363,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.2.1');
+  assert.equal(recorded.artifact.bundle_version, '2.2.6');
   assert.deepEqual(recorded.artifact.producer, { role: 'ward', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -296,12 +378,14 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const reviewFile = path.join(context.root, 'review.json');
   fs.writeFileSync(reviewFile, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
+  await recordGazeDelegation(context, 'run-1');
   const reviewed = parse(await run([
     'record',
     ...common,
     '--type', 'review',
     '--status', 'passed',
     '--run', 'run-1',
+    '--role', 'gaze',
     '--input', reviewFile,
   ], context.env));
   assert.equal(reviewed.artifact.status, 'passed');
@@ -532,6 +616,7 @@ test('concurrent artifact writes remain complete JSON and leave no temporary fil
   fs.writeFileSync(evidence, JSON.stringify({
     checks: [{ name: 'unit', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }));
 
   const results = await Promise.all(Array.from({ length: 8 }, (_, index) => run([
@@ -603,14 +688,16 @@ test('record rejects undocumented statuses and empty passed gate evidence', asyn
   assert.match(emptyVerification.stderr, /Invalid passed verification evidence/);
 
   await recordGate(context, 'verification');
+  await recordGazeDelegation(context, 'empty-review');
   const emptyReview = await run([
-    'record', ...common, '--type', 'review', '--status', 'passed', '--run', 'empty-review',
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'empty-review', '--role', 'gaze',
   ], context.env);
   assert.equal(emptyReview.code, 1);
   assert.match(emptyReview.stderr, /Invalid passed review evidence/);
 });
 
-test('required specialist evidence is enforced when reviews record and ship', async () => {
+test('Archer evidence is the only specialist evidence accepted when reviews record and ship', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   parse(await run([
@@ -620,31 +707,28 @@ test('required specialist evidence is enforced when reviews record and ship', as
   parse(await run(['authorize', ...common, '--scope', 'ship-draft-pr'], context.env));
   await recordArtifact(context, 'verification', {
     checks: [{ name: 'focused tests', result: 'passed' }],
-    requiredSpecialists: ['lens', 'archer'],
+    requiredSpecialists: ['archer'],
+    userVerification: { required: false },
   });
 
   const invalidReviews = [
-    ['missing', [passedSpecialist('lens')]],
-    ['failed', [passedSpecialist('lens'), { ...passedSpecialist('archer'), verdict: 'fail' }]],
-    ['blocked', [passedSpecialist('lens'), { ...passedSpecialist('archer'), verdict: 'blocked' }]],
-    ['duplicate', [passedSpecialist('lens'), passedSpecialist('lens'), passedSpecialist('archer')]],
-    ['unrequired', [passedSpecialist('lens'), passedSpecialist('archer'), passedSpecialist('ward')]],
-    ['invalid', [
-      { ...passedSpecialist('lens'), findings: 'not-an-array' },
-      { ...passedSpecialist('archer'), observationGaps: 'not-an-array' },
-    ]],
-    ['gapped', [
-      { ...passedSpecialist('lens'), observationGaps: ['browser unavailable'] },
-      passedSpecialist('archer'),
-    ]],
+    ['missing', []],
+    ['failed', [{ ...passedSpecialist('archer'), verdict: 'fail' }]],
+    ['blocked', [{ ...passedSpecialist('archer'), verdict: 'blocked' }]],
+    ['duplicate', [passedSpecialist('archer'), passedSpecialist('archer')]],
+    ['unrequired', [passedSpecialist('archer'), passedSpecialist('ward')]],
+    ['unrequired-lens', [passedSpecialist('lens'), passedSpecialist('archer')]],
+    ['invalid', [{ ...passedSpecialist('archer'), observationGaps: 'not-an-array' }]],
+    ['gapped', [{ ...passedSpecialist('archer'), observationGaps: ['dependency path unavailable'] }]],
   ];
 
   for (const [label, specialists] of invalidReviews) {
     const input = path.join(context.root, `invalid-review-${label}.json`);
     fs.writeFileSync(input, JSON.stringify({ verdict: 'pass', findings: [], specialists }));
+    await recordGazeDelegation(context, `invalid-review-${label}`);
     const result = await run([
       'record', ...common, '--type', 'review', '--status', 'passed',
-      '--run', `invalid-review-${label}`, '--input', input,
+      '--run', `invalid-review-${label}`, '--role', 'gaze', '--input', input,
     ], context.env);
     assert.equal(result.code, 1, `${label} specialist evidence must not record as passed`);
     assert.match(result.stderr, /specialist|required/i);
@@ -653,23 +737,386 @@ test('required specialist evidence is enforced when reviews record and ship', as
   const validReview = await recordArtifact(context, 'review', {
     verdict: 'pass',
     findings: [],
-    specialists: [passedSpecialist('lens'), passedSpecialist('archer')],
+    specialists: [passedSpecialist('archer')],
   });
   const shipped = parse(await run(['ship', ...common], context.env));
   assert.equal(shipped.lifecycle.actions.ship.status, 'ready');
 
   const tampered = JSON.parse(fs.readFileSync(validReview.file, 'utf8'));
-  tampered.evidence.specialists[1].observationGaps = ['required path was not observed'];
+  tampered.evidence.specialists[0].observationGaps = ['required path was not observed'];
   fs.writeFileSync(validReview.file, JSON.stringify(tampered));
   const rejectedGap = await run(['ship', ...common], context.env);
   assert.equal(rejectedGap.code, 1);
   assert.match(rejectedGap.stderr, /observation gaps/i);
 
-  tampered.evidence.specialists = [passedSpecialist('lens')];
+  tampered.evidence.specialists = [];
   fs.writeFileSync(validReview.file, JSON.stringify(tampered));
   const rejected = await run(['ship', ...common], context.env);
   assert.equal(rejected.code, 1);
   assert.match(rejected.stderr, /specialist|required/i);
+});
+
+test('visual confirmation stays in canonical verification evidence without a Lens artifact', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'USER-VERIFY-1', '--intent', 'Verify rendered interaction', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+
+  const base = {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+  };
+  for (const [label, userVerification] of [
+    ['missing', undefined],
+    ['null', null],
+    ['pending', { required: true, status: 'pending', routes: ['/primary-flow'] }],
+    ['actor', { required: true, status: 'confirmed', routes: ['/primary-flow'] }],
+    ['routes', { required: true, status: 'confirmed', confirmedBy: 'user', routes: [] }],
+    ['not-applicable', { required: false, status: 'confirmed', routes: [], observations: [] }],
+    ['not-applicable-routes', {
+      required: false,
+      status: 'not-applicable',
+      routes: ['/primary-flow'],
+      observations: [],
+    }],
+    ['not-applicable-actor', {
+      required: false,
+      status: 'not-applicable',
+      routes: [],
+      confirmedBy: 'user',
+      observations: [],
+    }],
+    ['non-ui-unknown', { required: false, userConfirmed: true }],
+    ['ui-unknown', {
+      required: true,
+      status: 'confirmed',
+      routes: ['/primary-flow'],
+      confirmedBy: 'user',
+      observations: [],
+      userConfirmed: true,
+    }],
+    ['observations', {
+      required: true,
+      status: 'confirmed',
+      routes: ['/primary-flow'],
+      confirmedBy: 'user',
+    }],
+  ]) {
+    const input = path.join(context.root, `invalid-user-verification-${label}.json`);
+    fs.writeFileSync(input, JSON.stringify({
+      ...base,
+      ...(userVerification !== undefined ? { userVerification } : {}),
+    }));
+    const rejected = await run([
+      'record', ...common, '--type', 'verification', '--status', 'passed',
+      '--run', `invalid-user-verification-${label}`, '--input', input,
+    ], context.env);
+    assert.equal(rejected.code, 1, label);
+    assert.match(rejected.stderr, /userVerification/);
+  }
+
+  const recorded = await recordArtifact(context, 'verification', {
+    ...base,
+    userVerification: {
+      required: true,
+      status: 'confirmed',
+      routes: ['/primary-flow'],
+      confirmedBy: 'user',
+      observations: ['Primary interaction completes at the supported viewport'],
+    },
+  });
+  assert.deepEqual(recorded.artifact.evidence.requiredSpecialists, []);
+  assert.equal(recorded.artifact.evidence.userVerification.status, 'confirmed');
+  assert.equal(fs.existsSync(path.join(path.dirname(recorded.file), 'lens.json')), false);
+
+  const nonVisual = await recordArtifact(context, 'verification', {
+    ...base,
+    userVerification: { required: false },
+  });
+  assert.deepEqual(nonVisual.artifact.evidence.userVerification, { required: false });
+
+  const legacyInput = path.join(context.root, 'legacy-visual-verification.json');
+  fs.writeFileSync(legacyInput, JSON.stringify({
+    ...base,
+    visualVerification: { status: 'pass', routes: ['/primary-flow'], fixLoops: 0 },
+  }));
+  const legacyRejected = await run([
+    'record', ...common, '--type', 'verification', '--status', 'passed',
+    '--run', 'legacy-visual-verification', '--input', legacyInput,
+  ], context.env);
+  assert.equal(legacyRejected.code, 1);
+  assert.match(legacyRejected.stderr, /visualVerification.*unsupported.*userVerification/);
+
+  const duplicateInput = path.join(context.root, 'duplicate-user-verification-decision.json');
+  fs.writeFileSync(duplicateInput, JSON.stringify({
+    ...base,
+    userVerificationRequired: false,
+    userVerification: { required: false },
+  }));
+  const duplicateRejected = await run([
+    'record', ...common, '--type', 'verification', '--status', 'passed',
+    '--run', 'duplicate-user-verification-decision', '--input', duplicateInput,
+  ], context.env);
+  assert.equal(duplicateRejected.code, 1);
+  assert.match(duplicateRejected.stderr, /userVerificationRequired.*unsupported/);
+});
+
+test('explicit user-verification classification binds to the complete final worktree', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'FULL-FINGERPRINT-1',
+    '--intent', 'Change server-only rendering configuration', '--route', 'direct',
+  ], context.env));
+  const executed = await authorizeAndExecute(context);
+  assert.equal(executed.lifecycle.actions.execute.ui_candidate_fingerprint, undefined);
+
+  const unconventional = path.join(context.workspace, 'config', 'render.pipeline');
+  fs.mkdirSync(path.dirname(unconventional), { recursive: true });
+  fs.writeFileSync(unconventional, 'server-only=true\n');
+
+  const repeated = parse(await run(['execute', ...common], context.env));
+  assert.equal(repeated.lifecycle.actions.execute.ui_candidate_fingerprint, undefined);
+
+  const input = path.join(context.root, 'explicit-non-ui-classification.json');
+  fs.writeFileSync(input, JSON.stringify({
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  }));
+  const recorded = parse(await run([
+    'record', ...common, '--type', 'verification', '--status', 'passed',
+    '--run', 'explicit-non-ui-classification', '--input', input,
+  ], context.env));
+  assert.deepEqual(recorded.artifact.evidence.userVerification, { required: false });
+  assert.match(recorded.artifact.worktree_fingerprint, /^sha256:[a-f0-9]{64}$/);
+
+  fs.writeFileSync(unconventional, 'server-only=false\n');
+  const revalidated = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(revalidated.code, 0, revalidated.stderr);
+  assert.equal(JSON.parse(revalidated.stdout).next, 'record:verification');
+});
+
+test('non-UI changes keep user interaction optional', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'NON-UI-SURFACE-1',
+    '--intent', 'Change a backend service', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  const service = path.join(context.workspace, 'src', 'service.js');
+  fs.mkdirSync(path.dirname(service), { recursive: true });
+  fs.writeFileSync(service, 'module.exports = { ready: true };\n');
+  for (const relative of [
+    'src/components/Button.test.tsx',
+    'docs/Demo.tsx',
+    'test/fixtures/Card.tsx',
+  ]) {
+    const file = path.join(context.workspace, relative);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'export const Fixture = () => null;\n');
+  }
+
+  const recorded = await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+  assert.deepEqual(recorded.artifact.evidence.userVerification, { required: false });
+});
+
+test('passed review requires exactly one passed Gaze user-verification classification check', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'GAZE-CLASSIFICATION-1',
+    '--intent', 'Review a backend-only change', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+
+  for (const [label, classificationStatuses] of [
+    ['missing', []],
+    ['failed', ['failed']],
+    ['skipped', ['skipped']],
+    ['contradictory-duplicate', ['passed', 'failed']],
+  ]) {
+    const runId = `${label}-classification-check`;
+    await recordGazeDelegation(context, runId, { classificationStatuses });
+    const input = path.join(context.root, `${label}-classification-review.json`);
+    fs.writeFileSync(input, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
+    const rejected = await run([
+      'record', ...common, '--type', 'review', '--status', 'passed',
+      '--run', runId, '--role', 'gaze', '--input', input,
+    ], context.env);
+    assert.equal(rejected.code, 1, label);
+    assert.match(
+      rejected.stderr,
+      /exactly one passed Gaze user-verification-classification check/,
+      label,
+    );
+  }
+});
+
+test('a commit after classification makes user-verification evidence stale', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  execFileSync('git', ['init'], { cwd: context.workspace, stdio: 'ignore' });
+  execFileSync('git', ['add', 'planning.md'], { cwd: context.workspace });
+  execFileSync('git', [
+    '-c', 'user.name=Phantom Test', '-c', 'user.email=phantom@example.test',
+    'commit', '-m', 'initial',
+  ], { cwd: context.workspace, stdio: 'ignore' });
+  parse(await run([
+    'start', ...common, '--task', 'COMMITTED-FINGERPRINT-1',
+    '--intent', 'Commit a server runtime configuration', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+
+  await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+
+  const config = path.join(context.workspace, 'config', 'runtime.data');
+  fs.mkdirSync(path.dirname(config), { recursive: true });
+  fs.writeFileSync(config, 'cache=true\n');
+  execFileSync('git', ['add', 'config/runtime.data'], { cwd: context.workspace });
+  execFileSync('git', [
+    '-c', 'user.name=Phantom Test', '-c', 'user.email=phantom@example.test',
+    'commit', '-m', 'change runtime config',
+  ], { cwd: context.workspace, stdio: 'ignore' });
+
+  const status = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(status.code, 0, status.stderr);
+  assert.equal(JSON.parse(status.stdout).next, 'record:verification');
+});
+
+test('legacy UI candidate baselines remain inspectable without migration', async () => {
+  for (const [label, baseline] of [
+    ['missing', undefined],
+    ['unknown-version', 'ui-v999:sha256:unknown'],
+  ]) {
+    const context = fixture();
+    const common = ['--workspace', context.workspace];
+    const started = parse(await run([
+      'start', ...common, '--task', `LEGACY-UI-BASELINE-${label}`,
+      '--intent', 'Recover an old execution baseline', '--route', 'direct',
+    ], context.env));
+    await authorizeAndExecute(context);
+    const sessionFile = path.join(
+      context.data, 'repos', started.repo_id, 'sessions', started.task_id, 'session.json',
+    );
+    const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    if (baseline === undefined) {
+      delete legacy.lifecycle.actions.execute.ui_candidate_fingerprint;
+    } else {
+      legacy.lifecycle.actions.execute.ui_candidate_fingerprint = baseline;
+    }
+    fs.writeFileSync(sessionFile, JSON.stringify(legacy));
+
+    const recorded = await recordArtifact(context, 'verification', {
+      checks: [{ name: 'focused tests', result: 'passed' }],
+      requiredSpecialists: [],
+      userVerification: { required: false },
+    });
+    assert.equal(recorded.artifact.status, 'passed', label);
+  }
+});
+
+test('legacy passed verification without a UI decision remains inspectable and requires refresh', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'LEGACY-UI-DECISION-1',
+    '--intent', 'Recover missing UI classification', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  const verification = await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+  const legacy = JSON.parse(fs.readFileSync(verification.file, 'utf8'));
+  delete legacy.evidence.userVerification;
+  fs.writeFileSync(verification.file, JSON.stringify(legacy));
+
+  const before = treeSnapshot(context.data);
+  const inspection = parse(await run(['status', ...common], context.env));
+  assert.equal(inspection.task_id, 'LEGACY-UI-DECISION-1');
+  assert.deepEqual(treeSnapshot(context.data), before, 'legacy inspection must be read-only');
+
+  const compactStatus = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(compactStatus.code, 0, compactStatus.stderr);
+  assert.equal(
+    JSON.parse(compactStatus.stdout).next,
+    'record:verification-with-user-verification-decision',
+  );
+  const blocked = await run(['complete', ...common], context.env);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.stderr, /requires userVerification classification.*required.*false/is);
+
+  await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+  const recovered = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(JSON.parse(recovered.stdout).next, 'record:review');
+});
+
+test('legacy Lens verification is inspectable and recovers through fresh user verification', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'LEGACY-LENS-1', '--intent', 'Recover visual evidence', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  const verification = await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: { required: false },
+  });
+  const legacy = JSON.parse(fs.readFileSync(verification.file, 'utf8'));
+  legacy.evidence.requiredSpecialists = ['lens'];
+  fs.writeFileSync(verification.file, JSON.stringify(legacy));
+
+  const before = treeSnapshot(context.data);
+  const inspection = parse(await run(['status', ...common], context.env));
+  assert.equal(inspection.task_id, 'LEGACY-LENS-1');
+  assert.deepEqual(treeSnapshot(context.data), before, 'legacy inspection must be read-only');
+
+  const compactStatus = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(compactStatus.code, 0, compactStatus.stderr);
+  assert.equal(
+    JSON.parse(compactStatus.stdout).next,
+    'record:verification-with-user-verification',
+  );
+  const blocked = await run(['complete', ...common], context.env);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.stderr, /Legacy Lens gate requirements.*advisory only.*fresh verification.*userVerification/s);
+
+  await recordArtifact(context, 'verification', {
+    checks: [{ name: 'focused tests', result: 'passed' }],
+    requiredSpecialists: [],
+    userVerification: {
+      required: true,
+      status: 'confirmed',
+      routes: ['/legacy-visual-scenario'],
+      confirmedBy: 'user',
+      observations: ['User reconfirmed the current rendered behavior'],
+    },
+  });
+  const recovered = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(JSON.parse(recovered.stdout).next, 'record:review');
 });
 
 test('record validates provider-neutral routing diagnostics', async () => {
@@ -735,10 +1182,26 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.2.1');
+  assert.equal(task.artifact.bundle_version, '2.2.6');
   assert.deepEqual(task.artifact.producer, { role: 'blade', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
+
+  const lensPayload = {
+    ...taskPayload,
+    task_id: 'D-LENS',
+    delegation_id: 'delegation-D-LENS-attempt-1',
+    role: 'lens',
+    objective: 'Inspect the requested UI without changing code',
+  };
+  fs.writeFileSync(taskFile, JSON.stringify(lensPayload));
+  const lensTask = parse(await run([
+    'record', ...common, '--type', 'delegation-task', '--status', 'pending',
+    '--run', 'D-LENS', '--input', taskFile,
+  ], context.env));
+  assert.deepEqual(lensTask.artifact.producer, { role: 'lens', compute_profile: 'balanced' });
+  assert.equal(lensTask.artifact.model_routing.requested_profile, 'balanced');
+  fs.writeFileSync(taskFile, JSON.stringify(taskPayload));
 
   const resultFile = path.join(context.root, 'delegation-result.json');
   const resultPayload = {
@@ -994,13 +1457,16 @@ test('completion revalidates persisted gate evidence and envelope identity', asy
   fs.writeFileSync(verificationInput, JSON.stringify({
     checks: [{ name: 'unit', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }));
   fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const verification = parse(await run([
     'record', ...common, '--type', 'verification', '--status', 'passed', '--run', 'tamper', '--input', verificationInput,
   ], context.env));
+  await recordGazeDelegation(context, 'tamper');
   parse(await run([
-    'record', ...common, '--type', 'review', '--status', 'passed', '--run', 'tamper', '--input', reviewInput,
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'tamper', '--role', 'gaze', '--input', reviewInput,
   ], context.env));
 
   const artifact = JSON.parse(fs.readFileSync(verification.file, 'utf8'));
@@ -1024,13 +1490,16 @@ test('a newer failed gate overrides an older passed gate', async () => {
   fs.writeFileSync(verificationInput, JSON.stringify({
     checks: [{ name: 'unit', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }));
   fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const older = parse(await run([
     'record', ...common, '--type', 'verification', '--status', 'passed', '--run', 'zzz-older', '--input', verificationInput,
   ], context.env));
+  await recordGazeDelegation(context, 'review');
   parse(await run([
-    'record', ...common, '--type', 'review', '--status', 'passed', '--run', 'review', '--input', reviewInput,
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'review', '--role', 'gaze', '--input', reviewInput,
   ], context.env));
   const newer = parse(await run([
     'record', ...common, '--type', 'verification', '--status', 'failed', '--run', 'aaa-newer',
@@ -1146,9 +1615,21 @@ test('to-plan sessions permanently deny execute and ship even after authorizatio
     '--route', 'plan',
     '--mode', 'to-plan',
   ], context.env));
+  const awaitingPlan = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(awaitingPlan.code, 0, awaitingPlan.stderr);
+  assert.equal(JSON.parse(awaitingPlan.stdout).next, 'record:plan');
+
+  await recordArtifact(context, 'plan', portablePlan());
+  const planComplete = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(planComplete.code, 0, planComplete.stderr);
+  assert.equal(JSON.parse(planComplete.stdout).next, null);
+
   for (const scope of ['implementation', 'ship-draft-pr']) {
     parse(await run(['authorize', ...common, '--scope', scope], context.env));
   }
+  const authorized = await runScript(STATE, ['status', ...common], context.env);
+  assert.equal(authorized.code, 0, authorized.stderr);
+  assert.equal(JSON.parse(authorized.stdout).next, null);
   for (const action of ['execute', 'ship']) {
     const denied = await run([action, ...common], context.env);
     assert.equal(denied.code, 1);
@@ -1241,7 +1722,7 @@ test('shipping and completion reject stale or superseded worktree evidence', asy
   fs.writeFileSync(rejectedReviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const rejectedReview = await run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'review-after-failed-verification',
+    '--run', 'review-after-failed-verification', '--role', 'gaze',
     '--input', rejectedReviewInput,
   ], context.env);
   assert.equal(rejectedReview.code, 1);
@@ -1270,6 +1751,9 @@ test('older sessions recover lifecycle defaults and identify the next command', 
   delete legacy.route;
   fs.writeFileSync(sessionFile, JSON.stringify(legacy));
 
+  const missingRouteSnapshot = fs.readFileSync(sessionFile, 'utf8');
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'recover:route');
+  assert.equal(fs.readFileSync(sessionFile, 'utf8'), missingRouteSnapshot);
   const recovered = parse(await run(['status', ...common], context.env));
   assert.equal(recovered.lifecycle.mode, 'standard');
   assert.equal(recovered.lifecycle.authorizations.implementation.status, 'pending');
@@ -1282,9 +1766,16 @@ test('older sessions recover lifecycle defaults and identify the next command', 
   parse(await run([
     'authorize', ...common, '--scope', 'implementation',
   ], context.env));
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'recover:route');
   const unrouted = await run(['execute', ...common], context.env);
   assert.equal(unrouted.code, 1);
   assert.match(unrouted.stderr, /recovered session has no supported route.*start --task <id>/s);
+  const inheritedRoute = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  inheritedRoute.route = 'constructor';
+  fs.writeFileSync(sessionFile, JSON.stringify(inheritedRoute));
+  const inheritedRouteSnapshot = fs.readFileSync(sessionFile, 'utf8');
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'recover:route');
+  assert.equal(fs.readFileSync(sessionFile, 'utf8'), inheritedRouteSnapshot);
   parse(await run([
     'start',
     ...common,
@@ -1361,12 +1852,20 @@ test('approvals require and remain bound to current passed decision artifacts', 
   parse(await run([
     'start', ...common, '--task', 'BOUND-1', '--intent', 'Bind approval', '--route', 'plan',
   ], context.env));
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'record:plan');
 
   const missing = await run(['approve', ...common, '--gate', 'plan'], context.env);
   assert.equal(missing.code, 1);
   assert.match(missing.stderr, /current passed plan artifact is missing.*fresh passed plan artifact/s);
 
   const plan = await recordArtifact(context, 'plan', portablePlan());
+  const invalidArtifact = JSON.parse(fs.readFileSync(plan.file, 'utf8'));
+  invalidArtifact.status = 'failed';
+  fs.writeFileSync(plan.file, JSON.stringify(invalidArtifact));
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'record:plan');
+  invalidArtifact.status = 'passed';
+  fs.writeFileSync(plan.file, JSON.stringify(invalidArtifact));
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'approve:plan');
   const approved = parse(await run(['approve', ...common, '--gate', 'plan'], context.env));
   assert.deepEqual(approved.lifecycle.approvals.plan.artifact_bindings, [{
     artifact_type: 'plan',
@@ -1375,9 +1874,21 @@ test('approvals require and remain bound to current passed decision artifacts', 
   }]);
   assert.match(approved.lifecycle.approvals.plan.artifact_bindings[0].digest, /^sha256:[a-f0-9]{64}$/);
 
+  const sessionFile = path.join(path.dirname(plan.file), 'session.json');
+  const legacyApproval = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  const bindings = legacyApproval.lifecycle.approvals.plan.artifact_bindings;
+  delete legacyApproval.lifecycle.approvals.plan.artifact_bindings;
+  fs.writeFileSync(sessionFile, JSON.stringify(legacyApproval));
+  const unboundSnapshot = fs.readFileSync(sessionFile, 'utf8');
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'approve:plan');
+  assert.equal(fs.readFileSync(sessionFile, 'utf8'), unboundSnapshot);
+  legacyApproval.lifecycle.approvals.plan.artifact_bindings = bindings;
+  fs.writeFileSync(sessionFile, JSON.stringify(legacyApproval));
+
   const artifact = JSON.parse(fs.readFileSync(plan.file, 'utf8'));
   artifact.evidence.summary = `${artifact.evidence.summary} Changed after approval.`;
   fs.writeFileSync(plan.file, JSON.stringify(artifact));
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'approve:plan');
   parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
   const stale = await run(['execute', ...common], context.env);
   assert.equal(stale.code, 1);
@@ -1398,7 +1909,9 @@ test('wiring approval explicitly binds the current passed plan and decisions art
   const missing = await run(['approve', ...common, '--gate', 'wiring'], context.env);
   assert.equal(missing.code, 1);
   assert.match(missing.stderr, /current passed decisions artifact is missing/);
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'record:decisions');
   await recordApprovalArtifacts(context, 'wiring');
+  assert.equal(parse(await runScript(STATE, ['status', ...common], context.env)).next, 'approve:wiring');
   const approved = parse(await run(['approve', ...common, '--gate', 'wiring'], context.env));
   assert.deepEqual(
     approved.lifecycle.approvals.wiring.artifact_bindings.map((binding) => binding.artifact_type),
@@ -1431,6 +1944,7 @@ test('record failures do not advance execution or verification lifecycle state',
   fs.writeFileSync(verificationInput, JSON.stringify({
     checks: [{ name: 'atomic persistence', result: 'passed' }],
     requiredSpecialists: [],
+    userVerification: { required: false },
   }));
   const runDirectory = path.join(
     context.data,
@@ -1480,18 +1994,24 @@ test('review requires current passed verification and becomes stale after later 
   fs.writeFileSync(reviewInput, JSON.stringify({ verdict: 'pass', findings: [], specialists: [] }));
   const premature = await run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'premature', '--input', reviewInput,
+    '--run', 'premature', '--role', 'gaze', '--input', reviewInput,
   ], context.env);
   assert.equal(premature.code, 1);
   assert.match(premature.stderr, /current passed verification artifact is missing/);
 
   const verification = await recordGate(context, 'verification');
+  const nonIndependent = await run([
+    'record', ...common, '--type', 'review', '--status', 'passed',
+    '--run', 'non-independent', '--role', 'blade', '--input', reviewInput,
+  ], context.env);
+  assert.equal(nonIndependent.code, 1);
+  assert.match(nonIndependent.stderr, /explicit independent role provenance.*blade/);
   const review = await recordGate(context, 'review');
   assert.ok(review.artifact.record_sequence > verification.artifact.record_sequence);
   await recordGate(context, 'verification');
   const stale = await run(['complete', ...common], context.env);
   assert.equal(stale.code, 1);
-  assert.match(stale.stderr, /authoritative review must be newer.*fresh review after verification/s);
+  assert.match(stale.stderr, /Gaze delegation task must be recorded after authoritative verification/);
 });
 
 test('worktree fingerprints include index metadata, file state, untracked content, and dangling links', async () => {

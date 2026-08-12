@@ -17,10 +17,6 @@ Fix loop from latest failed verification.
 > the same counter as `verification.json` `review.fixLoops`. The ONLY way past the
 > ceiling is the controller's explicit, logged operator override (a NEW narrower
 > problem surfaced — genuine progress, not patch-stacking).
->
-> **Distinct loop:** this is NOT the VISUAL fix loop (`commands/visual.md`,
-> `agents/reference/visual-protocol.md`), which has its own separate ceiling
-> (`VISUAL_LOOP_CEILING` in `scripts/lib/constants.js`).
 
 <instructions>
 

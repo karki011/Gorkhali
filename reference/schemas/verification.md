@@ -20,11 +20,12 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 | review.fixLoops | number | yes | How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it |
 | simplifyRan | boolean | yes | Whether simplify was run on changed files |
 | intentAlignment | `"aligned"` \| `"drift"` \| `"wrong"` | yes | How well output matches intent.json |
-| visualVerification | object \| `null` | no | Lens browser-agent result; present only when UI files changed (else absent/null). Written by `phantom:visual`, read by the verdict |
-| visualVerification.status | `"pass"` \| `"partial"` \| `"skipped"` | no | `partial` = unresolved after the ≤3 visual fix-loop ceiling; `skipped` = no UI change or `agent-browser` unavailable |
-| visualVerification.routes | string[] | no | Routes Lens inspected |
-| visualVerification.fixLoops | number | no | Visual fix-loop iterations run (≤3) |
-| visualVerification.skipReason | string | no | Present when status is `skipped` |
+| userVerification | object | yes for passed verdict | Compact UI classification and conditional user-verification result; use `{ "required": false }` for non-UI work |
+| userVerification.required | boolean | yes | Whether this change requires user verification |
+| userVerification.status | `"confirmed"` \| `"pending"` | yes when required | `confirmed` is an explicit user confirmation; `pending` cannot produce a passing verdict |
+| userVerification.routes | string[] | yes when required | Routes presented to the user; non-empty when verification is required |
+| userVerification.confirmedBy | `"user"` | yes (when confirmed) | Records that confirmation came from the user |
+| userVerification.observations | string[] | yes when required | User observations; may be empty when the user confirmed without notes |
 | verdict | `"pass"` \| `"fail"` | yes | Overall gate result |
 | score | number (0-10) | no | Numeric quality score |
 <!-- END GENERATED FIELDS -->
@@ -52,7 +53,13 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
     "fixLoops": 1
   },
   "simplifyRan": true,
-  "visualVerification": { "status": "pass", "routes": ["/dashboard"], "fixLoops": 0 },
+  "userVerification": {
+    "required": true,
+    "status": "confirmed",
+    "routes": ["/dashboard"],
+    "confirmedBy": "user",
+    "observations": ["Dashboard renders correctly"]
+  },
   "intentAlignment": "aligned",
   "verdict": "pass",
   "score": 8

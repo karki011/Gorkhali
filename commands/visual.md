@@ -1,49 +1,68 @@
 ---
 name: visual
-description: "Use when you want to visually verify UI changes, check how the app looks in a browser, screenshot components, or compare against a design. Spawns Lens agent for browser-based visual inspection with optional autonomous fix mode. Also use when user says 'does it look right', 'screenshot this', 'visual check', 'compare to Figma', or 'check the UI'."
-argument-hint: "[/route1 /route2 ...] [--autonomous] [--no-fix]"
+description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Phantom Lens inspection only when explicitly requested."
+argument-hint: "[/route1 /route2 ...] [--lens]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — loads `_shared.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md`
 
 # /phantom:visual $ARGUMENTS
 
-Visual verification pipeline — standalone or auto-triggered by `/phantom:verify` for UI tasks.
+Prepare a human visual-verification handoff. Phantom does not inspect the UI or
+claim a visual pass on the user's behalf by default.
 
-## Modes
+## Optional Lens mode
 
-- **Standalone**: interactive, shows results, asks before fixing
-- **Autonomous** (`--autonomous`): fix loop without user approval, max 3 iterations
-- **Inspect only** (`--no-fix`): screenshot and report, no fix loop
+Activate Lens only when `$ARGUMENTS` contains `--lens` or the user affirmatively
+asks to run, use, or invoke Phantom Lens in the current request. Merely naming,
+asking about, or negating Lens (for example, "do not use Phantom Lens") does not
+activate it. A UI diff, Figma link, screenshot, or required user verification
+never triggers Lens automatically.
 
-## Execution
+In optional Lens mode:
 
-1. **Determine target routes:** args > session `affectedRoutes` > infer from changed files > ask user (standalone) or skip (autonomous)
+1. Resolve the routes, expectations, states, and viewports, plus the canonical
+   current worktree path and exact Git branch.
+2. Apply the URL-resolution contract in
+   `agents/reference/visual-protocol.md`. If it requires user input, ask with
+   the manager link, worktree, and branch, then keep this Lens request pending
+   until the user supplies the exact Dev URL.
+3. Record a bounded delegation-v2 task with `role: "lens"` when a Phantom
+   session is active, then spawn exactly one read-only Lens named `lens-yara`.
+4. Lens loads `agents/lens.md` and its references only inside that worker. It
+   inspects and returns advisory screenshots, findings, and observation gaps.
+5. Record the matching delegation result when state is active. Do not create a
+   review specialist artifact or add Lens to `requiredSpecialists`.
+6. Present the evidence to the user, then continue with the normal checklist.
 
-2. **Verify dev server:** Resolve the dev port from dev-server config or framework startup output — never assume a fixed port; if it cannot be determined, ask the user once. If the server is not running: warn (standalone) or detect the package manager via the lockfile table in `commands/_shared-repo-detection.md` and attempt `{PKG_MGR} run dev &` + 10s wait (autonomous).
+A missing, failed, or blocked Lens result never blocks ordinary verification,
+review, shipping, or completion. It also never replaces explicit user
+confirmation. There is no autonomous mode, code modification, or visual fix
+loop.
 
-3. **Verify browser backend:** Run `which agent-browser` — if not found, FAIL the visual check with: "agent-browser not installed — install it and re-run visual check."
+## Procedure
 
-4. **Auth handling:** Automatic — Lens detects login walls and handles credentials per `reference/smart-auth.md` (credential sources, redirect-aware detection, MFA escalation). Session cookies persist across routes.
+1. Determine the affected routes from arguments, the approved plan, or changed
+   files. If they cannot be determined, ask the user for the routes.
+2. For optional Lens, use the worktree-manager resolution above. For the
+   ordinary human checklist, use an explicit user URL or observed startup
+   output. Never assume a fixed application port.
+3. Present a short checklist containing:
+   - each URL or route to inspect;
+   - the expected behavior from the approved intent;
+   - every responsive viewport or parent/component state materially affected;
+   - important interactions, loading, empty, error, and permission states; and
+   - any known observation gap the user should be aware of.
+4. Ask the user to inspect the checklist and reply with either an explicit pass
+   or concrete issues. Do not interpret silence, a screenshot, or an agent's
+   opinion as user confirmation.
+5. If the user reports an issue, return it to normal scoped implementation and
+   deterministic verification. Do not auto-fix or start a visual fix loop.
+6. If the user explicitly confirms the UI, return that confirmation to
+   `/phantom:verify`. Verification records it once in its canonical evidence;
+   this command creates no specialist review artifact or competing state store.
 
-5. **Spawn Lens** (`subagent_type: "lens"`, `name: "lens-yara"`, mode: bypassPermissions): target routes + backend + `lens-qa` session + expected behavior from contract/intent. (effort = session `high`; model per `reference/agents.md` → Model Routing)
-
-6. **State Matrix:** Before inspection, identify all parent states the changed component reacts to. Lens cycles through every parent state x feature state combination and screenshots each.
-
-7. **Lens inspects:** navigate → snapshot → screenshot (3 viewports) → analyze → interact.
-
-8. **Handle results:**
-   - **PASS** → update `visualVerification` in session JSON, return pass signal
-   - **ISSUES FOUND** → standalone: show + ask; autonomous: enter fix loop immediately
-
-## Visual Fix Loop (max 3 iterations)
-
-1. Lens outputs structured fix packet (issue, screenshot, element ref, expected vs actual, affected file)
-2. Per-spawn Blade lifecycle state is owned by validated hooks
-3. Apex dispatches Blade (`subagent_type: "blade"`, `name: "blade-brakka"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
-4. Wait for the Blade's durable result
-5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
-6. Re-spawn Lens on same routes
-7. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.
-8. After 3 loops → escalate with screenshot history, update session: `{ status: "partial" }`
+When invoked outside an active verification flow, stop after the user's reply
+and report the exact next command. Never claim shipping readiness from this
+command alone.

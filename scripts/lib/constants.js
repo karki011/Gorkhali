@@ -24,9 +24,6 @@ module.exports = {
   // Verify/fix loop hard stop — enforced by hooks/loop-controller.js (loop authority).
   FIX_LOOP_CEILING: intFromEnv('PHANTOM_FIX_LOOP_CEILING', 2),
 
-  // Visual (Lens) fix loop — separate loop from the verify/fix loop above.
-  VISUAL_LOOP_CEILING: intFromEnv('PHANTOM_VISUAL_LOOP_CEILING', 3),
-
   // auto-captures → domain-file graduation (validated:N+); also the validated-high
   // injection priority cutoff in memory-reader.
   GRADUATION_THRESHOLD: numFromEnv('PHANTOM_GRADUATION_THRESHOLD', 5),

@@ -125,7 +125,7 @@ Slot number = position in the ordered list.
 | gaze | elden, varel, ombric, sura |
 | archer | sylas, mira, dain, wren *(reserve capacity - see Archer note below)* |
 | hound | fenrik, corva |
-| lens | yara, thal *(thal reserve)* |
+| lens | yara, thal *(explicit visual inspection; thal reserve)* |
 | sweep | nix, oda |
 | rival | dask, veyra *(veyra reserve)* |
 | plan-checker | castor, lira *(ad hoc only - see below)* |
@@ -157,8 +157,7 @@ One row per non-execute spawn site in `commands/*.md`.
 | `fix.md` | Step 4 - triage agent | gaze | 1 | `gaze-elden` |
 | `fix.md` | Step 7 - scoped repair Blade(s), reserved range for the fix-packet fan-out (overflow beyond 4 -> `blade-24`, `blade-25`, ...) | blade | 9, 10, 11, 12 | `blade-dorik`, `blade-lenna`, `blade-pravo`, `blade-quist` |
 | `hound.md` | Step 2 - Hound investigator | hound | 1 | `hound-fenrik` |
-| `visual.md` | Step 5 - Lens inspection | lens | 1 | `lens-yara` |
-| `visual.md` | Visual Fix Loop step 3 - Blade dispatch (UI-only fix) | blade | 13 | `blade-brakka` |
+| `visual.md` | Explicit `--lens` advisory inspection | lens | 1 | `lens-yara` |
 | `validate.md` | Ward Agent Dispatch - validation script runner | ward | 9 | `ward-brann` |
 | `wire.md` | Step 2 - Dependency Analyst (ROLE FOCUS) | blade | 14 | `blade-sennor` |
 | `verify.md` | Step 1 - sweep on changed files | sweep | 1 | `sweep-nix` |

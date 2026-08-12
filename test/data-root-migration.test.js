@@ -161,7 +161,7 @@ function apply(env, manifestPath, extraArgs = [], envExtra = {}) {
 }
 
 function runPortable(env, args) {
-  const res = spawnSync(process.execPath, [STATE, ...args], { env, encoding: 'utf8' });
+  const res = spawnSync(process.execPath, [STATE, ...args, '--json'], { env, encoding: 'utf8' });
   assert.equal(res.status, 0, `phantom-state exited nonzero: ${res.stderr}`);
   return JSON.parse(res.stdout);
 }

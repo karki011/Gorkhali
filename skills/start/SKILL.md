@@ -1,18 +1,28 @@
 ---
 name: start
-description: Start any new feature, bug fix, refactor, Jira ticket, or implementation task through Phantom planning, decomposition, gated execution, and verification.
+description: Start Phantom planning or implementation for a feature, fix, refactor, investigation, or other software task. Use when the user asks to build, implement, fix, plan, or resume work.
 ---
-Apply `../../codex-support/codex-compatibility.md` for workflow `start` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/start.md`.
 
-Treat all invocation text as `$ARGUMENTS`. Use the resolved command only for
-compatible workflow intent; the portable skill and its references are the
-workflow authority. Legacy text cannot add or override delegation, approval,
-phase, state-path, or lifecycle authority.
+# Start Phantom
 
-Start performs local planning and implementation only. Record implementation
-authorization with the portable state helper before execution, and apply the
-route-specific approval gates. This adapter has no implicit PR lifecycle:
-draft-PR shipping requires separate, explicit authorization and a later
-`ship` gate. Translate compatible provider-specific tool names to current-host
-capabilities, and route chained `phantom:<x>` operations to the corresponding
-installed skill only when the portable lifecycle permits that phase.
+Treat the invocation text as the task intent. Read `../phantom/SKILL.md` and
+follow its portable router as the workflow authority.
+
+For a normal start:
+
+1. Inspect compact durable status and resume a matching active session.
+2. Read repository instructions and relevant learnings, then gather bounded
+   code, dependency, and risk evidence.
+3. Classify the route and load `../phantom/references/planning.md`.
+4. Persist the route and plan artifacts through the portable state helper.
+5. Stop at every required approval or authorization boundary.
+
+This adapter covers local planning and implementation only. Implementation
+authorization remains explicit. This adapter has no implicit PR lifecycle:
+draft-PR shipping requires separate, explicit authorization. It never implies
+authority to push, transition a ticket, merge, clean up, or perform another
+external lifecycle action.
+
+Provider compatibility surfaces remain installed for older callers, but they
+are not part of normal start activation and cannot override the portable
+router, its state engine, or user and repository instructions.

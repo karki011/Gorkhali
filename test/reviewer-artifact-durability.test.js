@@ -9,7 +9,6 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const SPECIALIST_PATHS = [
-  'reviews/specialists/lens.json',
   'reviews/specialists/archer.json',
 ];
 
@@ -86,7 +85,7 @@ test('one Gaze is the default and specialists require explicit risk triggers', (
 
   assert.match(verify, /one fresh, read-only Gaze pass/i);
   assert.match(review, /Run one fresh, read-only Gaze pass/i);
-  assert.match(verificationReference, /User-visible UI\/visual behavior[\s\S]{0,40}Lens/i);
+  assert.match(verificationReference, /User-visible UI\/visual behavior[\s\S]{0,100}user verification/i);
   assert.match(verificationReference, /Auth, authorization, permissions[\s\S]{0,40}Archer/i);
   assert.match(review, /Run exactly the roles named by verification's `requiredSpecialists`/i);
   assert.match(review, /only for explicit risk triggers/i);

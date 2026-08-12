@@ -38,6 +38,6 @@ user-relevant ones:
 | `PHANTOM_GREPTILE_TONE` | `neutral` | Tone for greploop's in-thread review replies |
 | `PHANTOM_SPEND_CEILING_USD` | `5` | Unattended-run spend ceiling in USD (`scripts/run-guard.js`); binds only unattended runs - an interactive session is never capped because the watching human is the ceiling |
 | `PHANTOM_STUCK_REPEAT_LIMIT` | `2` | Unattended-run stuck detection: same-failure-class repeats that halt the run |
-| `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` / `PHANTOM_VISUAL_LOOP_CEILING` | - | Loop ceilings for fix / greploop / visual loops |
+| `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` | - | Loop ceilings for fix and greploop workflows |
 
 Many more internal vars exist (eval, migration, learning-decay tuning) - grep `PHANTOM_` across `hooks/` and `reference/` for the full set.

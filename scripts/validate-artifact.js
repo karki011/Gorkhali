@@ -584,11 +584,12 @@ const SCHEMAS = {
       { field: 'review.fixLoops', type: 'number', required: 'yes', description: 'How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it' },
       { field: 'simplifyRan', type: 'boolean', required: 'yes', description: 'Whether simplify was run on changed files' },
       { field: 'intentAlignment', type: '`"aligned"` | `"drift"` | `"wrong"`', required: 'yes', description: 'How well output matches intent.json' },
-      { field: 'visualVerification', type: 'object | `null`', required: 'no', description: 'Lens browser-agent result; present only when UI files changed (else absent/null). Written by `phantom:visual`, read by the verdict' },
-      { field: 'visualVerification.status', type: '`"pass"` | `"partial"` | `"skipped"`', required: 'no', description: '`partial` = unresolved after the ≤3 visual fix-loop ceiling; `skipped` = no UI change or `agent-browser` unavailable' },
-      { field: 'visualVerification.routes', type: 'string[]', required: 'no', description: 'Routes Lens inspected' },
-      { field: 'visualVerification.fixLoops', type: 'number', required: 'no', description: 'Visual fix-loop iterations run (≤3)' },
-      { field: 'visualVerification.skipReason', type: 'string', required: 'no', description: 'Present when status is `skipped`' },
+      { field: 'userVerification', type: 'object', required: 'yes for passed verdict', description: 'Compact UI classification and conditional user-verification result; use `{ "required": false }` for non-UI work' },
+      { field: 'userVerification.required', type: 'boolean', required: 'yes', description: 'Whether this change requires user verification' },
+      { field: 'userVerification.status', type: '`"confirmed"` | `"pending"`', required: 'yes when required', description: '`confirmed` is an explicit user confirmation; `pending` cannot produce a passing verdict' },
+      { field: 'userVerification.routes', type: 'string[]', required: 'yes when required', description: 'Routes presented to the user; non-empty when verification is required' },
+      { field: 'userVerification.confirmedBy', type: '`"user"`', required: 'yes (when confirmed)', description: 'Records that confirmation came from the user' },
+      { field: 'userVerification.observations', type: 'string[]', required: 'yes when required', description: 'User observations; may be empty when the user confirmed without notes' },
       { field: 'verdict', type: '`"pass"` | `"fail"`', required: 'yes', description: 'Overall gate result' },
       { field: 'score', type: 'number (0-10)', required: 'no', description: 'Numeric quality score' },
     ],
@@ -614,6 +615,52 @@ const SCHEMAS = {
       if (!validAlignments.includes(d.intentAlignment)) errors.push(`intentAlignment: must be one of ${validAlignments.join('|')}, got "${d.intentAlignment}"`);
       const validVerdicts = ['pass', 'fail'];
       if (!validVerdicts.includes(d.verdict)) errors.push(`verdict: must be one of ${validVerdicts.join('|')}, got "${d.verdict}"`);
+      if (d.visualVerification !== undefined) {
+        errors.push('visualVerification: unsupported; use userVerification');
+      }
+      if (d.userVerificationRequired !== undefined) {
+        errors.push('userVerificationRequired: unsupported; use userVerification.required');
+      }
+      const uv = d.userVerification;
+      if (d.verdict === 'pass' && (!uv || typeof uv !== 'object' || Array.isArray(uv))) {
+        errors.push('userVerification: required object for passed verdict; use {"required":false} when not needed');
+      } else if (uv !== undefined && uv !== null) {
+        if (typeof uv !== 'object' || Array.isArray(uv)) {
+          errors.push('userVerification: must be object if present');
+        } else {
+          if (typeof uv.required !== 'boolean') errors.push('userVerification.required: required boolean');
+          if (uv.required === true) {
+            const allowed = new Set(['required', 'status', 'routes', 'confirmedBy', 'observations']);
+            for (const field of Object.keys(uv).filter((key) => !allowed.has(key))) {
+              errors.push(`userVerification.${field}: unsupported field`);
+            }
+            const validStatuses = ['confirmed', 'pending'];
+            if (!validStatuses.includes(uv.status)) {
+              errors.push(`userVerification.status: must be one of ${validStatuses.join('|')}, got "${uv.status}"`);
+            }
+            if (!Array.isArray(uv.routes) || !uv.routes.every((route) => typeof route === 'string' && route.trim())) {
+              errors.push('userVerification.routes: required string array');
+            } else if (uv.routes.length === 0) {
+              errors.push('userVerification.routes: must be non-empty when user verification is required');
+            }
+            if (!Array.isArray(uv.observations) || !uv.observations.every((observation) => typeof observation === 'string' && observation.trim())) {
+              errors.push('userVerification.observations: required string array');
+            }
+            if (uv.status === 'confirmed' && uv.confirmedBy !== 'user') {
+              errors.push('userVerification.confirmedBy: must be "user" when status is confirmed');
+            } else if (uv.status !== 'confirmed' && uv.confirmedBy !== undefined) {
+              errors.push('userVerification.confirmedBy: must be omitted unless status is confirmed');
+            }
+            if (uv.status === 'pending' && d.verdict === 'pass') {
+              errors.push('verdict: cannot be pass while required user verification is pending');
+            }
+          } else if (uv.required === false) {
+            for (const field of Object.keys(uv).filter((key) => key !== 'required')) {
+              errors.push(`userVerification.${field}: must be omitted when user verification is not required`);
+            }
+          }
+        }
+      }
       if (d.score !== undefined && (typeof d.score !== 'number' || d.score < 0 || d.score > 10)) {
         errors.push('score: must be number 0-10 if present');
       }

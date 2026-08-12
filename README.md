@@ -27,7 +27,7 @@ See `ROADMAP.md` for the durable backlog, decisions, and measured baseline.
 The usual way to constrain an agent is prose in a prompt, which the model is free to ignore.
 Phantom's gates are code that returns a decision before the tool call runs.
 
-- `hooks/blade-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` in exactly two cases: an implementer role (`blade`, `sweep`, `ward`, `lens`, `warden`) pinned to the retired Fable tier, or a `blade` spawn that set no explicit `model`.
+- `hooks/blade-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` in exactly two cases: an implementer role (`blade`, `sweep`, `ward`, `warden`) pinned to the retired Fable tier, or a `blade` spawn that set no explicit `model`.
   The spawn does not happen. There is no ceiling check here - the gate reads `skills/phantom/references/model-policy.json` only to word the deny reason, never to make the decision.
 - `hooks/greploop-gate.js` is a `Stop` hook that returns `decision: "block"` when an active session's live PR has not been through the review loop, so a session cannot quietly end unreviewed.
   It is bounded to 3 blocks per PR, and any ambiguity allows the stop.

@@ -38,6 +38,21 @@ safe operation:
    behavior already solves the problem;
 6. maintainability and repository-pattern violations.
 
+Compare Ward's `userVerification` decision with the complete diff. Any
+user-visible behavior paired with `required: false` is blocking. In the
+delegation result, emit the check below only after inspecting the whole diff:
+
+```json
+{
+  "name": "user-verification-classification",
+  "status": "passed",
+  "summary": "The final diff is correctly classified for user verification"
+}
+```
+
+If the classification is wrong or cannot be assessed, use `failed` or
+`skipped`, report the blocker, and do not return a pass verdict.
+
 Do not repeat lint or style-only observations already enforced mechanically.
 Do not require speculative abstractions, broad refactors, or unrelated cleanup.
 
@@ -47,11 +62,12 @@ file or component, evidence, user impact, and smallest valid remediation.
 
 ## Specialist boundary
 
-Gaze does not automatically create a panel. Apex may add a bounded specialist
-for an explicit risk trigger: Lens for user-visible UI, or Archer for
-auth/permissions, money/data loss, migrations, public APIs, concurrency,
-infra/deploy, dependency changes, or broad cross-module work. Do not duplicate
-that specialist's narrow analysis; incorporate its artifact when supplied.
+Gaze does not automatically create a panel. User-visible UI requires explicit
+user verification through the normal verification flow, not another reviewer.
+Apex may add Archer for auth/permissions, money/data loss, migrations, public
+APIs, concurrency, infra/deploy, dependency changes, or broad cross-module
+work. Do not duplicate Archer's narrow analysis; incorporate its artifact when
+supplied.
 
 ### Artifact First
 
