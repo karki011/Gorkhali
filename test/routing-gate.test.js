@@ -1,8 +1,9 @@
 // Author: Subash Karki
 // routing-gate.test.js — proves the routing gate's INVERSE polarity: an opt-in
 // discipline gate that fails OPEN. Only PHANTOM_ROUTING_ENFORCE=1 arms it; it
-// covers only phantom-known repos; PHANTOM_ADHOC=1 bypasses with a logged
-// line; any ambiguity (no target, non-repo, unknown repo) allows.
+// covers Phantom-known repositories (or all Git repositories by explicit
+// scope); PHANTOM_ADHOC=1 bypasses with a logged line; and only valid
+// repository-scoped portable lifecycle state satisfies routing.
 //
 // Spawns the REAL hook process. Env is read at INVOCATION time, so every
 // spawn pins PHANTOM_DATA to a tmpdir and sets PHANTOM_ROUTING_ENFORCE only
@@ -17,6 +18,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const HOOK = path.join(__dirname, '..', 'hooks', 'routing-gate.js');
+const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
 
 function runGate(envOverrides, stdinText) {
   const env = { ...process.env, ...envOverrides };
@@ -24,8 +26,9 @@ function runGate(envOverrides, stdinText) {
   if (envOverrides.PHANTOM_ADHOC) env.PHANTOM_ADHOC = envOverrides.PHANTOM_ADHOC;
   // Same isolation for the arm toggle: outer shell state must not leak in.
   if (!envOverrides.PHANTOM_ROUTING_ENFORCE) delete env.PHANTOM_ROUTING_ENFORCE;
+  if (!envOverrides.PHANTOM_ROUTING_SCOPE) delete env.PHANTOM_ROUTING_SCOPE;
   try {
-    const stdout = execFileSync('node', [HOOK], {
+    const stdout = execFileSync(process.execPath, [HOOK], {
       input: stdinText,
       env,
       encoding: 'utf-8',
@@ -62,7 +65,11 @@ function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
     data,
     repoRoot,
     target,
-    env: { PHANTOM_DATA: data, ...(enforce ? { PHANTOM_ROUTING_ENFORCE: '1' } : {}) },
+    env: {
+      PHANTOM_DATA: data,
+      PHANTOM_REPO: path.basename(repoRoot),
+      ...(enforce ? { PHANTOM_ROUTING_ENFORCE: '1' } : {}),
+    },
     cleanup: () => {
       fs.rmSync(data, { recursive: true, force: true });
       fs.rmSync(repoRoot, { recursive: true, force: true });
@@ -72,6 +79,30 @@ function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
 
 function editPayload(target, cwd) {
   return JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: target }, cwd });
+}
+
+function writePortableSession(data, repoRoot, status = 'active', options = {}) {
+  const repo = options.repo || path.basename(repoRoot);
+  const task = options.task || 'TEST-1';
+  const collection = status === 'completed' ? 'completed' : 'sessions';
+  const sessionDir = options.sessionDir || path.join(data, 'repos', repo, collection, task);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'session.json'), JSON.stringify({
+    schema_version: 1,
+    repo_id: options.sessionRepo || repo,
+    task_id: task,
+    status,
+    workspace: options.workspace || fs.realpathSync(repoRoot),
+  }));
+  const pointerDir = path.join(data, 'state', 'current-session');
+  fs.mkdirSync(pointerDir, { recursive: true });
+  fs.writeFileSync(path.join(pointerDir, `${repo}.json`), JSON.stringify({
+    schema_version: 1,
+    repo_id: repo,
+    task_id: task,
+    session_dir: sessionDir,
+  }));
+  return { repo, task, sessionDir };
 }
 
 function assertAllow(res, msg) {
@@ -106,11 +137,19 @@ test('2. enforce: true + phantom-known repo + no session → DENY', () => {
   }
 });
 
-test('3. enforce: true + repo NOT phantom-known → ALLOW', () => {
+test('3. enforce: true + previously unknown Git repo → ALLOW by default', () => {
   const { env, repoRoot, target, cleanup } = setup({ known: false });
   try {
-    assertAllow(runGate(env, editPayload(target, repoRoot)),
-      'the gate covers only phantom-known repos');
+    assertAllow(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
+
+test('3b. PHANTOM_ROUTING_SCOPE=all-git gates a previously unknown Git repo', () => {
+  const { env, repoRoot, target, cleanup } = setup({ known: false });
+  try {
+    assertDeny(runGate({ ...env, PHANTOM_ROUTING_SCOPE: 'all-git' }, editPayload(target, repoRoot)));
   } finally {
     cleanup();
   }
@@ -125,24 +164,21 @@ test('4. W8: worktree fixture (.git is a FILE) in phantom-known repo → DENY', 
   }
 });
 
-test('5. fresh .apex-active → allow (phantom session is live)', () => {
+test('5. fresh legacy .apex-active alone → DENY', () => {
   const { data, env, repoRoot, target, cleanup } = setup();
   try {
     fs.writeFileSync(path.join(data, '.apex-active'), '');
-    assertAllow(runGate(env, editPayload(target, repoRoot)));
+    assertDeny(runGate(env, editPayload(target, repoRoot)));
   } finally {
     cleanup();
   }
 });
 
-test('6. STALE .apex-active (25h) → deny (crashed session must not disable the gate)', () => {
+test('6. valid active portable state for the same repository → ALLOW', () => {
   const { data, env, repoRoot, target, cleanup } = setup();
   try {
-    const marker = path.join(data, '.apex-active');
-    fs.writeFileSync(marker, '');
-    const old = (Date.now() - 25 * 60 * 60 * 1000) / 1000;
-    fs.utimesSync(marker, old, old);
-    assertDeny(runGate(env, editPayload(target, repoRoot)));
+    writePortableSession(data, repoRoot);
+    assertAllow(runGate(env, editPayload(target, repoRoot)));
   } finally {
     cleanup();
   }
@@ -196,5 +232,145 @@ test('10. garbage stdin → exit 0 silent', () => {
     assertAllow(runGate(env, '{{{not json'));
   } finally {
     cleanup();
+  }
+});
+
+for (const status of ['paused', 'completed']) {
+  test(`portable ${status} state does not satisfy routing`, () => {
+    const { data, env, repoRoot, target, cleanup } = setup();
+    try {
+      writePortableSession(data, repoRoot, status);
+      assertDeny(runGate(env, editPayload(target, repoRoot)));
+    } finally {
+      cleanup();
+    }
+  });
+}
+
+test('corrupt portable pointer does not satisfy routing', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  try {
+    const repo = path.basename(repoRoot);
+    const dir = path.join(data, 'state', 'current-session');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${repo}.json`), '{not-json');
+    assertDeny(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
+
+test('structurally corrupt pointer path does not satisfy routing', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  try {
+    const repo = path.basename(repoRoot);
+    const file = path.join(data, 'state', 'current-session', `${repo}.json`);
+    fs.mkdirSync(file, { recursive: true });
+    assertDeny(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
+
+test('active state for repository A does not unlock repository B', () => {
+  const { data, env, repoRoot, cleanup } = setup();
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-other-'));
+  try {
+    fs.mkdirSync(path.join(other, '.git'));
+    const target = path.join(other, 'index.ts');
+    fs.writeFileSync(target, '// other\n');
+    fs.mkdirSync(path.join(data, 'repos', path.basename(other)), { recursive: true });
+    writePortableSession(data, repoRoot);
+    assertDeny(runGate(env, editPayload(target, other)));
+  } finally {
+    fs.rmSync(other, { recursive: true, force: true });
+    cleanup();
+  }
+});
+
+test('active state from another worktree does not unlock this worktree', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  try {
+    writePortableSession(data, repoRoot, 'active', { workspace: os.tmpdir() });
+    assertDeny(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
+
+test('operational state read failure follows the gate fail-open contract', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  let sessionDir;
+  try {
+    ({ sessionDir } = writePortableSession(data, repoRoot));
+    fs.chmodSync(sessionDir, 0o000);
+    assertAllow(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    if (sessionDir) fs.chmodSync(sessionDir, 0o700);
+    cleanup();
+  }
+});
+
+test('all-git scope fails open when Git identity resolution is unavailable', () => {
+  const { env, repoRoot, target, cleanup } = setup({ known: false });
+  const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-path-'));
+  try {
+    const degraded = { ...env, PATH: emptyPath, PHANTOM_REPO: '', PHANTOM_ROUTING_SCOPE: 'all-git' };
+    assertAllow(runGate(degraded, editPayload(target, repoRoot)));
+  } finally {
+    fs.rmSync(emptyPath, { recursive: true, force: true });
+    cleanup();
+  }
+});
+
+test('real no-origin linked worktree shares the portable lifecycle common-root identity', () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-data-'));
+  const main = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-main-'));
+  const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-linked-parent-'));
+  const worktree = path.join(linked, 'worktree');
+  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_ROUTING_ENFORCE: '1' };
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: main });
+    execFileSync('git', ['config', 'user.email', 'phantom@example.invalid'], { cwd: main });
+    execFileSync('git', ['config', 'user.name', 'Phantom Test'], { cwd: main });
+    fs.writeFileSync(path.join(main, 'index.ts'), '// main\n');
+    execFileSync('git', ['add', 'index.ts'], { cwd: main });
+    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: main });
+    execFileSync('git', ['worktree', 'add', '-qb', 'linked-test', worktree], { cwd: main });
+    execFileSync(process.execPath, [STATE, 'start', '--workspace', worktree,
+      '--task', 'WORKTREE-1', '--intent', 'Test linked worktree routing', '--route', 'direct'], { env });
+    assertAllow(runGate(env, editPayload(path.join(worktree, 'index.ts'), worktree)));
+  } finally {
+    try { execFileSync('git', ['worktree', 'remove', '--force', worktree], { cwd: main }); } catch (_) {}
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(main, { recursive: true, force: true });
+    fs.rmSync(linked, { recursive: true, force: true });
+  }
+});
+
+test('remote-backed linked worktree does not unlock a sibling checkout', () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-data-'));
+  const main = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-main-'));
+  const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-linked-parent-'));
+  const worktree = path.join(linked, 'worktree');
+  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_ROUTING_ENFORCE: '1' };
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: main });
+    execFileSync('git', ['config', 'user.email', 'phantom@example.invalid'], { cwd: main });
+    execFileSync('git', ['config', 'user.name', 'Phantom Test'], { cwd: main });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://example.invalid/phantom/routing.git'], { cwd: main });
+    fs.writeFileSync(path.join(main, 'index.ts'), '// main\n');
+    execFileSync('git', ['add', 'index.ts'], { cwd: main });
+    execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: main });
+    execFileSync('git', ['worktree', 'add', '-qb', 'linked-test', worktree], { cwd: main });
+    execFileSync(process.execPath, [STATE, 'start', '--workspace', worktree,
+      '--task', 'WORKTREE-REMOTE-1', '--intent', 'Test remote worktree routing', '--route', 'direct'], { env });
+    assertAllow(runGate(env, editPayload(path.join(worktree, 'index.ts'), worktree)));
+    assertDeny(runGate(env, editPayload(path.join(main, 'index.ts'), main)));
+  } finally {
+    try { execFileSync('git', ['worktree', 'remove', '--force', worktree], { cwd: main }); } catch (_) {}
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(main, { recursive: true, force: true });
+    fs.rmSync(linked, { recursive: true, force: true });
   }
 });

@@ -2,7 +2,7 @@
 // router-nudge.test.js — proves the routing nudge's ADVISORY polarity: it only
 // ever adds additionalContext (never a permissionDecision), is one-shot per
 // session, skips interrogative prompts (precision over recall), and goes
-// silent when a phantom session is live or PHANTOM_ROUTING_NUDGE=0.
+// silent only when PHANTOM_ROUTING_NUDGE=0.
 //
 // Spawns the REAL hook process (seam-integration pattern). Env is read at
 // INVOCATION time, so every spawn pins PHANTOM_DATA to a tmpdir and sets
@@ -112,26 +112,22 @@ test('4. imperative implementation verb → emitted', () => {
   }
 });
 
-test('5. fresh .apex-active → silent (phantom already running)', () => {
+test('5. fresh legacy .apex-active does not suppress a host-session nudge', () => {
   const { data, env, cleanup } = setup();
   try {
     fs.writeFileSync(path.join(data, '.apex-active'), '');
     const res = runHook(env, payload('fix the login bug'));
-    assertSilent(res);
+    assertNudged(res, 'legacy global state cannot prove this host session routed');
   } finally {
     cleanup();
   }
 });
 
-test('6. STALE .apex-active (25h) → emitted (crashed session must not disable routing)', () => {
-  const { data, env, cleanup } = setup();
+test('6. different host session_ids each receive one nudge', () => {
+  const { env, cleanup } = setup();
   try {
-    const marker = path.join(data, '.apex-active');
-    fs.writeFileSync(marker, '');
-    const old = (Date.now() - 25 * 60 * 60 * 1000) / 1000;
-    fs.utimesSync(marker, old, old);
-    const res = runHook(env, payload('fix the login bug'));
-    assertNudged(res, 'a stale marker is treated as absent');
+    assertNudged(runHook(env, payload('fix the login bug', 'session-a')));
+    assertNudged(runHook(env, payload('fix the login bug', 'session-b')));
   } finally {
     cleanup();
   }

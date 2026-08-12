@@ -41,11 +41,11 @@ test('routing.md contains the Bash loophole note (sed -i or shell redirect)', ()
   );
 });
 
-test('routing.md documents phantom-known scoping', () => {
+test('routing.md documents repository-scoped portable state', () => {
   const content = read('reference/routing.md');
   assert.ok(
-    /phantom-known/i.test(content),
-    'routing.md must describe phantom-known repo scoping'
+    /repository-scoped|repo-scoped/i.test(content) && /current-session/i.test(content),
+    'routing.md must describe repository-scoped portable lifecycle state'
   );
 });
 
@@ -61,11 +61,11 @@ test('routing.md documents the PHANTOM_ROUTING_ENFORCE env toggle', () => {
 
 // ── hooks/routing-gate.js ─────────────────────────────────────────────────
 
-test("hooks/routing-gate.js deny reason contains '/phantom:start'", () => {
+test("hooks/routing-gate.js deny reason contains 'phantom:start'", () => {
   const content = read('hooks/routing-gate.js');
   assert.ok(
-    content.includes('/phantom:start'),
-    "routing-gate.js deny reason must reference '/phantom:start'"
+    content.includes('phantom:start'),
+    "routing-gate.js deny reason must reference 'phantom:start'"
   );
 });
 

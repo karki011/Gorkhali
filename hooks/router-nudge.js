@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // router-nudge.js — UserPromptSubmit hook that nudges toward phantom routing
-// when a prompt looks like implementation work and no phantom session is live.
+// when a prompt looks like implementation work.
 //
 // POLARITY: pure advisory — this hook can NEVER block anything. Every failure
 // path exits 0; a one-shot-marker write failure fails toward ONE MORE emit,
@@ -12,32 +12,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let phantomData, stateDir;
+let stateDir;
 try {
-  ({ phantomData, stateDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir } = require('../scripts/lib/phantom-paths'));
 } catch (_) {
-  // fail open: inline fallback matching phantom-paths.js logic
   const home = os.homedir();
   const data = process.env.PHANTOM_DATA ||
     (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
-  phantomData = () => data;
-  stateDir = () => path.join(phantomData(), 'state');
-}
-
-// SHARED SEMANTICS — keep identical in hooks/routing-gate.js: a phantom
-// session is active when <PHANTOM_DATA>/.apex-active exists AND its mtime is
-// younger than 24h. A stale marker left by a crashed session must NOT
-// silently disable routing — older than 24h is treated as absent.
-const APEX_MARKER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-function sessionActive() {
-  try {
-    const marker = path.join(phantomData(), '.apex-active');
-    if (!fs.existsSync(marker)) return false;
-    return Date.now() - fs.statSync(marker).mtimeMs < APEX_MARKER_MAX_AGE_MS;
-  } catch (_) {
-    return false;
-  }
+  stateDir = () => path.join(data, 'state');
 }
 
 // Implementation-intent triggers. Precision over recall: interrogative-opening
@@ -72,15 +54,12 @@ function main() {
     process.exit(0); // unparseable stdin → not our call to judge
   }
 
-  // Cheapest check first: live phantom session → routing already happened.
-  if (sessionActive()) process.exit(0);
-
   // Advisory nudge is on by default; silence it with PHANTOM_ROUTING_NUDGE=0.
   if (process.env.PHANTOM_ROUTING_NUDGE === '0') process.exit(0);
 
   if (!classify(String(payload.prompt || ''))) process.exit(0);
 
-  // One-shot per Claude session: marker at state/routing-nudge/<session_id>.
+  // One-shot per host session: marker at state/routing-nudge/<session_id>.
   const sessionId = String(payload.session_id || 'unknown').replace(/[^A-Za-z0-9_-]/g, '_');
   const markerDir = path.join(stateDir(), 'routing-nudge');
   const markerFile = path.join(markerDir, sessionId);

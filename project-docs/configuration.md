@@ -33,6 +33,7 @@ user-relevant ones:
 | `PHANTOM_REPO` | git-root basename | Override the repo name used for state partitioning |
 | `PHANTOM_ROUTING_NUDGE` | `1` (on) | Prompt-time routing reminder; set `0` to silence |
 | `PHANTOM_ROUTING_ENFORCE` | `0` (off) | When `1`, hard-block implementation edits outside a phantom session |
+| `PHANTOM_ROUTING_SCOPE` | Phantom-known repositories | Set `all-git` to extend routing enforcement to Git repositories Phantom has not managed yet |
 | `PHANTOM_ADHOC` | unset | Set `1` for logged ad-hoc edits when routing enforcement is on |
 | `PHANTOM_PROTECTED_BRANCHES` | `main,master` | Branches Phantom refuses to commit to directly |
 | `PHANTOM_GREPTILE_TONE` | `neutral` | Tone for greploop's in-thread review replies |

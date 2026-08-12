@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // routing-gate.js — PreToolUse hook that denies implementation edits in
-// phantom-known repos when no phantom session is active.
+// Git repositories when no matching portable Phantom session is active.
 //
 // FAIL-OPEN POLARITY — read this before editing: this is an opt-in DISCIPLINE
 // gate, NOT a safety gate. It FAILS OPEN: any crash or ambiguity in the enforce
@@ -14,9 +14,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let phantomData, stateDir;
+let phantomData, stateDir, detectRepo, resolveRepoSubdir, routingState;
 try {
-  ({ phantomData, stateDir } = require('../scripts/lib/phantom-paths'));
+  ({ phantomData, stateDir, detectRepo, resolveRepoSubdir } = require('../scripts/lib/phantom-paths'));
+  ({ routingState } = require('../scripts/lib/routing-state'));
 } catch (_) {
   // fail open: inline fallback matching phantom-paths.js logic
   const home = os.homedir();
@@ -24,22 +25,9 @@ try {
     (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
   phantomData = () => data;
   stateDir = () => path.join(phantomData(), 'state');
-}
-
-// SHARED SEMANTICS — keep identical in hooks/router-nudge.js: a phantom
-// session is active when <PHANTOM_DATA>/.apex-active exists AND its mtime is
-// younger than 24h. A stale marker left by a crashed session must NOT
-// silently disable routing — older than 24h is treated as absent.
-const APEX_MARKER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-function sessionActive() {
-  try {
-    const marker = path.join(phantomData(), '.apex-active');
-    if (!fs.existsSync(marker)) return false;
-    return Date.now() - fs.statSync(marker).mtimeMs < APEX_MARKER_MAX_AGE_MS;
-  } catch (_) {
-    return false;
-  }
+  detectRepo = null;
+  resolveRepoSubdir = null;
+  routingState = null;
 }
 
 // Resolve symlinks via the nearest EXISTING ancestor, then re-join the
@@ -67,10 +55,6 @@ function main() {
   } catch (_) {
     return; // unparseable stdin → allow
   }
-
-  // Cheapest check first (existsSync+stat only, before any config read):
-  // live phantom session → routing requirement is satisfied.
-  if (sessionActive()) return;
 
   // Opt-in only: armed solely by PHANTOM_ROUTING_ENFORCE=1 → otherwise no-op.
   if (process.env.PHANTOM_ROUTING_ENFORCE !== '1') return;
@@ -102,27 +86,34 @@ function main() {
 
     // Walk up from the target dir to the repo boundary. W8: `.git` may be a
     // FILE (worktree pointer) or a DIRECTORY — both count; existsSync covers
-    // both. Repo name = basename of the dir containing `.git`.
+    // both.
     let dir = path.dirname(target);
-    let repoName = null;
+    let repoRoot = null;
     while (true) {
-      if (fs.existsSync(path.join(dir, '.git'))) { repoName = path.basename(dir); break; }
+      if (fs.existsSync(path.join(dir, '.git'))) { repoRoot = dir; break; }
       const parent = path.dirname(dir);
       if (parent === dir) break;
       dir = parent;
     }
-    if (!repoName) return; // not inside a repo → not phantom's business
+    if (!repoRoot) return; // not inside a repo → not phantom's business
 
-    // Gate covers ONLY phantom-known repos (a <data>/repos/<name> dir exists).
-    if (!fs.existsSync(path.join(phantomData(), 'repos', repoName))) return;
+    // Preserve the existing Phantom-known scope unless the operator explicitly
+    // opts into all Git repositories. Missing hook code and operational read
+    // failures are gate failures and therefore allow the edit.
+    if (!detectRepo || !resolveRepoSubdir || !routingState) return;
+    const repo = detectRepo(repoRoot);
+    const known = fs.existsSync(resolveRepoSubdir(repo));
+    if (!known && process.env.PHANTOM_ROUTING_SCOPE !== 'all-git') return;
+    const state = routingState(repoRoot);
+    if (state === 'active' || state === 'unknown') return;
 
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason:
-          'ROUTING GATE: implementation edit outside a phantom session — run ' +
-          '/phantom:start <ticket>, or set PHANTOM_ADHOC=1 for ad-hoc work ' +
+          'ROUTING GATE: implementation edit outside a matching Phantom session — invoke ' +
+          'phantom:start, or set PHANTOM_ADHOC=1 for ad-hoc work ' +
           '(logged). See reference/routing.md',
       },
     }));

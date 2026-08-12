@@ -31,8 +31,8 @@ Phantom's gates are code that returns a decision before the tool call runs.
   The spawn does not happen. There is no ceiling check here - the gate reads `skills/phantom/references/model-policy.json` only to word the deny reason, never to make the decision.
 - `hooks/greploop-gate.js` is a `Stop` hook that returns `decision: "block"` when an active session's live PR has not been through the review loop, so a session cannot quietly end unreviewed.
   It is bounded to 3 blocks per PR, and any ambiguity allows the stop.
-- `hooks/routing-gate.js` returns `permissionDecision: "deny"` on `Edit`/`Write`/`MultiEdit`/`NotebookEdit` inside a Phantom-known repo with no active session.
-  It is opt-in via `PHANTOM_ROUTING_ENFORCE=1` and fails open by design.
+- `hooks/routing-gate.js` returns `permissionDecision: "deny"` on `Edit`/`Write`/`MultiEdit`/`NotebookEdit` inside a Phantom-known repository with no matching active portable Phantom session.
+  It is opt-in via `PHANTOM_ROUTING_ENFORCE=1`, can explicitly expand to every Git repository with `PHANTOM_ROUTING_SCOPE=all-git`, and fails open on operational errors.
 - `test/agent-frontmatter-drift.test.js` fails CI when any `agents/*.md` model pin drifts from `skills/phantom/references/model-policy.json`.
   A hand-edited routing decision does not survive to a merge.
 

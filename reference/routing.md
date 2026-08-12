@@ -9,7 +9,7 @@ Phantom's routing system has two layers: an advisory nudge that fires at prompt 
 | Layer | Hook | Event | Behavior |
 |-------|------|-------|----------|
 | 1 — Nudge | `router-nudge.js` | `UserPromptSubmit` | Detects implementation-intent prompts; injects a routing reminder. ONE-SHOT per session (first matching prompt only). Never blocks. |
-| 2 — Gate | `routing-gate.js` | `PreToolUse` | Denies Edit/Write/MultiEdit/NotebookEdit into phantom-known repos when no phantom session is active. Fires only when `PHANTOM_ROUTING_ENFORCE=1`. |
+| 2 — Gate | `routing-gate.js` | `PreToolUse` | Denies Edit/Write/MultiEdit/NotebookEdit in Phantom-known repositories when no matching repository-scoped portable session is active. Fires only when `PHANTOM_ROUTING_ENFORCE=1`; `PHANTOM_ROUTING_SCOPE=all-git` explicitly expands its scope. |
 
 Layer 1 is always on (unless `PHANTOM_ROUTING_NUDGE=0`). Layer 2 is off by default; it requires an explicit opt-in.
 
@@ -17,7 +17,7 @@ Layer 1 is always on (unless `PHANTOM_ROUTING_NUDGE=0`). Layer 2 is off by defau
 
 Fires on `UserPromptSubmit`. Checks whether the incoming prompt looks like implementation work using a pattern set that skips interrogative-opening prompts (diagnostic questions) before any pattern matching runs. Patterns include ticket keys (`PROJ-123`), imperative verbs (`fix`, `implement`, `build`, `add`, `refactor`), and conversational launchers (`let's`, `go ahead and`).
 
-When a match fires and no phantom session is live, the hook injects this into the context:
+When a match fires, the hook injects this into the context once for that host session:
 
 ```
 ROUTING: this prompt matches phantom implementation triggers — invoke
@@ -30,17 +30,18 @@ One-shot semantics: a marker is written to `<PHANTOM_DATA>/state/routing-nudge/<
 
 ### Layer 2 — Gate (routing-gate.js)
 
-Fires on `PreToolUse` for Edit, Write, MultiEdit, and NotebookEdit. Checks three conditions in order:
+Fires on `PreToolUse` for Edit, Write, MultiEdit, and NotebookEdit. Checks these conditions in order:
 
-1. Is a phantom session currently active? (`.apex-active` marker, younger than 24h) → allow.
-2. Is `PHANTOM_ROUTING_ENFORCE=1` set in the environment? → if not, allow.
-3. Is the target file inside a phantom-known repo? → if not, allow.
+1. Is `PHANTOM_ROUTING_ENFORCE=1` set in the environment? → if not, allow.
+2. Is the target outside a Git repository or inside Phantom's own data tree? → allow.
+3. Is the repository unknown to Phantom and `PHANTOM_ROUTING_SCOPE` is not `all-git`? → allow.
+4. Does `state/current-session/<repo-id>.json` resolve to a valid schema-1 active session for this repository identity? → allow.
 
-All three must fail before a deny fires. The deny message:
+If the target is in scope and the portable state check definitively fails, the gate denies the edit. Operational read errors allow the edit under the fail-open contract. The deny message:
 
 ```
-ROUTING GATE: implementation edit outside a phantom session — run
-/phantom:start <ticket>, or set PHANTOM_ADHOC=1 for ad-hoc work
+ROUTING GATE: implementation edit outside a matching Phantom session — invoke
+phantom:start, or set PHANTOM_ADHOC=1 for ad-hoc work
 (logged). See reference/routing.md
 ```
 
@@ -66,19 +67,19 @@ By default (`PHANTOM_ROUTING_ENFORCE` unset), the gate never fires. The missed-r
 
 ---
 
-## Scoping — Phantom-Known Repos Only
+## Scoping — Repository and Worktree Bound
 
-The gate covers only repos that phantom has managed. "Phantom-known" means `<PHANTOM_DATA>/repos/<repo-name>` exists on disk. The repo name is resolved by walking up the directory tree from the edit target until a `.git` entry is found (file or directory — worktree pointers count); the basename of that directory is the repo name.
+When enforcement is enabled, the gate covers project-file edits in Phantom-known Git repositories. The repository is resolved by walking up from the edit target until a `.git` entry is found; linked-worktree `.git` files count. Set `PHANTOM_ROUTING_SCOPE=all-git` to explicitly include repositories Phantom has never managed.
 
-Repos that phantom has never touched — gsd workspaces, sparc projects, codex sessions, or anything else — are completely untouched regardless of `enforce` setting.
+Non-repository files and Phantom's mutable data tree remain outside the gate. `PHANTOM_ADHOC=1` remains the explicit logged bypass for deliberate ad-hoc repository work.
 
 ### Active Session Detection
 
-A phantom session is active when `<PHANTOM_DATA>/.apex-active` exists **and** its mtime is younger than 24 hours. The 24-hour TTL prevents a crashed session from silently disabling routing forever. Both hooks share identical session-detection logic (the comment in each file marks this explicitly).
+A Phantom session satisfies routing only when the canonical repository identity resolves to `<PHANTOM_DATA>/state/current-session/<repo-id>.json`, that pointer references a session under the same repository's `sessions/` directory, and `session.json` is schema 1, active, task-matched, repository-matched, and identity-root-matched. The gate mirrors the portable lifecycle engine's identity root instead of inventing a second worktree rule: no-origin linked worktrees resolve through their shared Git common root, while remote-backed worktrees retain distinct checkout roots and cannot unlock sibling worktrees.
 
-The active-session marker is global: one active phantom session unlocks all phantom-known repos. This is v1 semantics — per-repo marker identity is a noted future retrofit.
+Missing, corrupt, dangling, paused, completed, and cross-repository state does not satisfy routing. Permission errors and other operational read failures are unknown rather than negative evidence, so the discipline gate fails open. The legacy global `.apex-active` marker remains available to legacy Claude/Apex behavior but is never accepted as portable lifecycle evidence.
 
-**W9 interaction**: in a long session (>24h), the marker may have expired by the time an edit fires, even if the one-shot nudge was already spent earlier. The deny message's remediation (`/phantom:start` or `PHANTOM_ADHOC=1`) covers recovery.
+The prompt nudge intentionally does not inspect lifecycle state. Each new Codex or Claude session receives its own one-shot reminder so an active task in another host session cannot silence routing instructions.
 
 ---
 
@@ -92,7 +93,7 @@ Set `PHANTOM_ADHOC=1` in the environment before running Claude to allow edits in
 
 The log is reviewable. Logging failures do not block the bypass.
 
-**Rollout**: ship with `enforce: false`, review the bypass log to understand your ad-hoc edit patterns, then enable `enforce: true`.
+**Rollout**: leave `PHANTOM_ROUTING_ENFORCE` unset initially, review the bypass log to understand ad-hoc edit patterns, then set it to `1`. Add `PHANTOM_ROUTING_SCOPE=all-git` only when every Git repository should be covered.
 
 ---
 
@@ -104,4 +105,4 @@ Only tool-call edits (Edit, Write, MultiEdit, NotebookEdit) are covered. Shell e
 
 ## Hygiene Note
 
-`routing-nudge/<session_id>` markers accumulate in `<PHANTOM_DATA>/state/routing-nudge/` over time — one file per Claude session that received a nudge. There is no current cleanup mechanism. This directory is a future candidate for `session-cleanup.js`.
+`routing-nudge/<session_id>` markers accumulate in `<PHANTOM_DATA>/state/routing-nudge/` over time — one file per host session that received a nudge. There is no current cleanup mechanism. This directory is a future candidate for `session-cleanup.js`.
