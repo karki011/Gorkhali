@@ -21,8 +21,11 @@ left blank, never invented ad hoc.
    same `subagent_type`, `name = {role}-{function}` instead of `{role}-{character}`.
    This covers the RPSL wrap panel (`archer-scope`, `archer-regression`,
    `archer-architecture`, `archer-skeptic` - maps 1:1 to `reviews/{function}.json`)
-   and Council Mode's fixed lens enum (`blade-mvp`, `blade-risk`, `blade-user`,
-   `blade-reuse`, `blade-simple`) plus its Chairman (`blade-chairman`).
+   and Council Mode's fixed lens enum (`council-mvp`, `council-risk`, `council-user`,
+   `council-reuse`, `council-simple`) plus its Chairman (`council-chairman`). Council
+   members still run through the Blade runtime type, but use the documented
+   `council-*` Blade name alias because they reason only and never receive
+   project-edit authority.
 3. **Overflow.** Two distinct overflow shapes exist, and they must never share a
    shape with each other:
    - **Roster-length overflow** (a normal slotted site, or a dedicated
@@ -172,9 +175,9 @@ One row per non-execute spawn site in `commands/*.md`.
 | `scout.md` | Step 2 - parallel area scouts. Areas come from `$ARGUMENTS`, so the count is user-unbounded: the 5 default areas (design, api, patterns, deps, tests) take character slots 1-5; the 6th and any further area MUST use bare roster-length overflow (Rule 3) starting past the FULL 9-slot `scout` roster, never walking into slots 6-9 (dedicated to `brainstorm.md` and `reference/evolution.md`) | scout | 1, 2, 3, 4, 5 (default areas); 10, 11, ... (6th+ area) | `scout-pike`, `scout-ravel`, `scout-tessa`, `scout-korin`, `scout-nettle` (default areas); `scout-10`, `scout-11`, ... (6th+ area) |
 | `review.md` | Step 2 - Gaze quality gate | gaze | 3 | `gaze-ombric` |
 | `brainstorm.md` | Phase 1 - parallel research agents: Codebase Explorer, Constraint Mapper, Domain Researcher (optional) | scout | 6, 7, 8 | `scout-quorra`, `scout-haldis`, `scout-brint` |
-| `brainstorm.md` | Council Mode Step 1 - 3-5 independent approach generators, one per lens (`mvp-first`, `risk-first`, `user-first`, `reuse-first`, `simplest`) | blade | function (Rule 2) | `blade-mvp`, `blade-risk`, `blade-user`, `blade-reuse`, `blade-simple` (subset actually spawned per problem) |
-| `brainstorm.md` | Council Mode Step 2 - one ranker per anonymized candidate, 3-5 fresh spawns | blade | 18, 19, 20, 21, 22 | `blade-kirran`, `blade-mossa`, `blade-ellow`, `blade-tavric`, `blade-sorne` |
-| `brainstorm.md` | Council Mode Step 3 - Chairman synthesis | blade | function (Rule 2) | `blade-chairman` |
+| `brainstorm.md` | Council Mode Step 1 - 3-5 independent approach generators, one per lens (`mvp-first`, `risk-first`, `user-first`, `reuse-first`, `simplest`) | blade | function (Rule 2) | `council-mvp`, `council-risk`, `council-user`, `council-reuse`, `council-simple` (subset actually spawned per problem) |
+| `brainstorm.md` | Council Mode Step 2 - one ranker per anonymized candidate, 3-5 fresh spawns | blade | 18, 19, 20, 21, 22 | `council-kirran`, `council-mossa`, `council-ellow`, `council-tavric`, `council-sorne` |
+| `brainstorm.md` | Council Mode Step 3 - Chairman synthesis | blade | function (Rule 2) | `council-chairman` |
 | `brainstorm.md` | Rival Pass - adversarial challenge on the approach spine, before Convergence | rival | 1 | `rival-dask` |
 | `greploop.md` | Step E - substantial multi-file comment fix, prefer spawning a Blade | blade | 23 | `blade-vint` |
 | `fix.md` | Step 8.5 - scrap-and-redo: a fresh agent replacing a repair Blade whose fix failed the same-class check, spawned with synthesized learnings instead of the failed code | blade | derived from the failed packet position (see Scrap-and-Redo below) | `blade-redo-{N}` |

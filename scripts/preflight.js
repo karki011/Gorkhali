@@ -19,6 +19,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const { phantomData, stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
 const { PREFLIGHT_MAX_FILES, MARKER_FRESHNESS_MS } = require('./lib/constants');
 const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const markerState = require('../hooks/blade-marker-state');
 
 // Staleness window for the current-session collision marker.
 const FRESH_WINDOW_MS = MARKER_FRESHNESS_MS;
@@ -86,9 +87,11 @@ function checkBranch(repoPath) {
     : { status: 'pass', detail: "on feature branch '" + branch + "'" };
 }
 
-function checkSessionCollision(repo, ticket) {
-  const bladeEditing = path.join(phantomData(), '.blade-editing');
-  if (fs.existsSync(bladeEditing)) {
+function checkSessionCollision(repo, ticket, repoPath) {
+  if (markerState.freshMarkers(repoPath).length > 0) {
+    return { status: 'fail', detail: '.blade-editing.d contains a live editing agent' };
+  }
+  if (markerState.legacyActive(repoPath)) {
     return { status: 'fail', detail: '.blade-editing present — a Blade is mid-edit' };
   }
   const markerPath = path.join(stateDir(), 'current-session', repo + '.json');
@@ -166,7 +169,7 @@ function runPreflight(opts) {
   const checks = {
     worktreeClean: checkWorktreeClean(repoPath),
     branch: checkBranch(repoPath),
-    sessionCollision: checkSessionCollision(repo, ticket),
+    sessionCollision: checkSessionCollision(repo, ticket, repoPath),
     blastRadius: checkBlastRadius(repo, ticket, maxFiles),
     jira: checkJira(ticket, !!opts.strictJira),
   };

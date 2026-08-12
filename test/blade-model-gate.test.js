@@ -259,6 +259,17 @@ test('32. scout-* names ride legally on blade spawns (documented naming alias)',
   assertNameDeny(runGate(agentSpawn('blade', { name: 'scout-fake', model: 'sonnet' })));
 });
 
+test('32b. known council-* names ride legally on blade spawns, invented names do not', () => {
+  for (const name of [
+    'council-mvp', 'council-risk', 'council-user', 'council-reuse', 'council-simple',
+    'council-kirran', 'council-mossa', 'council-ellow', 'council-tavric',
+    'council-sorne', 'council-chairman',
+  ]) {
+    assertAllow(runGate(agentSpawn('blade', { name, model: 'sonnet' })), name);
+  }
+  assertNameDeny(runGate(agentSpawn('blade', { name: 'council-fake', model: 'sonnet' })));
+});
+
 test('33. dynamic shapes IN their roster-defined range → ALLOW', () => {
   const shapes = [
     ['blade', 'blade-24'],            // roster-length overflow, blade roster is 23
@@ -338,8 +349,8 @@ test('34c. LIVE roster.md still names exactly the four Sage-eligible roles', () 
 test('35. every name reference/roster.md actually assigns is ALLOWED by the gate', () => {
   // Guards against the identity check drifting away from the roster it enforces.
   const spawns = [
-    ['archer', 'archer-sylas'], ['archer', 'archer-scope'], ['blade', 'blade-chairman'],
-    ['blade', 'blade-mvp'], ['blade', 'blade-doven'], ['gaze', 'gaze-sura'],
+    ['archer', 'archer-sylas'], ['archer', 'archer-scope'], ['blade', 'council-chairman'],
+    ['blade', 'council-mvp'], ['blade', 'blade-doven'], ['gaze', 'gaze-sura'],
     ['hound', 'hound-corva'], ['lens', 'lens-yara'], ['rival', 'rival-dask'],
     ['sweep', 'sweep-oda'], ['ward', 'ward-corben'], ['warden', 'warden-sena'],
     ['plan-checker', 'plan-checker-castor'],

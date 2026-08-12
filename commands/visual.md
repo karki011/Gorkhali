@@ -40,9 +40,9 @@ Visual verification pipeline — standalone or auto-triggered by `/phantom:verif
 ## Visual Fix Loop (max 3 iterations)
 
 1. Lens outputs structured fix packet (issue, screenshot, element ref, expected vs actual, affected file)
-2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+2. Per-spawn Blade lifecycle state is owned by validated hooks
 3. Apex dispatches Blade (`subagent_type: "blade"`, `name: "blade-brakka"`, mode: bypassPermissions; UI focus) scoped to affected files — appearance only, not behavior
-4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
+4. Wait for the Blade's durable result
 5. Re-run correctness on fixed files. If fails → revert, mark "needs manual fix"
 6. Re-spawn Lens on same routes
 7. All resolved → PASS. Same issue persists → correction + escalate. New issues → revert + escalate.

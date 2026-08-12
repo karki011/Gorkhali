@@ -8,10 +8,10 @@
 # Active during phantom sessions only — controlled by sentinel at
 # $PHANTOM_DATA/.apex-active (written by /phantom:start, removed by /phantom:wrap).
 #
-# Subagent detection uses a marker-file mutex:
-#   .blade-editing — created by Apex before spawning Blades, removed after.
-#   When .blade-editing exists, edits are allowed (a Blade is working).
-#   When it doesn't exist, edits are BLOCKED (Apex is trying to edit directly).
+# Subagent detection uses one marker per live editing agent, created only by the
+# SubagentStart hook and cleared by SubagentStop. Markers are scoped to both the
+# current repository and session. A fresh legacy .blade-editing marker remains
+# accepted during upgrades.
 
 set -euo pipefail
 
@@ -19,7 +19,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/phantom-paths.sh"
 
 SENTINEL="$PHANTOM_DATA/.apex-active"
-BLADE_MARKER="$PHANTOM_DATA/.blade-editing"
 AUDIT_DIR="$PHANTOM_AUDIT_DIR"
 AUDIT_LOG="$AUDIT_DIR/apex-edits-$(date +%Y-%m-%d).jsonl"
 
@@ -52,8 +51,9 @@ esac
 mkdir -p "$AUDIT_DIR"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Blade marker present = subagent is editing = allow
-if [ -f "$BLADE_MARKER" ]; then
+# A fresh legacy marker or a live marker for this exact repo and session allows edits.
+if printf '%s' "$INPUT" | node "$SCRIPT_DIR/blade-marker-state.js" active \
+  || printf '%s' "$INPUT" | node "$SCRIPT_DIR/blade-marker-state.js" legacy; then
   printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"blade"}\n' \
     "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \
     >> "$AUDIT_LOG"
@@ -72,9 +72,7 @@ CORE DISCIPLINE #13 VIOLATION — Apex must not edit files directly.
   File: $FILE_PATH
 
 Spawn a Blade agent via the Agent tool instead. All implementation
-goes through subagents — even 1-line typo fixes.
-
-Before spawning: touch $BLADE_MARKER
-After completion: rm -f $BLADE_MARKER
+goes through subagents — even 1-line typo fixes. Editing markers are
+managed automatically by SubagentStart and SubagentStop hooks.
 EOF
 exit 2

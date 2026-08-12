@@ -82,31 +82,31 @@ Before proposing: scan `learnings/INDEX.md`.
 high-uncertainty, or `--council` is passed. **Otherwise** the coordinator drafts the 2-3 approaches
 directly (simple path, no extra spawns) and skips to Convergence.
 
-**Step 1 — Independent generation.** Spawn 3-5 approach-generator Blades, each with a DISTINCT lens,
+**Step 1 — Independent generation.** Spawn 3-5 reasoning-only Council members, each with a DISTINCT lens,
 in parallel (`run_in_background: true`). Each produces exactly ONE candidate approach from the gathered
 context, in the Exploration Protocol shape, and states its lens as `whyLens` — never leave it implicit.
 No candidate sees another's output before it's written; ranking (Step 2) only starts once ALL are in.
 Lens menu (pick 3-5 well-differentiated ones per problem, not all five every time) — each lens is a
 fixed function-name per `reference/roster.md` Rule 2, spawn only the subset actually used:
-- `mvp-first` — smallest slice that ships real value now; defer everything else (YAGNI, taken literally) → `name: "blade-mvp"`
-- `risk-first` — assume the riskiest edge case happens; design so that failure is cheap and visible → `name: "blade-risk"`
-- `user-first` — optimize for the person using the result, even if it costs the implementer more → `name: "blade-user"`
-- `reuse-first` — leans hardest on existing patterns/abstractions already in this codebase → `name: "blade-reuse"`
+- `mvp-first` — smallest slice that ships real value now; defer everything else (YAGNI, taken literally) → `name: "council-mvp"`
+- `risk-first` — assume the riskiest edge case happens; design so that failure is cheap and visible → `name: "council-risk"`
+- `user-first` — optimize for the person using the result, even if it costs the implementer more → `name: "council-user"`
+- `reuse-first` — leans hardest on existing patterns/abstractions already in this codebase → `name: "council-reuse"`
 - `simplest` — least code/scope that solves the core problem today (KISS narrowly — distinct from
-  `mvp-first`: this minimizes implementation, that minimizes feature surface) → `name: "blade-simple"`
+  `mvp-first`: this minimizes implementation, that minimizes feature surface) → `name: "council-simple"`
 
 Generators are reasoning-heavy → session model. Inject `[failed]` / `[validated:5+]` learnings into each prompt.
 
 **Step 2 — Anonymized peer-ranking.** Apex relabels the candidates `Approach A / B / C`, stripping lens
 and author identity. Spawn one ranker per candidate (fresh spawns, `subagent_type: "blade"`, `name:` the
-next dedicated ranker slot per `reference/roster.md` — `blade-kirran`, `blade-mossa`, `blade-ellow`,
-`blade-tavric`, `blade-sorne` for up to 5 candidates) given the FULL anonymized set; each
+next dedicated ranker slot per `reference/roster.md` — `council-kirran`, `council-mossa`, `council-ellow`,
+`council-tavric`, `council-sorne` for up to 5 candidates) given the FULL anonymized set; each
 ranks ALL candidates on **Fit / Risk / Simplicity** with a one-line justification each. No agent may
 identify or favor "its own" — the anonymization is the point. Apex aggregates (average rank; ties broken
 by lower Risk). Ranking is rubric-scoped → Apex may route rankers to Sonnet; default = inherit (session model).
 
 **Step 3 — Chairman synthesis.** Spawn ONE Chairman (session model, `subagent_type: "blade"`,
-`name: "blade-chairman"` per `reference/roster.md` Rule 2) with the anonymized approaches + the aggregate
+`name: "council-chairman"` per `reference/roster.md` Rule 2) with the anonymized approaches + the aggregate
 ranking. It produces: the **recommended** approach (may graft the winner's spine + the runners-up's best
 ideas), the ranked alternatives, and a rationale citing the rankings. **The Chairman does NOT decide** —
 its output feeds the human gate below.

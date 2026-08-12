@@ -74,7 +74,7 @@ Agent spawn rules (all routes):
      `ready_for_fix` / `confirmed_defect` may proceed.
    - Inconclusive or conflicting proof MUST become
      `waiting_for_evidence` / `unconfirmed_defect`; record the missing evidence
-     and next observation, then STOP before Blade activation or dispatch.
+     and next observation, then STOP before Blade dispatch.
    - Diagnostic instrumentation is denied unless a recorded, unexpired
      `DiagnosticGrant` names the objective, actions, paths, expiry, and cleanup.
      The grant authorizes only that reversible evidence collection; it never
@@ -97,7 +97,7 @@ READ `reference/router.md` for full algorithm.
    `ready_for_fix` / `confirmed_defect` contract from
    `reference/defect-proof.md`; otherwise STOP in
    `waiting_for_evidence` / `unconfirmed_defect`.
-2. Activate blade marker: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+2. Per-spawn Blade lifecycle state is owned by validated hooks.
 2.5. **Dispatch table (mandatory, before the spawn below):** render the pre-dispatch routing
    table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
    from `intent.json` (file targets) and the roster-assigned `name` (`blade-doven`, DIRECT's
@@ -119,7 +119,7 @@ READ `reference/router.md` for full algorithm.
        {file paths to modify}
        Self-review your changes before returning.
    ```
-4. Deactivate blade marker: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
+4. Wait for the Blade's durable result.
 5. After Blade returns → independent
    `Skill(skill="phantom:verify", args="--chained")` (chained flow). For a
    confirmed defect, the verifier must rerun the recorded reproduction and the
@@ -166,7 +166,7 @@ Between phases: if heavy context, `Skill(skill="phantom:pause")`. Resume reads `
 
 Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` at Phase A step 1). Planning runs headless and produces a plan only — it NEVER executes. There is no queue: the plan lands in the session dir as `plan.json` and the run stops.
 
-> The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, no git mutations, no `.blade-editing` marker. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
+> The flag's ABSENCE is the safe default: without `--to-plan` the gated flow above applies unchanged, so a dropped flag degrades to MORE gating, never less. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, and no git mutations. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
 
 **Route collapse:**
 - DIRECT → still produce a compact decision-first `plan.json` (plan-only — even trivial work produces a plan); the same `_meta.version: 3` contract applies, with concise sections and no unnecessary fan-out.
@@ -179,4 +179,4 @@ Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` a
 **Inline self-checks:**
 - Run plan-checker + rival review of `plan.json` INLINE. On failure: revise ONCE, then record the finding anyway in `plan.json` with `selfCheck: "flagged"` + a finding summary. A human decides later.
 
-**EXIT:** write `plan.json` to the session dir, then best-effort have the active AI author `{SESSION_DIR}/plan.candidate.html` and run `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html` for the human who reviews later. Candidate generation or validation failure is non-blocking and does not stop the exit. Then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, `.blade-editing` marker, worktree creation, or opening browsers.
+**EXIT:** write `plan.json` to the session dir, then best-effort have the active AI author `{SESSION_DIR}/plan.candidate.html` and run `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html` for the human who reviews later. Candidate generation or validation failure is non-blocking and does not stop the exit. Then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, worktree creation, or opening browsers.

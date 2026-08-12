@@ -38,12 +38,12 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      `confirmedByUser: true`.
    - Missing, stale, malformed, contradictory, or incomplete proof → set or
      preserve `state: "waiting_for_evidence"` and
-     `verdict: "unconfirmed_defect"`, then BLOCK before the Blade marker.
+     `verdict: "unconfirmed_defect"`, then BLOCK before Blade dispatch.
    - Diagnostic instrumentation is allowed only under an unexpired
      `DiagnosticGrant` that explicitly lists its objective, actions, paths,
      expiry, and cleanup. It never authorizes this implementation step.
 
-5. **Activate blade marker**: `D="${PHANTOM_DATA:-$HOME/.phantom}"; mkdir -p "$D"; touch "$D/.blade-editing"`
+5. **Per-spawn lifecycle**: validated hooks own Blade lifecycle state.
 
 6. **Dispatch per plan**:
    - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
@@ -87,7 +87,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
 
-7. **Deactivate blade marker**: `rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"`
+7. **Complete the wave**: wait for every dispatched Blade and verifier result.
 
 <output_format>
 

@@ -21,8 +21,8 @@
 // completion to some other site's stub. Three layers, cheapest first:
 //   3a SYNTAX   - matches NAME_RE.
 //   3b PREFIX   - starts with the spawn's own role, or a documented naming alias
-//                 for it (scout names ride on `blade` spawns - roster.md's scout
-//                 note). This layer needs no file and always runs.
+//                 for it (scout and council names ride on `blade` spawns).
+//                 This layer needs no file and always runs.
 //   3c IDENTITY - the character/function segment is one roster.md actually
 //                 defines, or one of the dynamic shapes roster.md defines by
 //                 GRAMMAR rather than by listing ({role}-{N}, {role}-task-{N},
@@ -74,11 +74,10 @@ const ROSTER_ROLES = new Set([
 
 const NAME_RE = /^[a-z][a-z0-9-]*$/;
 
-// Roles whose NAMES legitimately ride on a different `subagent_type`. Scouts are
-// Blade spawns carrying a read-only ROLE FOCUS directive and are named from the
-// `scout` roster row (reference/roster.md, Roster Table scout note), so
-// `scout-pike` on a `blade` spawn is correct, not a mismatch.
-const NAME_ROLE_ALIASES = { blade: ['scout'] };
+// Roles whose NAMES legitimately ride on a different `subagent_type`. Scouts and
+// Council members are read-only Blade spawns, so their distinct names prevent
+// either role from being mistaken for an implementation Blade.
+const NAME_ROLE_ALIASES = { blade: ['scout', 'council'] };
 
 const POLICY_FILE = path.join(
   __dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'
@@ -142,7 +141,7 @@ function rosterIndex() {
       // of those is a legal spawn name.
       for (const slot of slots) names.add(m[1] + '-' + slot);
     }
-    // Function names (archer-scope, blade-mvp), reference-level sites, and the
+    // Function names (archer-scope, council-mvp), reference-level sites, and the
     // ad hoc/fan-out sections only ever appear as backticked full strings.
     for (const m of text.matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`/g)) names.add(m[1]);
     if (roles.size === 0 || names.size === 0) return null; // unparseable → skip 3c

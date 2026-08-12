@@ -50,20 +50,6 @@ function runHook(env, payload) {
   }
 }
 
-function shellSnippetThrough(content, markerCommand) {
-  const snippet = [...content.matchAll(/`([^`\n]+)`/g)]
-    .map(match => match[1])
-    .find(candidate => candidate.includes(markerCommand));
-  if (!snippet) return null;
-  return snippet.slice(0, snippet.indexOf(markerCommand) + markerCommand.length);
-}
-
-function fencedShellSnippetContaining(content, markerCommand) {
-  return [...content.matchAll(/```(?:bash)?\n([\s\S]*?)```/g)]
-    .map(match => match[1])
-    .find(candidate => candidate.includes(markerCommand)) || null;
-}
-
 function seedRepoLearnings(dataDir, repo) {
   const learnDir = path.join(dataDir, 'repos', repo, 'learnings');
   fs.mkdirSync(learnDir, { recursive: true });
@@ -203,7 +189,7 @@ test('evolution-runner: non-existent PHANTOM_DATA -> exit 0, no throw', () => {
   assert.equal(code, 0, `evolution-runner must fail open (exit 0). stderr: ${stderr}`);
 });
 
-test('native plugin is zero-setup and marker commands create their data root', () => {
+test('native plugin is zero-setup and command prose does not own Blade marker lifecycle', () => {
   for (const retiredPath of ['commands/setup.md', 'setup.sh', 'install.sh']) {
     assert.equal(
       fs.existsSync(path.join(REPO_ROOT, retiredPath)),
@@ -212,41 +198,12 @@ test('native plugin is zero-setup and marker commands create their data root', (
     );
   }
 
-  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-zero-setup-'));
-  try {
-    for (const command of ['start.md', 'execute.md', 'fix.md', 'visual.md', 'recruit.md']) {
-      const content = fs.readFileSync(path.join(REPO_ROOT, 'commands', command), 'utf8');
-      const snippet = shellSnippetThrough(content, 'touch "$D/.blade-editing"');
-      assert.ok(snippet, `${command} must create PHANTOM_DATA before writing its blade marker`);
-
-      const dataRoot = path.join(sandbox, command);
-      execFileSync('/bin/sh', ['-c', snippet], {
-        env: { ...process.env, PHANTOM_DATA: dataRoot },
-      });
-      assert.equal(fs.existsSync(path.join(dataRoot, '.blade-editing')), true);
-    }
-
-    const start = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'start.md'), 'utf8');
-    const snippet = shellSnippetThrough(start, 'touch "$ROOT/.apex-active"');
-    assert.ok(snippet, 'start must create the state directory before activating a fresh session');
-
-    const dataRoot = path.join(sandbox, 'apex');
-    execFileSync('/bin/sh', ['-c', snippet], {
-      env: { ...process.env, PHANTOM_DATA: dataRoot },
-    });
-    assert.equal(fs.existsSync(path.join(dataRoot, '.apex-active')), true);
-    assert.equal(fs.statSync(path.join(dataRoot, 'state')).isDirectory(), true);
-
-    fs.writeFileSync(path.join(dataRoot, '.blade-editing'), '');
-    const wrap = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'wrap', 'evolution.md'), 'utf8');
-    const cleanup = fencedShellSnippetContaining(wrap, 'rm -f');
-    assert.ok(cleanup, 'wrap must define lifecycle marker cleanup');
-    execFileSync('/bin/sh', ['-c', cleanup], {
-      env: { ...process.env, PHANTOM_DATA: dataRoot },
-    });
-    assert.equal(fs.existsSync(path.join(dataRoot, '.apex-active')), false);
-    assert.equal(fs.existsSync(path.join(dataRoot, '.blade-editing')), false);
-  } finally {
-    fs.rmSync(sandbox, { recursive: true, force: true });
+  for (const command of ['start.md', 'execute.md', 'fix.md', 'visual.md', 'recruit.md']) {
+    const content = fs.readFileSync(path.join(REPO_ROOT, 'commands', command), 'utf8');
+    assert.doesNotMatch(
+      content,
+      /\.blade-editing/,
+      `${command} must leave Blade marker lifecycle to validated hooks`,
+    );
   }
 });

@@ -150,6 +150,29 @@ test('.blade-editing present: collision fails', () => {
   }
 });
 
+test('fresh repo-scoped editing marker collides; stale marker is report-only and ignored', () => {
+  const repo = mkRepo();
+  const data = mkData();
+  try {
+    writePlan(data, repo, ['a.ts']);
+    const env = { PHANTOM_REPO: path.basename(repo) };
+    const dir = path.join(data, '.blade-editing.d', path.basename(repo));
+    fs.mkdirSync(dir, { recursive: true });
+    const marker = path.join(dir, 'agent-1');
+    fs.writeFileSync(marker, JSON.stringify({
+      id: 'agent-1', name: 'blade-kaze', sessionId: 's1', repo: path.basename(repo),
+    }));
+    let res = cli(['--ticket', TICKET, '--repo', repo], data, env);
+    assert.equal(parse(res).checks.sessionCollision.status, 'fail');
+    fs.utimesSync(marker, new Date(0), new Date(0));
+    res = cli(['--ticket', TICKET, '--repo', repo], data, env);
+    assert.equal(parse(res).checks.sessionCollision.status, 'pass');
+    assert.equal(fs.existsSync(marker), true, 'preflight must not delete stale markers');
+  } finally {
+    cleanup(repo, data);
+  }
+});
+
 test('plan.json missing: blastRadius fails (fail-safe)', () => {
   const repo = mkRepo();
   const data = mkData();
