@@ -1,0 +1,182 @@
+---
+name: pr-review
+description: "Review an EXTERNAL pull request against its ticket intent. Advisory only - produces reviewer artifacts and a draft comment, never records a lifecycle gate and never posts to GitHub."
+allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+---
+
+> **Preamble Tier: T3** - loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` (authoritative list: `node scripts/preamble-tier.js pr-review --json`)
+
+# /phantom:pr-review
+
+Reviews someone else's pull request. `/phantom:review` reviews YOUR verified diff
+and gates on a Ward artifact bound to your worktree fingerprint; that gate cannot
+be satisfied for a branch you did not build, and `worktreeFingerprint(repo.root)`
+would describe your checkout rather than the PR head. So this command is
+**advisory only**: it never calls `phantom-state.mjs record`, never writes a
+lifecycle gate, and never claims a session outcome.
+
+It reviews from the **ticket**, not the diff. A change can be correct,
+conventional and lint-clean while failing to deliver its intent - the severity
+standard already names this: `blocking` is "the diff makes something WORSE than
+it was before, **or fails the stated intent**"
+(`scripts/lib/review-standard.js`). This command is what supplies the intent.
+
+`$ARGUMENTS` is a PR number, a PR URL, or empty (then use the current branch's PR).
+
+## 1. Resolve the PR
+
+`refs/pull/<n>/head` accepts only a number, while `$ARGUMENTS` may be a number, a
+URL, or empty. Normalize FIRST and use the result everywhere below; the raw
+argument must never reach a refspec:
+
+```text
+PR_NUMBER=$(gh pr view <$ARGUMENTS, or nothing> --json number --jq .number)
+```
+
+`gh pr view` accepts all three forms and reports the canonical number for each,
+so this is the single place the input shapes collapse into one. When the branch
+has no pull request it fails with `no pull requests found for branch`; stop and
+say so rather than continuing with an empty number.
+
+Then fetch metadata, the diff, and the head, without checking anything out:
+
+```text
+gh pr view <PR_NUMBER> --json number,title,headRefName,headRepositoryOwner,baseRefName,url,body,author,additions,deletions,changedFiles
+gh pr diff <PR_NUMBER>
+git fetch origin refs/pull/<PR_NUMBER>/head:refs/phantom/pr/<PR_NUMBER> --force
+```
+
+Read post-change content with `git show refs/phantom/pr/<PR_NUMBER>:<path>` and
+pre-change with `git show <baseRefName>:<path>`.
+
+Both halves of that fetch are deliberate. `refs/pull/<PR_NUMBER>/head` is served by
+GitHub for every pull request including forks, whose head branch does not exist
+on `origin` at all - fetching `<headRefName>` resolves only for same-repo
+branches and silently excludes the most common external case. And the
+destination is under `refs/phantom/`, never `refs/heads/`: a ref outside
+`refs/heads/` cannot be the checked-out branch, so the fetch can never be
+refused for that reason, and it cannot collide with or force-overwrite a local
+branch that happens to share the PR's name.
+
+Never check the branch out; never modify the working tree; never write into
+`refs/heads/`. This command is read-only against the repository, and that
+includes the caller's local branches.
+
+## 2. Establish the intent
+
+Parse a ticket key from the PR title, then the branch name, using the same
+pattern `commands/start.md` uses: any match of `[A-Z][A-Z0-9]+-\d+`. Accept it
+as-is; do not validate the project prefix.
+
+- **Ticket found** - fetch it and its acceptance criteria via the Jira MCP, the
+  same read `commands/start.md` performs. Record `intentSource: "ticket"`.
+- **No ticket, or the fetch fails** - derive the intent from the PR body and
+  record `intentSource: "inferred"`. Say so in the report: the author can correct
+  a premise they can see, and cannot correct one you kept.
+
+Never block on a missing ticket. An inferred intent that is stated as inferred is
+more useful than a stalled review.
+
+Write the resolved intent to `{REVIEW_DIR}/intent.json` with `ticket`,
+`intentSource`, `acceptanceCriteria` (array, possibly empty), and `summary`.
+
+`{REVIEW_DIR}` is `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/pr-reviews/{PR_NUMBER}`.
+It is deliberately NOT a session directory: no session exists, and writing under
+`sessions/` would invite the lifecycle machinery to read this as one.
+
+## 3. Reachability - does the change deliver that intent in the running app?
+
+This phase exists because a diff-scoped reviewer cannot answer it. Run it before
+the correctness pass, because a change that never executes makes most correctness
+questions moot.
+
+For each changed file, establish:
+
+1. **Who renders or calls this, in production?** Enumerate non-test consumers.
+   Where a code graph is available (`code-review-graph` MCP: `query_graph` with
+   `callers_of`, `get_impact_radius`), prefer it - grep answers this
+   probabilistically and a graph answers it definitively. When the graph is
+   unavailable, say so in `observationGaps` rather than presenting grep as
+   equivalent.
+2. **Do those consumers reach the changed branch?** A condition edited behind a
+   prop that every production caller hardcodes is dead code, however correct.
+3. **Does a sibling copy of this logic exist that was NOT changed?** Duplicated
+   components, a drawer and a panel rendering the same form, a hook inlined
+   twice. Changing one copy and not the reachable one is the failure mode this
+   phase is named for.
+
+A change that cannot execute in production fails its stated intent, and is
+`blocking` by the standard - not a nitpick about structure.
+
+## 4. Correctness
+
+Spawn Gaze against the PR branch using `agents/gaze.md`, writing
+`{REVIEW_DIR}/gaze.json`. Add Archer (`agents/archer.md`) writing
+`{REVIEW_DIR}/specialists/archer.json` only on explicit risk triggers, exactly as
+`commands/review.md` treats specialists - a second reviewer is not free and
+agreement between two models drawn from a similar distribution is not independent
+evidence.
+
+Delete only the artifact file for a role immediately before spawning that role,
+so a truncated run cannot reuse an older verdict. Never delete
+`{REVIEW_DIR}/rounds.json`.
+
+Three constraints on how reviewers are prompted, each with a reason:
+
+- **Ask for verdict and evidence. Do NOT ask for a proposed fix in the same
+  pass.** Jin & Chen 2026 (arXiv 2603.00539) measured five models across three
+  benchmarks and found that prompts requiring explanations *and* suggested
+  corrections produce HIGHER misjudgment rates than a bare verdict - the error
+  skewing toward flagging correct code as non-conformant. Remediation is
+  produced in step 6, for findings that survived, not as part of finding them.
+- **`confidence` is mandatory on every finding**, not optional as the schema
+  permits. The same over-correction bias is worst on intent judgments, which is
+  what this command is for. `confirmed` requires that the cited line was
+  re-read; anything unread is `needs-verification` with a matching
+  `observationGaps` entry.
+- **A second reviewer refutes; it does not confirm.** When Archer runs, its task
+  is to attack Gaze's findings, not to re-derive them. Convergence between
+  agents that share a training distribution is a weaker signal than it appears.
+
+Run `scripts/review-gaps.js --files <changed files> --json` for the
+mechanically-derivable half - changed source files with no corresponding changed
+test. Findings derived from it are `advisory` by construction; it reports and
+never gates.
+
+Read each verdict from its named artifact file, never from an agent's final
+message. A missing or invalid artifact is `blocked`, never an approval.
+
+## 5. Close the round
+
+```text
+node <skill-directory>/scripts/review-round.js close --reviews {REVIEW_DIR} --json
+```
+
+The ledger is keyed by PR number rather than session, and is what distinguishes a
+carried-over finding from a newly invented one across re-reviews of the same PR.
+Skip this when no valid artifact was written: an unrecorded round leaves the next
+pass at the same round number, so a truncated run cannot advance convergence.
+
+**Do not call `phantom-state.mjs record`.** There is no verification artifact to
+order against and no worktree whose fingerprint describes the reviewed code.
+Recording here would bind evidence to the wrong commit.
+
+## 6. Report
+
+Draft one comment. Do NOT post it, and never submit a formal GitHub review
+(Approve / Request changes) - blocking another author's branch is a human
+decision.
+
+Structure the draft so a reader can act without expanding anything: verdict,
+each blocking finding's claim, and the remediation list. Put evidence tables,
+advisory findings and review limits behind `<details>`. A reviewer that produces
+more text than the diff gets tuned out, and a tuned-out reviewer finds nothing.
+
+Now derive remediation for findings that survived step 4, and only those.
+
+State the limits plainly in the draft: which claims were verified by re-reading
+the source, whether tests were executed, whether the intent was fetched or
+inferred, and whether a code graph was available. A limit the author can see is
+a limit they can correct.
+
+Report the draft to the caller and stop. The human posts it.

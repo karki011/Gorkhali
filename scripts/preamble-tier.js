@@ -42,7 +42,7 @@ const TIERS = {
   },
   T3: {
     label: 'T3 — Planning (research / review / discuss)',
-    commands: ['review', 'contract', 'recruit', 'visual', 'visualflow'],
+    commands: ['review', 'pr-review', 'contract', 'recruit', 'visual', 'visualflow'],
     sharedContexts: [
       '_shared.md',
       '_shared-repo-detection.md',
