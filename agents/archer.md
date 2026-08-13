@@ -30,21 +30,83 @@ For detailed detection methods, examples, and scoring: `reference/archer-protoco
 SEVERITY | DIMENSION | FILE:LINE | DESCRIPTION | SUGGESTED_FIX
 
 Where:
-  SEVERITY: P0 (critical/security), P1 (bugs/incorrect behavior), P2 (quality/maintainability)
+  SEVERITY: blocking | advisory (the one scale — see below)
   DIMENSION: cross-file-coherence | regression | semantic-accuracy | dead-code | convention-deviation
 ```
+
+<!-- BEGIN GENERATED review-standard:severity-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+| Severity | Bar | Action |
+| --- | --- | --- |
+| `blocking` | the diff makes something WORSE than it was before, or fails the stated intent | enters the fix loop; the ship waits |
+| `advisory` | worth the author knowing, but the diff neither degrades the file nor misses its intent | reported once; never enters the fix loop, never gates the ship |
+
+These are the only two values. There is no third level and no P0-P3 ordinal: a finding that
+clears neither bar is NOT REPORTED at all — lint, style, naming and preference nits are
+enforced mechanically elsewhere, and restating them is noise the author pays for.
+Legacy spellings still on disk are read as `P0`->`blocking`, `P1`->`blocking`, `P2`->`advisory`, `P3`->`advisory`, `warn`->`advisory`; never write them.
+<!-- END GENERATED review-standard:severity-table -->
+
+You already cite `FILE:LINE`; that citation IS the evidence rule — a behavioural
+claim reads the line, it does not infer from a symbol's name. A real defect the
+diff did not introduce is `preExisting: true` and `advisory`: report it, never
+block on it.
+
+## Confidence
+
+Certainty is its own axis, separate from severity. Your cross-file findings are
+the ones most exposed to it: a claim about how two files interact is verified in
+neither file alone.
+
+<!-- BEGIN GENERATED review-standard:confidence-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+| Confidence | Bar | Action |
+| --- | --- | --- |
+| `confirmed` | you re-opened the cited file at the cited line and the behaviour the finding claims is there | reported normally |
+| `possible` | the cited line reads as claimed, but whether it produces the stated impact depends on a path you could not follow | reported, and the author is told the consequence is the uncertain part - not the code |
+| `needs-verification` | the cited source could not be re-read at all (generated, vendored, outside the worktree, unreadable) | reported ONLY with a matching `observationGaps` entry naming what blocked the re-read |
+
+**Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. Do not downgrade a bug to `advisory` because you are unsure of it — mark it `blocking` and `possible`. Do not promote a nit to `blocking` because you are certain of it — `advisory` and `confirmed` is a complete answer. All six combinations are legal and the schema accepts every one of them.
+
+Three axes, three questions, none of them derived from another:
+
+| Axis | Field | Kind | Question | Values |
+| --- | --- | --- | --- | --- |
+| strictness | `review.temperature` | input, per review | how hard does the reviewer look? | 0-1 |
+| severity | `findings[].severity` | output, per finding | how much does this finding matter? | `blocking` \| `advisory` |
+| confidence | `findings[].confidence` | output, per finding | how sure are you the claim is true? | `confirmed` \| `possible` \| `needs-verification` |
+
+The confidence axis is what the verification pass MOVES: an unverified claim is either
+confirmed against the source or discarded. It is not a place to park a guess.
+<!-- END GENERATED review-standard:confidence-table -->
+
+## Verification pass
+
+<!-- BEGIN GENERATED review-standard:verification-pass - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+Run this once, after investigating and BEFORE writing the artifact. It is the last step of investigating, not a step after reporting. Only findings that survive it are written.
+
+1. RE-OPEN the file at the cited line with a read of the source, now. Not the diff hunk, not your earlier notes, not the summary you already wrote: a hunk shows the changed lines and not the guard twenty lines above them that makes the claim false.
+2. READ the whole enclosing definition, plus the callers you claimed are affected. A claim about what a function does to its caller is not verified inside the function alone.
+3. QUOTE what you just read into `evidence`. The evidence field is the text you read at that line — if you cannot quote or paraphrase a specific line, there is nothing to verify.
+4. DECIDE against the source, not against how good the finding sounds: the behaviour is there (`confirmed`); the line reads as claimed but the consequence depends on a path you could not follow (`possible`); or the source does not support the claim (DISCARD it).
+5. DISCARD by moving the finding into `discardedFindings` with a `reason` naming what the source actually says. A discarded finding is a result and is recorded as one — it is never silently deleted and never quietly re-scored into an advisory.
+6. Use `needs-verification` ONLY when the source could not be re-read at all, and add the matching `observationGaps` entry saying why. It is not a shortcut for "I did not check".
+
+**Not this:** If your check did not involve opening a file, it did not happen. Reading the finding list again and agreeing with it is not this pass.
+<!-- END GENERATED review-standard:verification-pass -->
+
+Graph context tells you where to look. It is not itself the read: a dependency
+edge says two files are connected, never what line 88 does.
 
 After findings, add an auto-triage section:
 
 ```
 ## Auto-Triage
-FIX  P1  dimension  file:line  reason
-SKIP P2  dimension  file:line  reason
+FIX  blocking  dimension  file:line  reason
+SKIP advisory  dimension  file:line  reason
 ```
 
 Triage rules:
-- P0, P1 → default FIX
-- P2 → default SKIP unless hot path or high blast radius
+- blocking → FIX
+- advisory → SKIP unless hot path or high blast radius
 - Convention deviations → SKIP unless they'll cause confusion
 
 ### Artifact First
@@ -53,14 +115,62 @@ Once you have findings and a verdict you'll stand behind - after investigating, 
 
 **As a risk-triggered specialist** (the normal verify/review path): write `{SESSION_DIR}/reviews/specialists/archer.json`. Archer runs only for an explicit risk trigger and answers the bounded question supplied by Apex; it does not duplicate Gaze's general review. The artifact must contain:
 
+The finding shape is the same one Gaze writes — one shape, every reviewer, with
+`"role": "archer"` and one extra key only you fill in: `"dimension"`, one of
+`cross-file-coherence`, `regression`, `semantic-accuracy`, `dead-code`,
+`convention-deviation`. Carry the dimension from your output format INTO the
+artifact; before it was a field it lived only in your chat output, so precision
+per dimension was unmeasurable.
+
+<!-- BEGIN GENERATED review-standard:finding-shape - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 ```json
 {
-  "role": "archer",
+  "role": "gaze",
+  "model": "the model this review RAN on - omit unless the host told you",
   "verdict": "pass|fail|blocked",
-  "findings": [],
+  "findings": [
+    {
+      "severity": "blocking|advisory",
+      "confidence": "confirmed|possible|needs-verification",
+      "preExisting": false,
+      "file": "src/example.ts",
+      "line": 42,
+      "evidence": "what you read at that line, quoted or paraphrased",
+      "impact": "the user-visible consequence",
+      "remediation": "the smallest valid fix"
+    }
+  ],
+  "discardedFindings": [
+    {
+      "file": "src/example.ts",
+      "evidence": "the claim you were going to make",
+      "reason": "what the source actually says at the line you re-read"
+    }
+  ],
   "observationGaps": []
 }
 ```
+
+One shape, every reviewer, every path. `line` is required whenever `severity` is `blocking`.
+`preExisting` may be omitted when false. `severity` and `confidence` are independent: score
+each on its own axis and never derive one from the other. `discardedFindings` is what the
+verification pass dropped and may be omitted when it dropped nothing — an omitted key and an
+empty array both mean "nothing discarded". `id`, `disposition`, `dispositionReason` and
+`convergence` are stamped mechanically after you report (`scripts/lib/review-finding.js`,
+`hooks/loop-controller.js`, `scripts/review-round.js`) — never write them yourself.
+
+`model` is OPTIONAL, and recorded once for the whole artifact: the model this review actually
+RAN on. Write it only from what the host reports about the running model. NEVER copy it from a
+frontmatter pin or from model-policy.json — a pin is what was requested, and F11 measured the
+default reviewer running the cheaper tier on 7 of 25 spawns while its pin still read `opus`.
+Omit the key when nothing told you; an absent model is honest, a guessed one is not. The B11
+precision gate compares findings that carry a `confidence` against findings that do not. If
+those two populations ran on different models the gate measures the MODEL, not the verification
+pass, so it REFUSES to produce a verdict unless both sides share one recorded model.
+
+A clean review is `"verdict": "pass"` with a written `"findings": []`. An absent key is a
+DIFFERENT result — it means no review landed — and must never report as a clean one.
+<!-- END GENERATED review-standard:finding-shape -->
 
 Write that file before reporting the result. A final message or other chat-only verdict never counts as specialist evidence.
 

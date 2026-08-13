@@ -62,8 +62,8 @@ The full table, and the beliefs that measurement disproved, are in `ROADMAP.md` 
   `- /phantom:wrap        -> draft PR + ticket cost total
 ```
 
-The PR body's `## Validation` section is assembled from those artifacts: verify verdict with test counts, review panel outcome, grill verdict.
-A missing artifact means a missing subsection, never invented text.
+The PR body is a fixed five-section template — Goal, Approach, Risk, Verification evidence, What to look at first — assembled from those artifacts rather than written as free prose.
+A missing artifact means an explicit stated gap naming the artifact, never invented text.
 The PR opens as a **draft** deliberately, because marking it ready to review stays a human action.
 
 Report a defect instead of a feature and no fix runs first.

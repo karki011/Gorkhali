@@ -42,31 +42,71 @@ PRs are ALWAYS created as drafts. Never ready-to-review. Reasons:
 
 Create the draft PR **autonomously** — do NOT ask the user to confirm before creating it, and do NOT offer a "spin up the app for a live look vs ship it" choice here. The draft PR itself is the post-PR review point: the human inspects it and marks it ready-to-review (that action stays human).
 
+### PR body (fixed five-section template)
+
+The body is NOT written here. Apex rendered `{SESSION_DIR}/pr-body.md` at
+`/phantom:wrap` Step 2 from session artifacts, per
+`reference/wrap/pr-body.md`. Warden's entire body operation is passing that file
+through:
+
 ```
-gh pr create --draft --title "{TICKET}: {summary}" --body "{body}"
+gh pr create --draft --title "{TICKET}: {summary}" --body-file "{SESSION_DIR}/pr-body.md"
 ```
 
-PR body:
+The five headings, in this order, verbatim:
+
 ```
-## Summary
-{1-3 bullet points from intent or session context}
+## Goal
+{intent.json — problem, goal, doneWhen[]}
 
-## Changes
-{files changed, grouped by concern}
+## Approach
+{plan.json — decision.recommendation, solution_shape.summary, alternatives[]}
+{execution.json — filesChanged, grouped by concern}
 
-## Test plan
-{verification results from verification.json if available}
+## Risk
+{plan.json — risks[] as risk — mitigation — reversibility}
+{intent.json — tradeoffs[], nonNegotiables[]}
+{review findings that shipped accepted rather than fixed}
 
-## Validation
-{Ward commands and outcomes from the current portable verification artifact}
+## Verification evidence
+{Ward checks and outcomes from the current portable verification artifact}
+{userVerification from the same artifact}
 {Gaze verdict and findings count from the current portable review artifact}
 {each triggered specialist and outcome from the current portable review artifact}
 {optional RPSL outcome only when deep review was explicitly selected}
+
+## What to look at first
+{ranked path:line pointers — unfixed findings, then plan risks, then
+ nonNegotiables, then largest changed files; at most five}
 ```
 
+Warden never authors, fills, summarizes, or re-orders a section. If a section's
+source artifact was absent, Apex already wrote the stated-gap line for it — an
+italic `_Not recorded: {artifact} — {what was missing}._` naming the artifact
+that would have supplied it. A guess, an `N/A`, or an empty section is a failure,
+not a fallback.
+
 Never omit required validation or invent content to fill it. Missing required Ward,
-Gaze, or triggered-specialist evidence is a blocked ship gate, not a PR caveat.
-Omit only optional validation that was not selected.
+Gaze, or triggered-specialist evidence is a blocked ship gate, not a PR caveat —
+which is why `## Verification evidence` has no stated-gap line: it cannot
+legitimately be empty at this point. Omit only optional validation that was not
+selected.
+
+**Preflight (mechanical, before any git operation).** Five headings present, no
+section empty. On failure report `checked:fail` and do NOT create the PR — do not
+repair the file, that is Apex's to re-render:
+
+```bash
+BODY="{SESSION_DIR}/pr-body.md"
+for h in "Goal" "Approach" "Risk" "Verification evidence" "What to look at first"; do
+  grep -qF "## $h" "$BODY" || exit 1
+done
+awk '/^## /{if (h) exit 1; h=1; next} NF {h=0} END {exit h}' "$BODY" || exit 1
+```
+
+**Repo PR template.** If the repository ships its own template, its headings win
+and the five values are placed under them; see `reference/wrap/pr-body.md`.
+Warden may run the detection `ls` and report the path — the mapping is Apex's.
 
 If `gh` not available: print branch name + "run `gh pr create --draft` when ready"
 

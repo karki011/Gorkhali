@@ -99,7 +99,7 @@ Each dimension is scored 1-5 with a confidence and at least one evidence line dr
 | **Plan fidelity** | 20% | Does what shipped match the approved plan and contract scope? | `plan.json` vs `git diff main...HEAD`, contract files, `wrap.json` scope-creep notes |
 | **Review efficacy** | 20% | Were findings caught BEFORE ship, not after? | `review-panel.json` (RPSL perspectives, fixes applied), greptile status |
 | **Loop discipline** | 15% | Were fix-loops bounded and gates honored (no ship past a red verify)? | loop-controller state, fix-session artifacts, `verification.json` history |
-| **Evidence hygiene** | 15% | Are the session's own claims backed by artifacts (e.g. PR Validation section built from files, not prose)? | PR `## Validation` section vs `verification.json`/`review-panel.json`/`wrap.json` |
+| **Evidence hygiene** | 15% | Are the session's own claims backed by artifacts (e.g. PR body built from files, not prose)? | PR `## Verification evidence` section vs `verification.json`/`review-panel.json`/`wrap.json` |
 
 ### Overall score
 

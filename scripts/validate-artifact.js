@@ -12,7 +12,7 @@
 //                 CONTRACT NOTE below.
 //
 // Usage: validate-artifact.js <artifact-type> <file-path>
-// Artifact types: context, intent, brainstorm, decisions, plan, execution, verification, wrap, pause-state
+// Artifact types: context, intent, brainstorm, decisions, plan, execution, verification, review, wrap, pause-state
 // Exit 0 = valid, Exit 1 = invalid (errors printed to stderr).
 //
 // CONTRACT NOTE (exit codes): this CLI returns 1 for EVERY failure, including an
@@ -42,10 +42,169 @@ function validateMeta(obj, errors) {
   if (typeof m.version !== 'number') errors.push('_meta.version: required number');
 }
 
+// --- review-finding element validation (B9) ---
+// Identity and the disposition vocabulary live in scripts/lib/review-finding.js
+// so the validator, hooks/loop-controller.js (which WRITES the disposition when
+// the fix loop closes), and any consumer reading artifacts off disk agree on
+// them without three private copies.
+const {
+  FINDING_ID_RE,
+  DISPOSITIONS,
+  DISPOSITIONS_REQUIRING_REASON,
+  findingId,
+} = require('./lib/review-finding');
+
+// --- the review standard (B10) ---
+// The severity scale, the finding shape and the reporting rules are DATA in
+// scripts/lib/review-standard.js and prose everywhere else is generated from it
+// (scripts/gen-review-standard.js). This file is where the vocabulary becomes
+// enforceable: F9's four vocabularies went unnoticed precisely because nothing
+// ever checked a finding's severity against a list.
+const {
+  SEVERITY_VALUES,
+  SEVERITY_ALIASES,
+  DIMENSIONS,
+  normalizeSeverity,
+  CONFIDENCE_VALUES,
+  CONFIDENCE_ALIASES,
+  normalizeConfidence,
+  CLAIM_KEYS,
+  GAPS_KEY,
+  LEGACY_GAPS_KEY,
+} = require('./lib/review-standard');
+
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim() !== '';
 const hasUnresolvedPlaceholder = (value) =>
   typeof value === 'string' && /(\{[A-Z][A-Z0-9_]*\}|\bTODO\b|\bTBD\b)/i.test(value);
+
+// One review finding. The element shape `verification.review.findings` had
+// always been declared but never checked - which is exactly how the F9 drift
+// (three finding shapes, four severity vocabularies) went unnoticed.
+//
+// B9 validated the finding as reviewers wrote it and deliberately legislated no
+// vocabulary. B10 collapses it: ONE scale (`blocking`/`advisory`) and ONE shape,
+// both sourced from scripts/lib/review-standard.js.
+//
+// BACKWARD COMPATIBILITY, stated rather than assumed: every legacy spelling is
+// ACCEPTED AND NORMALIZED, never rejected. Legacy severities (`P0`-`P3`,
+// `warn`) map onto the two canonical values; legacy keys (`temperature`,
+// `component`, `issue`, `message`, `description`, `fix`) fold onto their
+// canonical key. So no reviewer artifact already on disk starts failing, and
+// none of them re-ids - the B9 id excludes severity and hashes `file ||
+// component` and the first present claim key, all of which normalization
+// preserves. `scripts/migrate-review-findings.js` rewrites an artifact into the
+// canonical shape when a reader wants the file itself cleaned up.
+function validateFinding(finding, i, errors) {
+  const at = `findings[${i}]`;
+  if (!isObject(finding)) {
+    errors.push(`${at}: must be an object`);
+    return;
+  }
+  if (!isNonEmptyString(finding.file) && !isNonEmptyString(finding.component)) {
+    errors.push(`${at}.file: required string (the file the finding is about; legacy key "component" accepted)`);
+  }
+  // `temperature` is the legacy key for the same axis (reference/temperature-review.md).
+  const rawSeverity = isNonEmptyString(finding.severity) ? finding.severity : finding.temperature;
+  const severity = normalizeSeverity(rawSeverity);
+  if (!isNonEmptyString(rawSeverity)) {
+    errors.push(`${at}.severity: required non-empty string (legacy key "temperature" accepted)`);
+  } else if (!severity) {
+    errors.push(
+      `${at}.severity: must be one of ${SEVERITY_VALUES.join('|')} ` +
+        `(legacy ${Object.keys(SEVERITY_ALIASES).join('/')} accepted), got "${String(rawSeverity).trim()}"`
+    );
+  }
+  // B11: the OTHER axis. Optional so no artifact on disk starts failing (none
+  // carries the key), closed so it cannot become a fifth vocabulary the way
+  // severity did, and DELIBERATELY unrelated to `severity` above: there is no
+  // rule here coupling the two, because severity is importance and confidence is
+  // certainty. All six combinations validate. Deriving one from the other is the
+  // conflation F9 recorded once already (`review.temperature` read as a severity)
+  // and Gap 2 names again.
+  const confidence = normalizeConfidence(finding.confidence);
+  if (finding.confidence !== undefined) {
+    if (!confidence) {
+      errors.push(
+        `${at}.confidence: must be one of ${CONFIDENCE_VALUES.join('|')} ` +
+          `(also accepted: ${Object.keys(CONFIDENCE_ALIASES).map((k) => `"${k}"`).join('/')}), ` +
+          `got "${typeof finding.confidence === 'string' ? finding.confidence.trim() : String(finding.confidence)}"`
+      );
+    }
+  }
+  if (finding.line !== undefined && finding.line !== null && !Number.isFinite(finding.line)) {
+    errors.push(`${at}.line: must be a number if present`);
+  }
+  for (const key of ['evidence', 'impact', 'remediation', 'issue', 'fix', 'message', 'description']) {
+    if (finding[key] !== undefined && typeof finding[key] !== 'string') {
+      errors.push(`${at}.${key}: must be string if present`);
+    }
+  }
+
+  // B10(b): a defect the diff did not introduce REPORTS, it never blocks. The
+  // rule is mechanical rather than advisory prose because "reports, never
+  // blocks" is exactly the promise a reviewer under time pressure breaks.
+  if (finding.preExisting !== undefined && typeof finding.preExisting !== 'boolean') {
+    errors.push(`${at}.preExisting: must be boolean if present`);
+  } else if (finding.preExisting === true && severity === 'blocking') {
+    errors.push(
+      `${at}.preExisting: a pre-existing defect reports and never blocks - use severity "advisory" ` +
+        '(a defect the diff did not introduce cannot make the diff worse than before)'
+    );
+  }
+
+  // B10(a): a behavioural claim cites file:line in the source. An inference from
+  // a symbol's NAME is not evidence, and a citation is the cheapest thing that
+  // separates the two. Enforced on blocking findings only: those are the ones
+  // that stop a ship and open a fix loop, so they are the ones that must be
+  // checkable. An advisory ("no test covers this file") can legitimately be
+  // about a whole file, and a finding that names a `component` rather than a
+  // file has no line to cite.
+  if (severity === 'blocking' && isNonEmptyString(finding.file)) {
+    if (!Number.isFinite(finding.line) || finding.line < 1) {
+      errors.push(
+        `${at}.line: required for a blocking finding - a behavioural claim must cite file:line in the ` +
+          'source, not an inference from a symbol name (downgrade to "advisory" if there is no line to cite)'
+      );
+    }
+  }
+
+  if (finding.id !== undefined) {
+    if (typeof finding.id !== 'string' || !FINDING_ID_RE.test(finding.id)) {
+      errors.push(`${at}.id: must match f_<12 hex> (derived - see scripts/lib/review-finding.js), got "${finding.id}"`);
+    } else {
+      const derived = findingId(finding);
+      // A hand-typed or random id would make the same finding uncountable across
+      // re-review rounds, which is the one thing B9 exists to prevent.
+      if (finding.id !== derived) errors.push(`${at}.id: must be the content-derived id "${derived}", got "${finding.id}"`);
+    }
+  }
+
+  // Optional and closed. Before B10 the dimension lived only in Archer's chat
+  // output, so the baseline miner could break precision down per severity and
+  // per agent but never per dimension - the field the artifact needed did not
+  // exist. A free-form string would have made that breakdown as unreliable as
+  // the four severity vocabularies it just replaced.
+  if (finding.dimension !== undefined && !DIMENSIONS.includes(finding.dimension)) {
+    errors.push(`${at}.dimension: must be one of ${DIMENSIONS.join('|')} if present, got "${finding.dimension}"`);
+  }
+
+  if (finding.dispositionReason !== undefined && typeof finding.dispositionReason !== 'string') {
+    errors.push(`${at}.dispositionReason: must be string if present`);
+  }
+  if (finding.disposition !== undefined) {
+    if (!DISPOSITIONS.includes(finding.disposition)) {
+      errors.push(`${at}.disposition: must be one of ${DISPOSITIONS.join('|')} if present, got "${finding.disposition}"`);
+    } else {
+      // The outcome is attributed to an INDIVIDUAL finding, so it needs the
+      // finding's stable handle - a disposition with no id is unattributable.
+      if (finding.id === undefined) errors.push(`${at}.id: required once a disposition is recorded`);
+      if (DISPOSITIONS_REQUIRING_REASON.includes(finding.disposition) && !isNonEmptyString(finding.dispositionReason)) {
+        errors.push(`${at}.dispositionReason: required non-empty string when disposition is "${finding.disposition}"`);
+      }
+    }
+  }
+}
 
 function requireArray(obj, field, errors, { nonEmpty = false, label = field } = {}) {
   const value = obj[field];
@@ -579,9 +738,9 @@ const SCHEMAS = {
       { field: 'correctness.observations.build', type: '`"checked:pass"` | `"checked:fail"` | `"not_observed"`', required: 'yes', description: 'Build check status' },
       { field: 'correctness.observations.tests', type: '`"checked:pass"` | `"checked:fail"` | `"not_observed"`', required: 'yes', description: 'Test check status' },
       { field: 'review', type: 'object', required: 'yes', description: 'Self-review results' },
-      { field: 'review.temperature', type: 'number', required: 'yes', description: 'Reviewer strictness (0-1)' },
-      { field: 'review.findings', type: 'object[]', required: 'yes', description: 'Array of finding objects' },
-      { field: 'review.fixLoops', type: 'number', required: 'yes', description: 'How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it' },
+      { field: 'review.temperature', type: 'number', required: 'yes', description: 'Reviewer strictness (0-1). NOT a severity: it is a knob on how hard the reviewer looks, orthogonal to how a finding is scored once found (`findings[].severity`)' },
+      { field: 'review.findings', type: 'object[]', required: 'yes', description: 'Array of finding objects. Element shape is the review artifact\'s finding (`reference/schemas/review.md`) — ONE shape and ONE severity scale, enforced there; array-only here so no verification artifact already on disk starts failing' },
+      { field: 'review.fixLoops', type: 'number', required: 'yes', description: 'How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/fix-loop.md`, currently 2) unless a logged operator override extended it' },
       { field: 'simplifyRan', type: 'boolean', required: 'yes', description: 'Whether simplify was run on changed files' },
       { field: 'intentAlignment', type: '`"aligned"` | `"drift"` | `"wrong"`', required: 'yes', description: 'How well output matches intent.json' },
       { field: 'userVerification', type: 'object', required: 'yes for passed verdict', description: 'Compact UI classification and conditional user-verification result; use `{ "required": false }` for non-UI work' },
@@ -664,6 +823,145 @@ const SCHEMAS = {
       if (d.score !== undefined && (typeof d.score !== 'number' || d.score < 0 || d.score > 10)) {
         errors.push('score: must be number 0-10 if present');
       }
+    },
+  },
+
+  review: {
+    fields: [
+      { field: 'role', type: 'string', required: 'yes', description: 'Reviewer that wrote the artifact: `"gaze"` for the one default reviewer, `"archer"` for the risk-triggered specialist' },
+      { field: 'model', type: 'string', required: 'no', description: 'The model this review RAN on, recorded verbatim (F11). PER ARTIFACT, not per finding: one review run is one reviewer in one spawn, so every finding in the file shares it. Never inferred — a frontmatter pin or a `model-policy.json` profile is what was REQUESTED, and F11 measured `gaze` running `opus:18 sonnet:7` against an `opus` pin, so a copied pin would make a confounded comparison look controlled. Optional and absent on every artifact written before F11; while it is absent the B11 precision gate refuses to produce a verdict rather than compare two possibly-different reviewers' },
+      { field: 'verdict', type: '`"pass"` | `"fail"` | `"blocked"`', required: 'yes', description: 'Review result. A missing or unreadable artifact is `blocked`, never a clean review' },
+      { field: 'findings', type: 'object[]', required: 'yes', description: 'Findings. A written `[]` is a clean review; an absent key is not the same result and must not report as one' },
+      { field: 'findings[].id', type: 'string (`f_<12 hex>`)', required: 'no (required once a disposition is recorded)', description: 'Stable finding id, DERIVED from content: `f_` + first 12 hex of `sha256(file + US + claim)`. Reviewers do not write it — it is stamped mechanically by `scripts/lib/review-finding.js`, which is the derivation authority. When present it must equal the derived value' },
+      { field: 'findings[].severity', type: '`"blocking"` | `"advisory"`', required: 'yes', description: 'Importance, on the one scale (`scripts/lib/review-standard.js`). `blocking` = the diff makes something WORSE than before or fails the stated intent; `advisory` = everything else worth saying. There is no third level: a finding clearing neither bar is not reported at all. Legacy spellings are accepted and normalized — `P0`/`P1` to `blocking`, `P2`/`P3`/`warn` to `advisory`, legacy key `temperature` to `severity`' },
+      { field: 'findings[].confidence', type: '`"confirmed"` \\| `"possible"` \\| `"needs-verification"`', required: 'no', description: 'Certainty, on its own axis (B11). `confirmed` = the cited line was re-read and the claimed behaviour is there; `possible` = the line reads as claimed but the impact depends on an unfollowed path; `needs-verification` = the source could not be re-read at all, which requires a matching `observationGaps` entry. ORTHOGONAL to `severity` — severity is importance, confidence is certainty, neither is derived from the other, and all six combinations are legal. Optional: artifacts written before B11 carry no confidence and are read as unverified, never as confirmed' },
+      { field: 'findings[].preExisting', type: 'boolean', required: 'no', description: 'True for a real defect the diff did NOT introduce. It reports, never blocks, and never enters a fix loop, so `preExisting: true` alongside severity `blocking` is rejected. Omit when false' },
+      { field: 'findings[].dimension', type: '`"cross-file-coherence"` | `"regression"` | `"semantic-accuracy"` | `"dead-code"` | `"convention-deviation"`', required: 'no', description: "Archer's review dimension. Optional and closed: before B10 it existed only in Archer's chat output format, so `scripts/baseline-report.js` could report precision per severity and per agent but never per dimension. Gaze has no dimension vocabulary and omits the key" },
+      { field: 'findings[].file', type: 'string', required: 'yes', description: 'File the finding is about. Legacy key `component` is accepted and folds onto `file`' },
+      { field: 'findings[].line', type: 'number', required: 'yes for a `blocking` finding', description: 'The cited source line. Required on a blocking finding: a behavioural claim must cite `file:line` in source, and an inference from a symbol NAME is not evidence. Excluded from the id on purpose — an unrelated fix upstream shifts line numbers, and a finding that merely moved is the same finding' },
+      { field: 'findings[].evidence', type: 'string', required: 'no', description: 'What was read at that line. Legacy keys `issue`/`message`/`description` fold onto it; the first one present is the claim text the id hashes' },
+      { field: 'findings[].impact', type: 'string', required: 'no', description: 'User-visible consequence' },
+      { field: 'findings[].remediation', type: 'string', required: 'no', description: 'Smallest valid fix. Legacy key `fix` folds onto it' },
+      { field: 'findings[].disposition', type: '`"fixed"` | `"dismissed"` | `"deferred"`', required: 'no', description: 'Outcome attributed to THIS finding when the fix loop closed, written by `hooks/loop-controller.js`. Absent until the loop closes; absent forever on artifacts written before B9. A `preExisting` finding closes as `deferred`, never `fixed` — it never entered the loop' },
+      { field: 'findings[].dispositionReason', type: 'string', required: 'yes when disposition is `dismissed` or `deferred`', description: 'Why the finding was not fixed. Required for `dismissed`/`deferred` because nothing in the diff evidences them; `fixed` needs none — the changed code is the evidence' },
+      { field: 'discardedFindings', type: 'object[]', required: 'no', description: 'What the B11 verification pass DROPPED: candidate findings whose claim the cited source did not support on re-read. Each element needs a `file` (legacy `component` accepted), a claim (`evidence`/`issue`/`message`/`description`), and a non-empty `reason` naming what the source actually says. Recorded rather than deleted so a dropped false positive is evidence the pass ran, and so the same claim reappearing next round is visible. Omit when nothing was discarded' },
+      { field: 'convergence', type: 'object', required: 'no', description: 'Re-review convergence for this pass (B12), stamped mechanically by `scripts/review-round.js` — reviewers never write it. Absent on a round-1 review' },
+      { field: 'convergence.round', type: 'number', required: 'yes (if present)', description: 'Which pass over this session this is, 1-based. Derived from the carry-over ledger `{SESSION_DIR}/reviews/rounds.json`, which survives the deliberate pre-pass delete of `gaze.json` because it is a different file and holds no verdict' },
+      { field: 'convergence.suppressed', type: 'object', required: 'yes (if present)', description: 'Non-blocking findings this round reported as a count instead of itemizing: `{ total, carriedOver, new }`, all numbers. On round 2+ a non-blocking finding is suppressed whether or not round 1 raised it; the split says which' },
+      { field: 'observationGaps', type: 'string[]', required: 'yes', description: 'Parts of the assigned scope that were not observed. ONE spelling, camelCase like every other artifact key; the legacy `observation_gaps` is accepted and normalized' },
+      { field: '_meta', type: 'object', required: 'no', description: 'Validated when present, never required. DECIDED in B10: the reviewer artifact is the one documented exception to `reference/schemas/_meta.md`, because a subagent-written artifact would have to GUESS the session `phase`/`skill`/`version`, and the portable lifecycle already binds the review to a worktree fingerprint — a guessed provenance header is worse than an absent one' },
+    ],
+    validate: (d, errors) => {
+      // Deliberately NOT validateMeta(d, errors) unconditionally - see the _meta field note.
+      if (d._meta !== undefined) validateMeta(d, errors);
+      if (!isNonEmptyString(d.role)) errors.push('role: required string');
+      // F11: optional, so no artifact on disk starts failing - but a present
+      // `model` must be a real recorded name. There is no enum to check it
+      // against on purpose: model-presets.json maps the same profile to `opus`
+      // on claude-code and `gpt-5.6-sol` on codex, so a closed list here would
+      // reject a true value. An empty string is not a recorded model, it is an
+      // absent one wearing a key, and the gate must be able to tell them apart.
+      if (d.model !== undefined && !isNonEmptyString(d.model)) {
+        errors.push(
+          'model: must be a non-empty string when present - the model this review RAN on, recorded ' +
+            'verbatim from the host and never copied from a frontmatter pin (F11). Omit the key ' +
+            'entirely when nothing recorded it'
+        );
+      }
+      const validVerdicts = ['pass', 'fail', 'blocked'];
+      if (!validVerdicts.includes(d.verdict)) errors.push(`verdict: must be one of ${validVerdicts.join('|')}, got "${d.verdict}"`);
+
+      // One spelling (GAPS_KEY); the other is read and normalized, never rejected.
+      const gaps = d[GAPS_KEY] !== undefined ? d[GAPS_KEY] : d[LEGACY_GAPS_KEY];
+      const gapsKey = d[GAPS_KEY] !== undefined ? GAPS_KEY : LEGACY_GAPS_KEY;
+      if (gaps === undefined) errors.push(`${GAPS_KEY}: required array (legacy key "${LEGACY_GAPS_KEY}" accepted)`);
+      else if (!Array.isArray(gaps) || !gaps.every((gap) => typeof gap === 'string')) {
+        errors.push(`${gapsKey}: must be a string array`);
+      }
+
+      // B11: `needs-verification` means the source could not be re-read, so it
+      // owes the reader the reason. Without this it is a free pass that lets an
+      // unchecked claim land looking checked - which is the false positive the
+      // verification pass exists to remove, wearing a label.
+      const gapList = Array.isArray(gaps) ? gaps : [];
+
+      // B12: stamped by scripts/review-round.js, never by a reviewer.
+      if (d.convergence !== undefined) {
+        if (!isObject(d.convergence)) {
+          errors.push('convergence: must be an object if present');
+        } else {
+          if (!Number.isInteger(d.convergence.round) || d.convergence.round < 1) {
+            errors.push('convergence.round: required integer >= 1');
+          }
+          const s = d.convergence.suppressed;
+          if (!isObject(s)) errors.push('convergence.suppressed: required object {total, carriedOver, new}');
+          else {
+            for (const key of ['total', 'carriedOver', 'new']) {
+              if (!Number.isInteger(s[key]) || s[key] < 0) errors.push(`convergence.suppressed.${key}: required integer >= 0`);
+            }
+            if (Number.isInteger(s.total) && Number.isInteger(s.carriedOver) && Number.isInteger(s.new) &&
+                s.total !== s.carriedOver + s.new) {
+              errors.push(`convergence.suppressed.total: must equal carriedOver + new (${s.carriedOver} + ${s.new})`);
+            }
+          }
+        }
+      }
+
+      // B11: what the verification pass dropped. A discard with no reason is
+      // indistinguishable from a finding that was quietly deleted, which is the
+      // one outcome the record exists to rule out.
+      if (d.discardedFindings !== undefined) {
+        if (!Array.isArray(d.discardedFindings)) {
+          errors.push('discardedFindings: must be an array if present');
+        } else {
+          d.discardedFindings.forEach((entry, i) => {
+            const where = `discardedFindings[${i}]`;
+            if (!isObject(entry)) {
+              errors.push(`${where}: must be an object`);
+              return;
+            }
+            if (!isNonEmptyString(entry.file) && !isNonEmptyString(entry.component)) {
+              errors.push(`${where}.file: required string (legacy key "component" accepted)`);
+            }
+            if (!CLAIM_KEYS.some((key) => isNonEmptyString(entry[key]))) {
+              errors.push(`${where}.evidence: required string (the claim that was discarded; ${CLAIM_KEYS.join('/')} accepted)`);
+            }
+            if (!isNonEmptyString(entry.reason)) {
+              errors.push(
+                `${where}.reason: required non-empty string - a discard records what the source ` +
+                  'actually says at the line you re-read, so a dropped finding is evidence the ' +
+                  'verification pass ran rather than a finding that quietly vanished'
+              );
+            }
+          });
+        }
+      }
+
+      if (!Array.isArray(d.findings)) {
+        errors.push('findings: required array');
+        return;
+      }
+      d.findings.forEach((finding, i) => validateFinding(finding, i, errors));
+      d.findings.forEach((finding, i) => {
+        if (!isObject(finding)) return;
+        if (normalizeConfidence(finding.confidence) !== 'needs-verification') return;
+        if (gapList.length === 0) {
+          errors.push(
+            `findings[${i}].confidence: "needs-verification" requires a matching ${GAPS_KEY} entry ` +
+              'naming what blocked the re-read - it marks source that could not be verified, not a ' +
+              'finding that was not checked'
+          );
+        }
+      });
+      // Two findings sharing an id would each claim the other's disposition, so the
+      // per-finding attribution B9 buys would be exactly as coarse as the review-level
+      // number it replaces.
+      const seen = new Set();
+      d.findings.forEach((finding, i) => {
+        if (!isObject(finding) || typeof finding.id !== 'string') return;
+        if (seen.has(finding.id)) errors.push(`findings[${i}].id: duplicate finding id "${finding.id}"`);
+        seen.add(finding.id);
+      });
     },
   },
 
@@ -757,7 +1055,7 @@ function main(argv) {
   if (!artifactType || !filePath) {
     throw new PhantomError(
       'Usage: validate-artifact.js <artifact-type> <file-path>\n' +
-        'Types: context intent brainstorm decisions plan execution verification wrap pause-state',
+        'Types: context intent brainstorm decisions plan execution verification review wrap pause-state',
       'USAGE'
     );
   }

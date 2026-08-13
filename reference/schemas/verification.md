@@ -15,9 +15,9 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 | correctness.observations.build | `"checked:pass"` \| `"checked:fail"` \| `"not_observed"` | yes | Build check status |
 | correctness.observations.tests | `"checked:pass"` \| `"checked:fail"` \| `"not_observed"` | yes | Test check status |
 | review | object | yes | Self-review results |
-| review.temperature | number | yes | Reviewer strictness (0-1) |
-| review.findings | object[] | yes | Array of finding objects |
-| review.fixLoops | number | yes | How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/temperature-review.md`, currently 2) unless a logged operator override extended it |
+| review.temperature | number | yes | Reviewer strictness (0-1). NOT a severity: it is a knob on how hard the reviewer looks, orthogonal to how a finding is scored once found (`findings[].severity`) |
+| review.findings | object[] | yes | Array of finding objects. Element shape is the review artifact's finding (`reference/schemas/review.md`) — ONE shape and ONE severity scale, enforced there; array-only here so no verification artifact already on disk starts failing |
+| review.fixLoops | number | yes | How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/fix-loop.md`, currently 2) unless a logged operator override extended it |
 | simplifyRan | boolean | yes | Whether simplify was run on changed files |
 | intentAlignment | `"aligned"` \| `"drift"` \| `"wrong"` | yes | How well output matches intent.json |
 | userVerification | object | yes for passed verdict | Compact UI classification and conditional user-verification result; use `{ "required": false }` for non-UI work |
@@ -48,7 +48,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
   "review": {
     "temperature": 0.7,
     "findings": [
-      { "file": "src/foo.ts", "line": 42, "severity": "warn", "message": "Unused import" }
+      { "file": "src/foo.ts", "line": 42, "severity": "advisory", "evidence": "loadConfig() returns before closing the file handle on the error path" }
     ],
     "fixLoops": 1
   },
@@ -67,3 +67,15 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 ```
 
 `{LINT_CMD}` / `{BUILD_CMD}` / `{TEST_CMD}` are resolved via the discovery protocol in `reference/verification.md`. The real file records the concrete commands actually run.
+
+`review.findings[]` elements are review findings: one shape, one severity scale,
+defined and enforced in [`review.md`](review.md). The example above used to read
+`{"severity": "warn", "message": "Unused import"}` — a fifth severity spelling
+attached to a lint nit that `agents/gaze.md` explicitly forbids reporting because
+it is enforced mechanically elsewhere. Corrected in B10: the worked example is now
+something a reviewer is actually allowed to report.
+
+`review.temperature` is NOT a severity. It is a 0-1 knob on how hard the reviewer
+looks — an input to the review. `findings[].severity` is how a finding is scored
+once found — an output of it. F9 counted the two as overlapping vocabularies; they
+are orthogonal axes and both stay.

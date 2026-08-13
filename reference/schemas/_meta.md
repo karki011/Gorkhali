@@ -1,6 +1,33 @@
 # `_meta` Header Spec
 
-Every artifact JSON must include a `_meta` object at the top level.
+Every artifact JSON written by a Phantom SKILL must include a `_meta` object at
+the top level. There is exactly one documented exception, below.
+
+## The one exception: reviewer artifacts
+
+`{SESSION_DIR}/reviews/gaze.json` and `{SESSION_DIR}/reviews/specialists/*.json`
+carry `_meta` only when they happen to have it. `scripts/validate-artifact.js`
+validates it when present and never requires it
+([`review.md`](review.md)).
+
+DECIDED in B10, after F9 recorded that this file claimed universality while no
+reviewer artifact on disk had ever carried `_meta`. The two options were "make
+reviewers emit it" and "stop claiming every artifact has it"; the second is
+correct, for three reasons:
+
+1. A reviewer is a SUBAGENT. `phase`, `skill` and `version` describe the session
+   that spawned it, not the reviewer, so a reviewer filling them in is guessing
+   at values it does not own. A guessed provenance header is worse than an absent
+   one: it looks like evidence and is not.
+2. The binding `_meta` exists to provide — *which worktree was this written
+   against* — is already provided for reviews, and provided more strongly, by the
+   portable lifecycle's worktree fingerprint. `_meta.gitHead` would be a second,
+   weaker copy of a fact the record already carries.
+3. Requiring it would fail every reviewer artifact already on disk for zero
+   information gained.
+
+A reviewer artifact that DOES carry `_meta` must still be well-formed — the
+exemption is from the requirement, not from the schema.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

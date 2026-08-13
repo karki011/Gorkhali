@@ -14,7 +14,7 @@ Validates a Phantom JSON artifact against its canonical schema from `reference/a
 node validate-artifact.js <artifact-type> <file-path>
 ```
 
-**Artifact types:** `context` `intent` `plan` `execution` `verification` `wrap` `pause-state`
+**Artifact types:** `context` `intent` `brainstorm` `decisions` `plan` `execution` `verification` `review` `wrap` `pause-state`
 
 **Checks:**
 - Required `_meta` fields (`writtenAt`, `gitHead`, `gitBranch`, `phase`, `skill`, `version`)
@@ -29,6 +29,69 @@ node validate-artifact.js <artifact-type> <file-path>
 ```bash
 node validate-artifact.js verification ~/.phantom/repos/myrepo/sessions/ENG-1234/verification.json
 ```
+
+---
+
+### `review-gaps.js`
+
+The mechanically-derivable half of a code review (B10f): every changed **source** file with no correspondingly changed **test** file.
+
+```bash
+node review-gaps.js --from-git [<base>]      # changed files vs <base> (default: HEAD)
+node review-gaps.js --files src/a.ts test/a.test.js
+node review-gaps.js --json                   # machine-readable
+git diff --name-only | node review-gaps.js   # or a list on stdin
+```
+
+Correspondence is derived from the file list alone — a changed test whose stem matches the source's stem (`src/session/Resume.ts` ↔ `test/resume.test.js`, `pkg/ledger.go` ↔ `pkg/ledger_test.go`). It is deliberately not an opinion about what "deserves" a test; that phrasing is what made the old Gaze priority un-auditable.
+
+**Exit:** always 0 — this reports, it does not gate. A missing test cannot clear the blocking bar, so findings from it are `advisory` by construction. `--exit-code` opts into exit 1 when gaps exist.
+
+---
+
+### `review-round.js`
+
+Re-review convergence (B12): the carry-over ledger and the round rule.
+
+```bash
+node review-round.js status --reviews {SESSION_DIR}/reviews          # which round the next pass is
+node review-round.js close  --reviews {SESSION_DIR}/reviews --json   # apply the rule, append the round
+```
+
+`commands/review.md` deletes `gaze.json` before every pass so a truncated run cannot reuse an older verdict. The prior rounds' finding ids therefore cannot live in that file — they live in the sibling `rounds.json`, which the delete does not name and which carries **ids, severities and files only, never a verdict**. There is no stale verdict in it to reuse, so the freshness property is preserved by construction rather than by discipline. Rounds are appended only after a real artifact is read, so a truncated run leaves the round number where it was.
+
+On round 2 and later, `close` reports `blocking` findings individually and returns the non-blocking ones as counts split into `carriedOver` and `new`, plus a `convergence` object for the recorded review payload.
+
+**Exit:** 0 = report produced; 1 = I/O / usage (a missing review artifact is an error — it is `blocked`, never a clean round).
+
+---
+
+### `gen-review-standard.js`
+
+Renders the review standard (severity scale, confidence scale, reporting rules, the verification pass, the convergence rule, security categories, canonical finding shape) from `scripts/lib/review-standard.js` into the reviewer prose that consumes it.
+
+```bash
+node gen-review-standard.js            # rewrite target files in place
+node gen-review-standard.js --check    # verify no drift; exit 2 on drift
+node gen-review-standard.js --list     # targets and their blocks
+```
+
+**Targets:** `agents/gaze.md`, `agents/archer.md`, `agents/reference/archer-protocol.md`, `reference/temperature-review.md`.
+
+Same source-of-truth-plus-generator-plus-`--check` shape as `gen-schema-docs.js` and `gen-agent-frontmatter.js`, for the same reason: one severity concept spelled four ways in four prose files is exactly the drift this pattern exists to stop (ROADMAP F1, F5, F9). Prose outside the markers is hand-written and preserved.
+
+---
+
+### `migrate-review-findings.js`
+
+Rewrites a reviewer artifact into the canonical B10 finding shape.
+
+```bash
+node migrate-review-findings.js <file>...          # rewrite in place
+node migrate-review-findings.js --check <file>...  # report only; exit 2 if any file would change
+```
+
+**Optional.** The validator accepts every legacy spelling and normalizes on read, so nothing on disk is forced through this. It exists for a corpus you want to read by eye. Normalization is id-preserving by construction, and the script **refuses to write** any file where a finding id would move — a re-id would silently break the link to a disposition already recorded against it.
 
 ---
 

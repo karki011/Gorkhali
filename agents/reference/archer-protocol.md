@@ -62,32 +62,40 @@ How similar code elsewhere in the repo handles the same pattern — type definit
 
 ## Scoring & Triage Rules
 
-Severity levels:
-- **P0** — Critical/security issues. Always FIX.
-- **P1** — Bugs, incorrect behavior, data correctness. Default FIX.
-- **P2** — Quality, maintainability. Default SKIP unless high blast radius.
+<!-- BEGIN GENERATED review-standard:severity-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+| Severity | Bar | Action |
+| --- | --- | --- |
+| `blocking` | the diff makes something WORSE than it was before, or fails the stated intent | enters the fix loop; the ship waits |
+| `advisory` | worth the author knowing, but the diff neither degrades the file nor misses its intent | reported once; never enters the fix loop, never gates the ship |
+
+These are the only two values. There is no third level and no P0-P3 ordinal: a finding that
+clears neither bar is NOT REPORTED at all — lint, style, naming and preference nits are
+enforced mechanically elsewhere, and restating them is noise the author pays for.
+Legacy spellings still on disk are read as `P0`->`blocking`, `P1`->`blocking`, `P2`->`advisory`, `P3`->`advisory`, `warn`->`advisory`; never write them.
+<!-- END GENERATED review-standard:severity-table -->
 
 Triage rules:
-- P0, P1 → default FIX (bugs, regressions, data correctness issues)
-- P2 → default SKIP unless it's in a hot path or has high blast radius
+- blocking → FIX (bugs, regressions, data correctness issues the diff introduced)
+- advisory → SKIP unless it's in a hot path or has high blast radius
 - Convention deviations → SKIP unless they'll cause confusion for other developers
+- `preExisting: true` → REPORT only. Never FIX, never block: the diff did not introduce it.
 
 ## Example Output
 
 ```
-P1 | cross-file-coherence | use-pulse-dashboard.ts:57 | Cache keys diverge — independent DateTime.utc() calls prevent React Query cache sharing | Extract shared timestamp computation
-P1 | semantic-accuracy | token-summary-table.tsx:32 | "Avg Latency" displays totalLatencyMs (cumulative sum), not per-event average | Divide totalLatencyMs by eventCount
-P1 | regression | pulse-page.tsx:54 | reconnect capability silently removed — users cannot recover from WebSocket disconnection | Restore reconnect destructuring
-P2 | dead-code | pulse-page.tsx:143 | onTimeRangeChange wired to no-op — never invoked internally | Remove prop or wire up control
-P2 | convention-deviation | event-buffer.ts:67 | pulseTimeRangeAtom inlines TimeRange union instead of importing canonical type | Import existing TimeRange type
+blocking | cross-file-coherence | use-pulse-dashboard.ts:57 | Cache keys diverge — independent DateTime.utc() calls prevent React Query cache sharing | Extract shared timestamp computation
+blocking | semantic-accuracy | token-summary-table.tsx:32 | "Avg Latency" displays totalLatencyMs (cumulative sum), not per-event average | Divide totalLatencyMs by eventCount
+blocking | regression | pulse-page.tsx:54 | reconnect capability silently removed — users cannot recover from WebSocket disconnection | Restore reconnect destructuring
+advisory | dead-code | pulse-page.tsx:143 | onTimeRangeChange wired to no-op — never invoked internally | Remove prop or wire up control
+advisory | convention-deviation | event-buffer.ts:67 | pulseTimeRangeAtom inlines TimeRange union instead of importing canonical type | Import existing TimeRange type
 ```
 
 ## Auto-Triage Format
 
 ```
-FIX  P1  cross-file-coherence  use-pulse-dashboard.ts:57   Cache keys diverge — high impact
-FIX  P1  semantic-accuracy     token-summary-table.tsx:32  Label-value mismatch misleads users
-FIX  P1  regression            pulse-page.tsx:54           Feature silently removed
-SKIP P2  dead-code             pulse-page.tsx:143          Cosmetic — cleanup pass
-SKIP P2  convention-deviation  event-buffer.ts:67          Minor DRY, low blast radius
+FIX  blocking  cross-file-coherence  use-pulse-dashboard.ts:57   Cache keys diverge — high impact
+FIX  blocking  semantic-accuracy     token-summary-table.tsx:32  Label-value mismatch misleads users
+FIX  blocking  regression            pulse-page.tsx:54           Feature silently removed
+SKIP advisory  dead-code             pulse-page.tsx:143          Cosmetic — cleanup pass
+SKIP advisory  convention-deviation  event-buffer.ts:67          Minor DRY, low blast radius
 ```

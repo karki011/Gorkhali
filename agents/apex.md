@@ -69,7 +69,7 @@ The drain result carries a liveness summary — if the queue isn't draining or a
 
 When Ward reports failures, classify and assign scoped repairs. For the full triage table and fix packet format: `reference/agents.md`
 
-**Fix-loop ceiling** — `FIX_LOOP_CEILING` owned by `scripts/lib/constants.js` (default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by `hooks/loop-controller.js` (protocol: `reference/temperature-review.md`). If the controller says stop and there is no operator override, escalate to user.
+**Fix-loop ceiling** — `FIX_LOOP_CEILING` owned by `scripts/lib/constants.js` (default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by `hooks/loop-controller.js` (protocol: `reference/fix-loop.md`). If the controller says stop and there is no operator override, escalate to user.
 
 ## Critical Rules
 

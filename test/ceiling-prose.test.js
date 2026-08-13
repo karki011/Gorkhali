@@ -4,8 +4,11 @@
 //   "max 3 fix attempts"-class phrase for the verify/fix loop (oracle/sage
 //   budget mentions excluded by context).
 // POSITIVE: scripts/lib/constants.js FIX_LOOP_CEILING default is 2, and
-//   reference/temperature-review.md contains the canonical
-//   "fix-loop ceiling is 2" statement.
+//   reference/fix-loop.md contains the canonical
+//   "fix-loop ceiling is 2" statement. (B10 split that statement out of
+//   reference/temperature-review.md, which now owns severity only; the
+//   NEGATIVE check below still scans reference/ so a restated ceiling
+//   anywhere is caught.)
 // Zero external deps: node:test + node:assert only.
 'use strict';
 
@@ -77,17 +80,30 @@ test('POSITIVE: scripts/lib/constants.js FIX_LOOP_CEILING default is 2', () => {
   assert.equal(C.FIX_LOOP_CEILING, 2, 'FIX_LOOP_CEILING default must be 2');
 });
 
-test('POSITIVE: reference/temperature-review.md contains canonical "fix-loop ceiling is 2" statement', () => {
-  const docPath = path.join(REPO_ROOT, 'reference', 'temperature-review.md');
+test('POSITIVE: reference/fix-loop.md contains canonical "fix-loop ceiling is 2" statement', () => {
+  const docPath = path.join(REPO_ROOT, 'reference', 'fix-loop.md');
   const content = fs.readFileSync(docPath, 'utf8');
   // The canonical phrase lives in the Fix-Loop Ceiling section.
   assert.ok(
     /fix-loop ceiling is (owned by|2)/i.test(content),
-    'reference/temperature-review.md must contain the canonical fix-loop ceiling statement'
+    'reference/fix-loop.md must contain the canonical fix-loop ceiling statement'
   );
   // Also verify the specific "default 2" claim is present.
   assert.ok(
     /default\s+2/i.test(content),
-    'reference/temperature-review.md must state the default is 2'
+    'reference/fix-loop.md must state the default is 2'
+  );
+});
+
+test('the ceiling has exactly ONE canonical home - temperature-review.md kept severity, not the number', () => {
+  const severityDoc = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'temperature-review.md'), 'utf8');
+  assert.ok(
+    !/fix-loop ceiling is (owned by|2)/i.test(severityDoc),
+    'reference/temperature-review.md must NOT restate the ceiling - B10 split it into reference/fix-loop.md'
+  );
+  assert.match(
+    severityDoc,
+    /fix-loop\.md/,
+    'reference/temperature-review.md must POINT at the ceiling doc rather than restating it'
   );
 });

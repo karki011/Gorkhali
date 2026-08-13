@@ -31,8 +31,8 @@ Review the whole changed scope once, prioritizing issues that affect users or
 safe operation:
 
 1. correctness and explicit requirement alignment;
-2. security, privacy, data loss, and compatibility;
-3. regression risk and missing focused tests for non-trivial logic;
+2. the named security categories below, plus privacy, data loss, and compatibility;
+3. regression risk, and changed source files whose tests did not change (rule 4 below);
 4. broken imports, references, types, or public contracts;
 5. unnecessary custom machinery when repository, standard, native, or installed
    behavior already solves the problem;
@@ -56,9 +56,119 @@ If the classification is wrong or cannot be assessed, use `failed` or
 Do not repeat lint or style-only observations already enforced mechanically.
 Do not require speculative abstractions, broad refactors, or unrelated cleanup.
 
-Use severity `blocking` only for a defect that must be resolved before shipping.
-Use `advisory` for a useful non-blocking improvement. Every finding includes the
-file or component, evidence, user impact, and smallest valid remediation.
+## Security categories
+
+<!-- BEGIN GENERATED review-standard:security-categories - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+Check each named category against the diff. Naming them is the point: "check security" does
+not correct a blind spot, a list does.
+
+- **Broken access control (including SSRF)** — missing or wrong authorization on a new route, handler, query or job; an object id taken from the request and trusted; a server-side fetch whose URL the caller controls
+- **Injection** — SQL/NoSQL/shell/template/LDAP built by string concatenation from request, file or environment data instead of parameterized or escaped
+- **Cryptographic failures** — home-rolled crypto, a broken primitive (MD5/SHA-1/ECB), a static IV or salt, a non-constant-time comparison of secrets, TLS verification disabled
+- **Secrets in code, config or logs** — a key, token, password or connection string committed, defaulted in config, echoed into a log line, or attached to an error report
+- **Unsafe defaults** — a new option, flag or config key whose DEFAULT is the permissive value: auth off, verification skipped, debug on, CORS `*`, a wide-open bind address
+- **Data exposure** — a response, log, error message, cache key or analytics event that newly carries PII, credentials or another tenant's data
+<!-- END GENERATED review-standard:security-categories -->
+
+## Severity
+
+<!-- BEGIN GENERATED review-standard:severity-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+| Severity | Bar | Action |
+| --- | --- | --- |
+| `blocking` | the diff makes something WORSE than it was before, or fails the stated intent | enters the fix loop; the ship waits |
+| `advisory` | worth the author knowing, but the diff neither degrades the file nor misses its intent | reported once; never enters the fix loop, never gates the ship |
+
+These are the only two values. There is no third level and no P0-P3 ordinal: a finding that
+clears neither bar is NOT REPORTED at all — lint, style, naming and preference nits are
+enforced mechanically elsewhere, and restating them is noise the author pays for.
+Legacy spellings still on disk are read as `P0`->`blocking`, `P1`->`blocking`, `P2`->`advisory`, `P3`->`advisory`, `warn`->`advisory`; never write them.
+<!-- END GENERATED review-standard:severity-table -->
+
+## Confidence
+
+A second, independent axis. Severity says how much a finding matters; confidence
+says how sure you are it is true. Score each on its own axis — an author who
+cannot tell a confident nit from an unsure bug skims both.
+
+<!-- BEGIN GENERATED review-standard:confidence-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+| Confidence | Bar | Action |
+| --- | --- | --- |
+| `confirmed` | you re-opened the cited file at the cited line and the behaviour the finding claims is there | reported normally |
+| `possible` | the cited line reads as claimed, but whether it produces the stated impact depends on a path you could not follow | reported, and the author is told the consequence is the uncertain part - not the code |
+| `needs-verification` | the cited source could not be re-read at all (generated, vendored, outside the worktree, unreadable) | reported ONLY with a matching `observationGaps` entry naming what blocked the re-read |
+
+**Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. Do not downgrade a bug to `advisory` because you are unsure of it — mark it `blocking` and `possible`. Do not promote a nit to `blocking` because you are certain of it — `advisory` and `confirmed` is a complete answer. All six combinations are legal and the schema accepts every one of them.
+
+Three axes, three questions, none of them derived from another:
+
+| Axis | Field | Kind | Question | Values |
+| --- | --- | --- | --- | --- |
+| strictness | `review.temperature` | input, per review | how hard does the reviewer look? | 0-1 |
+| severity | `findings[].severity` | output, per finding | how much does this finding matter? | `blocking` \| `advisory` |
+| confidence | `findings[].confidence` | output, per finding | how sure are you the claim is true? | `confirmed` \| `possible` \| `needs-verification` |
+
+The confidence axis is what the verification pass MOVES: an unverified claim is either
+confirmed against the source or discarded. It is not a place to park a guess.
+<!-- END GENERATED review-standard:confidence-table -->
+
+## Reporting rules
+
+<!-- BEGIN GENERATED review-standard:finding-rules - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+1. **Cite the source, not the name.** A behavioural claim must cite `file:line` in the source you actually read. An inference from a symbol's NAME is not evidence: `validateInput()` may validate nothing, `isAdmin` may be assigned in one branch only, and a `retry` wrapper may swallow the error. If you cannot point at the line that makes the claim true, the finding does not exist. A `blocking` finding therefore always carries a `line`; the schema rejects one that does not.
+2. **Blocking means the diff made it worse.** Mark a finding `blocking` only when the diff makes something WORSE than it was before, or fails the stated intent. Compare against the PRIOR state of the code, not against the repository ideal: a change that improves a bad file is not held to a standard the surrounding code never met. Everything else is `advisory`.
+3. **Pre-existing defects report, they never block.** A real defect the diff did NOT introduce is reported with `preExisting: true` and severity `advisory`. It never blocks, never enters the fix loop, and is never counted as a defect this diff caused. This is how a genuine bug survives without holding an unrelated ship hostage — the two bad options it replaces are "block on scope creep" and "drop the finding".
+4. **Source changed, tests did not.** Run `node scripts/review-gaps.js --from-git` (or pass the changed-file list with `--files`). It names every changed SOURCE file with no corresponding changed test file, derived mechanically from the changed-file list — not from judgement about what "deserves" a test. Report each one as a single `advisory` finding citing the source file. It is advisory by construction: a missing test does not make the diff worse than before.
+5. **Verify against the source before the finding lands.** Between finding something and writing the artifact, re-open the cited `file:line` and confirm the claimed behaviour is actually there. Anything you cannot confirm at the source is DISCARDED, not downgraded — record it in `discardedFindings` with the reason. This is a pass over the CODE, never a second look at your own finding list: re-reading your notes and asking whether they still look right is same-context self-critique, which produces false negatives on your own output, while re-checking a claim against the source is what cuts false positives. See the verification pass below for the procedure.
+6. **Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. Do not downgrade a bug to `advisory` because you are unsure of it — mark it `blocking` and `possible`. Do not promote a nit to `blocking` because you are certain of it — `advisory` and `confirmed` is a complete answer. All six combinations are legal and the schema accepts every one of them.
+<!-- END GENERATED review-standard:finding-rules -->
+
+Every finding includes the file, the cited line, evidence, user impact, and the
+smallest valid remediation.
+
+## Verification pass
+
+<!-- BEGIN GENERATED review-standard:verification-pass - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+Run this once, after investigating and BEFORE writing the artifact. It is the last step of investigating, not a step after reporting. Only findings that survive it are written.
+
+1. RE-OPEN the file at the cited line with a read of the source, now. Not the diff hunk, not your earlier notes, not the summary you already wrote: a hunk shows the changed lines and not the guard twenty lines above them that makes the claim false.
+2. READ the whole enclosing definition, plus the callers you claimed are affected. A claim about what a function does to its caller is not verified inside the function alone.
+3. QUOTE what you just read into `evidence`. The evidence field is the text you read at that line — if you cannot quote or paraphrase a specific line, there is nothing to verify.
+4. DECIDE against the source, not against how good the finding sounds: the behaviour is there (`confirmed`); the line reads as claimed but the consequence depends on a path you could not follow (`possible`); or the source does not support the claim (DISCARD it).
+5. DISCARD by moving the finding into `discardedFindings` with a `reason` naming what the source actually says. A discarded finding is a result and is recorded as one — it is never silently deleted and never quietly re-scored into an advisory.
+6. Use `needs-verification` ONLY when the source could not be re-read at all, and add the matching `observationGaps` entry saying why. It is not a shortcut for "I did not check".
+
+**Not this:** If your check did not involve opening a file, it did not happen. Reading the finding list again and agreeing with it is not this pass.
+<!-- END GENERATED review-standard:verification-pass -->
+
+This pass is the last step of investigating, which is what "after investigating"
+in Artifact First below refers to. It does not delay the artifact: it is over
+before the first write, and a finding that has not been through it does not go
+into the file at all.
+
+## Re-review rounds
+
+<!-- BEGIN GENERATED review-standard:convergence-rule - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+On the second and later review pass over the same session, report `blocking` findings only. Non-blocking findings are suppressed and reported as a COUNT, split into the ones carried over from an earlier round and the ones first seen this round. The reason is bounded churn: the diff changed only by the fix an earlier round asked for, so a fresh crop of advisories is noise the author pays for, and the fix-loop escalation turns that noise into an interrupt. A NEW blocking finding is always reported — the fix may have broken something, and that is exactly what a re-review is for.
+
+You are TOLD which round this is; you never count rounds yourself. The caller runs
+`node scripts/review-round.js status --reviews {SESSION_DIR}/reviews` before spawning you and
+passes the round number in. Absent a stated round, this is round 1 and nothing is suppressed.
+
+What changes on round 2 and later, precisely:
+
+- **Your attention.** Re-review the FIX diff and the blocking classes. Do not re-sweep the
+  whole change for fresh advisories: the only thing that moved since round 1 is the fix an
+  earlier round asked for.
+- **What you SAY.** Your chat summary itemizes `blocking` findings only. Non-blocking ones
+  are given as a single count, never re-listed one by one.
+- **What you WRITE stays complete.** Keep every finding you stand behind in the artifact.
+  Suppression is about what a round is allowed to SAY, and an artifact with findings quietly
+  removed would break the finding ids the suppression itself is counted with.
+
+The split between carried-over and newly-raised is mechanical and is not yours to do:
+`node scripts/review-round.js close` reads your artifact, matches finding ids against the
+earlier rounds, and reports both counts.
+<!-- END GENERATED review-standard:convergence-rule -->
 
 ## Specialist boundary
 
@@ -71,31 +181,63 @@ supplied.
 
 ### Artifact First
 
-After investigating, run `mkdir -p {SESSION_DIR}/reviews/` and write the current
-verdict to `{SESSION_DIR}/reviews/gaze.json` before refining the chat summary or
-running any long-running command. Keep the file current if a later observation
-changes the verdict:
+After investigating — which ends with the verification pass above, not before it
+— run `mkdir -p {SESSION_DIR}/reviews/` and write the current verdict to
+`{SESSION_DIR}/reviews/gaze.json` before refining the chat summary or running any
+long-running command. Keep the file current if a later observation changes the
+verdict; a finding added later goes through the same verification pass first:
 
+<!-- BEGIN GENERATED review-standard:finding-shape - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 ```json
 {
   "role": "gaze",
+  "model": "the model this review RAN on - omit unless the host told you",
   "verdict": "pass|fail|blocked",
   "findings": [
     {
       "severity": "blocking|advisory",
+      "confidence": "confirmed|possible|needs-verification",
+      "preExisting": false,
       "file": "src/example.ts",
       "line": 42,
-      "evidence": "...",
-      "impact": "...",
-      "remediation": "..."
+      "evidence": "what you read at that line, quoted or paraphrased",
+      "impact": "the user-visible consequence",
+      "remediation": "the smallest valid fix"
     }
   ],
-  "observation_gaps": []
+  "discardedFindings": [
+    {
+      "file": "src/example.ts",
+      "evidence": "the claim you were going to make",
+      "reason": "what the source actually says at the line you re-read"
+    }
+  ],
+  "observationGaps": []
 }
 ```
 
-A clean review is `verdict: "pass"` with a written empty `findings` array. A
-missing or unreadable artifact is not a clean review. Caller adapters may keep a
+One shape, every reviewer, every path. `line` is required whenever `severity` is `blocking`.
+`preExisting` may be omitted when false. `severity` and `confidence` are independent: score
+each on its own axis and never derive one from the other. `discardedFindings` is what the
+verification pass dropped and may be omitted when it dropped nothing — an omitted key and an
+empty array both mean "nothing discarded". `id`, `disposition`, `dispositionReason` and
+`convergence` are stamped mechanically after you report (`scripts/lib/review-finding.js`,
+`hooks/loop-controller.js`, `scripts/review-round.js`) — never write them yourself.
+
+`model` is OPTIONAL, and recorded once for the whole artifact: the model this review actually
+RAN on. Write it only from what the host reports about the running model. NEVER copy it from a
+frontmatter pin or from model-policy.json — a pin is what was requested, and F11 measured the
+default reviewer running the cheaper tier on 7 of 25 spawns while its pin still read `opus`.
+Omit the key when nothing told you; an absent model is honest, a guessed one is not. The B11
+precision gate compares findings that carry a `confidence` against findings that do not. If
+those two populations ran on different models the gate measures the MODEL, not the verification
+pass, so it REFUSES to produce a verdict unless both sides share one recorded model.
+
+A clean review is `"verdict": "pass"` with a written `"findings": []`. An absent key is a
+DIFFERENT result — it means no review landed — and must never report as a clean one.
+<!-- END GENERATED review-standard:finding-shape -->
+
+A missing or unreadable artifact is not a clean review either. Caller adapters may keep a
 legacy session-local copy for compatibility, but the portable `review` record
 and its worktree fingerprint are the lifecycle authority.
 

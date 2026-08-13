@@ -23,6 +23,10 @@ Each backlog item traces to a research weakness (section 6 of the research doc):
 | W5 - wake-classifier reverse-engineered | section 12, port only `classify()` |
 | W6 - repo and context bloat | B7 |
 | W7 - ceremony candidates | B8 |
+| W8 - review effectiveness unmeasured | B9, B9b, B10, B11, B12, B13 |
+
+W8 derives from a second research doc, `project-docs/review-research-2026.md`, which is AUTHORITATIVE for the 2026 review landscape, the false-positive literature, and the derivation of B9-B13.
+Same rule as above: this document does not restate those findings.
 
 ---
 
@@ -34,7 +38,7 @@ Each backlog item traces to a research weakness (section 6 of the research doc):
 | B0b | Baseline miner (`scripts/baseline-report.js`) | DONE (uncommitted) | - | - |
 | R1 | Model bucketing fix in the report | DONE (uncommitted) | - | - |
 | A1 | Unattended spend cap + stuck detection | DONE (uncommitted) | - | - |
-| - | Version manifest sync to 0.2.7 | DONE (uncommitted) | - | - |
+| - | Version manifest sync (0.2.7 at the time; all three now 0.3.11, `npm run version:check` in sync) | DONE | - | - |
 | B2 | Eval baseline | IN PROGRESS | 1d | blocks B7/B8 deletions |
 | C1 | Config layer (`scripts/phantom-config.js`) | IN PROGRESS | 2d | blocks T1, T2, T3, greploop fix |
 | B1 | Unify model routing on `model-policy.json` | PENDING | 2d | needs C1 for host config |
@@ -49,6 +53,12 @@ Each backlog item traces to a research weakness (section 6 of the research doc):
 | T4 | De-CloudZero + license + CONTRIBUTING | PENDING | 2d | after B2, B7/B8 |
 | B5 | Per-role cost attribution | PENDING | 1d | partly collapsed into B0b |
 | B6 | Down-pin measurement gate | PENDING | 1d | needs B1 |
+| B9 | Review finding disposition | DONE | 1d | schema+id+disposition, plus the miner table (B9b) |
+| B10 | Gaze finding schema + review standard | DONE | 2d | one scale, one shape, generated + drift-checked |
+| B11 | Verification pass before findings land | DONE | 2d | pass + `confidence` axis shipped; the promote/revert gate is BUILT and cannot fire — corpus 0/0 measurable, and per F11 it now also refuses any comparison whose two sides cannot be shown to share one recorded reviewer `model` |
+| B12 | Re-review convergence | DONE | 0.5d | carry-over ledger survives the deliberate `gaze.json` delete; round 2 itemizes blocking only |
+| B9b | Per-finding table in the baseline miner | DONE | 0.5d | completes B9's stated test; corpus is 0/0 measurable until the first post-B9 fix loop closes |
+| B13 | Structured PR body | DONE | 0.5d | - |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the three plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
@@ -108,7 +118,7 @@ These are the starting numbers every future change is compared against.
 | Distinct tickets | 152, of which 83 are `CP-*` |
 | PR created | 70.2% (134/191) |
 | Distinct PRs | 112 |
-| Merge rate | **99.1%** (111 merged, 1 closed), via `gh` ground truth |
+| Merge rate | **99.1%** (111 merged, 1 closed, ZERO open), via `gh` ground truth — settled-only, which is what F12 made the miner's denominator too |
 | Review cycles | median 2; 399 reviews, 482 comments total |
 | `wall_time` coverage | 3/191 |
 | Cost coverage | 21/191 |
@@ -120,6 +130,11 @@ Historical agent spawns at the time of measurement: blade 1157, archer 464, swee
 That schema drift is WHY measurement never happened before this session, and it is precisely what B0 fixed.
 
 Greptile at 50/191 means it is already de facto optional on the ship path, despite `wrap.md:103` claiming it always runs.
+
+Per F8 the two review rows above (review cycles, and the spawn ratio) describe the PRE-#109 pipeline and are superseded, not merely dated.
+Their replacement is the `REVIEW FINDINGS` section of `scripts/baseline-report.js` (B9b), which measures precision per finding rather than cycles per PR.
+Against the corpus as it stands that section reads **0 measurable findings**, because every reviewer artifact on disk predates B9 and carries no disposition.
+That is the honest starting point of the re-baseline: the number is UNMEASURABLE, and it stays that way until the first post-B9 fix loop closes.
 
 ---
 
@@ -174,6 +189,86 @@ Zero of six on routing contradicts months of working daily use and the measured 
 Cross-reference E1: both the 7 llm-judge cases (F3) and these 6 route cases bear on whether this baseline is trustworthy at all.
 Consequence: the 47.3% figure must not be quoted as a system-effectiveness number until the 6 route cases are diagnosed (E3).
 
+**F8. Section 3's review numbers describe a pipeline that no longer exists.**
+The baseline was measured 2026-07-28.
+`#109 refactor: simplify review and verification pipeline` landed 2026-08-11 and rewrote `agents/gaze.md`, `agents/archer.md`, `commands/review.md` and `commands/verify.md` together (246 insertions, 153 deletions), making Gaze the single default reviewer and Archer risk-triggered off verification's `requiredSpecialists`.
+So the spawn ratio in section 3 — archer 464 against gaze 113, Archer running 4x the "one default reviewer" — is an artifact of the PRE-#109 architecture and must not be read as evidence about the current one.
+Same for review cycles (median 2; 399 reviews, 482 comments): measured against a different pipeline.
+Consequence: B9 is not merely additive instrumentation, it is a RE-baseline.
+No review-quality claim may cite section 3's review numbers until B9 has re-measured post-#109, and `project-docs/review-research-2026.md` gap 11 (cross-file context is opt-in) rests on the stale ratio and must be re-derived rather than acted on.
+
+**F9. Four severity vocabularies for one concept, and the canonical schema disagrees with the reviewer.**
+`agents/gaze.md` uses `blocking`/`advisory`.
+`agents/archer.md` uses `P0`/`P1`/`P2`.
+`reference/temperature-review.md` uses `P0`-`P3`.
+`reference/schemas/verification.md` uses `severity: "warn"`.
+(An earlier draft of this finding counted `review.temperature` as a fifth vocabulary. It is not — see the correction below.)
+Worse than the count: the SHAPES differ.
+The canonical schema's `review.findings[]` is `{file, line, severity, message}`, while `gaze.json` findings are `{severity, file, line, evidence, impact, remediation}`, so the two cannot be read by one consumer.
+And the schema's own worked example is `"Unused import"` — a lint nit that `agents/gaze.md` explicitly forbids reporting, because it is mechanically enforced elsewhere.
+This is the F1/F5 pattern again: one value, N places, nothing enforcing agreement.
+It is B10's concrete scope, and it is why B10 must land before B11 rather than after — B11 adds a `confidence` axis, and adding an axis to four disagreeing scales multiplies the drift instead of fixing it.
+Note `temperature-review.md` now carries two unrelated jobs: it is the canonical home of `FIX_LOOP_CEILING` (live, referenced by `apex.md`, `contracts.md` and the verification schema) and of a severity table (superseded). Split them rather than deleting the file.
+
+F9 as first written UNDERCOUNTS the drift. B9 found three more while building the `review` schema, all of them B10's scope:
+- A THIRD finding shape for the same `gaze.json` path — `reference/temperature-review.md` instructs `{temperature, issue, fix}`, against gaze's `{severity, file, line, evidence, impact, remediation}` and the verification schema's `{file, line, severity, message}`.
+- `agents/gaze.md` writes `observation_gaps`; `agents/archer.md` writes `observationGaps`. Same array, two spellings.
+- `reference/schemas/_meta.md` says every artifact carries `_meta`; no reviewer artifact ever has. B9 validates `_meta` on `review` only when present, because requiring it would fail every `gaze.json` on disk. B10 decides whether reviewers start emitting it or `_meta.md` stops claiming universality.
+The B9 `review` schema accepts all three finding shapes as legacy keys so that item could stay behaviour-neutral; B10 is what collapses them.
+
+**F9 is CLOSED by B10.** Recorded here because the finding is the reason the fix has the shape it does:
+the vocabulary is now DATA in `scripts/lib/review-standard.js`, the reviewer prose is GENERATED from it by `scripts/gen-review-standard.js`, and `--check` plus `test/review-standard.test.js` fail CI on a hand-edit.
+A fifth prose restatement was the one solution guaranteed to drift again, which is the whole lesson of F1 and F5.
+One correction to F9 as written: it calls `review.temperature` a fifth vocabulary for the same concept. It is not.
+`review.temperature` is a 0-1 knob on how hard the reviewer LOOKS — an input — and `findings[].severity` is how a finding is scored once FOUND — an output.
+They are orthogonal axes, both stay, and `reference/schemas/verification.md` now says so instead of leaving the overlap implied.
+
+**F10. Section 3's baseline is not reproducible on the author's machine.**
+A run on 2026-08-13 against `/Users/subash.karki/.phantom` reports **25** canonical wrap records, 24 distinct tickets, and 11 distinct PR urls.
+Section 3 records 191, 152 and 112.
+The miner resolved 24 canonical plus 1 unmapped repo path, so it is reading the canonical location and this is not the `~/.phantom/sessions/` mistake already corrected in section 4.
+Either the corpus was pruned (`scripts/session-cleanup.js`, a data migration) or section 3 was measured against a data root that no longer exists.
+Until that is explained, section 3's line "these are the starting numbers every future change is compared against" is FALSE — there is nothing to compare against, and no before/after claim may cite it.
+Resolve this before B7/B8, which are gated on exactly that baseline.
+
+**F11. Gaze ran on sonnet in 7 of 25 observed spawns despite an opus pin.**
+The same run reports `gaze deep opus opus match` for policy-vs-frontmatter, and `opus:18 sonnet:7` for OBSERVED.
+So the frontmatter drift check passes while 28% of the DEFAULT REVIEWER's actual spawns used the cheaper tier.
+`blade` shows the same shape worse (`sonnet:128 opus:23 haiku:12` against a sonnet pin), and `ward` confirms F1 live (`haiku:21 sonnet:12`).
+B1's "65-spawn un-pinned tail" is therefore not a tail for gaze — it is more than a quarter of its runs.
+Consequence for W8: B11's precision gate would be comparing two different reviewers, not verified against unverified.
+The gate must record the model per finding, or B1 must land first. This is a real confound, not a rounding error.
+
+**F11's GATE half is FIXED; the model drift itself is NOT.** Read the two apart, because the green test says less than it looks like it does.
+
+Fixed here, in two parts:
+- The review artifact can now RECORD what it ran on: an OPTIONAL top-level `model` on `reference/schemas/review.md`, validated by `scripts/validate-artifact.js` and documented from `REVIEWER_MODEL` in `scripts/lib/review-standard.js`, so the reviewer prose is generated rather than restated.
+  It is PER ARTIFACT, not per finding as F11 first wrote it: one review is one reviewer in one spawn, so every finding in a file shares its model and a per-finding copy would be the same value written N times with N chances to disagree.
+  Optional, so no artifact on disk starts failing, and the field is content-free for B9 ids — `scripts/lib/review-finding.js` hashes `file + claim` only, asserted in `test/review-model-confound.test.js`.
+  The prose forbids copying the value from a frontmatter pin: the pin is what was ASKED for, and F11 is precisely the case where it is not what ran.
+- `precisionGate()` now REFUSES a confounded comparison. Unless both sides carry one and the same recorded model, the verdict is `unmeasurable` with `confound: "reviewer-model"`, the reason names which side ran what, and `scripts/baseline-report.js` adds a `review_model_confound` entry to `unresolved[]`. Mixed models, two different models, and an UNRECORDED model are all refusals — silence is never read as "one model". The check runs BEFORE the sample-size check, because a bigger sample cannot un-confound a comparison, and nothing is weighted, adjusted or estimated around the difference.
+  A firing verdict now states the model it held constant (`both sides on opus`), so no verdict can be quoted without its control.
+
+NOT fixed, and not this item's job:
+- The drift itself — gaze pinned `opus` and running `opus:18 sonnet:7`, blade `sonnet:128 opus:23 haiku:12`, ward `haiku:21 sonnet:12` — is **B1**. The gate is now honest about the confound; it does not remove it.
+- Nothing WRITES `model` yet. The honest source is the instrumentation that already knows the effective model (`hooks/timing-capture.js` resolves param > frontmatter pin > session-inherited), not the reviewer's self-report, which would just restate the pin. Until a writer lands, every corpus reads `model` unrecorded and the gate refuses — which is the intended state, not a regression.
+- The frontmatter-vs-policy drift row still prints `match` for gaze. It compares the pin against the policy, and neither one is what ran; the OBSERVED column beside it is the real signal (B1).
+
+**F12. Merge rate counts a still-open PR as not-merged.**
+`scripts/baseline-report.js:1068` computes `mergeRate = merged / ghResolved`, and `ghResolved` includes open PRs.
+The 2026-08-13 run reports merged 9, open 2, closed 0 over 11 resolved — printed as 81.8%.
+Excluding the 2 unfinished PRs it is 9/9.
+Section 3's 99.1% had 111 merged and 1 closed with zero open, so the two numbers are not comparable and the apparent drop from 99.1% to 81.8% is mostly definitional.
+Either exclude open PRs from the denominator or report merge rate over closed PRs only, with open counted separately.
+
+**F12 is FIXED.** The denominator is SETTLED PRs only — `merged + closed`:
+- `prs.mergeRate` is `merged/(merged+closed)`; `prs.settledPrs` and `prs.unfinishedPrs` are reported beside it, and the human table prints a `settled / unfinished` row. Open and draft are counted and shown, never in the denominator: an unfinished PR has not failed to merge.
+- `mergeRateBasis` now states the division literally — `merged/(merged+closed) = 9/9 settled distinct PR url(s), gh ground truth over 11 resolved; 2 unfinished (open 2, draft 0) EXCLUDED from the denominator - an unfinished PR is not a failed one` — and says `0 open and 0 draft, so settled = every resolved PR` when there is nothing to exclude. That last clause is what makes section 3's 99.1% (111 merged + 1 closed, zero open) comparable to any later run at all: the two figures divided by the same thing only when the basis says so.
+- With nothing settled, the rate is `null` and prints `absent`, with a basis reading `UNMEASURABLE: 0 settled PRs (merged+closed) among N resolved` — never 0%, never 100%. Both exclusions add a `merge_rate` entry to `unresolved[]`.
+- `test/baseline-merge-rate.test.js` runs the production miner against a fake `gh` and pins the real shape: 9 merged + 2 open reads 100.0%, not 81.8%.
+
+Still open after this: section 3's numbers remain unreproducible per F10, so the corrected rate has nothing to be compared against yet. Fixing the denominator does not resolve F10.
+
 ---
 
 ## 6. Done this session
@@ -200,8 +295,72 @@ Verified behavior: interactive never halts, confirmed overage halts, unknown spe
 **Honest limitation, recorded in the code and repeated here: this is a ceiling on OBSERVED spend, not a hard guarantee.**
 A run with a missing cost ledger is uncapped, and `run-guard` says so out loud.
 
+**B9b - per-finding table in the baseline miner.**
+`scripts/baseline-report.js` gains a `REVIEW FINDINGS` section: one row per finding id with its `fixed`/`dismissed`/`deferred` column, plus precision broken out per severity, per agent, and per dimension.
+Precision is reported as a BAND, not a point — `fixed/(fixed+dismissed+deferred)` as the lower bound and `fixed/(fixed+dismissed)` as the upper — because a `deferred` finding is neither a confirmed true positive nor a confirmed false one.
+Per F8 this is a re-baseline: a finding with no recorded disposition is counted as unmeasurable and never enters a denominator, an empty measurable set prints `UNMEASURABLE` rather than 0% or 100%, and the miner never calls `closeFixLoop()` (which would default every open pre-B9 finding to `deferred` and manufacture the data whose absence is the finding).
+Two structural exclusions, both counted and reported rather than silent: a finding with no disposition, and a `preExisting` finding, which B10 defers BY RULE because it never entered the fix loop — counting it would measure the rule, not the review.
+Severity is folded onto B10's one scale by READING `scripts/lib/review-standard.js` (a legacy `P0` and a canonical `blocking` are one table row, not two), while each finding row keeps the raw spelling that is actually on disk.
+Per-dimension precision reports absent today: no finding schema field carries a dimension, and `agents/archer.md` names its five only in its chat format. That is B10's remaining gap.
+
+**B10 - Gaze finding schema + review standard.**
+Six changes landed as one pass, all of them prompts, schema and thresholds — no new agent.
+(a) A behavioural claim must cite `file:line` in source. Made mechanical rather than advised: `scripts/validate-artifact.js` REJECTS a `blocking` finding that names a file and no line. An inference from a symbol's name has no line to cite, which is the point.
+(b) `preExisting: true` marks a real defect the diff did not introduce. `preExisting` with `blocking` is rejected outright, `hooks/loop-controller.js` `fixLoopFindings()` never hands one to a fix agent, and `closeFixLoop()` closes it `deferred` — never `fixed`, not even when the loop touched its file, because counting it would inflate the precision number B9 exists to measure honestly.
+(c) `blocking` requires the diff to make something WORSE than before or to fail the stated intent. Stated once, in data, and rendered into every reviewer prompt from there.
+(d) Six named security categories anchored to OWASP Top 10:2025 — broken access control incl. SSRF, injection, cryptographic failures, secrets in code/config/logs, unsafe defaults, data exposure — replacing the bare word "security".
+(e) The F9 collapse (below).
+(f) `scripts/review-gaps.js` + `scripts/lib/test-companion.js`: changed source files with no correspondingly changed test file, derived from the changed-file list by stem match. Replaces "missing focused tests for non-trivial logic", which was the right intent stated unfalsifiably — nobody could audit whether a reviewer honoured it. Reports, never gates: exit 0 with gaps, because a missing test cannot clear the blocking bar.
+
+**The scale is `blocking`/`advisory`. The shape is Gaze's.**
+Chosen for a behavioural reason, not an aesthetic one: every live consumer already collapsed its scale to a binary before acting (Archer triaged P0/P1 -> FIX and P2 -> SKIP; the temperature table fixed P0/P1 and DROPPED P2/P3 unreported), so the extra levels carried no decision — only four spellings of one. Picking what the default reviewer already writes means the corpus needs no rewrite, and because the B9 id excludes `severity` and hashes `file || component` plus the first present claim key, normalization is provably id-preserving; `test/review-standard.test.js` asserts it per legacy shape.
+
+**Drift-proofing, which is the actual deliverable.**
+`scripts/lib/review-standard.js` is the source of truth; `scripts/gen-review-standard.js` renders the severity table, reporting rules, security checklist and canonical shape into `agents/gaze.md`, `agents/archer.md`, `agents/reference/archer-protocol.md` and `reference/temperature-review.md`; `--check` exits 2 on drift; `test/review-standard.test.js` runs it and additionally fails on any line in `agents/`, `commands/` or `reference/` that speaks P0-P3 as a LIVE vocabulary rather than a retired one. The same source of truth feeds `SCHEMAS` in `validate-artifact.js`, so `reference/schemas/review.md` inherits it through `gen-schema-docs.js --check`.
+
+**Backward compatibility.** Nothing on disk fails. Legacy severities normalize (`P0`/`P1` -> `blocking`, `P2`/`P3`/`warn` -> `advisory`) and legacy keys fold (`temperature`->`severity`, `component`->`file`, `issue`/`message`/`description`->`evidence`, `fix`->`remediation`, `observation_gaps`->`observationGaps`). `scripts/migrate-review-findings.js` rewrites an artifact into the canonical shape for a human who wants to read the corpus, and REFUSES to write any file where a finding id would move.
+
+**The `_meta` divergence F9 named is DECIDED: `_meta.md` stops claiming universality.**
+Reviewer artifacts are the one documented exception, and `reference/schemas/_meta.md` now says so with the reason. A reviewer is a SUBAGENT: `phase`, `skill` and `version` describe the session that spawned it, so a reviewer filling them in is guessing at values it does not own, and a guessed provenance header is worse than an absent one because it looks like evidence. The binding `_meta` would provide is already provided, more strongly, by the portable lifecycle's worktree fingerprint. The alternative — make every reviewer emit it — would have failed every artifact on disk for zero information gained.
+
+**`FIX_LOOP_CEILING` is split out, not deleted.**
+`reference/fix-loop.md` is the new canonical home of the ceiling and the auto-address loop; `reference/temperature-review.md` keeps its filename (live references point at it) and now owns severity and the review prompt only. `agents/apex.md`, `reference/contracts.md` and `reference/schemas/verification.md` point at the new file, and `test/ceiling-prose.test.js` pins that exactly one of the two documents states the number.
+
+**One more F9 item cleared in passing:** the verification schema's worked example was `{"severity": "warn", "message": "Unused import"}` — a fifth severity spelling attached to a lint nit `agents/gaze.md` explicitly forbids reporting. It is now a finding a reviewer is actually allowed to report.
+
+**Closed B9b's stated gap.** `findings[].dimension` is now an optional, CLOSED field carrying Archer's five dimensions, so the miner's per-dimension precision has a field to read instead of a chat format to guess at.
+
+**B11 - verification pass before findings land.**
+Three parts, all of them in the B10 source of truth rather than in a fifth prose restatement.
+
+*(a) The pass, and the thing it must not become.*
+`VERIFICATION_PASS` in `scripts/lib/review-standard.js` is an ordered, source-side procedure rendered into `agents/gaze.md`, `agents/archer.md` and `reference/temperature-review.md`: RE-OPEN the cited file at the cited line now, READ the enclosing definition and the callers, QUOTE what you read into `evidence`, DECIDE against the source, DISCARD what it does not support into `discardedFindings` with a reason.
+Every step names a source-side action on purpose. "Verify your findings" degrades into re-reading the findings, and §1.5 is explicit that same-context self-critique produces FALSE NEGATIVES on the model's own output while independent re-checking against the code is what cuts false positives — so the prose states the anti-pattern as an anti-pattern ("if your check did not involve opening a file, it did not happen"), and `test/review-verification.test.js` fails if that sentence or the reason behind it is edited out.
+Discards are RECORDED, not deleted: `discardedFindings[].reason` is required and rejected when empty, because a dropped false positive is the evidence the pass ran.
+Ordering was the one real conflict: Gaze's Artifact First says write early. The pass is the last step of INVESTIGATING, before the first write, and `gaze.md` now says so where both rules meet.
+
+*(b) `confidence` as a second axis, kept mechanically apart from severity.*
+`confirmed` / `possible` / `needs-verification`, optional and closed. Orthogonality is not asserted in prose, it is enumerable: the two vocabularies are disjoint, `normalizeSeverity` rejects every confidence value and `normalizeConfidence` every severity, no validator rule couples them, and the test walks all SIX combinations through the real CLI and watches each validate — `blocking`+`possible` (an unsure bug stays blocking) and `advisory`+`confirmed` (a certain nit stays advisory) included.
+F9's correction is the precedent and is now rendered as data: `REVIEW_AXES` names strictness (`review.temperature`, an input), severity and confidence (outputs) side by side, so the conflation that happened once cannot be re-derived by guesswork.
+`needs-verification` requires a matching `observationGaps` entry — otherwise it is a label for "I did not check", which is the false positive the pass exists to remove wearing a badge.
+Absent `confidence` means UNVERIFIED, never confirmed: nothing on disk fails, and adding the key does not move a B9 id (asserted).
+
+*(c) The promote/revert gate, built and honestly inert.*
+`precisionGate()` compares the precision BAND of findings carrying a recorded `confidence` against the band of findings carrying none — the two populations that actually exist on disk — and `scripts/baseline-report.js` prints both sides, the input, the verdict and the reason under `VERIFICATION GATE (B11)`.
+**It cannot fire today and says so in two independent ways.** The corpus is 0/0 measurable (B9b), and `minSample` is deliberately `null` with the reason recorded in the code: no sample size can be chosen from data that does not exist yet, and none is invented here.
+The comparison is band-against-band rather than point-against-threshold precisely so no margin has to be guessed: promote needs the verified LOWER bound entirely above the unverified UPPER, revert the mirror, overlap is `inconclusive`. A `deferred`-only side has no upper bound and is read at its most permissive, which makes both verdicts harder rather than easier.
+A THIRD refusal was added after F11 measured the confound: unless both sides carry one and the same recorded reviewer `model`, the verdict is `unmeasurable` with `confound: "reviewer-model"` and a `review_model_confound` entry in `unresolved[]`. Unrecorded counts as confounded, and the check runs before the sample-size check because more data cannot un-confound a comparison between two different reviewers. See F11 in section 5 for what that does and does not fix.
+
+**B12 - re-review convergence.**
+On round 2 and later, only `blocking` findings are itemized; non-blocking ones are reported as a count split into carried-over and first-seen-this-round.
+
+**The design problem was the deliberate delete.** `commands/review.md` step 4 deletes `{SESSION_DIR}/reviews/gaze.json` before every pass so a truncated run cannot reuse a stale verdict. That stays. So the prior round's ids live in a SIBLING file, `{SESSION_DIR}/reviews/rounds.json`, owned by `scripts/review-round.js`.
+The ledger is built so it cannot become a second way to resurrect a verdict: it carries ids, severities, files and a `blocking` flag, and NOTHING verdict-shaped — no `verdict` key, no top-level `findings` array a reader (or the baseline miner's shape check) could mistake for a review. There is no stale verdict in it TO reuse. Rounds are appended only after a valid artifact is read, so a truncated pass records nothing and the next pass is still the same round — the delete's freshness property extended to the round counter rather than punctured by it.
+A NEW blocking finding in round 2 is always reported: the fix may have broken something and catching that is what a re-review is for. Carry-over is decided by the B9 content id, so a finding that merely moved lines or was re-scored is still the same finding.
+One reading settled explicitly: the artifact stays COMPLETE. Suppression governs what a round SAYS, not what it writes — removing findings from the file would break the ids the suppression is counted with and would hide them from the B9b precision miner.
+
 **Version manifest sync to 0.2.7.**
-Test suite green at 658 pass, 0 fail, 1 skipped.
+Test suite green at 658 pass, 0 fail, 1 skipped (982 pass / 1 known unrelated fail / 1 skipped after B11+B12).
 
 ---
 
@@ -268,6 +427,63 @@ What: a symlink or env var (`PHANTOM_SKILLS_DEV_PATH`) that makes Terminal's ven
 Why: D6 settles the bundling shape as vendor-plus-dev-link; without this half, Subash is back to hand-copying files between two clones on every skill edit.
 Test: set the dev-link, edit one skill's `SKILL.md` in this repo, and watch Phantom Terminal pick up the edited text on next invocation with no build or publish step run.
 Depends on T2.
+
+### B9 - Review finding disposition. 1d.
+
+What: give every reviewer finding a stable id, and record its disposition (`fixed` / `dismissed` / `deferred`) when the fix loop closes.
+Extends B2 to cover review quality, which B2 does not cover today.
+Deliberately ships NO change to what reviewers report — the id and the disposition ride alongside current behavior so the baseline measures the pipeline as it stands.
+Per F8 this is a re-baseline, not an addition: section 3's review numbers predate #109.
+Why: review effectiveness is unmeasured, and B2 gates B7/B8 and T4 on exactly that class of claim.
+The data path is already half-built — `verification.json` carries `review.fixLoops` in 120/191 (63%) — what is missing is attributing an outcome to an INDIVIDUAL finding rather than to the review as a whole.
+Martian's Code Review Bench supplies a true-positive definition that needs no human labelling: a finding counts as a true positive if the code changed after it.
+Without this, every threshold in B10 and B11 is set by taste, and D4's "no untested behavior change to trigger routing" rule forbids setting them that way.
+Test: run `/phantom:review` on a diff with a known defect, apply the fix, then run the baseline miner and watch a per-finding table print one row per finding id with a `fixed`/`dismissed`/`deferred` column; hand-dismiss a finding and watch that row flip to `dismissed` without the review being re-run.
+
+### B10 - Gaze finding schema + review standard. 2d. DONE - see section 6.
+
+What: four changes to `agents/gaze.md` and the finding schema, landed as one pass.
+(a) A behavioral claim must cite `file:line` in source; an inference from a symbol's name is not evidence.
+(b) `preExisting: true` for a real defect the diff did not introduce — it reports, never blocks, never enters a fix loop.
+(c) `blocking` requires the diff to make something WORSE than before, or to fail the stated intent; a change that improves a bad file is not held to a standard the surrounding code never met.
+(d) Name the security categories — broken access control including SSRF, injection, cryptographic failures, secrets in code/config/logs, unsafe defaults, data exposure — instead of the single word "security".
+(e) Per F9, collapse the four severity vocabularies and two finding shapes onto one scale and one shape, fix the schema's `"Unused import"` example to something Gaze is actually allowed to report, and split `FIX_LOOP_CEILING` out of `reference/temperature-review.md` from the superseded severity table.
+(f) Add the one mechanically checkable test heuristic from the source article: flag source files changed by the diff with no corresponding change to their tests.
+Gaze priority 3 already asks for "missing focused tests for non-trivial logic", which is the same intent stated unfalsifiably; this version is derivable from the changed-file list.
+Why: (a) and (d) are the cheapest precision and blind-spot fixes available; the secure-review literature finds reviewers systematically under-discuss the weakness classes behind real CVEs, which a named checklist corrects and a generic instruction does not.
+(b) and (c) are one change seen from two sides: today a genuine defect the diff merely touches must either block an unrelated ship or be discarded, and both are wrong.
+Land with B7/B8, which already edits gaze prose — two passes over the same file is the thing B7 exists to stop.
+Test: hand Gaze a diff touching a file with a pre-existing null-deref it does not introduce, and watch the finding return `preExisting: true` with the review verdict still `pass`; then hand it a finding whose only support is a function's name and watch it not appear at all.
+Landed as two mechanical tests rather than one prompt trial, because a prompt trial is not a regression test: `preExisting: true` alongside `blocking` is REJECTED by the validator and the fix loop never receives such a finding, and a `blocking` finding with no cited line is REJECTED - a name-only claim has no line to cite.
+
+### B11 - Verification pass before findings land. 2d. DONE - see section 6.
+
+What: a bounded step between finding and artifact — re-read each cited `file:line`, confirm the claimed behavior is actually present, discard what cannot be confirmed — plus a `confidence` field (`confirmed` / `possible` / `needs-verification`) orthogonal to severity.
+Promote or revert on measured precision against the B9 baseline, the way B6 does on wall-clock.
+Why: this is the largest false-positive lever in the literature and Anthropic's own Code Review runs it as a distinct pipeline stage.
+Published first-line FP rates span 8-54%, which is far too wide to guess where Phantom sits — hence B9 first.
+The mechanism matters and is easy to get wrong: this must be independent re-checking AGAINST THE CODE, not same-context self-critique, which is shown to produce false negatives on the model's own output.
+Severity and confidence must stay separate axes; today `blocking`/`advisory` encodes only importance, so an author cannot tell a confident nit from an unsure bug and skims both.
+Test: replay a recorded review that produced a known false positive and watch the finding dropped with its reason recorded; then run the baseline miner and watch review precision print before and after with a promote or revert verdict.
+
+### B12 - Re-review convergence. 0.5d. DONE - see section 6.
+
+What: on the second and later pass over the same worktree, Gaze reports blocking findings only; non-blocking findings that did not appear in round 1 are suppressed and reported as a count.
+Requires B9's stable finding ids to tell a carried-over finding from a newly invented one.
+Why: `FIX_LOOP_CEILING` is 2 (`scripts/lib/constants.js:25`), so the loop is already bounded — but the ceiling only stops the churn, it does not prevent it.
+Today nothing stops round 2 from surfacing a fresh crop of advisories that round 1 never mentioned, on a diff that only changed by the fix round 1 asked for, and hitting the ceiling escalates to the user, which converts reviewer noise into an interrupt.
+Test: run a review that returns one blocking and two advisory findings, fix only the blocking one, re-run, and watch round 2 report the remaining advisories by count without adding new ones.
+
+### B13 - Structured PR body. 0.5d.
+
+What: a fixed template for the PR body Warden writes — goal, approach, risk, verification evidence, what to look at first.
+Why: the MSR 2026 study of ~13k agent-authored PRs (including Claude Code) found more structured descriptions correlate with faster reviewer response and shorter completion time, and DORA 2026 puts median time in PR review up 441% — human review latency is the measured bottleneck.
+This is the only item in the W8 set that improves HUMAN review rather than machine review, and Phantom produces exactly the kind of PR the study measured.
+Test: run `/phantom:wrap` on a session and watch the created PR body come back with all five sections populated from session artifacts rather than free prose.
+
+**Deferred from the same research, deliberately.**
+`REVIEW.md` support is public-interop differentiation and belongs with T4, which is already gated behind B2 and B7/B8.
+Diff-size policy, widening cross-file context, and a low-risk fast path are all THRESHOLD decisions; B9's data settles them, and picking numbers before that data exists is the error D4 and B6 both exist to prevent.
 
 ### B4 - Codex CLI hook adapter. 3d.
 
@@ -427,6 +643,11 @@ Revives if MCP gains a standardized interception layer for host tool calls.
 **Porting `wake-classifier.js`'s payload parsing.**
 Reverse-engineered, short half-life.
 Port only the pure `classify()`.
+
+**Numeric maintainability scoring on reviews.**
+The 1-10 per-dimension scoring in the source article's maintainability prompt (readability, complexity, dependency risk, change isolation) is REJECTED.
+`reference/temperature-review.md` already drops P2/P3 outright, and the false-positive literature says the win is fewer, better-verified findings — a score turns every review into four numbers nobody acts on, which is volume without a decision attached.
+Revives only if B9's disposition data shows maintainability findings being ACTED ON at a rate comparable to correctness findings, which would mean the P2/P3 drop is throwing away value.
 
 **Reviving `ruvector.db` / vector memory.**
 Referenced by nothing.

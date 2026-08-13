@@ -97,7 +97,11 @@ before review.
 
 ### 4. Gaze — one default independent reviewer
 
-Delete only `{SESSION_DIR}/reviews/gaze.json`, then run one fresh, read-only Gaze pass
+Read the round number first with
+`node <skill-directory>/scripts/review-round.js status --reviews {SESSION_DIR}/reviews`
+and tell Gaze which round this is.
+Delete only `{SESSION_DIR}/reviews/gaze.json` — never `{SESSION_DIR}/reviews/rounds.json`
+— then run one fresh, read-only Gaze pass
 using `agents/gaze.md`. Gaze reviews the current diff, intent, repository rules,
 and the current portable Ward evidence. It does not run fixes, tests, or Sweep.
 It independently checks the `userVerification` classification against the
@@ -116,6 +120,13 @@ For the compatibility artifact, read `{SESSION_DIR}/reviews/gaze.json` and its
 `SendMessage` resume (never a respawn) to finish the artifact. If it remains
 missing, record `not_observed`/`blocked`; never substitute an empty findings
 array or a clean verdict.
+
+Once a valid artifact has been read, close the round with
+`node <skill-directory>/scripts/review-round.js close --reviews {SESSION_DIR}/reviews --json`.
+On round 2 and later, itemize only the `reported` blocking findings and give the
+non-blocking ones as the `suppressed` counts (B12). Skip it when no artifact was
+written: an unrecorded round leaves the next pass at the same round number, so a
+truncated run advances neither the verdict nor the convergence state.
 
 Read `requiredSpecialists` from the current passed verification artifact. Do not
 inspect the diff to select roles again. User visual confirmation is already
@@ -147,7 +158,7 @@ Record the final review only after the current passed verification artifact:
       "observationGaps": []
     }
   ],
-  "observation_gaps": []
+  "observationGaps": []
 }
 ```
 

@@ -69,18 +69,46 @@ done
 
 The optional `--grill` flag may invoke `phantom:grill`; it is never automatic.
 
-## 2. Prepare the release summary
+## 2. Prepare the release summary and render the PR body
 
 Inspect `main...HEAD` (or the repository's resolved base branch) once for release
-facts, not as another quality gate. Prepare:
+facts, not as another quality gate. Prepare a concise title, then render the PR
+body into `{SESSION_DIR}/pr-body.md` using `reference/wrap/pr-body.md`. This is
+release-context judgment work and is never warden work — warden only passes the
+finished file to `gh pr create --body-file`.
 
-- a concise title;
-- what changed and why;
-- user-visible or operational impact;
-- verification commands and outcomes from portable evidence;
-- Gaze and triggered-specialist outcomes;
-- known caveats and follow-ups; and
-- ticket linkage when present.
+The body has exactly these five headings, in this order, each populated from a
+session artifact rather than free prose:
+
+- `## Goal` — from `intent.json` (`problem`, `goal`, `doneWhen[]`)
+- `## Approach` — from `plan.json` (`decision.recommendation`,
+  `solution_shape.summary`, `alternatives[]`) and `execution.json`
+  (`filesChanged`)
+- `## Risk` — from `plan.json` `risks[]`, `intent.json` `tradeoffs[]` /
+  `nonNegotiables[]`, and review findings that shipped accepted rather than fixed
+- `## Verification evidence` — from the current portable verification artifact
+  (`checks[]`, `userVerification`) and review artifact (`verdict`, `findings`,
+  `specialists[]`)
+- `## What to look at first` — ranked `path:line` pointers, at most five
+
+When a section's source artifact is absent, write the stated gap for it — an
+italic `_Not recorded: {artifact} — {what was missing}._` — never a guess, an
+`N/A`, or an empty section. `## Verification evidence` has no gap form: missing
+required evidence is a blocked ship gate at step 1, so no PR is created.
+
+If the repository ships its own PR template under `.github/`, mirror its headings
+and place the five resolved values under them; see `reference/wrap/pr-body.md`.
+
+The mechanical ship preflight checks the five headings, and that no section is
+empty, before git operations:
+
+```bash
+BODY="{TEAM_DIR}/sessions/{TICKET}/pr-body.md"
+for h in "Goal" "Approach" "Risk" "Verification evidence" "What to look at first"; do
+  grep -qF "## $h" "$BODY" || exit 1
+done
+awk '/^## /{if (h) exit 1; h=1; next} NF {h=0} END {exit h}' "$BODY" || exit 1
+```
 
 Use repo-relative paths. Do not publish local absolute paths, credentials,
 private session data, or screenshots without explicit approval. Do not commit
@@ -107,8 +135,9 @@ Use the existing ship-ceremony mechanics for mechanical git operations only:
 2. stage only intended repository changes;
 3. commit with an accurate conventional message and requested author credit;
 4. push the current branch; and
-5. create a **draft** PR with the release summary and a `## Validation` section
-   sourced from portable evidence.
+5. create a **draft** PR whose title is the release summary and whose body is
+   `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Warden does not
+   author, fill, or re-order any section of that body.
 
 Do not mark the PR ready, merge it, transition unrelated tickets, or start an
 automatic review/fix loop. Any destructive or newly external action beyond the
@@ -122,6 +151,9 @@ URL, quality artifact references, known caveats, and observable model-routing
 diagnostics. Include `defenseBrief` as `{ path, questions, sections }`, where
 `path` names `defense-brief.md`, `questions` counts its Q/A pairs, and `sections`
 is 6.
+Include `prBody` as `{ path, sections, gaps }`, where `path` names `pr-body.md`,
+`sections` is 5, and `gaps` lists the headings that carry a stated gap because
+their source artifact was absent (empty array when every section was sourced).
 Preserve lifecycle/session completion mechanics and reusable learnings; cost,
 routing, and learning enrichments remain non-blocking.
 
