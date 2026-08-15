@@ -70,10 +70,8 @@ A plan should communicate only what a reviewer or implementer needs:
 - bounded tasks with dependencies, read-first context, write ownership, and
   required outputs.
 
-Quick plans stay compact. Standard and deep plans include executable task
-contracts and coverage of every acceptance criterion. Never guess a path or
-fill required fields with generic prose; unresolved material uncertainty makes
-the plan concerned or blocked.
+Never guess a path or fill required fields with generic prose; unresolved
+material uncertainty makes the plan concerned or blocked.
 
 For brainstorm routes, research multiple genuinely distinct approaches before
 convergence. Record what evidence would change the recommendation, then promote
@@ -97,6 +95,87 @@ disposable HTML from the validated JSON, and run
 `scripts/validate-review-html.mjs` before presenting it. If file writing is
 unavailable, present one fenced `json` block; if HTML generation or viewing is
 unavailable, preserve JSON and present the same decision hierarchy in chat.
+
+## Plan Quality Rules
+
+### Machine-Checkable Acceptance Criteria
+
+Every acceptance criterion must be verifiable by one of:
+
+| Type | Form |
+|------|------|
+| Test command | `{TEST_CMD}` exits 0 |
+| Lint/build | `{LINT_CMD} && {BUILD_CMD}` exits 0 |
+| File existence | `[ -f src/foo.ts ]` |
+| Grep match | `grep -r "export.*FooComponent" src/` finds a result |
+| API/CLI output | `curl localhost:{DEV_PORT}/health` returns `{"status":"ok"}` |
+| Snapshot/diff | `git diff --name-only` includes expected file |
+
+Command placeholders resolve through the discovery precedence in
+[verification](verification.md); `{DEV_PORT}` comes from dev-server config or
+startup output. Never assume a fixed port or leave a placeholder unresolved.
+
+These forms fail the plan immediately: `TBD`, `TODO`, `TBC`, "similar to Task
+N", "etc.", "and so on", "as needed", "if necessary", "where appropriate",
+"appropriate error handling", "proper validation", "update tests accordingly".
+If any appears in an acceptance criterion, task description, or task action, the
+plan is incomplete. Rewrite it as a command or an observable fact.
+
+### Requirement Coverage
+
+Trace every acceptance criterion to at least one task before recording the plan.
+A criterion with no matching task is a coverage gap: add the task or remove the
+criterion.
+
+### Placeholder Prohibition
+
+Reject and revise the plan when a task description carries a banned form, an
+acceptance criterion is not independently verifiable by command, file, or grep,
+a task owns no file, or a dependency names a task that does not exist.
+
+### Research-Free Tasking
+
+Every task must reach its implementer research-free: read-first paths, exact
+files, the pattern to follow, and the contract are all resolved during planning.
+If executing a task would require exploring the repository, searching
+documentation, or making a design decision, the plan is incomplete. Re-decompose
+it; raising the implementer model never remedies weak scoping.
+
+## Decision-First Plan Artifact (mandatory at every plan gate)
+
+A plan is a researched recommendation before it is an execution manifest, for
+research work as much as implementation work.
+
+At standard and deep depth, completeness means useful content, not populated
+keys: evidence carries a decision implication; alternatives carry distinct
+benefits, costs, rejection reasons, and reconsideration conditions; assumptions
+carry confidence, impact, and validation; risks carry likelihood, impact,
+trigger, mitigation, and recovery; rationale runs to 2-4 substantive points; and
+every task is an executable dossier. Quick plans stay concise and may omit
+alternatives, solution shape, and task-local risk and recovery when those are
+genuinely not applicable. Never invent architecture or fake alternatives to
+satisfy a template.
+
+Use evidence states, not unsupported numeric confidence: `verified`,
+`supported`, `inferred`, or `unknown`. Each item cites a repository location,
+command result, or authoritative URL. Keep unresolved questions explicit and
+mark whether they block approval.
+
+### Human review order
+
+A human review page chooses its own design but must use this order:
+
+1. Executive decision brief: approval question, recommendation, rationale, and
+   pending calls.
+2. Outcome, scope, and architecture.
+3. Research findings, evidence, alternatives, assumptions, and risks.
+4. Validation strategy and observable definition of done.
+5. Execution appendix: affected files, waves, task dossiers, and dependencies.
+6. Plan check, review provenance, and unrecognized compatibility fields.
+
+The first screen must answer what is being approved, what is recommended, why,
+what remains uncertain, and what happens if the choice is wrong. Tasks and waves
+never lead the gate.
 
 ## Collect approvals
 

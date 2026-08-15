@@ -46,6 +46,12 @@ By default, analyze only **recently modified code** in the current session. Broa
    - Produce clever one-liners that are hard to debug or extend
    - Make code harder to extend in the future
 
+## Generated-code style contract
+
+Trim comment noise and untraceable tests in changed files, preserving all functionality and every traceable test.
+
+Finish in a single run: no early stop before verify runs and the completion report is written.
+
 ## Process
 
 1. Identify recently modified files and sections

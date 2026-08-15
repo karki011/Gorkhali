@@ -3,9 +3,10 @@
 // greploop-gate.js — Stop hook that blocks a session from finishing while a
 // freshly-created, still-LIVE PR (not merged/closed) has an unrun Greptile loop
 // (greptile.status pending/missing). Forces the user/agent toward
-// Skill(phantom:greploop) before the session ends. Liveness — not the literal
-// word "draft" — is the gate signal: wrap always creates drafts but labels them
-// inconsistently ("draft" vs "open"), so we gate any non-settled PR.
+// Skill(phantom:greploop) before the session ends. Liveness — not any literal
+// status word — is the gate signal: wrap creates ready-for-review PRs and
+// records pr.status "open", while legacy sessions recorded "draft", so we gate
+// any non-settled PR.
 //
 // FAIL-OPEN POLARITY — read this before editing: this is a discipline gate,
 // NOT a safety gate. It FAILS OPEN: any crash, missing file, unparseable JSON,
@@ -141,12 +142,11 @@ function main() {
   const pr = wrap && wrap.pr;
   if (!pr || typeof pr.number !== 'number') return; // no real PR → allow
 
-  // PR LIVENESS (not literal "draft") — wrap ALWAYS creates draft PRs
-  // (ship-ceremony.md §4), but pr.status is recorded inconsistently in the
-  // field: schema says "open"/"merged", wrap writes "draft" in practice, and a
-  // schema-following wrap could write "open". Gating on the literal word
-  // "draft" let an "open"-labeled draft silently disable the gate. So we gate
-  // on LIVENESS instead: a PR with a number is gateable UNLESS it is closed out
+  // PR LIVENESS (not a literal status word) — wrap creates ready-for-review PRs
+  // and records pr.status "open" (ship-ceremony.md §4), while legacy sessions
+  // recorded "draft". pr.status is freeform in the field, so gating on any one
+  // literal word let the other label silently disable the gate. We gate on
+  // LIVENESS instead: a PR with a number is gateable UNLESS it is closed out
   // (merged/closed). Normalize before comparing — values arrive mixed-case/padded.
   const prStatus = typeof pr.status === 'string' ? pr.status.trim().toLowerCase() : '';
   if (prStatus === 'merged' || prStatus === 'closed') return; // settled PR → allow

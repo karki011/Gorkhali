@@ -1,9 +1,12 @@
 // Author: Subash Karki
 // greploop-gate.test.js — locks the greploop Stop gate's behavior. This is a
 // discipline gate that FAILS OPEN: it only BLOCKS the stop when an active
-// phantom session has a freshly-created DRAFT PR whose greptile loop has not
+// phantom session has a freshly-created LIVE PR whose greptile loop has not
 // settled (greptile.status missing/pending). Any ambiguity, inactive session,
-// non-draft PR, or settled loop ALLOWS. It is BOUNDED — at most
+// settled (merged/closed) PR, or settled loop ALLOWS. The fixtures below still
+// carry pr.status "draft" alongside "open" because the gate is status-agnostic:
+// wrap now writes "open", legacy sessions wrote "draft", and both must gate.
+// It is BOUNDED — at most
 // PHANTOM_GREPLOOP_GATE_MAX blocks per PR (default 3), then it allows forever.
 //
 // Spawns the REAL hook process. Env is read at INVOCATION time, so every spawn
@@ -111,9 +114,9 @@ test('4. draft + greptile object absent → BLOCK', () => {
 });
 
 test('5. pr.status open-LABELED draft + pending → BLOCK (liveness, not literal "draft")', () => {
-  // wrap always creates drafts but may label pr.status "open" (schema example).
-  // Gating on liveness — not the word "draft" — means this open-labeled draft
-  // is still gated. Proves the open/draft ambiguity no longer disables the gate.
+  // wrap writes pr.status "open" for the ready-for-review PR it creates.
+  // Gating on liveness — not any literal status word — means this open PR is
+  // gated exactly like the legacy "draft" fixtures above.
   const { env, cwd } = setup({ wrap: { pr: { number: 42, status: 'open' }, greptile: { status: 'pending' } } });
   assertBlock(runGate(env, {}, cwd), 42);
 });

@@ -18,7 +18,7 @@ const FILES = {
   review: 'commands/review.md',
   rpsl: 'reference/wrap/rpsl.md',
   verify: 'commands/verify.md',
-  verificationReference: 'reference/verification.md',
+  verificationReference: 'skills/phantom/references/verification.md',
   ward: 'agents/ward.md',
   wrap: 'commands/wrap.md',
 };
@@ -108,12 +108,18 @@ test('triggered specialist artifacts have fixed paths, shape, and blocking seman
       assert.ok(content.includes(specialistPath), `${name} must use ${specialistPath}`);
     }
     assert.match(content, /(?:clear|remove|delete)[\s\S]{0,240}(?:before spawn|then (?:immediately )?spawn)/i, `${name} must clear selected artifacts before spawn`);
-    assert.match(content, /verdict[\s\S]{0,80}pass[\s\S]{0,40}fail[\s\S]{0,40}blocked/i, `${name} must validate the specialist verdict`);
-    assert.match(content, /findings[\s\S]{0,40}(?:array|\[\])[\s\S]{0,80}observationGaps/i, `${name} must validate specialist arrays`);
-    assert.match(content, /specialist `?fail`?[\s\S]{0,160}(?:failed|blocks)/i, `${name} must reject a failed specialist`);
-    assert.match(content, /missing[\s\S]{0,100}(?:required )?specialist[\s\S]{0,100}blocked/i, `${name} must block on missing or blocked specialist evidence`);
-    assert.match(content, /every (?:triggered specialist|role named[\s\S]{0,80}requiredSpecialists)[\s\S]{0,60}(?:pass|passing)/i, `${name} must require all selected specialists to pass`);
   }
+
+  // commands/review.md is the single owner of the verdict shape, array shape,
+  // and fail/blocked reduction rules; commands/verify.md is a pointer only
+  // (one-owner-one-statement — see commands/verify.md's "Required check" and
+  // "Specialists" bullets).
+  assert.match(review, /verdict[\s\S]{0,80}pass[\s\S]{0,40}fail[\s\S]{0,40}blocked/i, 'review must validate the specialist verdict');
+  assert.match(review, /findings[\s\S]{0,40}(?:array|\[\])[\s\S]{0,80}observationGaps/i, 'review must validate specialist arrays');
+  assert.match(review, /specialist `?fail`?[\s\S]{0,160}(?:failed|blocks)/i, 'review must reject a failed specialist');
+  assert.match(review, /missing[\s\S]{0,100}(?:required )?specialist[\s\S]{0,100}blocked/i, 'review must block on missing or blocked specialist evidence');
+  assert.match(review, /every (?:triggered specialist|role named[\s\S]{0,80}requiredSpecialists)[\s\S]{0,60}(?:pass|passing)/i, 'review must require all selected specialists to pass');
+  assert.match(verify, /review\.md.{0,20}steps? [\d,\s-]+(?:and \d )?own the (?:verdict shape|pass\/duplicate\/missing consequences)/i, 'verify must point at review.md for the verdict/fail/blocked rules rather than restate them');
 
   assert.match(rpsl, /missing selected\s+artifact is `?blocked`?, not pass/i);
 });

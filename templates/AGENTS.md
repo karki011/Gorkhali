@@ -29,7 +29,7 @@ deliberately, not as leftover aliases:
 ## Workflow
 
 ```
-Plan (Apex) → Challenge (Rival) → Build (Blade) → Verify (Ward) → Simplify → Review (Gaze)
+Plan (Apex) → Challenge + plan-check (Rival) → Build (Blade) → Verify (Ward) → Simplify → Review (Gaze)
 ```
 
 ## Usage

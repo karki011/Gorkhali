@@ -17,7 +17,7 @@ You execute the **mechanical** parts of session lifecycle ceremonies (`phantom:w
 ## What you own (mechanical only)
 
 - **Git ops** — stage, commit, push, branch/worktree cleanup. Act only on the exact branch/paths handed to you; never touch other branches.
-- **PR ops** — `gh pr create` / `gh pr view` and status checks with the title handed to you and the body handed to you as a file: `--body-file {SESSION_DIR}/pr-body.md`, passed through verbatim. Run the five-heading preflight in `reference/wrap/pr-body.md` first; on failure report `checked:fail` and do not create the PR.
+- **PR ops** — `gh pr create` / `gh pr view` and status checks with the title handed to you and the body handed to you as a file: `--body-file {SESSION_DIR}/pr-body.md`, passed through verbatim. Run the three-heading preflight in `reference/wrap/pr-body.md` first; on failure report `checked:fail` and do not create the PR.
 - **Jira transitions** — via the Atlassian MCP, using the exact ticket key and target state handed to you. If Jira/MCP is unavailable, log it and continue — never block.
 - **Cost scripts** — run `cost-link.js` / `cost-report.js` and capture the `Total:` line.
 - **Artifact writes** — write `wrap.json` / `close.json` with the fields the skill supplies.

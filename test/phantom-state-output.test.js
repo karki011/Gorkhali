@@ -166,7 +166,7 @@ test('default lifecycle output is compact JSON while --json preserves the full r
   assert.equal(status.mode, 'standard');
   assert.deepEqual(status.authorizations, {
     implementation: 'pending',
-    'ship-draft-pr': 'pending',
+    'ship-pr': 'pending',
   });
   assert.equal(status.next, 'authorize:implementation');
 

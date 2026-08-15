@@ -19,11 +19,11 @@ an agent checklist or select an older favorable artifact.
 
 ## Obtain separate authority
 
-Ask for explicit authority to create the draft pull request and any required
+Ask for explicit authority to create the pull request and any required
 push. Record that scope separately:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-draft-pr
+node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-pr
 node <skill-directory>/scripts/phantom-state.mjs ship --workspace <path>
 ```
 
@@ -32,11 +32,11 @@ not itself create a branch, commit, push, pull request, ticket transition, or
 merge. Perform only the external actions the user authorized, using current
 repository instructions and provider-native tools.
 
-Default to a draft pull request. Report verification, review, specialist
-results, measured context and state changes when relevant, compatibility risks,
-and any migration behavior. Do not mark ready, merge, delete branches, clean
-worktrees, transition tickets, or publish a release without separate authority
-for that action.
+Default to a ready-for-review pull request. Report verification, review,
+specialist results, measured context and state changes when relevant, compatibility risks,
+and any migration behavior. Do not merge, delete branches, clean worktrees,
+transition tickets, or publish a release without separate authority for that
+action.
 
 ## Optional RPSL
 
@@ -60,5 +60,5 @@ without deleting the session:
 node <skill-directory>/scripts/phantom-state.mjs complete --workspace <path>
 ```
 
-Return the draft location and current evidence summary, or a clear blocked
+Return the pull request location and current evidence summary, or a clear blocked
 status naming the missing authority or gate.

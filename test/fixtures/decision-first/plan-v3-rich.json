@@ -128,7 +128,7 @@
     },
     {
       "claim": "Decision-first review works best when the recommendation, evidence, options, and human gate are visually connected.",
-      "source": "reference/planning.md",
+      "source": "skills/phantom/references/planning.md",
       "status": "supported",
       "implication": "The top of the page should act as a compact executive decision brief."
     },

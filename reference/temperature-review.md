@@ -43,7 +43,7 @@ the overlap this file's own header warns about cannot be re-derived by guesswork
 | `possible` | the cited line reads as claimed, but whether it produces the stated impact depends on a path you could not follow | reported, and the author is told the consequence is the uncertain part - not the code |
 | `needs-verification` | the cited source could not be re-read at all (generated, vendored, outside the worktree, unreadable) | reported ONLY with a matching `observationGaps` entry naming what blocked the re-read |
 
-**Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. Do not downgrade a bug to `advisory` because you are unsure of it — mark it `blocking` and `possible`. Do not promote a nit to `blocking` because you are certain of it — `advisory` and `confirmed` is a complete answer. All six combinations are legal and the schema accepts every one of them.
+**Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. All six combinations are legal: an unsure bug is `blocking` and `possible`, a certain nit is `advisory` and `confirmed`.
 
 Three axes, three questions, none of them derived from another:
 
@@ -60,25 +60,24 @@ confirmed against the source or discarded. It is not a place to park a guess.
 ## Reporting Rules
 
 <!-- BEGIN GENERATED review-standard:finding-rules - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
-1. **Cite the source, not the name.** A behavioural claim must cite `file:line` in the source you actually read. An inference from a symbol's NAME is not evidence: `validateInput()` may validate nothing, `isAdmin` may be assigned in one branch only, and a `retry` wrapper may swallow the error. If you cannot point at the line that makes the claim true, the finding does not exist. A `blocking` finding therefore always carries a `line`; the schema rejects one that does not.
-2. **Blocking means the diff made it worse.** Mark a finding `blocking` only when the diff makes something WORSE than it was before, or fails the stated intent. Compare against the PRIOR state of the code, not against the repository ideal: a change that improves a bad file is not held to a standard the surrounding code never met. Everything else is `advisory`.
-3. **Pre-existing defects report, they never block.** A real defect the diff did NOT introduce is reported with `preExisting: true` and severity `advisory`. It never blocks, never enters the fix loop, and is never counted as a defect this diff caused. This is how a genuine bug survives without holding an unrelated ship hostage — the two bad options it replaces are "block on scope creep" and "drop the finding".
-4. **Source changed, tests did not.** Run `node scripts/review-gaps.js --from-git` (or pass the changed-file list with `--files`). It names every changed SOURCE file with no corresponding changed test file, derived mechanically from the changed-file list — not from judgement about what "deserves" a test. Report each one as a single `advisory` finding citing the source file. It is advisory by construction: a missing test does not make the diff worse than before.
-5. **Verify against the source before the finding lands.** Between finding something and writing the artifact, re-open the cited `file:line` and confirm the claimed behaviour is actually there. Anything you cannot confirm at the source is DISCARDED, not downgraded — record it in `discardedFindings` with the reason. This is a pass over the CODE, never a second look at your own finding list: re-reading your notes and asking whether they still look right is same-context self-critique, which produces false negatives on your own output, while re-checking a claim against the source is what cuts false positives. See the verification pass below for the procedure.
-6. **Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. Do not downgrade a bug to `advisory` because you are unsure of it — mark it `blocking` and `possible`. Do not promote a nit to `blocking` because you are certain of it — `advisory` and `confirmed` is a complete answer. All six combinations are legal and the schema accepts every one of them.
+1. **Cite the source, not the name.** A behavioural claim must cite `file:line` in the source you actually read; an inference from a symbol's NAME is not evidence, because `validateInput()` may validate nothing. A `blocking` finding always carries a `line`; the schema rejects one that does not.
+2. **Blocking means the diff made it worse.** Mark a finding `blocking` only when the diff makes something WORSE than it was before, or fails the stated intent, judged against the PRIOR state of the code rather than the repository ideal. Everything else is `advisory`.
+3. **Pre-existing defects report, they never block.** A real defect the diff did NOT introduce is reported with `preExisting: true` and severity `advisory`: it never blocks, never enters the fix loop, and is never counted as a defect this diff caused.
+4. **Source changed, tests did not.** Run `node scripts/review-gaps.js --from-git` (or pass the changed-file list with `--files`); it names every changed SOURCE file with no corresponding changed test file. Report each one as a single `advisory` finding citing the source file.
+5. **Verify against the source before the finding lands.** Between finding something and writing the artifact, re-open the cited `file:line` and confirm the claimed behaviour is actually there. Anything you cannot confirm at the source is DISCARDED, not downgraded — record it in `discardedFindings` with the reason. This is a pass over the CODE, never a second look at your own finding list: same-context self-critique produces false negatives on your own output, while re-checking a claim against the source is what cuts false positives.
 <!-- END GENERATED review-standard:finding-rules -->
 
 ## Verification Pass
 
 <!-- BEGIN GENERATED review-standard:verification-pass - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
-Run this once, after investigating and BEFORE writing the artifact. It is the last step of investigating, not a step after reporting. Only findings that survive it are written.
+Run this once, after investigating and BEFORE writing the artifact. Only findings that survive it are written.
 
-1. RE-OPEN the file at the cited line with a read of the source, now. Not the diff hunk, not your earlier notes, not the summary you already wrote: a hunk shows the changed lines and not the guard twenty lines above them that makes the claim false.
-2. READ the whole enclosing definition, plus the callers you claimed are affected. A claim about what a function does to its caller is not verified inside the function alone.
-3. QUOTE what you just read into `evidence`. The evidence field is the text you read at that line — if you cannot quote or paraphrase a specific line, there is nothing to verify.
+1. RE-OPEN the file at the cited line with a read of the source, now. Not the diff hunk, not your earlier notes, not the summary you already wrote.
+2. READ the whole enclosing definition, plus the callers you claimed are affected.
+3. QUOTE what you just read into `evidence`.
 4. DECIDE against the source, not against how good the finding sounds: the behaviour is there (`confirmed`); the line reads as claimed but the consequence depends on a path you could not follow (`possible`); or the source does not support the claim (DISCARD it).
-5. DISCARD by moving the finding into `discardedFindings` with a `reason` naming what the source actually says. A discarded finding is a result and is recorded as one — it is never silently deleted and never quietly re-scored into an advisory.
-6. Use `needs-verification` ONLY when the source could not be re-read at all, and add the matching `observationGaps` entry saying why. It is not a shortcut for "I did not check".
+5. DISCARD by moving the finding into `discardedFindings` with a `reason` naming what the source actually says. A discarded finding is never silently deleted and never quietly re-scored into an advisory.
+6. Use `needs-verification` ONLY when the source could not be re-read at all, and add the matching `observationGaps` entry saying why.
 
 **Not this:** If your check did not involve opening a file, it did not happen. Reading the finding list again and agreeing with it is not this pass.
 <!-- END GENERATED review-standard:verification-pass -->

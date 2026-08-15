@@ -24,13 +24,20 @@ try {
 
 // Implementation-intent triggers. Precision over recall: interrogative-opening
 // prompts (diagnostic questions) are skipped wholesale before these run.
-const PATTERNS = [
-  { re: /\b[A-Z][A-Z0-9]+-\d+\b/, label: 'ticket-key' },
-  { re: /\b(fix|implement|build|add|refactor|create|update|work on)\b/i, label: 'imperative-verb' },
-  { re: /\b(let'?s|now|please|go ahead and) (fix|change|update|implement|add)\b/i, label: 'debug-to-fix' },
-];
-
-const INTERROGATIVE_RE = /^\s*(why|what|how|where|when|is|are|does|did|can you explain)\b/i;
+// Single-sourced in scripts/lib/routing-patterns.js so reference/routing.md's prose
+// and its sync test read the same list this hook runs.
+let PATTERNS, INTERROGATIVE_RE;
+try {
+  ({ PATTERNS, INTERROGATIVE_RE } = require('../scripts/lib/routing-patterns'));
+} catch (_) {
+  // fail open: inline fallback, kept identical to the shared module.
+  PATTERNS = [
+    { re: /\b[A-Z][A-Z0-9]+-\d+\b/, label: 'ticket-key' },
+    { re: /\b(fix|implement|build|add|refactor|create|update|work on)\b/i, label: 'imperative-verb' },
+    { re: /\b(let'?s|now|please|go ahead and) (fix|change|update|implement|add)\b/i, label: 'debug-to-fix' },
+  ];
+  INTERROGATIVE_RE = /^\s*(why|what|how|where|when|is|are|does|did|can you explain)\b/i;
+}
 
 const NUDGE_TEXT =
   'ROUTING: this prompt matches phantom implementation triggers — invoke ' +

@@ -13,4 +13,4 @@ Task board from `{TEAM_DIR}/sessions/{TICKET}.json`. Fields: `assignments`, `con
 - **contracts** — Contract completion status
 - **verification** — Verification results
 - **blockers** — Open blockers
-- **cost** — AI cost so far: self-resolve the plugin dir then run `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}` and show its `Total:` line (skip silently if it fails or if `$PR` is empty — no plugin cache; telemetry batches ~60s so the figure may trail slightly)
+- **cost** — AI cost so far: `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}` and show its `Total:` line (skip silently if it fails or if `$PR` is empty — no plugin cache; telemetry batches ~60s so the figure may trail slightly)

@@ -314,6 +314,7 @@ function liveStateReason(relParts) {
   if (second === 'current-session') return 'current-session-pointer';
   if (second === 'session-telemetry') return 'runtime-session-telemetry';
   if (second === 'routing-nudge') return 'stale-active-marker';
+  if (second === 'memory-injected') return 'stale-active-marker';
   if (second && second.startsWith('.active-wake-session')) return 'stale-active-marker';
   return null;
 }

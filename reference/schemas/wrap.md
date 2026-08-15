@@ -9,7 +9,7 @@ Written by `phantom:wrap` after all post-merge actions complete.
 | pr | object \| `null` | yes | PR details, or null if no PR |
 | pr.number | number | yes | PR number |
 | pr.url | string | yes | PR URL |
-| pr.status | string | yes | PR status: `"draft"` (wrap ALWAYS creates draft PRs — see `reference/wrap/ship-ceremony.md` §4), `"open"`, `"merged"`, `"closed"`. The Stop-hook gate (`hooks/greploop-gate.js`) gates on PR *liveness* — it blocks any PR that is NOT `merged`/`closed` (matched case-insensitively), so a draft labeled `"draft"` OR `"open"` is still gated until greploop settles. |
+| pr.status | string | yes | PR status: `"open"` is what wrap writes — PRs are created ready for review (see `reference/wrap/ship-ceremony.md` §4); `"merged"`, `"closed"`. `"draft"` stays legal for legacy sessions. The Stop-hook gate (`hooks/greploop-gate.js`) gates on PR *liveness* — it blocks any PR that is NOT `merged`/`closed` (matched case-insensitively), so `"open"` or legacy `"draft"` is still gated until greploop settles. |
 | jira | object \| `null` | no | Jira update result |
 | jira.ticket | string | yes (if present) | Ticket key |
 | jira.transition | string | yes (if present) | Transition applied |
@@ -31,7 +31,7 @@ Written by `phantom:wrap` after all post-merge actions complete.
   "pr": {
     "number": 1042,
     "url": "https://github.com/org/repo/pull/1042",
-    "status": "draft"
+    "status": "open"
   },
   "jira": {
     "ticket": "ENG-1234",

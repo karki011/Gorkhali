@@ -25,11 +25,61 @@ The state engine owns fingerprint freshness and record ordering. A later
 content change makes earlier verification and review stale. A later verification
 also makes an earlier review stale even when the fingerprint is unchanged.
 
+### Ordered quality path
+
+Verification classifies the final post-simplification diff's risk exactly once
+and persists the unique required role strings in `requiredSpecialists`. Review
+runs exactly those persisted roles and merges their results into `specialists`;
+review and shipping never reclassify the diff. No stage auto-fixes a failure,
+and missing required verification or independent review evidence blocks.
+
+## Command discovery precedence
+
+Resolve every check command in this order, first match wins:
+
+1. Repository instructions (`AGENTS.md` or the host's equivalent instruction file).
+2. CI configuration and repository scripts (`package.json`, Makefile, task
+   runner, workspace tooling).
+3. Narrow commands already used by nearby tests or packages.
+4. Stack defaults below, only when the repository exposes no command.
+
+For monorepos, run affected-package checks plus any repository-required root
+gate. Record the exact resolution source for each command.
+
+## Stack defaults
+
+| Stack marker | Test | Lint/static | Build | Typecheck |
+|---|---|---|---|---|
+| `pnpm-lock.yaml` | `pnpm test` | `pnpm lint` | `pnpm build` | `pnpm exec tsc --noEmit` |
+| `yarn.lock` | `yarn test` | `yarn lint` | `yarn build` | `yarn tsc --noEmit` |
+| `bun.lockb` | `bun test` | `bun run lint` | `bun run build` | `bunx tsc --noEmit` |
+| `package-lock.json` | `npm test` | `npm run lint` | `npm run build` | `npx tsc --noEmit` |
+| `go.mod` | `go test ./...` | `go vet ./...` | `go build ./...` | — |
+| `Cargo.toml` | `cargo test` | `cargo clippy` | `cargo build` | `cargo check` |
+| `pyproject.toml` | `pytest` | repository-defined | repository-defined | repository-defined |
+
+Use a default only when its executable and configuration are present. `—` or a
+missing command is `not-applicable` when genuinely irrelevant, otherwise
+`blocked` with the reason.
+
 ## Verification evidence
 
 Verification must contain at least one named passed check and enough observation
 to connect checks to the approved criteria. Distinguish passed, failed, blocked,
 and not observed. A skipped or unavailable check is not a pass.
+
+### Ward evidence
+
+Deterministic verification is read-only. Record, for every applicable check:
+
+- stable check name;
+- exact command;
+- exit code;
+- `passed`, `failed`, `blocked`, or `not-applicable`;
+- concise evidence and any observation gap; and
+- whether the worktree remained unchanged.
+
+Never translate absent, skipped, timed-out, or truncated output into a pass.
 
 Enter the verification phase before running checks, then record the canonical
 payload once after those checks finish:
@@ -51,9 +101,24 @@ user verification in the ordinary verification artifact; it does not create a
 specialist artifact. Other risk-specific checks remain deterministic
 verification checks or repository-required review inputs.
 
-Record the required specialist set in verification evidence. Each required
-specialist returns a current passed, failed, or blocked artifact with findings
-and observation gaps. Missing, stale, failed, or blocked required specialist
+### Risk triggers
+
+| Observed diff risk | Specialist |
+|---|---|
+| User-visible UI/visual behavior | Explicit user verification before passed verification evidence |
+| Auth, authorization, permissions | Archer |
+| Money, destructive operations, data-loss risk | Archer |
+| Migration or public API compatibility | Archer |
+| Concurrency or broad cross-module architecture | Archer |
+| Infrastructure/deploy or dependency changes | Archer |
+
+Resolve this table once against the final post-simplification diff. Persist a
+unique `requiredSpecialists` array containing only `"archer"`, or `[]` when no
+Archer row applies. RPSL remains an explicit optional deep-review preset, never
+a normal shipping prerequisite.
+
+Each required specialist returns a current passed, failed, or blocked artifact
+with findings and observation gaps. Missing, stale, failed, or blocked required specialist
 evidence blocks review completion and shipping. Untriggered Archer work creates
 no artifact.
 

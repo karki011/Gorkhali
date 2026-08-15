@@ -15,7 +15,7 @@ Layer 1 is always on (unless `PHANTOM_ROUTING_NUDGE=0`). Layer 2 is off by defau
 
 ### Layer 1 — Nudge (router-nudge.js)
 
-Fires on `UserPromptSubmit`. Checks whether the incoming prompt looks like implementation work using a pattern set that skips interrogative-opening prompts (diagnostic questions) before any pattern matching runs. Patterns include ticket keys (`PROJ-123`), imperative verbs (`fix`, `implement`, `build`, `add`, `refactor`), and conversational launchers (`let's`, `go ahead and`).
+Fires on `UserPromptSubmit`. Checks whether the incoming prompt looks like implementation work using a pattern set that skips interrogative-opening prompts (diagnostic questions) before any pattern matching runs. Patterns include ticket keys (`PROJ-123`), imperative verbs (`fix`, `implement`, `build`, `add`, `refactor`, `create`, `update`, `work on`), and conversational launchers (`let's`, `now`, `please`, `go ahead and`).
 
 When a match fires, the hook injects this into the context once for that host session:
 
@@ -106,3 +106,5 @@ Only tool-call edits (Edit, Write, MultiEdit, NotebookEdit) are covered. Shell e
 ## Hygiene Note
 
 `routing-nudge/<session_id>` markers accumulate in `<PHANTOM_DATA>/state/routing-nudge/` over time — one file per host session that received a nudge. There is no current cleanup mechanism. This directory is a future candidate for `session-cleanup.js`.
+
+`state/memory-injected/<session_id>` (see `hooks/memory-reader.js`) is the same shape and the same unbounded, no-cleanup, future-`session-cleanup.js` candidate.

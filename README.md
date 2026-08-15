@@ -55,16 +55,16 @@ The full table, and the beliefs that measurement disproved, are in `ROADMAP.md` 
 ```text
 /phantom:start CP-41606
   |- router classifies    -> PLAN route (3+ files, clear scope)
-  |- Apex + Rival         -> plan, adversarially reviewed; you approve or break the tie
+  |- Apex + Rival         -> plan, reviewed by the one plan critic; you approve or break the tie
   |- Blade x2 (parallel)  -> implementation in isolated worktrees
   |- Ward                 -> lint, build, test -> verification.json
   |- Gaze + Archer        -> scored review; P0/P1 auto-fixed, P2/P3 dropped
-  `- /phantom:wrap        -> draft PR + ticket cost total
+  `- /phantom:wrap        -> ready-for-review PR + ticket cost total
 ```
 
-The PR body is a fixed five-section template — Goal, Approach, Risk, Verification evidence, What to look at first — assembled from those artifacts rather than written as free prose.
+The PR body is a fixed three-section template — What & why, Verification, Review focus — assembled from those artifacts rather than written as free prose, under hard caps of 40 lines and 2500 characters.
 A missing artifact means an explicit stated gap naming the artifact, never invented text.
-The PR opens as a **draft** deliberately, because marking it ready to review stays a human action.
+The PR opens **ready for review**, because the evidence it ships with is what a reviewer would otherwise wait for.
 
 Report a defect instead of a feature and no fix runs first.
 The work is classified `investigation`, and no fix route can be selected until the evidence reaches `ready_for_fix`.

@@ -35,9 +35,9 @@ Categorize the learning and route to the correct domain file:
 - Not: "You should always make sure to use semantic tokens instead of hardcoded hex values"
 - Yes: "Use semantic tokens, never hardcoded hex"
 
-If the target learnings file is already >80 lines after appending, run:
+If the target learnings file is already >80 lines after appending, run (`{PR_BOOTSTRAP}` per `_shared.md` §Paths):
 ```bash
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+{PR_BOOTSTRAP}
 SCRIPTS="$PR/scripts"
 if [ -n "$PR" ] && command -v python3 >/dev/null 2>&1 && [ -d "$SCRIPTS/compress" ]; then
   (cd "$SCRIPTS" && python3 -m compress <absolute_path>) || echo "Skipping caveman compress: compression unavailable."

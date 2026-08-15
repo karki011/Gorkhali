@@ -13,8 +13,7 @@ The agent roster, the single policy file that routes each role to a model, and t
 | Sage | Advisory - guidance for stuck agents (<100 words) |
 | Lens | Explicit opt-in visual inspection - advisory screenshots and observations |
 | Archer | Cross-file review - pre-PR structural analysis |
-| Rival | Plan challenger - adversarial review (no tools, forced precision) |
-| Plan-checker | Pre-execution plan validator - learnings collisions, blast radius, coverage gaps, scope creep, dependency order |
+| Rival | The one plan critic - adversarial challenge plus pre-execution validation (learnings collisions, blast radius, coverage gaps, scope creep, dependency order) |
 | Hound | Forensic investigator - 7-step protocol, HTML reports |
 | Sweep | Code clarity - simplify changed files post-verify |
 | Warden | Mechanical session-lifecycle executor - ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |

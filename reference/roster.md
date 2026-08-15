@@ -109,6 +109,13 @@ reserved 1-8 range - every dedicated `blade`/`ward` site below starts at
 character slot 9 - and no dedicated site's own overflow may use the `-task-`
 shape, since that shape is reserved for execute-wave derivation alone.
 
+Task indexes are unique within a wave by construction (`plan.json` assigns
+each task its own index), which is what keeps a wave's concurrent per-task
+`ward-*` verifiers collision-free against each other and against that same
+wave's `blade-*` implementers - two tasks in the same wave never derive the
+same character, so two Wards (or a Ward and a Blade) never race on one
+`agent-records/` stub.
+
 ## Roster Table
 
 Original manhwa-RPG-flavored names, invented for this roster (not drawn from any
@@ -127,8 +134,7 @@ Slot number = position in the ordered list.
 | hound | fenrik, corva |
 | lens | yara, thal *(explicit visual inspection; thal reserve)* |
 | sweep | nix, oda |
-| rival | dask, veyra *(veyra reserve)* |
-| plan-checker | castor, lira *(ad hoc only - see below)* |
+| rival | dask, veyra |
 | warden | gorath, sena |
 | explore | fenn |
 | planner | rooke |
@@ -145,7 +151,7 @@ remain genuine unused reserve capacity for any future Archer site.
 **Explore / Planner note:** these name the generic Claude Code `Explore` and
 `Plan` subagent types when `reference/planning.md`'s Codebase Research step
 spawns them. The role prefix is `planner` (not `plan`) to avoid visual collision
-with `plan.json` / `plan-checker` in prose and filenames; the underlying
+with `plan.json` in prose and filenames; the underlying
 `subagent_type` value passed to `Agent` is still `Plan`.
 
 ## Spawn-Site Slot Table: Command Files
@@ -163,9 +169,9 @@ One row per non-execute spawn site in `commands/*.md`.
 | `verify.md` | Step 1 - sweep on changed files | sweep | 1 | `sweep-nix` |
 | `verify.md` | Step 2 - Power Level review | gaze | 2 | `gaze-varel` |
 | `verify.md` | Step 3 - Auto-Address fix agent | blade | 15 | `blade-talvik` |
-| `wrap.md` | Step 4 - RPSL panel, 4 parallel archers | archer | function (Rule 2) | `archer-scope`, `archer-regression`, `archer-architecture`, `archer-skeptic` |
-| `wrap.md` | Step 7 - ship ceremony mechanical tail | warden | 1 | `warden-gorath` |
-| `wrap.md` | Step 8 - evolution check sidecar (full protocol: `reference/wrap/evolution.md`, which describes the same site generically as a "Haiku agent" - Ward pins haiku, so this is one site, not two) | ward | 10 | `ward-isolde` |
+| `wrap.md` | RPSL panel, 4 parallel archers (full protocol: `reference/wrap/rpsl.md`) | archer | function (Rule 2) | `archer-scope`, `archer-regression`, `archer-architecture`, `archer-skeptic` |
+| `wrap.md` | Ship ceremony mechanical tail (full protocol: `reference/wrap/ship-ceremony.md`) | warden | 1 | `warden-gorath` |
+| `wrap.md` | Evolution check sidecar (full protocol: `reference/wrap/evolution.md`, which describes the same site generically as a "Haiku agent" - Ward pins haiku, so this is one site, not two) | ward | 10 | `ward-isolde` |
 | `close.md` | Steps 2-6 - mechanical closeout tail | warden | 2 | `warden-sena` |
 | `recruit.md` | Step 4 - ad hoc Blade with ROLE FOCUS | blade | 16 | `blade-ossian` |
 | `evolve.md` | Step 2 - Ward sidecar (learnings pipeline) | ward | 11 | `ward-corben` |
@@ -183,33 +189,25 @@ One row per non-execute spawn site in `commands/*.md`.
 
 ## Spawn-Site Slot Table: Reference-Level / Cross-Cutting Sites
 
-Sites specced in `reference/` or `agents/reference/` rather than a top-level
+Sites specced in `reference/` or `reference/agent-protocols/` rather than a top-level
 command file. Same rules apply - each gets its own permanent slot.
 
 | Source | Site | Role | Slot / Function | Resulting Name |
 |---|---|---|---|---|
 | `reference/evolution.md` | Tier 0 - read-only external-absorption scout | scout | 9 | `scout-silven` |
+| `reference/planning.md` | Rival (mandatory, every plan) - the one plan critic, blocking; writes `plan-check.json` | rival | 2 | `rival-veyra` |
 | `reference/planning.md` | Codebase Research - `Explore` agent (file structure, patterns, similar implementations) | explore | 1 | `explore-fenn` |
 | `reference/planning.md` | Codebase Research - `Plan` agent (same research pass, architect-facing) | planner | 1 | `planner-rooke` |
-| `agents/reference/quality-gate.md` | Full Gauntlet Step 2 - sweep agent (paired with the hunter below) | sweep | 2 | `sweep-oda` |
-| `agents/reference/quality-gate.md` | Full Gauntlet Step 2 - `pr-review-toolkit:silent-failure-hunter` | hunter | 1 | `hunter-vane` |
-| `agents/reference/quality-gate.md` | Dual-Lens Protocol - second reviewer alongside the primary Gaze | gaze | 4 | `gaze-sura` |
+| `reference/agent-protocols/quality-gate.md` | Full Gauntlet Step 2 - sweep agent (paired with the hunter below) | sweep | 2 | `sweep-oda` |
+| `reference/agent-protocols/quality-gate.md` | Full Gauntlet Step 2 - `pr-review-toolkit:silent-failure-hunter` | hunter | 1 | `hunter-vane` |
+| `reference/agent-protocols/quality-gate.md` | Dual-Lens Protocol - second reviewer alongside the primary Gaze | gaze | 4 | `gaze-sura` |
 | `commands/_shared-archer.md` | Opt-in cross-file pre-PR review, triggered by `verify.md` when `code-review-graph` MCP is available - a single Archer spawn, not a panel | archer | 1 | `archer-sylas` |
-
-**`reference/planning.md`'s "Rival (mandatory, every plan)" gate is a documented
-quirk, not a fifth Rival site.** Its heading says Rival, but its body spawns "sage
-agent (top tier via agent definition - opus / Opus 5; no tools, blocking)" - that
-description matches Sage's frontmatter pin exactly, not Rival's (Rival pins
-sonnet). This roster reflects the file as written rather than silently
-resolving the mismatch: the actual runtime name for this mandatory gate is
-`sage-apex` (see Sage, below), not a `rival-*` name. No `rival` slot is consumed
-by this site.
 
 ## Ad Hoc Sites (no fixed slot-table row)
 
-Two roles are genuinely discretionary - no command file or reference doc pins a
-literal `Agent()` call for them - so they keep a small assigned/reserve pair
-instead of a table row.
+One role is genuinely discretionary - no command file or reference doc pins a
+literal `Agent()` call for it - so it keeps its derivation rule instead of a
+table row.
 
 - **Sage** - `reference/_base-agent.md`'s Sage Escalation is inherited by every
   role whose own agent definition cites that section for Sage escalation -
@@ -225,19 +223,8 @@ instead of a table row.
   explicitly permits to overlap - a stripped-prefix derivation would let two
   different parents collide onto the same Sage name the moment their
   character lists shared a token. This needs no reserved character list of its
-  own.
-  **Exception:** `reference/planning.md`'s mandatory "Rival" gate (see above)
-  spawns this same Sage-tier agent directly from Apex, not from one of these
-  four roles - there is no such parent to derive from. That one case gets the
-  fixed name `sage-apex`.
-- **Plan Checker** - referenced by `start.md`/`router.md` for decomposition
-  validation and by `--to-plan` mode's inline self-checks, but no file pins a
-  literal spawn site the way `wire.md` or `recruit.md` do; `start.md`'s
-  `--to-plan` mode explicitly allows running plan-checker "INLINE" instead.
-  `plan-checker-castor` is the **assigned** default when Apex does spawn it as a
-  real subagent; `plan-checker-lira` is a **reserve** name held for the rare case
-  of a second instance running concurrently in the same session context - it is
-  not itself assigned to any site.
+  own, and it has no exception: every Sage name derives from one of those four
+  parents, so a Sage spawn with no such parent has no legal name.
 
 ## Backfill Fan-Out (`evolve.md` Tier 3, `--backfill`)
 

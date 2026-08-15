@@ -293,7 +293,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.2.6',
+    bundle_version: '2.2.8',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -447,7 +447,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.2.6');
+    assert.equal(result.bundle_version, '2.2.8');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -455,12 +455,11 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   }
   assert.equal(policy.roles.apex, 'frontier');
   assert.equal(policy.roles.rival, 'balanced');
-  assert.equal(policy.roles['plan-checker'], 'balanced');
   assert.equal(policy.roles.lens, 'balanced');
 });
 
 test('critical risk elevates eligible roles before preset lookup and preserves exemptions', () => {
-  for (const role of ['blade', 'gaze', 'sage', 'lens', 'archer', 'rival', 'plan-checker', 'hound']) {
+  for (const role of ['blade', 'gaze', 'sage', 'lens', 'archer', 'rival', 'hound']) {
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical', '--host', 'claude-code']);
     assert.equal(result.risk, 'critical');
     assert.equal(result.requested_profile, 'deep');
@@ -631,7 +630,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.2.6');
+  assert.equal(resolver.bundle_version, '2.2.8');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -822,7 +821,7 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
   );
   assert.match(start, /local planning and implementation only/i);
   assert.match(start, /no implicit PR lifecycle/i);
-  assert.match(start, /draft-PR shipping requires separate, explicit authorization/i);
+  assert.match(start, /PR shipping requires separate, explicit authorization/i);
   assert.doesNotMatch(start, /codex-compatibility|commands\/start|_shared/i);
   assert.match(skill, /scripts\/phantom-state\.mjs` is the sole lifecycle authority/i);
   assert.match(skill, /`direct`.*None; implementation authorization is still required/is);

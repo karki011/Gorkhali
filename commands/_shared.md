@@ -12,9 +12,20 @@
 ## Paths
 
 ```
-PLUGIN_ROOT = self-resolved, env-free (deterministic). Bash bootstrap:
+PLUGIN_ROOT = self-resolved, env-free (deterministic). CANONICAL Bash bootstrap - the ONE copy;
+              every commands/ site cites it as {PR_BOOTSTRAP} rather than restating it:
               PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
               then: node -p "require('$PR/scripts/...')"  (or node "$PR/scripts/...", etc.)
+
+              {PR_BOOTSTRAP} = that resolve line, verbatim. Every Bash call is a FRESH shell, so $PR
+              never survives across calls: a site needing $PR PREPENDS {PR_BOOTSTRAP} in the SAME
+              command, then uses bare "$PR/scripts/..." with the guard its context requires (below).
+              The canonical form always re-resolves from disk rather than trusting an inherited
+              $PR - deterministic, never env-derived. The 8 checkpoint one-liners in
+              start.md/execute.md/resume.md predate this change and carry their own literal
+              `PR="${PR:-...}"` shape instead - pinned verbatim by `test/portable-skill.test.js`,
+              left as-is here on purpose rather than reconciled to the canonical form.
+
               NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/phantom} —
               pure self-resolve. (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it
               at hook-exec — the one reliable surface; nothing else relies on the env var.)
@@ -29,7 +40,7 @@ PLUGIN_ROOT = self-resolved, env-free (deterministic). Bash bootstrap:
                   (run only when $PR is non-empty; empty → no-op, the surrounding flow continues.)
 
 Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
-{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in reference/verification.md
+{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in skills/phantom/references/verification.md
 {PKG_MGR}  = lockfile table in _shared-repo-detection.md
 {DEV_PORT} = repo dev-server config
 
@@ -51,6 +62,19 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.phantom}/global/patterns/EDGES.md
 
 </context>
 
+## Checkpoints
+
+Advisory session progress markers. Every `commands/` checkpoint site writes ONE line of the same
+shape: the `PR="${PR:-...}"` resolve-with-fallback line (deliberately NOT the canonical {PR_BOOTSTRAP} -
+see §Paths), an `if [ -n "$PR" ]` guard, `printf '%s\n' '{"ticket":"{TICKET}"}'` piped
+into `scripts/lib/checkpoint.js`'s `write` sub-command with `{SESSION_DIR}/checkpoints` plus that
+site's phase label, closed by `|| :`.
+
+Semantics - the single home; sites cite this section instead of restating it: advisory only, never
+blocks; `resume` reads the latest; empty `$PR` skips silently; `|| :` fails open. Phase labels are
+lowercase kebab-case, and both the per-site label set and the one-liner's literal shape are pinned
+by `test/portable-skill.test.js` - the sites stay verbatim and change only together with that test.
+
 <constraints>
 
 ## Core Disciplines
@@ -60,10 +84,10 @@ GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.phantom}/global/patterns/EDGES.md
 1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `PHANTOM_PROTECTED_BRANCHES`)
 2. **Verify** — run commands, read output, confirm
 3. **Anti-repetition** — scan INDEX.md before planning
-4. **Rival** — challenge every plan
+4. **Rival** — the one plan critic; challenges every plan and writes `plan-check.json`
 5. **Simplify** — after verify pass
 6. **Intent check** — diff vs contract
-7. **Smart PR** — Draft PR default
+7. **Smart PR** — ready-for-review PR with the 3-section body
 8. **Jira transition** — after push/PR
 9. **Learnings** — read + write every session
 10. **Auto-SHADOWS** — 4+ files → parallel agents

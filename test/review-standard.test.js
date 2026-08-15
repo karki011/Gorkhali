@@ -212,7 +212,7 @@ test("a finding may carry one of Archer's five dimensions, and nothing else", ()
 test('agents/archer.md tells Archer to carry the dimension into the artifact', () => {
   const archer = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'archer.md'), 'utf8');
   for (const dimension of std.DIMENSIONS) assert.ok(archer.includes(dimension), `archer.md must name ${dimension}`);
-  assert.match(archer, /Carry the dimension from your output format INTO the\s+artifact/);
+  assert.match(archer, /Carry\s+the dimension from your output format INTO the artifact/);
 });
 
 // --- (c) THE BLOCKING BAR ---------------------------------------------------
@@ -221,7 +221,7 @@ test('the blocking bar is stated once, in data, and says "worse than before"', (
   const blocking = std.SEVERITIES.find((s) => s.value === 'blocking');
   assert.match(blocking.bar, /WORSE than it was before/);
   assert.match(blocking.bar, /fails the stated intent/);
-  assert.match(std.BLOCKING_BAR.text, /a change that improves a bad file is not held to a standard the surrounding code never met/);
+  assert.match(std.BLOCKING_BAR.text, /judged against the PRIOR state of the code rather than the repository ideal/);
 });
 
 // --- (d) NAMED SECURITY CATEGORIES ------------------------------------------

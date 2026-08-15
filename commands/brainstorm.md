@@ -12,7 +12,9 @@ user-invocable: false
 # /phantom:brainstorm "$ARGUMENTS"
 
 Diverge → Converge. Output: locked decision in `decisions.json` feeding downstream planning.
-READ `reference/brainstorm.md` for full protocol (question rules, anti-patterns, learnings check).
+READ `skills/phantom/references/brainstorming.md` for full protocol (question rules, anti-patterns,
+learnings check); `reference/brainstorm.md` adds the native Council Mode, Rival Pass, and Convergence
+spawn/artifact mechanics.
 
 <brainstorm_context>
 
@@ -55,12 +57,12 @@ Spawn 2-3 research agents **in parallel** to gather context before forming appro
 
 After all agents return, the coordinator synthesizes their summaries into context for approach generation.
 
-**Questions** — per `reference/brainstorm.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 2-5, max 2 rounds, skip anything the scout agents already answered, stop once every open question has a confirmed answer/accepted default or answers degrade to "up to you".
+**Questions** — per `skills/phantom/references/brainstorming.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 1-3, max 2 rounds, skip anything the scout agents already answered, stop once every open question has a confirmed answer/accepted default or answers degrade to "up to you".
 
 **Approaches** — produce 2-3 genuinely distinct strategies via ONE path. Both paths generate ALL
 approaches before any evaluation touches any of them (anti-anchoring), and each states a concrete
-lens (`whyLens`) — never a vague "be creative". Full rules: `reference/brainstorm.md` → **Exploration
-Protocol**.
+lens (`whyLens`) — never a vague "be creative". Full rules:
+`skills/phantom/references/brainstorming.md` → **Exploration Protocol**.
 - **Council** (route is FULL, architecture choice, high uncertainty, or `--council`): independent
   lens-agents generate candidates in parallel → Apex anonymizes + peer-ranks them → a Chairman synthesizes the
   recommended approach + ranked alternatives. Full steps: `reference/brainstorm.md` → **Council Mode**.
@@ -74,7 +76,8 @@ approach fills the full spine in `reference/schemas/brainstorm.md` (`id`, `name`
 
 **Rival Pass** — before Convergence, one lightweight adversarial pass challenges the approaches
 themselves (borrows `agents/rival.md`'s stance, scoped to the spine not a full plan). It tightens the
-cards; it does not block or re-loop. Full protocol: `reference/brainstorm.md` → **Rival Pass**.
+cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `reference/brainstorm.md`
+→ **Rival Pass**.
 
 </diverge_protocol>
 

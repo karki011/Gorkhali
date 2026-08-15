@@ -32,7 +32,7 @@ Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 - mode: `bypassPermissions`
 
 **Ward prompt must include:**
-- Script path: `{PLUGIN_ROOT}/scripts/evolution-runner.js` — self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; evolution skipped"; exit 0; }`, use `$PR/scripts/evolution-runner.js` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
+- Script path: `$PR/scripts/evolution-runner.js`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; evolution skipped"; exit 0; }` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
 - Flag: `--dry-run` if user requested preview, otherwise no flag
 - Instructions to run the script and capture full output
 - Instructions to return structured report:
@@ -107,11 +107,9 @@ pass — the manifest is the work-list:
    (`[parallel-partition]` — each Blade owns the output cards for its DISJOINT ticket
    set, so no two Blades write the same `makeCardId`).
 2. Spawn the batch of Blades in parallel (`subagent_type: "blade"`, `bypassPermissions`,
-   `name: "blade-backfill-{batchIndex}-{slotInBatch}"` — both indices are each Blade's
-   1-based position read directly off `backfill-manifest.json`'s partition order
-   (`batchIndex` = the batch's position, `slotInBatch` = the Blade's position within
-   that batch), per `reference/roster.md`'s Backfill Fan-Out rule, so every name stays
-   reconstructible from the manifest alone even after context compaction). Each Blade:
+   `name: "blade-backfill-{batchIndex}-{slotInBatch}"` per `reference/roster.md`'s
+   Backfill Fan-Out rule - both indices read directly off `backfill-manifest.json`'s
+   partition order, never counted at runtime). Each Blade:
    - reads only its assigned transcript JSONLs,
    - distills 1–N cards per ticket via `scripts/lib/brain-card.js writeCard`
      (type `episode`/`decision`; trace.transcript = the JSONL it read,

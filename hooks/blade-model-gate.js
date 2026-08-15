@@ -69,7 +69,7 @@ const FABLE_DENIED_WORKERS = new Set(['blade', 'sweep', 'ward', 'lens', 'warden'
 // a named worker.
 const ROSTER_ROLES = new Set([
   'blade', 'archer', 'gaze', 'ward', 'hound', 'lens', 'sweep',
-  'rival', 'plan-checker', 'sage', 'warden',
+  'rival', 'sage', 'warden',
 ]);
 
 const NAME_RE = /^[a-z][a-z0-9-]*$/;
@@ -92,11 +92,6 @@ const ROSTER_FILE = path.join(__dirname, '..', 'reference', 'roster.md');
 // the SSoT; this constant is the fallback when it does not. `sage` itself is
 // never a parent - Sage cannot escalate to itself.
 const SAGE_PARENT_ROLES = ['blade', 'ward', 'sweep', 'archer'];
-
-// reference/planning.md's mandatory gate spawns a Sage-tier agent straight from
-// Apex, so it has no parent spawn to derive from and gets this fixed name
-// (roster.md, Ad Hoc Sites → Sage → Exception).
-const SAGE_APEX_NAME = 'sage-apex';
 
 // The four role names out of roster.md's Sage bullet ("today that is Blade,
 // Ward, Sweep, and Archer"), or the constant above when that sentence has been
@@ -206,7 +201,6 @@ function nameIsKnown(role, name, index) {
   // a sage name that derives from nothing does not fall through to the
   // listed-name lookup below.
   if (role === 'sage') {
-    if (name === SAGE_APEX_NAME) return true;
     for (const parent of index.sageParents) {
       if (rest.startsWith(parent + '-') && nameIsKnown(parent, rest, index)) return true;
     }

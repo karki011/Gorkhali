@@ -1,93 +1,10 @@
 # Verification Protocol
 
-The portable state and verification contracts are authoritative for lifecycle,
-worktree fingerprints, artifact freshness, evidence states, and ordering. This
-reference defines repository command discovery for compatibility adapters.
+Canonical: `skills/phantom/references/verification.md`
 
-## Ordered quality path
+That portable reference owns the whole verification contract for every host:
+the ordered quality path, command discovery precedence, the stack-default
+command table, Ward evidence fields, the risk-trigger table, and the
+independent-review ordering. Native commands and agents cite it directly.
 
-Normal verification is exactly:
-
-1. Ward runs deterministic, read-only correctness checks.
-2. Sweep simplifies every changed file within scope.
-3. Ward reruns checks affected by Sweep changes.
-4. Verification classifies the final diff's risk once and persists the unique
-   required role strings in `requiredSpecialists`.
-5. The final Ward evidence and `requiredSpecialists` are recorded together as
-   fingerprint-bound portable `verification` evidence.
-6. One independent Gaze reviews the same fingerprint and is recorded as the
-   portable `review` evidence.
-7. Review runs exactly the persisted Archer role when required and merges its
-   result into `specialists`; review and wrap never reclassify the diff.
-
-No stage auto-fixes a failure. Missing required Ward or Gaze evidence blocks.
-
-## Command discovery precedence
-
-1. Repository instructions (`AGENTS.md`, `CLAUDE.md`, or equivalent).
-2. CI configuration and repository scripts (`package.json`, Makefile, task
-   runner, workspace tooling).
-3. Narrow commands already used by nearby tests or packages.
-4. Stack defaults below, only when the repository exposes no command.
-
-For monorepos, run affected-package checks plus any repository-required root
-gate. Record the exact resolution source for each command.
-
-## Stack defaults
-
-| Stack marker | Test | Lint/static | Build | Typecheck |
-|---|---|---|---|---|
-| `pnpm-lock.yaml` | `pnpm test` | `pnpm lint` | `pnpm build` | `pnpm exec tsc --noEmit` |
-| `yarn.lock` | `yarn test` | `yarn lint` | `yarn build` | `yarn tsc --noEmit` |
-| `bun.lockb` | `bun test` | `bun run lint` | `bun run build` | `bunx tsc --noEmit` |
-| `package-lock.json` | `npm test` | `npm run lint` | `npm run build` | `npx tsc --noEmit` |
-| `go.mod` | `go test ./...` | `go vet ./...` | `go build ./...` | — |
-| `Cargo.toml` | `cargo test` | `cargo clippy` | `cargo build` | `cargo check` |
-| `pyproject.toml` | `pytest` | repository-defined | repository-defined | repository-defined |
-
-Use a default only when its executable and configuration are present. `—` or a
-missing command is `not-applicable` when genuinely irrelevant, otherwise
-`blocked` with the reason.
-
-## Ward evidence
-
-Ward is read-only. It records, for every applicable check:
-
-- stable check name;
-- exact command;
-- exit code;
-- `passed`, `failed`, `blocked`, or `not-applicable`;
-- concise evidence and any observation gap; and
-- whether the worktree remained unchanged.
-
-A passed portable verification contains at least one named passed check. Never
-translate absent, skipped, timed-out, or truncated output into a pass.
-
-## Risk triggers
-
-| Observed diff risk | Specialist |
-|---|---|
-| User-visible UI/visual behavior | Explicit user verification before passed verification evidence |
-| Auth, authorization, permissions | Archer |
-| Money, destructive operations, data-loss risk | Archer |
-| Migration or public API compatibility | Archer |
-| Concurrency or broad cross-module architecture | Archer |
-| Infrastructure/deploy or dependency changes | Archer |
-
-Resolve this table once against the final post-Sweep diff. For UI work, present
-the affected routes/states and wait for explicit user confirmation; record it in
-verification evidence as `userVerification`. Persist a unique
-`requiredSpecialists` array containing only `"archer"`, or `[]` when no Archer
-row applies. Missing user confirmation when required blocks passed verification.
-The portable review/ship gate compares the specialist selection with the merged
-review's `specialists` results. Missing, failed, blocked, duplicate, or
-unexpected specialist evidence blocks. RPSL remains an explicit optional
-deep-review preset, never a normal shipping prerequisite.
-
-Passed non-UI verification records the compact classification
-`userVerification: { "required": false }`; it does not prompt the user. Passed
-UI verification uses `required: true` and cannot record until the user confirms.
-Ward classifies the complete final diff, including source, data, configuration,
-and assets whose paths do not look UI-specific. Gaze independently checks that
-classification against the same fingerprint-bound diff. Any user-visible
-behavior paired with `required: false` is a blocking review finding.
+This file carries no native-only rules.

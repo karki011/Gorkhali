@@ -8,6 +8,11 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 # /phantom:review
 
+## Review round procedure
+
+This is the one procedure for a review round; `/phantom:verify` runs it as its
+review stage rather than restating it.
+
 1. Resolve the active portable session and current worktree fingerprint.
 2. Require the latest portable verification artifact to be passed, current, and
    bound to that fingerprint. If it is absent or stale, stop with `blocked` and
@@ -30,15 +35,15 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
    rounds raised, which is what tells a carried-over finding from a newly
    invented one (B12). A missing ledger is round 1, which is the normal first
    pass and not an error.
-5. Run exactly the roles named by verification's `requiredSpecialists`. For
-   each required role, create
-   `{SESSION_DIR}/reviews/specialists/`, delete only that role's file immediately
-   before spawning it, then spawn Archer at
+5. Run exactly the roles named by verification's `requiredSpecialists`, without
+   reclassifying the diff. For each named role, create
+   `{SESSION_DIR}/reviews/specialists/`, delete only that role's
+   `{SESSION_DIR}/reviews/specialists/{role}.json` immediately before spawning
+   it, then spawn that role — the only role in the normal path is `archer`, at
    `{SESSION_DIR}/reviews/specialists/archer.json`.
 
-   Do not delete, require, or spawn a role absent from the persisted array. The
-   targeted pre-spawn delete makes any later named file fresh for this review
-   run. An empty array means Gaze is the only reviewer.
+   Do not delete, require, or spawn a role absent from the persisted array. An
+   empty array means Gaze is the only reviewer.
 6. Read Gaze's verdict from `{SESSION_DIR}/reviews/gaze.json`, not its final
    message. If the file is missing or unreadable, give the same agent one
    `SendMessage` resume (never a respawn). If it remains absent, record
@@ -46,6 +51,13 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
    read its named file rather than its final message and require: the matching
    `role`; `verdict: pass|fail|blocked`; `findings` as an array; and
    `observationGaps` as an array. Missing or invalid evidence is blocked.
+
+   When this procedure runs from `/phantom:verify`, the accepted Gaze result
+   must also carry exactly one passed check named
+   `user-verification-classification`: Gaze checks verification's
+   `userVerification` classification against the complete diff, and any
+   user-visible behavior paired with `required: false` is a blocking finding. A
+   missing, duplicate, failed, or skipped check blocks the review record.
 7. Close the round, but only once a valid Gaze artifact was actually read:
 
    ```text
@@ -61,6 +73,17 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
    so a truncated run cannot advance convergence any more than it can reuse a
    verdict.
 8. Record the merged outcome through the portable helper:
+
+   ```json
+   {
+     "verdict": "pass",
+     "findings": [],
+     "specialists": [
+       { "role": "archer", "verdict": "pass", "findings": [], "observationGaps": [] }
+     ],
+     "observationGaps": []
+   }
+   ```
 
    ```text
    node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>

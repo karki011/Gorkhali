@@ -34,13 +34,10 @@ one falsifiable root-cause claim, and obtain user confirmation. Record the
 result in `{SESSION_DIR}/defect-proof.json` using
 `reference/defect-proof.md`.
 
-- Complete proof: `state: "ready_for_fix"` and
-  `verdict: "confirmed_defect"`.
-- Inconclusive proof: `state: "waiting_for_evidence"` and
-  `verdict: "unconfirmed_defect"`; no implementation mutation.
-- Diagnostic instrumentation is denied unless an unexpired `DiagnosticGrant`
-  explicitly lists its objective, actions, paths, expiry, and cleanup. The
-  grant permits only that evidence collection and never authorizes a fix.
+Gate - canonical in `reference/defect-proof.md`, not restated here: only
+`ready_for_fix` / `confirmed_defect` may proceed; everything else stops in
+`waiting_for_evidence` / `unconfirmed_defect` with no implementation mutation.
+Diagnostic instrumentation requires a recorded, unexpired `DiagnosticGrant`.
 
 `commands/execute.md` rechecks this artifact before the Blade marker is
 activated. Missing or contradictory proof fails closed.

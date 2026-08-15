@@ -104,3 +104,24 @@ test("hooks.json contains 'routing-gate'", () => {
     "hooks.json must register the 'routing-gate' hook"
   );
 });
+
+// ── scripts/lib/routing-patterns.js prose sync ────────────────────────────
+
+test('every imperative verb in PATTERNS appears in the routing.md prose', () => {
+  const { PATTERNS } = require('../scripts/lib/routing-patterns');
+  const imperative = PATTERNS.find((p) => p.label === 'imperative-verb');
+  assert.ok(imperative, 'PATTERNS must declare an imperative-verb pattern');
+
+  const alternation = imperative.re.source.match(/\(([^)]+)\)/);
+  assert.ok(alternation, 'imperative-verb pattern must carry a capture group of verbs');
+  const verbs = alternation[1].split('|');
+  assert.ok(verbs.length > 0, 'scanner must extract at least one verb');
+
+  const prose = read('reference/routing.md');
+  for (const verb of verbs) {
+    assert.ok(
+      prose.includes(verb),
+      `reference/routing.md must document imperative verb '${verb}' from PATTERNS`
+    );
+  }
+});

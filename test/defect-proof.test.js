@@ -123,6 +123,24 @@ test('work kind is explicit or conservatively detected', async () => {
   assert.equal(resolveWorkKind(undefined, 'Build pagination'), 'implementation');
   assert.equal(resolveWorkKind('implementation', 'Fix this bug'), 'investigation');
   assert.throws(() => resolveWorkKind('unknown', 'Fix this bug'), /work-kind must be/);
+
+  const correction = {
+    record_type: 'work_kind_correction',
+    from: 'investigation',
+    to: 'implementation',
+    granted_by: 'user',
+    reason: 'The summary describes a prose trim',
+    at: new Date().toISOString(),
+  };
+  assert.equal(resolveWorkKind('implementation', 'Fix this bug', correction), 'implementation');
+  assert.equal(
+    resolveWorkKind('implementation', 'Fix this bug', { ...correction, granted_by: '' }),
+    'investigation',
+  );
+  assert.equal(
+    resolveWorkKind('implementation', 'Fix this bug', { ...correction, record_type: 'diagnostic_grant' }),
+    'investigation',
+  );
 });
 
 test('DiagnosticGrant validation rejects expiry, revocation, and scope escape', async () => {
@@ -429,6 +447,123 @@ test('portable execute rejects a session downgrade after defect classification',
   const blocked = await run(['execute', ...common], context.env);
   assert.equal(blocked.code, 1);
   assert.match(blocked.stderr, /session work_kind conflicts with defect signals/);
+});
+
+function sessionDir(context, started) {
+  return path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
+}
+
+test('a granted correction reclassifies defect-signal work before execution starts', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start',
+    ...common,
+    '--task', 'TRIM-1',
+    '--intent', 'Trim generation prose, not defect fixes',
+    '--work-kind', 'implementation',
+    '--route', 'direct',
+  ], context.env));
+  assert.equal(started.work_kind, 'investigation');
+
+  const ungranted = await run([
+    'correct-work-kind', ...common, '--work-kind', 'implementation', '--reason', 'Prose trim',
+  ], context.env);
+  assert.equal(ungranted.code, 1);
+  assert.match(ungranted.stderr, /granted_by is required/);
+
+  const corrected = parse(await run([
+    'correct-work-kind', ...common, '--work-kind', 'implementation',
+    '--granted-by', 'user', '--reason', 'The summary describes a prose trim',
+  ], context.env));
+  assert.equal(corrected.work_kind, 'implementation');
+  assert.deepEqual(
+    {
+      from: corrected.work_kind_correction.from,
+      to: corrected.work_kind_correction.to,
+      granted_by: corrected.work_kind_correction.granted_by,
+    },
+    { from: 'investigation', to: 'implementation', granted_by: 'user' },
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(sessionDir(context, started), 'intent.json'), 'utf8')).work_kind,
+    'implementation',
+  );
+
+  const resumed = parse(await run([
+    'start', ...common, '--task', 'TRIM-1',
+    '--intent', 'Trim generation prose, not defect fixes', '--route', 'direct',
+  ], context.env));
+  assert.equal(resumed.work_kind, 'implementation');
+
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  const executed = parse(await run(['execute', ...common], context.env));
+  assert.equal(executed.lifecycle.actions.execute.status, 'started');
+
+  const late = await run([
+    'correct-work-kind', ...common, '--work-kind', 'investigation',
+    '--granted-by', 'user', '--reason', 'Reclassify after execution',
+  ], context.env);
+  assert.equal(late.code, 1);
+  assert.match(late.stderr, /execution has already started/);
+});
+
+test('defect-signal work stays investigation without a valid recorded correction', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start',
+    ...common,
+    '--task', 'TRIM-2',
+    '--intent', 'Trim prose, not defect fixes',
+    '--work-kind', 'implementation',
+    '--route', 'direct',
+  ], context.env));
+  assert.equal(started.work_kind, 'investigation');
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+
+  const directory = sessionDir(context, started);
+  for (const file of ['session.json', 'intent.json']) {
+    const artifactFile = path.join(directory, file);
+    const artifact = JSON.parse(fs.readFileSync(artifactFile, 'utf8'));
+    artifact.work_kind = 'implementation';
+    fs.writeFileSync(artifactFile, JSON.stringify(artifact));
+  }
+  const ungranted = await run(['execute', ...common], context.env);
+  assert.equal(ungranted.code, 1);
+  assert.match(ungranted.stderr, /conflicts with defect signals/);
+
+  const sessionFile = path.join(directory, 'session.json');
+  const session = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  session.work_kind_correction = {
+    record_type: 'work_kind_correction',
+    from: 'investigation',
+    to: 'implementation',
+    reason: 'Forged without a granting authority',
+    at: new Date().toISOString(),
+  };
+  fs.writeFileSync(sessionFile, JSON.stringify(session));
+  const forged = await run(['execute', ...common], context.env);
+  assert.equal(forged.code, 1);
+  assert.match(forged.stderr, /work_kind_correction is invalid.*granted_by is required/s);
+});
+
+test('divergent defect signals still require investigation without a correction', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'TRIM-3', '--intent', 'Trim generation prose', '--route', 'direct',
+  ], context.env));
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+
+  const intentFile = path.join(sessionDir(context, started), 'intent.json');
+  const intent = JSON.parse(fs.readFileSync(intentFile, 'utf8'));
+  intent.summary = 'Fix this bug';
+  fs.writeFileSync(intentFile, JSON.stringify(intent));
+
+  const blocked = await run(['execute', ...common], context.env);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.stderr, /defect signals require investigation classification/);
 });
 
 test('waiting_for_evidence remains resumable without weakening execute', async () => {

@@ -103,7 +103,7 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
 
 7. **Close cost interval + report**:
    ```bash
-   PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+   {PR_BOOTSTRAP}
    [ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}
    [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}
    ```

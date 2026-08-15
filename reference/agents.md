@@ -11,11 +11,10 @@
 | Sage | opus (pinned — top tier) | Advisory — <100 words, no tools, no user output | agents/sage.md |
 | Lens | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/lens.md |
 | Archer | opus (pinned — review tier) | Cross-file — cache coherence, regression, dead code | agents/archer.md |
-| Rival | sonnet (frontmatter pin) | Plan challenger — 5 categories, verdict | agents/rival.md |
-| Plan Checker | sonnet (frontmatter pin) · escalate for large/complex plans | Pre-execution validator — learnings, blast radius, coverage, scope, deps | agents/plan-checker.md |
+| Rival | sonnet (frontmatter pin) · escalate for large/complex plans | Plan critic — 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/rival.md |
 | Hound | opus (frontmatter pin) | Forensic investigator — root-cause tracing, HTML report | agents/hound.md |
 | Sweep | sonnet (frontmatter pin) | Code clarity — simplify changed files post-verify | agents/sweep.md |
-| Warden | sonnet (frontmatter pin) | Lifecycle plumbing — mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
+| Warden | haiku (frontmatter pin) | Lifecycle plumbing — mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
 
 ## Model Routing (Apex decides at spawn)
 
@@ -31,12 +30,11 @@ never try to set effort at spawn time. Tune speed/cost via **model**, not effort
 
 Apex has OPTIONS, not a rigid lookup. Use these criteria per role:
 
-- **Mechanical / tool-driver roles** (Sweep, Lens, Plan Checker, and search/Explore-style
+- **Mechanical / tool-driver roles** (Sweep, Lens, and search/Explore-style
   spawns) → default **CHEAP (sonnet)**. These pin `sonnet` in frontmatter. Ward pins `haiku`
   (verification is mechanical). Escalate to opus (the
   implementer ceiling - never fable, never session-inherit) ONLY if the task proves non-trivial (e.g.
-  a sweep spanning many files with subtle semantics, a plan check over a large/ambiguous plan,
-  verification requiring real debugging).
+  a sweep spanning many files with subtle semantics, verification requiring real debugging).
 - **Implementation** (Blade) → default **sonnet** for well-scoped, contract-backed subtasks
   (clear inputs/outputs, named file owner, no open design decisions). Escalate to
   opus (hard ceiling for implementers - never fable, never session-inherit) for complex, ambiguous, or
@@ -45,7 +43,8 @@ Apex has OPTIONS, not a rigid lookup. Use these criteria per role:
 - **Reasoning / review roles** (Gaze, Archer, Hound, Rival, Sage) → **UNCHANGED**. Gaze and Archer
   pin `opus` in frontmatter (review tier — opus is the top tier now that Fable is retired from
   Phantom's routing). Sage pins `opus` (top-tier advisory). Hound pins opus
-  and Rival pins sonnet in frontmatter. Do NOT downshift Gaze, Archer, or Hound.
+  and Rival pins sonnet in frontmatter — escalate Rival only for a large or ambiguous plan.
+  Do NOT downshift Gaze, Archer, or Hound.
 - **Orchestration** (Apex) → the session model.
 
 When decomposing, keep tagging each subtask `mechanical | standard | complex`. CHEAP (sonnet) is the
@@ -68,6 +67,16 @@ for trivial mechanical). Choosing opus requires a concrete reason tied to *this*
 design decision, cross-file coupling, or genuine ambiguity. "It's subtle/tricky" is not a reason.
 If you can't name why the floor fails, the floor wins. Weak scoping is fixed by re-decomposing, not
 by escalating.
+
+**Delegation calibration.** Spawning a subagent pays off on sizeable, genuinely independent tracks
+of work, and multiplies cost on small ones - each spawn carries its own context load, coordination
+overhead, and verification pass, so a one-line change routed through its own agent spends more than
+it saves. Batch related small edits into a single Blade rather than assigning one agent per change;
+never spawn one-line-per-agent. Prefer a single worker when one suffices, and keep spawn counts low
+even when the work could technically be split further.
+
+This file is canonical for Claude-native hosts; `skills/phantom/references/roles.md` deliberately
+carries its own copy of this same calibration for the portable-contract path.
 
 ## Naming
 

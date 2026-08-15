@@ -13,8 +13,7 @@ the same in either mode.
 | Sage | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
 | Lens | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
 | Archer | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
-| Rival | `balanced` | none | Challenge a proposed plan. Output missing assumptions, counterexamples, and verdict. |
-| Plan-checker | `balanced` | none | Validate scope, ordering, learnings, coverage, and blast radius before execution. |
+| Rival | `balanced` | none | Challenge a proposed plan and validate scope, ordering, learnings, coverage, and blast radius before execution. Output missing assumptions, counterexamples, and verdict. |
 | Hound | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
 | Sweep | `economy` | scoped | Reapply the solution ladder to remove unnecessary complexity without behavioral change. Output edits or a no-change result. |
 | Warden | `economy` | scoped | Perform authorized lifecycle mechanics. Output actions, external links when available, and final state. |
@@ -34,6 +33,27 @@ the runtime requires approval, request it before spawning and preserve a
 sequential fallback if approval is denied. Apex remains the default sole
 delegator: a worker may not create more workers unless the plan explicitly
 authorizes bounded nesting and the runtime provides it natively.
+
+Delegation pays off on sizeable independent tracks and multiplies cost on
+small ones, since every spawned worker carries its own coordination and
+context overhead. Batch related small edits into one assignment rather than
+handing out one agent per change; never spawn one worker per one-line edit.
+Prefer a single worker whenever one suffices for the full scope. Keep spawn
+counts low, and brief each worker fully on the first assignment so no
+re-briefing round-trip is needed mid-task.
+
+This is the portable-contract copy of this calibration, carried deliberately;
+`reference/agents.md` is canonical for the native host agent-definition path.
+
+### Generated-code style contract
+
+Comments only for what code cannot express, at the file's existing density —
+never narration. Every new test traces to an acceptance criterion or a fixed
+defect — no speculative suites, sized to the change, prefer extending an
+existing test file. PR body conciseness is owned by `reference/wrap/pr-body.md`
+(pointer only).
+
+Finish in a single run: no early stop before the role's own checks run and the completion record is written; implementing roles additionally land the commit.
 
 ## Delegation contract
 
@@ -68,7 +88,7 @@ The task shape is:
 ```
 
 The canonical task is recursively key-sorted JSON encoded as UTF-8 and is at
-most 4,800 bytes. It carries at most five locked decisions, five corrections,
+most 64,000 bytes. It carries at most five locked decisions, five corrections,
 eight constraints, eight deliverables, eight acceptance criteria, twelve write
 scopes, and eight context references. References point to a workspace or
 session file, bind its exact bytes with SHA-256, and reject absolute paths,
@@ -89,13 +109,13 @@ Every delegated assignment must still include:
 
 The worker returns version `2` with the matching `task_id`, `delegation_id`, and
 the SHA-256 `task_digest` of the accepted canonical task. Canonical result JSON
-is at most 2,000 UTF-8 bytes and is never truncated. For `status: "ok"`,
-`output` contains a summary of at most 500 bytes; required `files_changed`,
+is at most 32,000 UTF-8 bytes and is never truncated. For `status: "ok"`,
+`output` contains a summary of at most 8,000 bytes; required `files_changed`,
 `checks`, `findings`, and `risks` arrays; and a required `blocker` that is
-either `null` or at most 300 bytes. Paths must stay within `write_scope`.
+either `null` or at most 4,000 bytes. Paths must stay within `write_scope`.
 Checks use `{ name, status, summary? }`, where status is `passed`, `failed`, or
-`skipped` and summary is at most 240 bytes. String-array entries are at most
-240 bytes. For `status: "error"`, `output` is `null` and `error` remains
+`skipped` and summary is at most 2,000 bytes. String-array entries are at most
+2,000 bytes. For `status: "error"`, `output` is `null` and `error` remains
 `{ code, message, retryable }`.
 
 Version `1` tasks cannot be newly recorded. A version `1` result is accepted

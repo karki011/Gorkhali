@@ -1,6 +1,6 @@
 // Author: Subash Karki
 // wrap-defense-brief.test.js - pins the always-on Defense Brief that replaced
-// the wrap-time auto-grill: commands/wrap.md Step 3, the Step 9 wrap.json
+// the wrap-time auto-grill: commands/wrap.md Step 2, the Step 6 wrap.json
 // spec line, commands/grill.md's manual-only Integration section, and the
 // new reference/wrap/defense-brief.md authoring protocol.
 // Zero external deps: node:test + node:assert only.
@@ -30,17 +30,17 @@ const SECTION_HEADINGS = [
   'Decision log',
 ];
 
-// -- commands/wrap.md - Step 3 Defense Brief -------------------------------
+// -- commands/wrap.md - Step 2 Defense Brief -------------------------------
 
 test('wrap.md contains the Defense Brief step', () => {
   const content = read('commands/wrap.md');
   assert.ok(
-    content.includes('## Step 3: Defense Brief (auto, always)'),
-    'wrap.md must contain the Step 3 Defense Brief heading'
+    content.includes('## Step 2: Defense Brief (auto, always)'),
+    'wrap.md must contain the Step 2 Defense Brief heading'
   );
 });
 
-test('wrap.md Step 3 states it runs regardless of file count', () => {
+test('wrap.md Step 2 states it runs regardless of file count', () => {
   const content = read('commands/wrap.md');
   assert.ok(
     /regardless of file count/i.test(content),
@@ -49,11 +49,11 @@ test('wrap.md Step 3 states it runs regardless of file count', () => {
 });
 
 for (const heading of SECTION_HEADINGS) {
-  test(`wrap.md Step 3 lists the "${heading}" section heading`, () => {
+  test(`wrap.md Step 2 lists the "${heading}" section heading`, () => {
     const content = read('commands/wrap.md');
     assert.ok(
       content.includes(`## ${heading}`),
-      `wrap.md Step 3 must list the exact heading "## ${heading}"`
+      `wrap.md Step 2 must list the exact heading "## ${heading}"`
     );
   });
 }
@@ -76,15 +76,15 @@ test('wrap.md contains the warden preflight grep for all six section headings', 
   );
 });
 
-test('wrap.md Step 3 references reference/wrap/defense-brief.md', () => {
+test('wrap.md Step 2 references reference/wrap/defense-brief.md', () => {
   const content = read('commands/wrap.md');
   assert.ok(
     content.includes('reference/wrap/defense-brief.md'),
-    'wrap.md Step 3 must link the defense-brief authoring protocol'
+    'wrap.md Step 2 must link the defense-brief authoring protocol'
   );
 });
 
-test('wrap.md Step 3 is Apex judgment work, never warden', () => {
+test('wrap.md Step 2 is Apex judgment work, never warden', () => {
   const content = read('commands/wrap.md');
   assert.ok(
     /never warden/i.test(content),
@@ -92,7 +92,7 @@ test('wrap.md Step 3 is Apex judgment work, never warden', () => {
   );
 });
 
-test('wrap.md no longer auto-invokes grill at Step 3', () => {
+test('wrap.md no longer auto-invokes grill at Step 2', () => {
   const content = read('commands/wrap.md');
   assert.ok(
     !/Grill Gate \(auto-triggered/i.test(content),
@@ -112,17 +112,17 @@ test('wrap.md mentions phantom:grill only in the --grill flag context', () => {
   }
 });
 
-// -- commands/wrap.md - Step 9 wrap.json spec ------------------------------
+// -- commands/wrap.md - Step 6 wrap.json spec ------------------------------
 
-test('wrap.md Step 9 wrap.json spec includes defenseBrief', () => {
+test('wrap.md Step 6 wrap.json spec includes defenseBrief', () => {
   const content = read('commands/wrap.md');
   assert.ok(
     content.includes('`defenseBrief`'),
-    'wrap.md Step 9 wrap.json field list must include `defenseBrief`'
+    'wrap.md Step 6 wrap.json field list must include `defenseBrief`'
   );
 });
 
-test('wrap.md Step 9 defenseBrief spec documents path, questions, and sections', () => {
+test('wrap.md Step 6 defenseBrief spec documents path, questions, and sections', () => {
   const content = read('commands/wrap.md');
   const idx = content.indexOf('`defenseBrief`');
   assert.notEqual(idx, -1, 'defenseBrief field must exist before checking its shape');

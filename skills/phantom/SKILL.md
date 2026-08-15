@@ -76,8 +76,8 @@ review plans, but it never permits execute, verify, or ship.
   bounded work, mutate, and preserve resumable progress.
 - [Verification and review](references/verification.md): verify deterministically,
   simplify, run triggered specialists, and obtain independent review.
-- [Shipping](references/shipping.md): authorize and perform an external draft-PR
-  lifecycle after all current evidence passes.
+- [Shipping](references/shipping.md): authorize and perform an external
+  pull-request lifecycle after all current evidence passes.
 
 Do not load later phases speculatively. The phase reference explains agent
 behavior; the state helper enforces whether the transition is legal.

@@ -1,8 +1,10 @@
 // Author: Subash Karki
-// wrap-pr-body.test.js - pins B13's structured PR body: the fixed five-section
-// template in reference/wrap/pr-body.md, its stated-gap degradation rule, the
-// commands/wrap.md Step 2 render step, the ship-ceremony --body-file handoff,
-// and warden's no-authoring boundary.
+// wrap-pr-body.test.js - pins the concise three-section PR body: the contract in
+// reference/wrap/pr-body.md, its cannot-degrade Verification rule, the
+// stated-gap convention, the derived Review-focus ranking, the single-copy
+// discipline (wrap.md and ship-ceremony.md point at the spec, never restate it),
+// the ready-for-review `gh pr create` (no --draft), and warden's
+// substitute-only boundary.
 //
 // The gate tests EXECUTE the preflight snippet lifted verbatim out of
 // reference/wrap/ship-ceremony.md against real bodies on disk, so a template
@@ -24,25 +26,12 @@ function read(rel) {
   return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 }
 
-// The five headings, in the order the template fixes them.
-const SECTIONS = [
-  'Goal',
-  'Approach',
-  'Risk',
-  'Verification evidence',
-  'What to look at first',
-];
+// The three headings, in the order the contract fixes them.
+const SECTIONS = ['What & why', 'Verification', 'Review focus'];
 
-// ── reference/wrap/pr-body.md - the template itself ───────────────────────────
+// ── reference/wrap/pr-body.md - the contract itself ──────────────────────────
 
-test('reference/wrap/pr-body.md exists', () => {
-  assert.ok(
-    fs.existsSync(path.join(REPO_ROOT, 'reference/wrap/pr-body.md')),
-    'reference/wrap/pr-body.md must exist'
-  );
-});
-
-test('pr-body.md fixes the five headings in order', () => {
+test('pr-body.md fixes the three headings in order', () => {
   const content = read('reference/wrap/pr-body.md');
   const positions = SECTIONS.map((heading) => {
     const idx = content.indexOf(`\`## ${heading}\``);
@@ -55,14 +44,16 @@ test('pr-body.md fixes the five headings in order', () => {
       `"## ${SECTIONS[i]}" must be documented after "## ${SECTIONS[i - 1]}"`
     );
   }
+  assert.ok(
+    !/## (Goal|Approach|Risk|Verification evidence|What to look at first)`/.test(content),
+    'the retired five-section headings must be gone from the contract'
+  );
 });
 
 const SECTION_SOURCES = [
-  ['Goal', ['intent.json', 'goal', 'doneWhen']],
-  ['Approach', ['plan.json', 'decision.recommendation', 'execution.json', 'filesChanged']],
-  ['Risk', ['risks[]', 'tradeoffs[]']],
-  ['Verification evidence', ['checks[]', 'userVerification', 'specialists[]', 'verdict']],
-  ['What to look at first', ['path:line', 'execution.json']],
+  ['What & why', ['intent.json', 'doneWhen[]', 'decision.recommendation']],
+  ['Verification', ['checks[]', 'userVerification', 'specialists[]', 'verdict']],
+  ['Review focus', ['path:line', 'execution.json', 'numstat']],
 ];
 
 for (const [heading, sources] of SECTION_SOURCES) {
@@ -77,9 +68,14 @@ for (const [heading, sources] of SECTION_SOURCES) {
   });
 }
 
+test('pr-body.md caps the body at 40 lines and 2500 characters', () => {
+  const content = read('reference/wrap/pr-body.md');
+  assert.ok(/40 lines and 2500 characters/i.test(content), 'the hard caps must be stated');
+});
+
 test('pr-body.md gives a stated-gap line for every degradable section', () => {
   const content = read('reference/wrap/pr-body.md');
-  for (const heading of ['Goal', 'Approach', 'Risk', 'What to look at first']) {
+  for (const heading of ['What & why', 'Review focus']) {
     const idx = content.indexOf(`\`## ${heading}\``);
     const row = content.slice(idx, content.indexOf('\n', idx));
     assert.ok(
@@ -101,28 +97,37 @@ test('pr-body.md forbids invented text in place of a missing artifact', () => {
   );
 });
 
-test('pr-body.md states Verification evidence does not degrade to a gap', () => {
+test('pr-body.md states Verification does not degrade to a gap', () => {
   const content = read('reference/wrap/pr-body.md');
   assert.ok(
-    /Section 4 does not degrade/i.test(content),
-    'pr-body.md must state the verification-evidence section has no gap form'
+    /This section does not degrade/i.test(content),
+    'pr-body.md must state the Verification section has no gap form'
   );
   assert.ok(
     /blocked ship gate/i.test(content),
     'pr-body.md must say missing required evidence is a blocked ship gate'
   );
+  assert.ok(
+    /[Nn]ever omit required validation and never invent/.test(content),
+    'pr-body.md must forbid both omitting and inventing required evidence'
+  );
+  const row = content.slice(content.indexOf('| 2 | `## Verification`'));
+  assert.ok(
+    !row.slice(0, row.indexOf('\n')).includes('_Not recorded:'),
+    'the Verification row must NOT carry a stated-gap line'
+  );
 });
 
-test('pr-body.md ranks "what to look at first" by a derived rule, not judgment', () => {
+test('pr-body.md ranks "Review focus" by a derived rule, not judgment', () => {
   const content = read('reference/wrap/pr-body.md');
-  const idx = content.indexOf('### 5. `## What to look at first`');
-  assert.notEqual(idx, -1, 'pr-body.md must document section 5');
+  const idx = content.indexOf('### 3. `## Review focus`');
+  assert.notEqual(idx, -1, 'pr-body.md must document section 3');
   const section = content.slice(idx, idx + 1200);
   assert.ok(
     /derived, not judged/i.test(section),
     'the ranking must be stated as derived rather than judged'
   );
-  for (const signal of ['unfixed', 'risk', 'nonNegotiables', 'numstat']) {
+  for (const signal of ['unfixed', 'severity', 'risk', 'numstat']) {
     assert.ok(
       new RegExp(signal, 'i').test(section),
       `the ranking rule must name the "${signal}" signal`
@@ -154,16 +159,32 @@ test('this repo has no .github PR template, so the canonical headings apply', ()
     'pull_request_template.md',
   ];
   const found = candidates.filter((rel) => fs.existsSync(path.join(REPO_ROOT, rel)));
-  const dir = path.join(REPO_ROOT, '.github/PULL_REQUEST_TEMPLATE');
   assert.deepEqual(found, [], `unexpected PR template in this repo: ${found.join(', ')}`);
-  assert.ok(!fs.existsSync(dir), 'unexpected .github/PULL_REQUEST_TEMPLATE directory');
+  assert.ok(
+    !fs.existsSync(path.join(REPO_ROOT, '.github/PULL_REQUEST_TEMPLATE')),
+    'unexpected .github/PULL_REQUEST_TEMPLATE directory'
+  );
   assert.ok(
     /This repository has no PR template/i.test(read('reference/wrap/pr-body.md')),
     'pr-body.md must record that this repo has no PR template'
   );
 });
 
-// ── ownership: Apex renders, warden substitutes ───────────────────────────────
+test('the example skeleton stays inside the 40-line cap', () => {
+  const content = read('reference/wrap/pr-body.md');
+  const block = (content.match(/```markdown\n([\s\S]*?)```/) || [])[1];
+  assert.ok(block, 'pr-body.md must carry an example skeleton in a ```markdown block');
+  assert.ok(
+    block.trimEnd().split('\n').length <= 40,
+    'the example skeleton must not exceed the 40-line body cap'
+  );
+  assert.ok(
+    block.length <= 2500,
+    'the example skeleton must not exceed the 2500-character body cap'
+  );
+});
+
+// ── ownership: Apex renders, warden substitutes ──────────────────────────────
 
 test('pr-body.md keeps rendering with Apex and substitution with warden', () => {
   const content = read('reference/wrap/pr-body.md');
@@ -171,10 +192,7 @@ test('pr-body.md keeps rendering with Apex and substitution with warden', () => 
     /Warden never authors/i.test(content),
     'pr-body.md must state warden never authors a section'
   );
-  assert.ok(
-    content.includes('--body-file'),
-    'pr-body.md must confine warden to --body-file'
-  );
+  assert.ok(content.includes('--body-file'), 'pr-body.md must confine warden to --body-file');
 });
 
 test('warden.md takes the body as a file and forbids authoring it', () => {
@@ -184,8 +202,8 @@ test('warden.md takes the body as a file and forbids authoring it', () => {
     'warden.md PR ops must take the body as --body-file'
   );
   assert.ok(
-    /PR body authoring/i.test(content),
-    'warden.md "What you do NOT own" must list PR body authoring'
+    /three-heading preflight/i.test(content),
+    'warden.md must run the three-heading preflight'
   );
   const notOwned = content.slice(content.indexOf('## What you do NOT own'));
   assert.ok(
@@ -194,12 +212,26 @@ test('warden.md takes the body as a file and forbids authoring it', () => {
   );
 });
 
-test('wrap.md Step 2 renders pr-body.md and lists all five sections', () => {
+// ── single-copy discipline ───────────────────────────────────────────────────
+
+for (const file of ['commands/wrap.md', 'reference/wrap/ship-ceremony.md']) {
+  test(`${file} points at pr-body.md instead of restating the spec`, () => {
+    const content = read(file);
+    assert.ok(
+      content.includes('reference/wrap/pr-body.md'),
+      `${file} must point at the single copy of the contract`
+    );
+    for (const token of ['intent.json', 'solution_shape', '_Not recorded:']) {
+      assert.ok(
+        !content.includes(token),
+        `${file} must not restate the section spec (found "${token}")`
+      );
+    }
+  });
+}
+
+test('wrap.md Step 3 renders pr-body.md and names the three headings', () => {
   const content = read('commands/wrap.md');
-  assert.ok(
-    content.includes('reference/wrap/pr-body.md'),
-    'wrap.md must link the pr-body authoring protocol'
-  );
   assert.ok(
     /never warden work/i.test(content),
     'wrap.md must state PR body rendering is never warden work'
@@ -207,40 +239,131 @@ test('wrap.md Step 2 renders pr-body.md and lists all five sections', () => {
   for (const heading of SECTIONS) {
     assert.ok(
       content.includes(`## ${heading}`),
-      `wrap.md Step 2 must list the exact heading "## ${heading}"`
+      `wrap.md must name the exact heading "## ${heading}"`
     );
   }
+});
+
+test('wrap.md offers a Lens screenshot as optional, never-blocking evidence', () => {
+  const content = read('commands/wrap.md');
+  const idx = content.indexOf('Lens screenshot');
+  assert.notEqual(idx, -1, 'wrap.md must mention the optional Lens screenshot');
+  const nearby = content.slice(idx - 200, idx + 300);
+  assert.ok(/MAY/.test(nearby), 'the Lens screenshot must be optional');
+  assert.ok(/never blocks/i.test(nearby), 'the Lens screenshot must never block the wrap');
 });
 
 test('wrap.md records prBody in the wrap.json outcome', () => {
   const content = read('commands/wrap.md');
   const idx = content.indexOf('`prBody`');
-  assert.notEqual(idx, -1, 'wrap.md Step 9 must include `prBody`');
+  assert.notEqual(idx, -1, 'wrap.md must include `prBody` in the recorded outcome');
   const nearby = content.slice(idx, idx + 400);
   for (const field of ['path', 'sections', 'gaps']) {
     assert.ok(nearby.includes(field), `prBody spec must document a ${field} field`);
   }
+  assert.ok(/`sections` is 3/.test(nearby), 'prBody must record 3 sections');
 });
 
-test('ship-ceremony hands the body to gh as a file, not as prose', () => {
+// ── the PR is born ready for review ──────────────────────────────────────────
+
+test('ship-ceremony creates a ready-for-review PR with the body as a file', () => {
   const content = read('reference/wrap/ship-ceremony.md');
+  const line = content.split('\n').find((l) => l.includes('gh pr create'));
+  assert.ok(line, 'ship-ceremony must carry the gh pr create command');
+  assert.ok(!line.includes('--draft'), 'the PR must be created ready for review, not as a draft');
   assert.ok(
     content.includes('--body-file "{SESSION_DIR}/pr-body.md"'),
     'ship-ceremony must call gh pr create with --body-file'
   );
   assert.ok(
-    !/^## Test plan$/m.test(content),
-    'ship-ceremony must no longer carry the old free-prose "Test plan" section'
+    !/--draft/.test(content),
+    'no --draft may survive anywhere in the ship ceremony, fallbacks included'
   );
-  for (const heading of SECTIONS) {
-    assert.ok(
-      content.includes(`## ${heading}`),
-      `ship-ceremony body template must contain "## ${heading}"`
-    );
-  }
+  assert.ok(
+    /## 4\. PR Creation \(ready for review\)/.test(content),
+    'section 4 must be titled for ready-for-review PR creation'
+  );
 });
 
-// ── the preflight actually gates ──────────────────────────────────────────────
+// ── no live instruction file still promises a draft PR ───────────────────────
+//
+// This is a directory scanner, not a file enumeration: an enumerated list only
+// ever catches the files someone remembered to add to it (that is how
+// reference/greploop.md and skills/phantom/SKILL.md leaked stale "draft PR"
+// language past this guard before). Walking every instruction root makes a new
+// or unlisted file just as visible as the ones already known about.
+
+const SCAN_ROOTS = [
+  'commands', 'reference', 'skills', 'agents', 'project-docs',
+  'templates', 'hooks', 'scripts',
+];
+const SCAN_EXTENSIONS = new Set(['.md', '.js', '.mjs', '.sh']);
+
+// PR-bound phrasings only — never the bare word "draft", which has legitimate
+// uses unrelated to PR shipping (e.g. "draft contract", "Draft one comment",
+// "drafts all approaches").
+const DRAFT_PR_PATTERNS = [
+  /--draft/,
+  /\bdraft[- ]PR\b/i,
+  /\bdrafts?\s+the\s+PR\b/i,
+  /marks?\b[^.\n]*\bready[- ]to[- ]review/i,
+  /always draft|created as drafts?/i,
+];
+
+function walkScanRoot(root, out) {
+  const dir = path.join(REPO_ROOT, root);
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (_) {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      walkScanRoot(path.join(root, entry.name), out);
+    } else if (SCAN_EXTENSIONS.has(path.extname(entry.name))) {
+      out.push(path.join(root, entry.name));
+    }
+  }
+}
+
+test('no live instruction file still promises a draft PR', () => {
+  const files = [];
+  for (const root of SCAN_ROOTS) walkScanRoot(root, files);
+  assert.ok(files.length > 20, 'the scan must actually walk a non-trivial number of files');
+
+  const offenses = [];
+  for (const rel of files) {
+    const content = read(rel);
+    const lines = content.split('\n');
+    lines.forEach((rawLine, i) => {
+      // `ship-draft-pr` is the legacy name of the ship-pr authorization scope, not a
+      // claim about what kind of PR wrap creates; strip it before matching so it never
+      // trips the "draft PR" patterns. Nothing else is exempt: an exemption broader
+      // than the phrase it names would silently swallow a future leak.
+      const line = rawLine.replace(/ship-draft-pr/g, '');
+      for (const re of DRAFT_PR_PATTERNS) {
+        if (re.test(line)) {
+          offenses.push(`${rel}:${i + 1}: ${rawLine.trim()}`);
+          break;
+        }
+      }
+    });
+  }
+
+  assert.deepEqual(offenses, [], `draft-PR language found:\n${offenses.join('\n')}`);
+});
+
+test('known-good draft mentions survive the scanner', () => {
+  // These use the word "draft" but are not PR-shipping instructions, so the
+  // scanner above must not flag them.
+  assert.match(read('reference/greploop.md'), /\(drafts included\)/);
+  assert.match(read('reference/wrap/ship-ceremony.md'), /drafting bought no review control/);
+});
+
+// ── the preflight actually gates ─────────────────────────────────────────────
 
 // Lift the preflight verbatim out of the doc so the test exercises the exact
 // snippet warden is told to run.
@@ -253,20 +376,14 @@ function preflightScript() {
 }
 
 const POPULATED_BODY = [
-  '## Goal',
-  'ENG-1234: totals doubled on date-range change.',
+  '## What & why',
+  'ENG-1234: totals doubled on date-range change. Fixed the shared reducer.',
   '',
-  '## Approach',
-  'Fix the shared reducer, not the consumer.',
+  '## Verification',
+  '- focused tests — passed',
+  '- gaze — pass — 0 findings',
   '',
-  '## Risk',
-  'Return-shape change — all callers bumped — revert is one commit.',
-  '',
-  '## Verification evidence',
-  'focused tests — passed',
-  'gaze — pass — 0 findings',
-  '',
-  '## What to look at first',
+  '## Review focus',
   '- `src/hooks/useUsageRange.ts:47` — plan risk lands here',
   '',
 ].join('\n');
@@ -275,27 +392,20 @@ function runPreflight(body) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-pr-body-'));
   const file = path.join(dir, 'pr-body.md');
   fs.writeFileSync(file, body);
-  const script = preflightScript().replace(
-    /BODY="[^"]*"/,
-    `BODY=${JSON.stringify(file)}`
-  );
+  const script = preflightScript().replace(/BODY="[^"]*"/, `BODY=${JSON.stringify(file)}`);
   const result = spawnSync('bash', ['-c', script], { encoding: 'utf8' });
   fs.rmSync(dir, { recursive: true, force: true });
   return result.status;
 }
 
-test('preflight ACCEPTS a body with all five sections populated', () => {
-  assert.equal(
-    runPreflight(POPULATED_BODY),
-    0,
-    'a fully populated five-section body must pass the ship preflight'
-  );
+test('preflight ACCEPTS a body with all three sections populated', () => {
+  assert.equal(runPreflight(POPULATED_BODY), 0, 'a populated body must pass the ship preflight');
 });
 
 test('preflight ACCEPTS stated gaps as populated sections', () => {
   const gapped = POPULATED_BODY.replace(
-    'Fix the shared reducer, not the consumer.',
-    '_Not recorded: plan.json — this session shipped without a recorded plan._'
+    'ENG-1234: totals doubled on date-range change. Fixed the shared reducer.',
+    '_Not recorded: intent.json — no goal contract was captured for this session._'
   );
   assert.equal(
     runPreflight(gapped),
@@ -309,27 +419,22 @@ for (const heading of SECTIONS) {
     const lines = POPULATED_BODY.split('\n');
     const idx = lines.indexOf(`## ${heading}`);
     assert.notEqual(idx, -1, 'fixture must contain the heading being dropped');
-    // Drop the heading and its body, up to the next heading.
     let end = idx + 1;
     while (end < lines.length && !lines[end].startsWith('## ')) end += 1;
     lines.splice(idx, end - idx);
-    assert.equal(
-      runPreflight(lines.join('\n')),
-      1,
-      `dropping "## ${heading}" must block PR creation`
-    );
+    assert.equal(runPreflight(lines.join('\n')), 1, `dropping "## ${heading}" must block PR creation`);
   });
 }
 
 test('preflight REJECTS an empty section in the middle of the body', () => {
   const empty = POPULATED_BODY.replace(
-    '## Risk\nReturn-shape change — all callers bumped — revert is one commit.\n',
-    '## Risk\n'
+    '## Verification\n- focused tests — passed\n- gaze — pass — 0 findings\n',
+    '## Verification\n'
   );
   assert.equal(
     runPreflight(empty),
     1,
-    'an empty "## Risk" section must block PR creation rather than ship blank'
+    'an empty "## Verification" section must block PR creation rather than ship blank'
   );
 });
 
@@ -338,11 +443,7 @@ test('preflight REJECTS an empty trailing section', () => {
     '- `src/hooks/useUsageRange.ts:47` — plan risk lands here\n',
     ''
   );
-  assert.equal(
-    runPreflight(empty),
-    1,
-    'an empty final section must block PR creation'
-  );
+  assert.equal(runPreflight(empty), 1, 'an empty final section must block PR creation');
 });
 
 test('wrap.md carries the same preflight as ship-ceremony', () => {

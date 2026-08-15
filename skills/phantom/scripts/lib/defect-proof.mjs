@@ -87,13 +87,39 @@ export function hasDefectSignal(intent = '') {
   return DEFECT_SIGNAL.test(String(intent));
 }
 
-export function resolveWorkKind(explicit, intent = '') {
+// The marker key, not object shape, decides whether a session field is a correction record.
+export function workKindCorrectionErrors(correction) {
+  if (!isObject(correction)) return ['work_kind_correction must be an object'];
+  const errors = [];
+  if (correction.record_type !== 'work_kind_correction') {
+    errors.push('work_kind_correction.record_type must be work_kind_correction');
+  }
+  for (const key of ['from', 'to']) {
+    if (!WORK_KINDS.has(correction[key])) {
+      errors.push(`work_kind_correction.${key} must be implementation or investigation`);
+    }
+  }
+  if (correction.from === correction.to) {
+    errors.push('work_kind_correction.to must differ from work_kind_correction.from');
+  }
+  if (!nonempty(correction.granted_by)) errors.push('work_kind_correction.granted_by is required');
+  if (!nonempty(correction.reason)) errors.push('work_kind_correction.reason is required');
+  if (!validTime(correction.at)) errors.push('work_kind_correction.at must be an ISO timestamp');
+  return errors;
+}
+
+export function correctedWorkKind(correction) {
+  if (correction === null || correction === undefined) return null;
+  return workKindCorrectionErrors(correction).length === 0 ? correction.to : null;
+}
+
+export function resolveWorkKind(explicit, intent = '', correction = null) {
   if (explicit !== undefined) {
     if (!WORK_KINDS.has(explicit)) {
       throw new Error('work-kind must be implementation or investigation.');
     }
   }
-  if (hasDefectSignal(intent)) return 'investigation';
+  if (hasDefectSignal(intent)) return correctedWorkKind(correction) ?? 'investigation';
   return explicit ?? 'implementation';
 }
 

@@ -13,7 +13,7 @@ user-invocable: false
 
 Run validation scripts to check shadows guidance compliance. Layers: `plan`, `output`, `session`, `all`.
 
-**Scripts location:** `{PLUGIN_ROOT}/scripts/` — self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; validation skipped"; exit 0; }` (gate-critical — the validate scripts ARE the skill; empty `$PR` aborts readable, never `$PR/scripts/...` with an empty `$PR`)
+**Scripts location:** `$PR/scripts/`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; validation skipped"; exit 0; }` (the validate scripts ARE the skill; empty `$PR` aborts readable, never `$PR/scripts/...` with an empty `$PR`)
 
 ---
 
@@ -104,7 +104,7 @@ After Ward returns, the coordinator:
 
 ## Automatic Validation (built into execution flow)
 
-- **PreToolUse hook** on Agent calls validates `mode: "bypassPermissions"`, `run_in_background: true`, model tier, and prompt content. BLOCKs bad spawns automatically.
+- **PreToolUse hook** on Agent calls validates model tier (denies fable on blade/sweep/ward/lens/warden), that blade spawns carry an explicit model, and that the spawn's `name:` matches a roster-defined shape (`reference/roster.md`, `hooks/blade-model-gate.js`) - it does not validate `mode`, `run_in_background`, or prompt content. BLOCKs bad spawns automatically.
 - **Apex** runs `validate-plan.sh` before Phase C execution starts.
 - **Apex** runs `validate-output.sh` after each agent completes (with that agent's owned files).
 - **Apex** runs `validate-session.sh` at phase transitions and after verify/fix loops.

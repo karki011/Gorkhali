@@ -1,6 +1,6 @@
 ---
 name: greploop
-description: "Use when you want to drive a PR to a perfect Greptile review — iteratively trigger Greptile, fix every actionable comment, resolve threads, re-review, and repeat until 5/5 confidence with zero unresolved comments. Also use when user says 'greploop', 'loop greptile', 'get this to 5/5', 'clear all greptile comments', or 'optimize the PR against review'. Auto-invoked by phantom:wrap after a draft PR is created."
+description: "Use when you want to drive a PR to a perfect Greptile review — iteratively trigger Greptile, fix every actionable comment, resolve threads, re-review, and repeat until 5/5 confidence with zero unresolved comments. Also use when user says 'greploop', 'loop greptile', 'get this to 5/5', 'clear all greptile comments', or 'optimize the PR against review'. Auto-invoked by phantom:wrap after the PR is created."
 allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 # /phantom:greploop $ARGUMENTS
 
 Iteratively fix a GitHub PR until Greptile gives a perfect review: **5/5 confidence, zero unresolved comments**.
-Always on, fail-open, bounded. Auto-invoked by `phantom:wrap` after a draft PR is created.
+Always on, fail-open, bounded. Auto-invoked by `phantom:wrap` after the PR is created.
 READ `reference/greploop.md` for the full protocol (conventions, poll/trigger details, comment triage, gate release).
 
 ## Skeleton
@@ -27,4 +27,4 @@ READ `reference/greploop.md` for the full protocol (conventions, poll/trigger de
 
 On exit (success or Greptile unavailable), **release the wrap gate** by writing `greptile.status` to the
 session `wrap.json` (`done` | `skipped`) — greploop is the SOLE writer; `hooks/greploop-gate.js` blocks
-the session until it lands. Never marks the PR ready-to-review — that stays a human action.
+the session until it lands. Never merges the PR — merging stays a human action.

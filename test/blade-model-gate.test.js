@@ -67,8 +67,7 @@ const DEFAULT_NAMES = {
   archer: 'archer-sylas',
   hound: 'hound-fenrik',
   rival: 'rival-dask',
-  sage: 'sage-apex',
-  'plan-checker': 'plan-checker-castor',
+  sage: 'sage-blade-kaze',
 };
 
 function agentSpawn(subagentType, toolInput = {}) {
@@ -226,7 +225,7 @@ test('25. "phantom:reference:blade-conventions" with no name → ALLOW (exact ma
 test('26. valid roster names → ALLOW (prefixed + function-named + overflow forms)', () => {
   assertAllow(runGate(agentSpawn('phantom:archer', { name: 'archer-scope' })));
   assertAllow(runGate(agentSpawn('warden', { name: 'warden-gorath' })));
-  assertAllow(runGate(agentSpawn('plan-checker', { name: 'plan-checker-castor' })));
+  assertAllow(runGate(agentSpawn('rival', { name: 'rival-veyra' })));
   assertAllow(runGate(agentSpawn('blade', { name: 'blade-24', model: 'opus' })));
 });
 
@@ -250,6 +249,9 @@ test('29. escape hatch PHANTOM_BLADE_MODEL_GATE=0 disables the name gate too', (
 test('30. well-formed but invented character → DENY (identity, not syntax)', () => {
   assertNameDeny(runGate(agentSpawn('blade', { name: 'blade-fake', model: 'sonnet' })));
   assertNameDeny(runGate(agentSpawn('gaze', { name: 'gaze-nobody' })));
+  // The retired plan-checker characters left the roster with the merged critic.
+  assertNameDeny(runGate(agentSpawn('rival', { name: 'rival-castor' })));
+  assertNameDeny(runGate(agentSpawn('rival', { name: 'rival-lira' })));
 });
 
 test('31. wrong-role name on a valid role → DENY (role-prefix check)', () => {
@@ -318,7 +320,11 @@ test('33b. dynamic shapes OUTSIDE their range or on the wrong role → DENY', ()
 test('34. sage names are parent-derived (Rule 4)', () => {
   assertAllow(runGate(agentSpawn('sage', { name: 'sage-blade-kaze' })));
   assertAllow(runGate(agentSpawn('sage', { name: 'sage-ward-torvan' })));
-  assertAllow(runGate(agentSpawn('sage', { name: 'sage-apex' })), 'planning.md fixed name');
+  // EVERY sage name derives from an eligible parent — there is no fixed name for
+  // a Sage spawned straight from the orchestrator, because planning.md's
+  // mandatory gate now spawns Rival rather than a Sage-tier agent.
+  assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-orchestrator' })));
+  assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-planner-rooke' })));
   assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-blade-fake' })));
   // The parent form is range-checked too — there is no blade-9 parent to derive from.
   assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-blade-9' })));
@@ -335,7 +341,7 @@ test('34b. only escalation-eligible roles may parent a sage name', () => {
   }
   // Sage is not its own parent — a consultation cannot be consulted.
   assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-sage-blade-kaze' })));
-  assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-sage-apex' })));
+  assertNameDeny(runGate(agentSpawn('sage', { name: 'sage-sage-ward-torvan' })));
 });
 
 test('34c. LIVE roster.md still names exactly the four Sage-eligible roles', () => {
@@ -358,9 +364,8 @@ test('35. every name reference/roster.md actually assigns is ALLOWED by the gate
     ['archer', 'archer-sylas'], ['archer', 'archer-scope'], ['blade', 'council-chairman'],
     ['blade', 'council-mvp'], ['blade', 'blade-doven'], ['gaze', 'gaze-sura'],
     ['lens', 'lens-thal'],
-    ['hound', 'hound-corva'], ['rival', 'rival-dask'],
+    ['hound', 'hound-corva'], ['rival', 'rival-dask'], ['rival', 'rival-veyra'],
     ['sweep', 'sweep-oda'], ['ward', 'ward-corben'], ['warden', 'warden-sena'],
-    ['plan-checker', 'plan-checker-castor'],
   ];
   for (const [role, name] of spawns) {
     assertAllow(runGate(agentSpawn(role, { name, model: 'sonnet' })), name);
@@ -399,7 +404,7 @@ test('35c. LIVE roster.md: every character in every roster row is a legal name f
   // rest (explore/planner/hunter name non-Phantom agent types) are skipped.
   const GATED = new Set([
     'blade', 'archer', 'gaze', 'ward', 'hound', 'lens', 'sweep',
-    'rival', 'plan-checker', 'sage', 'warden',
+    'rival', 'sage', 'warden',
   ]);
   let checked = 0;
   for (const [, role, cell] of rows) {

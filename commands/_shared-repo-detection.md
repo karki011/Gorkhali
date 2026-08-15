@@ -93,26 +93,26 @@ relative resolves against the workspace), else `$HOME/.phantom`, else
 Order of precedence (first match wins):
 1. Repo `CLAUDE.md` / `AGENTS.md` commands section
 2. `package.json` scripts, `Makefile` targets, `justfile`, `Taskfile.yml`
-3. Stack defaults (see `reference/verification.md` for full table)
+3. Stack defaults (see `skills/phantom/references/verification.md` for full table)
 4. Monorepo: Nx `affected`, Turborepo `--filter`
 
-Ward verification protocol: see `reference/verification.md`.
+Ward verification protocol: see `skills/phantom/references/verification.md`.
 
 ---
 
 ## PR Strategy
 
-Smart Draft PR creation — default is to create, exceptions are explicit.
+Smart PR creation — default is to create, exceptions are explicit.
 Decision is based on **what happened** (changed files, code vs artifacts), not the route.
-Full decision table lives in `commands/wrap.md` step 14 `<pr_decision>`.
+This is the canonical decision table; `reference/wrap/ship-ceremony.md` executes it during `/phantom:wrap`.
 
 | # | Condition | Action | Reason |
 |---|-----------|--------|--------|
-| 1 | On a default/protected branch (per `hooks/feature-branch-gate.sh`) | Skip | Cannot PR from default branch |
+| 1 | On a default/protected branch (enforced by convention and checked at wrap - no hook, there is no `feature-branch-gate.sh`) | Skip | Cannot PR from default branch |
 | 2 | User said "no PR" | Skip | User override |
 | 3 | No code changes (only artifacts/docs) | Skip | Research/planning — nothing to review |
-| 4 | `HAS_UI = true` AND UI files changed | Draft PR | Visual review needed, draft signals not yet approved |
-| 5 | Any code changes | Draft PR | Default: code should be visible to the team |
+| 4 | `HAS_UI = true` AND UI files changed | PR | Visual review needed |
+| 5 | Any code changes | PR | Default: code should be visible to the team |
 | 6 | Everything else | Skip | No meaningful changes |
 
-First matching row wins. Never auto-create ready-for-review PR — user promotes draft → ready.
+First matching row wins. Wrap creates ready-for-review PRs; never auto-merge one — merging stays human.

@@ -45,7 +45,7 @@ const TARGETS = Object.freeze({
     'finding-shape',
   ],
   'agents/archer.md': ['severity-table', 'confidence-table', 'verification-pass', 'finding-shape'],
-  'agents/reference/archer-protocol.md': ['severity-table'],
+  'reference/agent-protocols/archer-protocol.md': ['severity-table'],
   'reference/temperature-review.md': ['severity-table', 'confidence-table', 'finding-rules', 'verification-pass', 'finding-shape'],
 });
 

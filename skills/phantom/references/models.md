@@ -23,10 +23,10 @@ for ambiguity, cross-cutting risk, or demanding review.
 
 Risk is provider-neutral assignment metadata: `low`, `moderate`, `high`, or
 `critical`. A critical assignment elevates Blade, Gaze, Sage, Lens, Archer,
-Rival, Plan-checker, and Hound to at least `deep` before host presets are
+Rival, and Hound to at least `deep` before host presets are
 resolved. Apex remains `frontier`; Ward, Sweep, and Warden remain on their
 ordinary profiles. An explicit `deep` or `frontier` request is never
-downgraded. Ordinary Rival and Plan-checker work remains `balanced`.
+downgraded. Ordinary Rival work remains `balanced`.
 
 ## Resolve after topology
 

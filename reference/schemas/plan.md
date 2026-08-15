@@ -1,6 +1,6 @@
 # `plan.json` Schema
 
-Written by Phase B after plan-check and Rival review. Schema v3 is a
+Written by Phase B after the Rival plan gate (challenge + plan-check). Schema v3 is a
 decision-first review contract; its task list drives Phase C execution only
 after the human or delegated approval is recorded separately.
 
@@ -121,7 +121,7 @@ Each entry in `plan.json -> tasks[]` must follow this shape:
 }
 ```
 
-`{TEST_CMD}` / `{LINT_CMD}` are resolved via the discovery protocol in `reference/verification.md`. Generated plans must contain the resolved concrete commands, not the placeholders.
+`{TEST_CMD}` / `{LINT_CMD}` are resolved via the discovery protocol in `skills/phantom/references/verification.md`. Generated plans must contain the resolved concrete commands, not the placeholders.
 
 **Field rules:**
 

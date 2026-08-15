@@ -91,7 +91,7 @@ If validation finds errors (circular deps, missing produces): report specific er
 ## Rules
 
 - Coordinator does NOT run analysis — delegates entirely to the Blade agent.
-- Agent spawn MUST use `subagent_type: "blade"` (ROLE FOCUS: dependency analyst), `name: "blade-sennor"`, `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+- Agent spawn MUST use `subagent_type: "blade"` (ROLE FOCUS: dependency analyst), `name: "blade-sennor"`, `mode: "bypassPermissions"` (routing per the spawn spec above).
 - BLOCK if plan.json missing. No exceptions.
 - HUMAN GATE on FULL route mandatory. Do not skip.
 - Task count <= 2 with no shared files → skip wiring entirely (inform user why).

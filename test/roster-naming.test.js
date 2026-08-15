@@ -26,8 +26,8 @@ const path = require('path');
 
 const REPO_ROOT = path.join(__dirname, '..');
 // Scanned RECURSIVELY: spawn specs live in nested reference docs
-// (reference/wrap/evolution.md), under agents/reference/, and in `_shared-*.md`
-// partials — none of which a top-level readdir would ever see.
+// (reference/wrap/evolution.md), under reference/agent-protocols/, and in
+// `_shared-*.md` partials — none of which a top-level readdir would ever see.
 const SCAN_DIRS = ['commands', 'reference', 'agents'];
 
 // Agent-call params that mark a line as a literal spawn spec.
@@ -108,11 +108,6 @@ const POLICY_PROSE = [
     file: 'commands/start.md',
     match: '`mode: "bypassPermissions"` — always',
     why: 'Core Discipline bullet stating the mode for every spawn; not a call site',
-  },
-  {
-    file: 'commands/validate.md',
-    match: '**PreToolUse hook** on Agent calls validates',
-    why: 'describes what the hook checks; no spawn is being specified',
   },
   {
     file: 'reference/agents.md',

@@ -1164,10 +1164,11 @@ function runBaseline(opts) {
       ghResolved,
       ghUnresolved: gh.unresolved.length,
       stateCounts,
-      // F12: SETTLED = merged + closed. An open or draft PR has not failed to
-      // merge, it has not finished, so it is counted and reported but never put
-      // in the denominator. The old rate divided by every resolved PR and read
-      // 9/11 = 81.8% on a corpus whose settled record was 9/9.
+      // F12: SETTLED = merged + closed. An open PR, or one still carrying the
+      // legacy draft status, has not failed to merge, it has not finished, so
+      // it is counted and reported but never put in the denominator. The old
+      // rate divided by every resolved PR and read 9/11 = 81.8% on a corpus
+      // whose settled record was 9/9.
       settledPrs: settled,
       unfinishedPrs: unfinished,
       mergeRate: settled ? stateCounts.merged / settled : null,

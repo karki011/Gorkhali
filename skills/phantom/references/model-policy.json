@@ -13,7 +13,6 @@
       "lens",
       "archer",
       "rival",
-      "plan-checker",
       "hound"
     ],
     "exempt_roles": ["apex", "ward", "sweep", "warden"]
@@ -27,7 +26,6 @@
     "lens": "balanced",
     "archer": "deep",
     "rival": "balanced",
-    "plan-checker": "balanced",
     "hound": "deep",
     "sweep": "balanced",
     "warden": "economy"

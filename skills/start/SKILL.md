@@ -1,9 +1,13 @@
 ---
 name: start
-description: Start Phantom planning or implementation for a feature, fix, refactor, investigation, or other software task. Use when the user asks to build, implement, fix, plan, or resume work.
+description: Start net-new Phantom planning or implementation for a feature, fix, refactor, or investigation; NOT for approved plans (execute) or prior sessions (resume).
 ---
 
 # Start Phantom
+
+## Triggers
+
+Start Phantom planning or implementation for a feature, fix, refactor, investigation, or other software task. Use when the user asks to build, implement, fix, or plan work.
 
 Treat the invocation text as the task intent. Read `../phantom/SKILL.md` and
 follow its portable router as the workflow authority.
@@ -19,7 +23,8 @@ For a normal start:
 
 This adapter covers local planning and implementation only. Implementation
 authorization remains explicit. This adapter has no implicit PR lifecycle:
-draft-PR shipping requires separate, explicit authorization. It never implies
+PR shipping requires separate, explicit authorization (legacy scope name
+`ship-draft-pr`). It never implies
 authority to push, transition a ticket, merge, clean up, or perform another
 external lifecycle action.
 

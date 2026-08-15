@@ -1,6 +1,6 @@
 # Defense Brief
 
-> **Context:** Called during `/phantom:wrap` Step 3, on every wrap - no file-count threshold, no skip flag. Authored by Apex (session-model judgment work, never warden). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 7 ship - see the warden preflight grep in `commands/wrap.md` Step 3.
+> **Context:** Called during `/phantom:wrap` Step 2, on every wrap - no file-count threshold, no skip flag. Authored by Apex (session-model judgment work, never warden). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 4 ship - see the warden preflight grep in `commands/wrap.md` Step 2.
 
 ## Purpose
 
@@ -36,7 +36,7 @@ Feeds from: `decisions.json` (`alternatives[]`), `intent.json` (`exploredAlterna
 
 ## Quality bar
 
-- Exactly six sections, exact heading text and order as listed above. These are grepped verbatim by the warden preflight (`commands/wrap.md` Step 3) and by `test/wrap-defense-brief.test.js` - a paraphrased heading fails both.
+- Exactly six sections, exact heading text and order as listed above. These are grepped verbatim by the warden preflight (`commands/wrap.md` Step 2) and by `test/wrap-defense-brief.test.js` - a paraphrased heading fails both.
 - Every answer in "Likely questions and answers" cites a `file:line` or a session artifact path. An answer with no citation is not acceptable, regardless of how confident it reads.
 - Questions must be the hard ones - seeded from RPSL findings, Gaze fix loops, plan risks, and blast radius - not softballs a reviewer would never bother asking.
 - Anchor to what actually happened this session. Do not invent content to fill a section that has nothing to report; write "None flagged this session" instead of padding.

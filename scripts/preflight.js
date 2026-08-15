@@ -44,8 +44,10 @@ function loadJson(file) {
   }
 }
 
-// Mirror hooks/feature-branch-gate.sh: PHANTOM_PROTECTED_BRANCHES env (comma /
-// pipe / space separated) > default "main master develop".
+// Feature-branch discipline is enforced by convention and checked at wrap -
+// no hook blocks the Edit; there is no feature-branch-gate.sh. Protected
+// branches: PHANTOM_PROTECTED_BRANCHES env (comma / pipe / space separated) >
+// default "main master develop".
 function protectedBranches() {
   const raw = process.env.PHANTOM_PROTECTED_BRANCHES;
   const list = raw ? raw.split(/[,|\s]+/).filter(Boolean) : [];

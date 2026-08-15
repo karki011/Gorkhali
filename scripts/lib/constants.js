@@ -75,7 +75,7 @@ module.exports = {
   // UNATTENDED-RUN spend ceiling, USD. Binds ONLY unattended runs (scripts/run-guard.js
   // --unattended / PHANTOM_UNATTENDED=1); an interactive session is never capped because
   // the watching human IS the ceiling. Deliberately conservative: one autonomous ticket
-  // run to a draft PR, not a day of them. Fractional is legal here (unlike the loop
+  // run to a ready-for-review PR, not a day of them. Fractional is legal here (unlike the loop
   // ceilings above) — a $2.50 ceiling is still a meaningful ceiling.
   SPEND_CEILING_USD: numFromEnv('PHANTOM_SPEND_CEILING_USD', 5),
 

@@ -111,7 +111,7 @@ Every JSON artifact must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "2.2.6",
+  "bundle_version": "2.2.8",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"
@@ -150,8 +150,13 @@ Conservative `bug`, `defect`, `regression`, `incident`, or `flaky failure`
 intent signals always classify the session as `investigation`, even if
 `--work-kind implementation` is supplied; otherwise the explicit value or
 `implementation` default applies. The selected `work_kind` is persisted in
-both `session.json` and `intent.json` and cannot change during an active
-session. Execute reconciles both artifacts, their summaries, and defect signals
+both `session.json` and `intent.json`. It changes during an active session only
+through `correct-work-kind --work-kind <kind> --granted-by <who> --reason
+<why>`, which is refused once `execute` has started and records an auditable
+`work_kind_correction` in `session.json`. Defect signals keep classifying the
+session as `investigation` until that recorded correction exists; a malformed
+or unrecorded correction fails closed.
+Execute reconciles both artifacts, their summaries, and defect signals
 before selecting a gate. Missing, mismatched, or internally contradictory
 classification artifacts fail closed.
 
@@ -194,7 +199,7 @@ pending values rather than rejecting the session:
     },
     "authorizations": {
       "implementation": { "status": "pending", "decided_at": null },
-      "ship-draft-pr": { "status": "pending", "decided_at": null }
+      "ship-pr": { "status": "pending", "decided_at": null }
     },
     "actions": {
       "execute": { "status": "pending", "decided_at": null },
@@ -205,13 +210,19 @@ pending values rather than rejecting the session:
 }
 ```
 
-Implementation authorization and draft-PR shipping authorization are distinct;
-one never implies the other. Starting with `--mode to-plan` (or `--to-plan`)
-sets a permanent plan-only mode for that session. It can produce planning
+Implementation authorization and PR shipping authorization are distinct; one
+never implies the other. `ship-pr` is the canonical PR-shipping scope name.
+`ship-draft-pr` is its legacy name: it stays accepted on `authorize` and on
+read for the whole 0.4.x line, and folds onto the same `ship-pr` gate, so a
+session recorded under either name authorizes exactly once.
+Starting with `--mode to-plan` (or `--to-plan`) sets a permanent plan-only mode
+for that session. It can produce planning
 artifacts and record authorization decisions, but `execute` and `ship` remain
 denied. Verification still cannot start because execution never started.
 Compact status returns `record:plan` until the canonical plan is valid, then
 returns no next action; it never recommends an action the mode will reject.
+`complete` closes a plan-only session on that same valid canonical plan instead
+of execution and quality gates, so the workspace is released for the next task.
 For an existing active task, route and material intent are immutable. `start`
 may backfill a missing route on a legacy session, but a route or intent change
 must be captured as an explicit revision or restarted under a new task id. It
@@ -227,9 +238,11 @@ node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --
 node <skill-directory>/scripts/phantom-state.mjs fingerprint --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs execute --workspace <path>
 node <skill-directory>/scripts/phantom-state.mjs verify --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-draft-pr
+node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-pr
 node <skill-directory>/scripts/phantom-state.mjs ship --workspace <path>
 ```
+
+The legacy form `--scope ship-draft-pr` still records the same `ship-pr` gate.
 
 Missing prerequisites fail with the exact missing decision and the command that
 records it. Route gates are cumulative: `direct` needs no approval, `plan`

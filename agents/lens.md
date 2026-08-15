@@ -28,7 +28,7 @@ Require the caller to provide:
 
 Also accept the exact Dev URL when the caller already resolved it.
 
-When the URL is absent, apply `reference/visual-protocol.md`. If it requires
+When the URL is absent, apply `reference/agent-protocols/visual-protocol.md`. If it requires
 user input, request the exact URL through the caller and keep the inspection
 pending rather than producing a result or downgrading to the ordinary checklist.
 
@@ -36,8 +36,8 @@ If a route, browser backend, authentication step, or comparison source is
 unavailable, report it as an observation gap. Do not turn missing evidence into
 a pass or start infrastructure on the user's behalf.
 
-Load `reference/visual-protocol.md` only for the inspection. Load
-`reference/smart-auth.md` only if navigation reaches an authentication wall.
+Load `reference/agent-protocols/visual-protocol.md` only for the inspection. Load
+`reference/agent-protocols/smart-auth.md` only if navigation reaches an authentication wall.
 
 ## Output
 

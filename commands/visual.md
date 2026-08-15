@@ -25,7 +25,7 @@ In optional Lens mode:
 1. Resolve the routes, expectations, states, and viewports, plus the canonical
    current worktree path and exact Git branch.
 2. Apply the URL-resolution contract in
-   `agents/reference/visual-protocol.md`. If it requires user input, ask with
+   `reference/agent-protocols/visual-protocol.md`. If it requires user input, ask with
    the manager link, worktree, and branch, then keep this Lens request pending
    until the user supplies the exact Dev URL.
 3. Record a bounded delegation-v2 task with `role: "lens"` when a Phantom

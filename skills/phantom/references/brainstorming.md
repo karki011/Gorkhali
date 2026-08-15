@@ -3,6 +3,19 @@
 Brainstorming resolves material ambiguity. It returns a recommended decision
 portfolio, not an unranked idea dump and not an implementation task list.
 
+## When to Activate
+
+Brainstorm when any of these hold:
+
+- No clear file targets: a vague goal with no repository anchor.
+- A new domain: no recorded corrections for the area, or an unfamiliar part of
+  the repository.
+- An architecture choice is required, with multiple valid structural approaches.
+- A user signal such as "what if", "I'm thinking about", "how should we", or
+  "explore".
+
+Skip brainstorming when the scope is already clear and go straight to planning.
+
 ## Frame and investigate
 
 Record the decision, desired outcome, audience, constraints, non-goals,
@@ -19,7 +32,56 @@ dependencies and corrections, or current external evidence. Each pass returns
 claims, sources, evidence state, conflicts, and remaining unknowns. Run the same
 passes sequentially when delegation is unavailable.
 
+### Question-Asking Rules
+
+Before asking anything, check:
+
+1. Do the repository instructions or project docs answer this?
+2. Do the code graph, recorded corrections, or repository history answer this?
+3. Does the answer change what is built, rather than how it is built?
+
+If the answer to 3 is no, do not ask. If the answer to 1 or 2 is yes, do not
+ask; use the answer. Ask only when the answer changes scope, technology choice,
+or integration contract, and skip anything the research passes already settled.
+
+Each question states the question, why it matters for scope, a recommended
+default, and the alternatives. Stop asking when either is true:
+
+- The plan can be written with no unfounded assumptions: every open question has
+  a confirmed answer or a human-accepted default.
+- Answers are degrading: two consecutive responses land on "up to you", "I don't
+  know", or a shrug. Treat that as consent to the recommended default, not as a
+  cue to rephrase and ask again.
+
+Never ask generic discovery questions, anything the repository instructions
+already define, or how-questions; those belong to planning. Clarifying ambiguity
+is not adding features: if a question would expand scope, flag it as
+out-of-scope and stop.
+
 ## Diverge and converge
+
+### Exploration Protocol
+
+Propose 2-3 approaches. Never more, which causes analysis paralysis; never
+fewer, which fakes certainty.
+
+Generate, then evaluate. Produce every approach in one pass before any critique,
+scoring, or ranking touches any of them. Never draft one, judge it, then draft
+the next: that anchors every later option against the first and kills genuine
+divergence.
+
+Each approach comes from a distinct, concrete stance rather than "be creative"
+applied repeatedly. Three to five well-differentiated lenses beat ten generic
+samples. State the lens per approach; it becomes `whyLens`.
+
+Before proposing, check the recorded corrections. A matching failed correction
+means that approach is not proposed: flag it as previously attempted and failed.
+A repeatedly validated correction is surfaced as the recommended default.
+
+A recommended default is mandatory. Every brainstorm ends with
+`recommendedDefault`. Lead with it at convergence, then show the full tradeoff
+set. "No recommendation, pick one" is not an option; when genuinely tied,
+recommend the lower-risk approach and say so.
 
 Track the active phase as `frame`, `diverge`, `cluster`, `converge`, or
 `decision`. During divergence, generate more raw ideas than the final shortlist
@@ -36,7 +98,8 @@ fully formed.
 
 Normalize each candidate into thesis, evidence, effort, risk, reversibility,
 failure cost, tradeoffs, and deciding condition. Compare candidates blindly
-against the evaluation criteria. Run one Rival pass, then have Apex recommend
+against the evaluation criteria. Run one advisory Rival pass - it tightens the
+cards and writes no plan-check verdict - then have Apex recommend
 one practical direction while preserving a higher-upside or minority option.
 
 For a decision-grade review, each approach must describe distinct benefits,
@@ -103,3 +166,16 @@ open questions; direction gate. Treat this as an exploration workbench, not a
 plan dossier. JSON remains the source of truth and generated HTML is never
 parsed back. If HTML generation or opening is unavailable, present the same hierarchy
 in chat. The input may be a direct v3 payload or the portable state envelope.
+
+## Anti-Patterns
+
+| Pattern | Why It Fails |
+|---|---|
+| Asking what the repository instructions already define | Wastes turns, erodes trust |
+| Brainstorming when scope is clear | Delays execution for no value |
+| Proposing more than 3 approaches | User paralysis, coordinator overload |
+| Re-brainstorming during planning | Breaks the diverge/converge contract |
+| Letting exploration expand scope | Brainstorm becomes scope creep |
+| Skipping the recorded-corrections check | Repeats past failures |
+| Scoring or ranking before all approaches are drafted | Anchors later approaches to the first, kills divergence |
+| "Be creative" as the whole lens | Produces generic samples, not distinct stances |

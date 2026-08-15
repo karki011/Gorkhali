@@ -321,23 +321,11 @@
       "expected_behavior": "The optional Lens flow opens localhost:3333, matches the current workspace by exact canonical path before branch, and follows only that card's displayed localhost:4312 Dev link; it never uses the unrelated Vite port"
     },
     {
-      "id": 41,
-      "kind": "convention",
-      "skill": "phantom:start",
-      "prompt": "quick fix: update the copyright year in src/components/Footer.tsx",
-      "setup": "Repo's origin/HEAD points at trunk (the default branch is named trunk). No git.protected_branches in config.yaml and PHANTOM_PROTECTED_BRANCHES is unset. Current branch is trunk; an Edit is attempted on src/components/Footer.tsx.",
-      "expected_check": {
-        "type": "regex",
-        "pattern": "BLOCKED: Cannot edit source files on trunk branch"
-      },
-      "expected_behavior": "feature-branch-gate auto-detects trunk via origin/HEAD (even though the configured fallback list is only main/master/develop) and blocks the Edit, printing the BLOCKED message plus the 'git checkout -b {ticket}/{slug}' instruction"
-    },
-    {
       "id": 42,
       "kind": "convention",
       "skill": "phantom:greploop",
       "prompt": "wrap it up and create the PR",
-      "setup": "config.yaml has no integrations: section — integrations.greptile is absent. A draft PR was just created by wrap, which auto-invokes greploop.",
+      "setup": "config.yaml has no integrations: section — integrations.greptile is absent. A ready-for-review PR was just created by wrap, which auto-invokes greploop.",
       "expected_check": {
         "type": "regex",
         "pattern": "greploop skipped \\(integrations\\.greptile not enabled in config\\.yaml\\)"

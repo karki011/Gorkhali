@@ -971,7 +971,7 @@ const SCHEMAS = {
       { field: 'pr', type: 'object | `null`', required: 'yes', description: 'PR details, or null if no PR' },
       { field: 'pr.number', type: 'number', required: 'yes', description: 'PR number' },
       { field: 'pr.url', type: 'string', required: 'yes', description: 'PR URL' },
-      { field: 'pr.status', type: 'string', required: 'yes', description: 'PR status: `"draft"` (wrap ALWAYS creates draft PRs — see `reference/wrap/ship-ceremony.md` §4), `"open"`, `"merged"`, `"closed"`. The Stop-hook gate (`hooks/greploop-gate.js`) gates on PR *liveness* — it blocks any PR that is NOT `merged`/`closed` (matched case-insensitively), so a draft labeled `"draft"` OR `"open"` is still gated until greploop settles.' },
+      { field: 'pr.status', type: 'string', required: 'yes', description: 'PR status: `"open"` is what wrap writes — PRs are created ready for review (see `reference/wrap/ship-ceremony.md` §4); `"merged"`, `"closed"`. `"draft"` stays legal for legacy sessions. The Stop-hook gate (`hooks/greploop-gate.js`) gates on PR *liveness* — it blocks any PR that is NOT `merged`/`closed` (matched case-insensitively), so `"open"` or legacy `"draft"` is still gated until greploop settles.' },
       { field: 'jira', type: 'object | `null`', required: 'no', description: 'Jira update result' },
       { field: 'jira.ticket', type: 'string', required: 'yes (if present)', description: 'Ticket key' },
       { field: 'jira.transition', type: 'string', required: 'yes (if present)', description: 'Transition applied' },

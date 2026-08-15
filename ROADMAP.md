@@ -75,8 +75,8 @@ The evidence is Roo Code: the strongest per-mode-model story of 2025 shut down o
 The tail of this market churns faster than adapter maintenance can be amortized.
 Codex CLI is a RUNTIME target (it needs a hook adapter, B4), not merely Codex models as a provider.
 
-**D2. Agentic development stays bounded at draft PR.**
-`/phantom:loop` already terminates at a draft PR and never opens a PR for a weak-AC ticket.
+**D2. Agentic development stays bounded at a ready-for-review PR.**
+`/phantom:loop` already terminates at a ready-for-review PR and never opens a PR for a weak-AC ticket.
 Auto-merge is explicitly rejected while verification quality is unmeasured.
 Revisit only after B2 plus A2 give the AC rubric and the eval suite real numbers.
 
@@ -316,7 +316,7 @@ Six changes landed as one pass, all of them prompts, schema and thresholds — n
 Chosen for a behavioural reason, not an aesthetic one: every live consumer already collapsed its scale to a binary before acting (Archer triaged P0/P1 -> FIX and P2 -> SKIP; the temperature table fixed P0/P1 and DROPPED P2/P3 unreported), so the extra levels carried no decision — only four spellings of one. Picking what the default reviewer already writes means the corpus needs no rewrite, and because the B9 id excludes `severity` and hashes `file || component` plus the first present claim key, normalization is provably id-preserving; `test/review-standard.test.js` asserts it per legacy shape.
 
 **Drift-proofing, which is the actual deliverable.**
-`scripts/lib/review-standard.js` is the source of truth; `scripts/gen-review-standard.js` renders the severity table, reporting rules, security checklist and canonical shape into `agents/gaze.md`, `agents/archer.md`, `agents/reference/archer-protocol.md` and `reference/temperature-review.md`; `--check` exits 2 on drift; `test/review-standard.test.js` runs it and additionally fails on any line in `agents/`, `commands/` or `reference/` that speaks P0-P3 as a LIVE vocabulary rather than a retired one. The same source of truth feeds `SCHEMAS` in `validate-artifact.js`, so `reference/schemas/review.md` inherits it through `gen-schema-docs.js --check`.
+`scripts/lib/review-standard.js` is the source of truth; `scripts/gen-review-standard.js` renders the severity table, reporting rules, security checklist and canonical shape into `agents/gaze.md`, `agents/archer.md`, `reference/agent-protocols/archer-protocol.md` and `reference/temperature-review.md`; `--check` exits 2 on drift; `test/review-standard.test.js` runs it and additionally fails on any line in `agents/`, `commands/` or `reference/` that speaks P0-P3 as a LIVE vocabulary rather than a retired one. The same source of truth feeds `SCHEMAS` in `validate-artifact.js`, so `reference/schemas/review.md` inherits it through `gen-schema-docs.js --check`.
 
 **Backward compatibility.** Nothing on disk fails. Legacy severities normalize (`P0`/`P1` -> `blocking`, `P2`/`P3`/`warn` -> `advisory`) and legacy keys fold (`temperature`->`severity`, `component`->`file`, `issue`/`message`/`description`->`evidence`, `fix`->`remediation`, `observation_gaps`->`observationGaps`). `scripts/migrate-review-findings.js` rewrites an artifact into the canonical shape for a human who wants to read the corpus, and REFUSES to write any file where a finding id would move.
 

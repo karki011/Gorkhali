@@ -12,8 +12,8 @@ const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 test('the optional Phantom Lens agent ships with only its private protocols', () => {
   for (const file of [
     'agents/lens.md',
-    'agents/reference/smart-auth.md',
-    'agents/reference/visual-protocol.md',
+    'reference/agent-protocols/smart-auth.md',
+    'reference/agent-protocols/visual-protocol.md',
   ]) {
     assert.equal(fs.existsSync(path.join(ROOT, file)), true, `${file} must be shipped`);
   }
@@ -32,7 +32,7 @@ test('visual verification defaults to the user and activates Lens only explicitl
   assert.match(command, /never replaces explicit user\s+confirmation/i);
   assert.doesNotMatch(command, /--autonomous/i);
   assert.match(command, /There is no autonomous mode, code modification, or visual fix\s+loop/i);
-  assert.match(command, /agents\/reference\/visual-protocol\.md/);
+  assert.match(command, /reference\/agent-protocols\/visual-protocol\.md/);
   assert.match(command, /keep this Lens request pending\s+until the user supplies the exact Dev URL/i);
   assert.match(adapter, /Do not invoke Lens unless the user explicitly requests it/i);
   assert.match(adapter, /never replaces the checklist confirmation or becomes a ship gate/i);
@@ -61,7 +61,7 @@ test('Lens is registered for explicit delegation but cannot auto-route or gate s
   assert.match(agent, /request the exact URL through the caller/i);
   assert.match(agent, /keep the inspection\s+pending/i);
 
-  const protocol = read('agents/reference/visual-protocol.md');
+  const protocol = read('reference/agent-protocols/visual-protocol.md');
   assert.match(protocol, /http:\/\/localhost:3333/);
   assert.match(protocol, /exact canonical worktree path first/i);
   assert.match(protocol, /exact branch match that identifies\s+exactly one card/i);

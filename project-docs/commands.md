@@ -5,7 +5,7 @@ Every command the native compatibility plugin exposes, with the route it takes.
 | Command | Route | Description |
 |---------|-------|-------------|
 | `/phantom:start` | Entry | Adaptive router → classify → execute appropriate route |
-| `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop - polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a draft PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
+| `/phantom:loop` (alias `/phantom:q`) | Entry | Self-contained Jira loop - polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/phantom:start` to a ready-for-review PR; weak → `/phantom:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
 | `/phantom:verify` | - | Power Level with auto-fix for P0/P1 |
 | `/phantom:wrap` | - | Commit, push, PR, Jira transition (+ optional `--recap` HTML diff recap) |
 | `/phantom:close` | - | Post-merge closeout - Jira→Done, finalize+archive session, cleanup branch/worktree, final cost |

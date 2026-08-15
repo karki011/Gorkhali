@@ -6,7 +6,9 @@
 
 ## Model Routing
 
-**Apex routes the model; effort is uniform.** Apex pins only effort (`high`) in frontmatter. Default = task-appropriate tier, NOT "inherit the session model" — the session model is the ceiling, not the floor. Mechanical/tool-driver roles (sweep/lens/plan-checker) pin `sonnet`; ward pins `haiku`; gaze/archer pin `opus` (review tier); sage pins `opus` (top-tier advisory). Apex picks the `model:` param per spawn — cheap (sonnet) for mechanical & well-scoped work, escalate to opus (hard ceiling for implementers - Fable 5 never implements) for complex, ambiguous, or cross-cutting work. There is no per-spawn effort param.
+Canonical rubric - floors, the escalation ladder, precedence, the uniform-`high` effort rule, and the
+visible scope-check line - is `reference/agents.md` → **Model Routing**. Deliberately not restated
+here. This file carries only the agent → default-model lookup that goes with it:
 
 | Agent | default model | role |
 |-------|---------------|------|
@@ -16,18 +18,15 @@
 | sage | opus (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
 | gaze | opus (pinned — review tier) | quality gate |
 | archer | opus (pinned — review tier) | cross-file review |
-| rival | sonnet (frontmatter pin) | adversarial plan review |
-| plan-checker | sonnet (frontmatter pin) · escalate for large/complex plans | plan validation |
+| rival | sonnet (frontmatter pin) · escalate for large/complex plans | the one plan critic: adversarial review + plan validation |
 | ward | haiku (frontmatter pin) | build/test QA |
 | lens | sonnet (frontmatter pin; explicit user opt-in only) | advisory visual inspection |
 | sweep | sonnet | simplification |
 
 - `opus` resolves to `claude-opus-5` (Phantom's top tier); `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
-- **Default = task-appropriate tier.** Sonnet is the floor for mechanical and well-scoped, contract-backed subtasks; escalate to opus (hard ceiling for implementers - Fable 5 never implements) for complex, ambiguous, or cross-cutting work, or where decomposition left a subtask fuzzy. "Good tasking earns Sonnet" — fix weak scoping by re-decomposing, not by throwing the expensive model at it.
-- `haiku` is reserved ONLY for trivial mechanical single-file edits (rename, import, typo, config) with no cross-file deps.
-- Effort is uniform `high` (session-inherited); never set effort at spawn. Check MODEL_OVERRIDE at session start.
+- Check MODEL_OVERRIDE at session start.
 
-Full rule: `reference/agents.md` → Model Routing. Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, worktree isolation also there.
+Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, and worktree isolation also live in `reference/agents.md`.
 
 ---
 

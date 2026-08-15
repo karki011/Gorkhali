@@ -3,7 +3,7 @@
 // run-guard.js - unattended-run safety check: spend ceiling + stuck detection.
 //
 // WHY THIS EXISTS: commands/loop.md runs FULLY AUTONOMOUSLY for solid-AC tickets -
-// it auto-approves the plan gate, chains verify -> fix -> wrap to a draft PR, and
+// it auto-approves the plan gate, chains verify -> fix -> wrap to a ready-for-review PR, and
 // never asks the user a question. Before this script there was no dollar ceiling
 // anywhere in the repo, so a thrashing unattended run had no ceiling and no honest
 // halt. This is that ceiling.

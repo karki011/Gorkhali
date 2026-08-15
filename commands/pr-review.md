@@ -70,12 +70,10 @@ as-is; do not validate the project prefix.
 
 - **Ticket found** - fetch it and its acceptance criteria via the Jira MCP, the
   same read `commands/start.md` performs. Record `intentSource: "ticket"`.
-- **No ticket, or the fetch fails** - derive the intent from the PR body and
-  record `intentSource: "inferred"`. Say so in the report: the author can correct
-  a premise they can see, and cannot correct one you kept.
+- **No ticket, or the fetch fails** - derive the intent from the PR body, record
+  `intentSource: "inferred"`, and say so in the report.
 
-Never block on a missing ticket. An inferred intent that is stated as inferred is
-more useful than a stalled review.
+Never block on a missing ticket.
 
 Write the resolved intent to `{REVIEW_DIR}/intent.json` with `ticket`,
 `intentSource`, `acceptanceCriteria` (array, possibly empty), and `summary`.
@@ -121,22 +119,16 @@ Delete only the artifact file for a role immediately before spawning that role,
 so a truncated run cannot reuse an older verdict. Never delete
 `{REVIEW_DIR}/rounds.json`.
 
-Three constraints on how reviewers are prompted, each with a reason:
+Three constraints on how reviewers are prompted:
 
 - **Ask for verdict and evidence. Do NOT ask for a proposed fix in the same
-  pass.** Jin & Chen 2026 (arXiv 2603.00539) measured five models across three
-  benchmarks and found that prompts requiring explanations *and* suggested
-  corrections produce HIGHER misjudgment rates than a bare verdict - the error
-  skewing toward flagging correct code as non-conformant. Remediation is
-  produced in step 6, for findings that survived, not as part of finding them.
+  pass.** Remediation is produced in step 6, for findings that survived, not as
+  part of finding them.
 - **`confidence` is mandatory on every finding**, not optional as the schema
-  permits. The same over-correction bias is worst on intent judgments, which is
-  what this command is for. `confirmed` requires that the cited line was
-  re-read; anything unread is `needs-verification` with a matching
-  `observationGaps` entry.
+  permits. `confirmed` requires that the cited line was re-read; anything unread
+  is `needs-verification` with a matching `observationGaps` entry.
 - **A second reviewer refutes; it does not confirm.** When Archer runs, its task
-  is to attack Gaze's findings, not to re-derive them. Convergence between
-  agents that share a training distribution is a weaker signal than it appears.
+  is to attack Gaze's findings, not to re-derive them.
 
 Run `scripts/review-gaps.js --files <changed files> --json` for the
 mechanically-derivable half - changed source files with no corresponding changed
@@ -169,8 +161,7 @@ decision.
 
 Structure the draft so a reader can act without expanding anything: verdict,
 each blocking finding's claim, and the remediation list. Put evidence tables,
-advisory findings and review limits behind `<details>`. A reviewer that produces
-more text than the diff gets tuned out, and a tuned-out reviewer finds nothing.
+advisory findings and review limits behind `<details>`.
 
 Now derive remediation for findings that survived step 4, and only those.
 

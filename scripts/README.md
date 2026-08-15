@@ -76,7 +76,7 @@ node gen-review-standard.js --check    # verify no drift; exit 2 on drift
 node gen-review-standard.js --list     # targets and their blocks
 ```
 
-**Targets:** `agents/gaze.md`, `agents/archer.md`, `agents/reference/archer-protocol.md`, `reference/temperature-review.md`.
+**Targets:** `agents/gaze.md`, `agents/archer.md`, `reference/agent-protocols/archer-protocol.md`, `reference/temperature-review.md`.
 
 Same source-of-truth-plus-generator-plus-`--check` shape as `gen-schema-docs.js` and `gen-agent-frontmatter.js`, for the same reason: one severity concept spelled four ways in four prose files is exactly the drift this pattern exists to stop (ROADMAP F1, F5, F9). Prose outside the markers is hand-written and preserved.
 

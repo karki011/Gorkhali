@@ -4,13 +4,13 @@
 
 | # | Law | Enforcement |
 |---|-----|-------------|
-| 1 | Feature branch | Hook: block Edit on default/protected branches (`hooks/feature-branch-gate.sh` is the authority) |
+| 1 | Feature branch | Enforced by convention and checked at wrap — no hook blocks the Edit; there is no `feature-branch-gate.sh` |
 | 2 | Verify before ship | wrap reads verification.json |
 | 3 | Anti-repetition | Search INDEX.md before planning |
-| 4 | Rival | plan.json requires verdict field |
+| 4 | Rival | plan.json requires verdict field; Rival writes plan-check.json |
 | 5 | Simplify always | verification.json requires simplifyRan |
 | 6 | Intent check | Power Leveler compares to intent.json |
-| 7 | Smart PR | wrap step 14 `<pr_decision>` — Draft PR default, skip only for on-main/no-code/user-override |
+| 7 | Smart PR | wrap step 5 creates a ready-for-review PR |
 | 8 | Jira transition | wrap step (structural) |
 | 9 | Learnings | wrap step (structural) |
 | 10 | Auto-SHADOWS | plan.json routing logic |

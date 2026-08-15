@@ -1,6 +1,6 @@
 ---
 name: loop
-description: "Find every Jira ticket assigned to you in 'Ready for Implementation', triage each, then either run the phantom workflow to a draft PR (acceptance criteria solid) or produce a plan and wait for approval (acceptance criteria weak). One invocation = one pass. Alias: /phantom:q."
+description: "Find every Jira ticket assigned to you in 'Ready for Implementation', triage each, then either run the phantom workflow to a PR (acceptance criteria solid) or produce a plan and wait for approval (acceptance criteria weak). One invocation = one pass. Alias: /phantom:q."
 argument-hint: "[--status]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
@@ -56,8 +56,8 @@ Otherwise AC is WEAK.
 
 ## Step 4: Act
 
-**AC SOLID → autonomous to draft PR.** Run the full phantom workflow unattended:
-`Skill(skill="phantom:start", args="{TICKET}")`. Because AC is solid and no human is present, run it autonomously end-to-end: the loop acts as the plan approver (treat the PLAN/FULL plan-gate as auto-approved — solid AC is the precondition that licenses this), auto-chain verify → fix → wrap, and finish at a **draft PR**. Record the PR URL for the report. Never ask the user a question — pick recommended defaults and record assumptions.
+**AC SOLID → autonomous to a PR.** Run the full phantom workflow unattended:
+`Skill(skill="phantom:start", args="{TICKET}")`. Because AC is solid and no human is present, run it autonomously end-to-end: the loop acts as the plan approver (treat the PLAN/FULL plan-gate as auto-approved — solid AC is the precondition that licenses this), auto-chain verify → fix → wrap, and finish at a **ready-for-review PR**. Record the PR URL for the report. Never ask the user a question — pick recommended defaults and record assumptions.
 
 **AC WEAK → plan + wait.** Run plan-only, no execution:
 `Skill(skill="phantom:start", args="{TICKET} --to-plan")` — produces `plan.json` in the session dir and stops before any implementation, verify, wrap, or git mutation. Then post ONE Jira comment to the ticket (Atlassian MCP) containing:
@@ -72,7 +72,7 @@ Process tickets sequentially within the pass. ANY failure on one ticket → reco
 ## Step 5: Report
 
 Table — `ticket | verdict | action` — one row per ticket:
-- solid → `implemented → draft PR {url}` (or the failure reason)
+- solid → `implemented → PR {url}` (or the failure reason)
 - weak → `planned → Jira comment posted, waiting on AC`
 - skipped → `in flight ({reason})`
 

@@ -13,7 +13,7 @@ so it gets its own file rather than living inside a document about scoring.
 default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by
 `hooks/loop-controller.js`. This document is the PROTOCOL reference for every
 verify/fix/re-review loop across Phantom — verify.md, fix.md, apex.md, start.md,
-contracts.md, and agents/reference defer to constants.js for the number (so it can't
+contracts.md, and reference/agent-protocols defer to constants.js for the number (so it can't
 drift). Rationale for the default: the user's CLAUDE.md rule — *"if a fix attempt
 fails twice with the same error class, STOP patching; the approach is wrong."*
 

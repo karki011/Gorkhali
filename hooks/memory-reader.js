@@ -1,13 +1,29 @@
 // Author: Subash Karki
 // memory-reader.js — UserPromptSubmit hook
-// Injects relevant learnings before Claude processes each prompt.
+// Injects relevant learnings before Claude processes each prompt. When the
+// host payload carries no session_id, per-session dedup is skipped entirely
+// (no marker read or write) so an unidentifiable session always injects,
+// rather than sharing a single 'unknown' marker across every such session.
 'use strict';
 
 try {
   const fs = require('fs');
+  const os = require('os');
   const path = require('path');
+  const crypto = require('crypto');
 
-  const { learningsDir } = require('../scripts/lib/phantom-paths');
+  let learningsDir, stateDir;
+  try {
+    ({ learningsDir, stateDir } = require('../scripts/lib/phantom-paths'));
+  } catch (_) {
+    // fail open: env-free stateDir fallback, mirrors hooks/router-nudge.js:16-23.
+    // learningsDir has no safe standalone fallback; a missing module surfaces
+    // below as INDEX_PATH never resolving, and the outer try/catch exits 0.
+    const home = os.homedir();
+    const data = process.env.PHANTOM_DATA ||
+      (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+    stateDir = () => path.join(data, 'state');
+  }
 
   // The ONE parser. This hook used to carry its own entry regexes, which required a
   // markdown TABLE in INDEX.md (it is a bullet list) and skipped any entry outside a
@@ -45,6 +61,11 @@ try {
   // fd 0, not '/dev/stdin' — the device path ENXIOs on Linux pipe spawns (CI-discovered).
   const input = JSON.parse(fs.readFileSync(0, 'utf-8'));
   const prompt = (input.prompt || input.content || input.message || '').toLowerCase();
+  // No 'unknown' fallback: an absent/empty session_id must not collapse onto a
+  // shared marker file (that would turn per-session dedup into permanent
+  // cross-session suppression). hasSessionId gates the marker read/write below.
+  const hasSessionId = typeof input.session_id === 'string' && input.session_id.length > 0;
+  const sessionId = hasSessionId ? input.session_id.replace(/[^A-Za-z0-9_-]/g, '_') : '';
 
   if (!prompt) process.exit(0);
 
@@ -134,8 +155,19 @@ try {
           cls,
           date: entry.date || '',
           rank: (CLASS_RANK[cls] ?? CLASS_RANK.auto) * 2 + ageBand(entry.date),
+          source: fileName,
         };
       });
+  }
+
+  // Injection dedup key: hash of the FULL entry text plus its domain file, not a
+  // prefix — a prefix collides whenever two entries share an opening substring and
+  // silently drops the second one from the marker set.
+  function entryKey(entry) {
+    return crypto.createHash('sha256')
+      .update(entry.text + ' ' + (entry.source || ''))
+      .digest('hex')
+      .slice(0, 16);
   }
 
   // Collect entries from all matched domains
@@ -178,9 +210,30 @@ try {
         cls,
         date: entry.date || '',
         rank: CLASS_RANK[cls] * 2 + ageBand(entry.date),
+        source: 'auto-captures.md',
       });
     }
   }
+
+  // --- Step 4.5: Per-session injection dedup ---
+  // Marker at stateDir()/memory-injected/<sessionId>: one entry key per line.
+  // Excluded BEFORE claim() so the char/slot budget flows to entries this session
+  // has not already seen, instead of re-spending it on repeats.
+  const injectedDir = path.join(stateDir(), 'memory-injected');
+  const injectedFile = hasSessionId ? path.join(injectedDir, sessionId) : null;
+  let injectedKeys = new Set();
+  // No session_id → no marker to read: injectedKeys stays empty, so nothing is excluded.
+  if (hasSessionId) {
+    try {
+      if (fs.existsSync(injectedFile)) {
+        injectedKeys = new Set(
+          fs.readFileSync(injectedFile, 'utf-8').split('\n').map((l) => l.trim()).filter(Boolean)
+        );
+      }
+    } catch (_) { /* fail toward injection: an unreadable marker excludes nothing */ }
+  }
+
+  allEntries = allEntries.filter((entry) => !injectedKeys.has(entryKey(entry)));
 
   // --- Step 5: Prioritize entries ---
   // Rank ascending; newest first inside a rank. The date tiebreak is what stops the
@@ -228,6 +281,7 @@ try {
   // capping corrections never wastes budget on an empty reserve.
   claim(SLOTS, budget, () => true);
 
+  const injectedThisRound = picked.slice();
   const outputLines = picked.sort(byRank).map((entry) => '- ' + entry.text);
 
   // A single entry longer than the whole budget must not silently emit nothing -
@@ -235,9 +289,23 @@ try {
   // 1100 chars, so this is reachable, not theoretical.
   if (outputLines.length === 0 && allEntries.length > 0 && budget > 4) {
     outputLines.push('- ' + allEntries[0].text.slice(0, budget - 4) + '...');
+    injectedThisRound.push(allEntries[0]);
   }
 
   if (outputLines.length === 0) process.exit(0);
+
+  // Advisory marker write: records what this session has now seen so a repeat
+  // prompt doesn't re-spend budget on the same entries. A write failure must not
+  // suppress the injection that already happened above (fail toward injection).
+  // No session_id → no shared bucket to write into: skip the marker entirely.
+  if (hasSessionId) {
+    try {
+      fs.mkdirSync(injectedDir, { recursive: true });
+      const updated = new Set(injectedKeys);
+      for (const entry of injectedThisRound) updated.add(entryKey(entry));
+      fs.writeFileSync(injectedFile, Array.from(updated).join('\n') + '\n');
+    } catch (_) { /* advisory: never suppress an injection over a marker write failure */ }
+  }
 
   process.stdout.write(header + outputLines.join('\n') + footer);
 } catch (_) {

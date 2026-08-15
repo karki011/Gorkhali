@@ -309,7 +309,7 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
   assert.equal(resumed.status, 'active');
 
   // authorize ship + ship + complete (the "close" class: archived, never deleted)
-  ok(await runState(['authorize', ...common, '--scope', 'ship-draft-pr'], ctx.env));
+  ok(await runState(['authorize', ...common, '--scope', 'ship-pr'], ctx.env));
   ok(await runState(['ship', ...common], ctx.env));
   const completed = ok(await runState(['complete', ...common], ctx.env));
   assert.equal(completed.status, 'completed');

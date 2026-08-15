@@ -128,11 +128,6 @@
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/memory-consolidator.js",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/context-compact-guide.sh",
-            "timeout": 3
           }
         ]
       },
@@ -143,11 +138,6 @@
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/memory-consolidator.js",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/context-compact-guide.sh",
-            "timeout": 3
           }
         ]
       }

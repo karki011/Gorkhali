@@ -204,7 +204,7 @@ function shouldContinue({ fixLoops, currentClass, classHistory = [], override = 
 // ---------------------------------------------------------------------------
 // RUN-LEVEL halt (unattended runs only). shouldContinue() above governs ONE
 // loop; this governs the whole unattended run that contains it — the thing
-// commands/loop.md drives to a draft PR with no human present.
+// commands/loop.md drives to a ready-for-review PR with no human present.
 // ---------------------------------------------------------------------------
 
 // The ONLY legal halt states. One home for the enum: scripts/run-guard.js writes

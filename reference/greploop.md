@@ -153,7 +153,7 @@ git push
 **Inline comments** — post an in-thread reply in the configured tone (`PHANTOM_GREPTILE_TONE`), ending with `@greptileai`:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/comments/{COMMENT_ID}/replies \
+gh api repos/{owner}/{repo}/pulls/{PR}/comments/{COMMENT_ID}/replies \
   -f body="Fixed in {sha} — take another look @greptileai" --method POST
 ```
 
@@ -212,7 +212,7 @@ After posting the fallback `@greptileai review` (section A), if poll B still fin
 
 ## Release the gate (write `greptile.status` to wrap.json)
 
-The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a draft PR's `greptile.status` is missing/`pending`. At **both** exit points above, patch the session `wrap.json` to release it: `done` on successful completion (5/5, zero unresolved), `skipped` when Greptile is unavailable on the repo.
+The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is missing/`pending`. At **both** exit points above, patch the session `wrap.json` to release it: `done` on successful completion (5/5, zero unresolved), `skipped` when Greptile is unavailable on the repo.
 
 The wrap.json path MUST be resolved with the SAME phantom-paths helpers the gate reads with (`detectRepo` + `current-session/<repo>.json` ticket precedence + `sessionsDir`) so the write lands in the byte-identical file the gate checks — a hand-built `basename $(git rev-parse --show-toplevel)` path shards under the ticket name inside worktrees and the gate never releases. Non-blocking and fail-soft — a write failure must not error the loop:
 
@@ -263,4 +263,4 @@ Greploop complete.
   Remaining:   0
 ```
 
-If stopped at `--max` with work left, list the remaining items (`path:line — "comment"`) and suggest next steps. greploop never marks the PR ready-to-review — that stays a human action.
+If stopped at `--max` with work left, list the remaining items (`path:line — "comment"`) and suggest next steps. greploop never merges the PR — merging stays a human action.

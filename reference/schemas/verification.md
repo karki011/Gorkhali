@@ -66,7 +66,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 }
 ```
 
-`{LINT_CMD}` / `{BUILD_CMD}` / `{TEST_CMD}` are resolved via the discovery protocol in `reference/verification.md`. The real file records the concrete commands actually run.
+`{LINT_CMD}` / `{BUILD_CMD}` / `{TEST_CMD}` are resolved via the discovery protocol in `skills/phantom/references/verification.md`. The real file records the concrete commands actually run.
 
 `review.findings[]` elements are review findings: one shape, one severity scale,
 defined and enforced in [`review.md`](review.md). The example above used to read

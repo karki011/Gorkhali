@@ -177,8 +177,8 @@ const validateEvidence = (items, errors, { requireFreshness = false } = {}) => {
 
 const DELEGATION_PROFILES = ['inherit', 'economy', 'balanced', 'deep', 'frontier'];
 const DELEGATION_RISKS = ['low', 'moderate', 'high', 'critical'];
-const DELEGATION_TASK_MAX_BYTES = 4_800;
-const DELEGATION_RESULT_MAX_BYTES = 2_000;
+const DELEGATION_TASK_MAX_BYTES = 64_000;
+const DELEGATION_RESULT_MAX_BYTES = 32_000;
 
 const sortJson = (value) => {
   if (Array.isArray(value)) return value.map(sortJson);
@@ -320,12 +320,12 @@ export function validateDelegationResultContract(payload, { allowVersion1 = fals
   if (payload.status === 'ok') {
     if (!isObject(payload.output)) errors.push('result.output: required object when status is ok');
     else {
-      requireBoundedText(payload.output.summary, 'result.output.summary', 500, errors);
+      requireBoundedText(payload.output.summary, 'result.output.summary', 8_000, errors);
       requireBoundedTextArray(
         payload.output.files_changed,
         'result.output.files_changed',
         12,
-        240,
+        2_000,
         errors,
       );
       const checks = requireMaxItems(payload.output.checks, 'result.output.checks', 12, errors);
@@ -338,15 +338,15 @@ export function validateDelegationResultContract(payload, { allowVersion1 = fals
         requireTextFields(check, label, ['name'], errors);
         requireEnum(check.status, `${label}.status`, ['passed', 'failed', 'skipped'], errors);
         if (check.summary !== undefined) {
-          requireBoundedText(check.summary, `${label}.summary`, 240, errors);
+          requireBoundedText(check.summary, `${label}.summary`, 2_000, errors);
         }
       });
-      requireBoundedTextArray(payload.output.findings, 'result.output.findings', 8, 240, errors);
-      requireBoundedTextArray(payload.output.risks, 'result.output.risks', 8, 240, errors);
+      requireBoundedTextArray(payload.output.findings, 'result.output.findings', 8, 2_000, errors);
+      requireBoundedTextArray(payload.output.risks, 'result.output.risks', 8, 2_000, errors);
       requireBoundedText(
         payload.output.blocker,
         'result.output.blocker',
-        300,
+        4_000,
         errors,
         { nullable: true },
       );

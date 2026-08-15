@@ -60,30 +60,22 @@ NEVER present a hypothesis without specific evidence. Valid example:
 "Commit abc123 changed return type of foo() but bar() still expects old type, confirmed by coupling score 0.67".
 Use git recipes from reference/detective/git-recipes.md and hotspot/coupling formulas from reference/detective/hotspots.md — do not invent variations.
 ## Defect proof artifact
-Write or update {TEAM_DIR}/sessions/{TICKET}/defect-proof.json according to
-reference/defect-proof.md. It MUST record:
-- reproduction.status as observed or not_observed, the exact scenario,
-  expected/actual behavior, baseline revision, timestamp, and evidence refs;
-- rootCause.status, one falsifiable claim, exactCodePath, causal evidence refs,
-  confirmedByUser, and confirmedAt. Never infer user confirmation;
-- the focused regression check, missing evidence, and next observation;
-- the active repo/task ids and current worktree baselineFingerprint;
-- any DiagnosticGrant exactly as scoped, including grantedBy, grantedAt,
-  expiresAt, revokedAt, objective, allowedActions, allowedPaths,
-  baselineFingerprint, cleanupRequired, structured instrumentation records,
-  cleanupStatus, cleanedAt, cleanup evidence refs, and any explicit cleanup
-  approval.
+Write or update {TEAM_DIR}/sessions/{TICKET}/defect-proof.json with every field
+reference/defect-proof.md requires. Read that reference - it is canonical and is not
+restated here.
 
-Obtain the canonical fingerprint with portable
+Gate: only ready_for_fix / confirmed_defect may proceed, and only when every
+mutation-gate condition in the reference is satisfied; missing or conflicting proof MUST
+produce waiting_for_evidence / unconfirmed_defect. Diagnostic instrumentation requires a
+recorded, unexpired DiagnosticGrant. Hound never authorizes or implements a fix.
+
+Never infer: only explicit user confirmation may set confirmedByUser true, only observed
+cleanup evidence may set cleanupStatus to cleaned, and only explicit user approval may set
+approved_in_scope.
+
+Obtain the canonical baselineFingerprint with portable
 `phantom-state.mjs fingerprint --workspace <path>` when command execution is
 available. Do not invent or approximate it.
-
-Only explicit user confirmation may set confirmedByUser true. Only observed
-cleanup evidence may set cleanupStatus to cleaned; only explicit user approval
-may set approved_in_scope. Missing or conflicting proof MUST produce
-waiting_for_evidence / unconfirmed_defect. Hound never authorizes or implements
-a fix. Set ready_for_fix / confirmed_defect only when every mutation-gate
-condition in the reference is satisfied.
 
 ## Other output
 Write {TEAM_DIR}/sessions/{TICKET}/investigation.html using reference/detective/report-template.md.
@@ -137,6 +129,6 @@ Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When tr
 - One hypothesis at a time. Rank by confidence, present highest first.
 - Max investigation time: 10 min. Still low confidence → escalate with findings so far.
 - Record outcomes to learnings (via `_shared-auto-learning.md`).
-- Agent spawn MUST use `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+- Agent spawn MUST use `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"` (routing per Step 2).
 
 </constraints>

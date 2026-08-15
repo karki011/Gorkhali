@@ -92,14 +92,13 @@ gh CLI and Atlassian MCP. Optional: Slack MCP and code-review-graph MCP.
 If you previously used the retired manual install, remove its exact
 `~/.claude/commands/phantom` and `~/.claude/agents/phantom` entries so Claude
 Code cannot discover a stale copy alongside the plugin. The old flow may also
-have registered these five Phantom hooks in `~/.claude/settings.json`; remove
+have registered these four Phantom hooks in `~/.claude/settings.json`; remove
 only those entries because `hooks/hooks.json` now owns them:
 
 - `memory-writer.js`
 - `apex-subagent-driven-law.sh`
 - `memory-reader.js`
 - `memory-consolidator.js`
-- `context-compact-guide.sh`
 
 Back up `settings.json` before editing and preserve every non-Phantom hook. If
 you need data from an old `~/.claude/team`, `~/.claude/phantom`, or

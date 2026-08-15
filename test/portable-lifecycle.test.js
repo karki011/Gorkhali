@@ -324,10 +324,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.2.6');
+  assert.equal(started.bundle_version, '2.2.8');
   assert.deepEqual(started.producer, { role: 'apex', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.6');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.2.8');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -340,7 +340,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.2.6');
+  assert.equal(resumed.bundle_version, '2.2.8');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -363,7 +363,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.2.6');
+  assert.equal(recorded.artifact.bundle_version, '2.2.8');
   assert.deepEqual(recorded.artifact.producer, { role: 'ward', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -704,7 +704,7 @@ test('Archer evidence is the only specialist evidence accepted when reviews reco
     'start', ...common, '--task', 'SPECIALIST-1', '--intent', 'Enforce specialist evidence', '--route', 'direct',
   ], context.env));
   await authorizeAndExecute(context);
-  parse(await run(['authorize', ...common, '--scope', 'ship-draft-pr'], context.env));
+  parse(await run(['authorize', ...common, '--scope', 'ship-pr'], context.env));
   await recordArtifact(context, 'verification', {
     checks: [{ name: 'focused tests', result: 'passed' }],
     requiredSpecialists: ['archer'],
@@ -1182,7 +1182,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.2.6');
+  assert.equal(task.artifact.bundle_version, '2.2.8');
   assert.deepEqual(task.artifact.producer, { role: 'blade', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -1389,7 +1389,7 @@ test('delegation v2 rejects unsafe references, stale hashes, and oversized envel
     ['missing', (value) => { value.context_refs[0].locator = 'missing.md'; }, /does not exist/],
     ['directory', (value) => { value.context_refs[0].locator = 'directory'; fs.mkdirSync(path.join(context.workspace, 'directory')); }, /must be a file/],
     ['hash', (value) => { value.context_refs[0].content_sha256 = '0'.repeat(64); }, /does not match/],
-    ['oversize', (value) => { value.objective = 'é'.repeat(2_400); }, /maximum is 4800/],
+    ['oversize', (value) => { value.objective = 'é'.repeat(33_000); }, /maximum is 64000/],
   ]) {
     const result = await recordTask(label, mutate);
     assert.equal(result.code, 1, `${label} unexpectedly passed`);
@@ -1430,7 +1430,7 @@ test('delegation v2 rejects unsafe references, stale hashes, and oversized envel
     task_digest: delegationTaskDigest(accepted),
     status: 'error',
     output: null,
-    error: { code: 'TOO_LARGE', message: 'é'.repeat(1_000), retryable: false },
+    error: { code: 'TOO_LARGE', message: 'é'.repeat(17_000), retryable: false },
   }));
   const oversizedResult = await run([
     'record',
@@ -1441,7 +1441,7 @@ test('delegation v2 rejects unsafe references, stale hashes, and oversized envel
     '--input', resultFile,
   ], context.env);
   assert.equal(oversizedResult.code, 1);
-  assert.match(oversizedResult.stderr, /maximum is 2000/);
+  assert.match(oversizedResult.stderr, /maximum is 32000/);
 });
 
 test('completion revalidates persisted gate evidence and envelope identity', async () => {
@@ -1581,7 +1581,7 @@ test('route-specific execution gates fail actionably and pass after required app
   }
 });
 
-test('implementation and draft-PR shipping authorizations remain separate', async () => {
+test('implementation and PR shipping authorizations remain separate', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   parse(await run([
@@ -1595,13 +1595,46 @@ test('implementation and draft-PR shipping authorizations remain separate', asyn
   assert.equal(unauthorizedShip.code, 1);
   assert.match(
     unauthorizedShip.stderr,
-    /draft-PR shipping authorization is missing.*authorize --scope ship-draft-pr/s,
+    /PR shipping authorization is missing.*authorize --scope ship-pr/s,
   );
   parse(await run([
-    'authorize', ...common, '--scope', 'ship-draft-pr',
+    'authorize', ...common, '--scope', 'ship-pr',
   ], context.env));
   const ready = parse(await run(['ship', ...common], context.env));
   assert.equal(ready.lifecycle.actions.ship.status, 'ready');
+});
+
+test('the legacy ship-draft-pr scope name still authorizes the ship-pr gate', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'LEGACY-SCOPE', '--intent', 'Accept the pre-rename scope', '--route', 'direct',
+  ], context.env));
+  await authorizeAndExecute(context);
+  await recordGate(context, 'verification');
+  await recordGate(context, 'review');
+
+  const authorized = parse(await run([
+    'authorize', ...common, '--scope', 'ship-draft-pr',
+  ], context.env));
+  assert.equal(authorized.lifecycle.authorizations['ship-pr'].status, 'authorized');
+  assert.equal(authorized.lifecycle.authorizations['ship-draft-pr'], undefined);
+
+  // A session written before the rename carries the decision under the legacy
+  // key alone; reading it must still cross the same gate.
+  const sessionFile = path.join(
+    context.data, 'repos', started.repo_id, 'sessions', started.task_id, 'session.json',
+  );
+  const legacy = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  legacy.lifecycle.authorizations = {
+    implementation: legacy.lifecycle.authorizations.implementation,
+    'ship-draft-pr': legacy.lifecycle.authorizations['ship-pr'],
+  };
+  fs.writeFileSync(sessionFile, JSON.stringify(legacy));
+
+  const ready = parse(await run(['ship', ...common], context.env));
+  assert.equal(ready.lifecycle.actions.ship.status, 'ready');
+  assert.equal(ready.lifecycle.authorizations['ship-pr'].status, 'authorized');
 });
 
 test('to-plan sessions permanently deny execute and ship even after authorization', async () => {
@@ -1624,7 +1657,7 @@ test('to-plan sessions permanently deny execute and ship even after authorizatio
   assert.equal(planComplete.code, 0, planComplete.stderr);
   assert.equal(JSON.parse(planComplete.stdout).next, null);
 
-  for (const scope of ['implementation', 'ship-draft-pr']) {
+  for (const scope of ['implementation', 'ship-pr']) {
     parse(await run(['authorize', ...common, '--scope', scope], context.env));
   }
   const authorized = await runScript(STATE, ['status', ...common], context.env);
@@ -1647,6 +1680,38 @@ test('to-plan sessions permanently deny execute and ship even after authorizatio
   const stillDenied = await run(['execute', ...common], context.env);
   assert.equal(stillDenied.code, 1);
   assert.match(stillDenied.stderr, /permanently plan-only/);
+});
+
+test('to-plan sessions complete on a validated plan and release the workspace', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start',
+    ...common,
+    '--task', 'PLAN-DONE',
+    '--intent', 'Produce a plan only',
+    '--route', 'plan',
+    '--mode', 'to-plan',
+  ], context.env));
+
+  const withoutPlan = await run(['complete', ...common], context.env);
+  assert.equal(withoutPlan.code, 1);
+  assert.match(withoutPlan.stderr, /plan artifact is missing.*Record a fresh passed plan artifact/s);
+
+  await recordArtifact(context, 'plan', portablePlan());
+  const completed = parse(await run(['complete', ...common], context.env));
+  assert.equal(completed.status, 'completed');
+
+  const next = parse(await run([
+    'start',
+    ...common,
+    '--task', 'PLAN-NEXT',
+    '--intent', 'Plan the follow-up task',
+    '--route', 'plan',
+    '--mode', 'to-plan',
+  ], context.env));
+  assert.equal(next.task_id, 'PLAN-NEXT');
+  assert.equal(next.status, 'active');
 });
 
 test('matching start preserves legacy top-level plan-only mode fields', async () => {
@@ -1677,7 +1742,7 @@ test('matching start preserves legacy top-level plan-only mode fields', async ()
       'start', ...common, '--task', `LEGACY-${label}`, '--intent', intent, '--route', 'direct',
     ], context.env));
     assert.equal(resumed.lifecycle.mode, 'to-plan');
-    for (const scope of ['implementation', 'ship-draft-pr']) {
+    for (const scope of ['implementation', 'ship-pr']) {
       parse(await run(['authorize', ...common, '--scope', scope], context.env));
     }
     for (const action of ['execute', 'ship']) {
@@ -1696,7 +1761,7 @@ test('shipping and completion reject stale or superseded worktree evidence', asy
   ], context.env));
   await authorizeAndExecute(context);
   parse(await run([
-    'authorize', ...common, '--scope', 'ship-draft-pr',
+    'authorize', ...common, '--scope', 'ship-pr',
   ], context.env));
   const verified = await recordGate(context, 'verification');
   const reviewed = await recordGate(context, 'review');

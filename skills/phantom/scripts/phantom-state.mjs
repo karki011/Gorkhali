@@ -39,9 +39,11 @@ import {
   validateDelegationTaskContract,
 } from './lib/decision-contracts.mjs';
 import {
+  correctedWorkKind,
   defectProofErrors,
   hasDefectSignal,
   resolveWorkKind,
+  workKindCorrectionErrors,
 } from './lib/defect-proof.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
@@ -61,7 +63,10 @@ const APPROVAL_ARTIFACTS = {
   plan: ['plan'],
   wiring: ['plan', 'decisions'],
 };
-const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-draft-pr']);
+const AUTHORIZATION_SCOPES = new Set(['implementation', 'ship-pr']);
+// Pre-rename name for the same gate. Accepted on authorize and on read for the
+// whole 0.4.x line, so a session recorded under either name authorizes once.
+const LEGACY_AUTHORIZATION_SCOPES = new Map([['ship-draft-pr', 'ship-pr']]);
 const ARTIFACT_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked', 'skipped']);
 const ARTIFACTS = {
   context: {},
@@ -99,6 +104,27 @@ function emptyDecision() {
   return { status: 'pending', decided_at: null };
 }
 
+function canonicalScope(scope) {
+  const canonical = LEGACY_AUTHORIZATION_SCOPES.get(scope) || scope;
+  return AUTHORIZATION_SCOPES.has(canonical) ? canonical : null;
+}
+
+function normalizeAuthorizations(existing) {
+  const authorizations = {
+    implementation: emptyDecision(),
+    'ship-pr': emptyDecision(),
+  };
+  if (!isObject(existing)) return authorizations;
+  for (const [scope, decision] of Object.entries(existing)) {
+    const canonical = LEGACY_AUTHORIZATION_SCOPES.get(scope) || scope;
+    // A legacy-named decision folds onto the canonical gate but never downgrades
+    // one already recorded under the canonical name.
+    if (canonical !== scope && granted(authorizations[canonical])) continue;
+    authorizations[canonical] = decision;
+  }
+  return authorizations;
+}
+
 function lifecycleFor(session) {
   const existing = isObject(session.lifecycle) ? session.lifecycle : {};
   const mode = existing.mode === 'to-plan' || session.mode === 'to-plan' || session.to_plan === true
@@ -112,11 +138,7 @@ function lifecycleFor(session) {
       wiring: emptyDecision(),
       ...(isObject(existing.approvals) ? existing.approvals : {}),
     },
-    authorizations: {
-      implementation: emptyDecision(),
-      'ship-draft-pr': emptyDecision(),
-      ...(isObject(existing.authorizations) ? existing.authorizations : {}),
-    },
+    authorizations: normalizeAuthorizations(existing.authorizations),
     actions: {
       execute: emptyDecision(),
       verify: emptyDecision(),
@@ -490,7 +512,6 @@ function requireCurrent(workspace) {
 
 function start(workspace, args) {
   if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
-  const requestedWorkKind = resolveWorkKind(args['work-kind'], args.intent);
   const route = args.route || 'plan';
   if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
@@ -509,8 +530,10 @@ function start(workspace, args) {
   }
   mkdirSync(paths.sessionDir, { recursive: true });
   const existing = readJson(join(paths.sessionDir, 'session.json'));
+  const correction = existing?.work_kind_correction ?? null;
+  const requestedWorkKind = resolveWorkKind(args['work-kind'], args.intent, correction);
   if (existing) {
-    const existingWorkKind = resolveWorkKind(existing.work_kind, existing.intent_summary);
+    const existingWorkKind = resolveWorkKind(existing.work_kind, existing.intent_summary, correction);
     if (existingWorkKind !== requestedWorkKind) {
       throw new Error(
         `Cannot change work kind for active task ${paths.task} from `
@@ -861,17 +884,56 @@ function approve(workspace, args) {
 }
 
 function authorize(workspace, args) {
-  if (!AUTHORIZATION_SCOPES.has(args.scope)) {
-    throw new Error('authorize requires --scope implementation or --scope ship-draft-pr.');
+  const scope = canonicalScope(args.scope);
+  if (!scope) {
+    throw new Error('authorize requires --scope implementation or --scope ship-pr.');
   }
   const current = requireCurrent(workspace);
   const lifecycle = lifecycleFor(current.session);
-  lifecycle.authorizations[args.scope] = {
+  lifecycle.authorizations[scope] = {
     status: 'authorized',
     decided_at: now(),
     by: args.by || 'user',
   };
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
+}
+
+function correctWorkKind(workspace, args) {
+  const current = requireCurrent(workspace);
+  if (lifecycleFor(current.session).actions.execute.status === 'started') {
+    throw new Error(
+      'Cannot correct work kind: execution has already started through the lifecycle gate. '
+      + 'Complete this session and restart with a new task id.',
+    );
+  }
+  const correction = {
+    record_type: 'work_kind_correction',
+    from: current.session.work_kind,
+    to: args['work-kind'],
+    granted_by: args['granted-by'],
+    reason: args.reason,
+    at: now(),
+  };
+  const errors = workKindCorrectionErrors(correction);
+  if (errors.length) {
+    throw new Error(
+      `Cannot correct work kind: ${errors.join('; ')}. `
+      + 'Run `phantom-state.mjs correct-work-kind --work-kind <implementation|investigation> '
+      + '--granted-by <who> --reason <why> --workspace <path>`.',
+    );
+  }
+  const intentFile = join(current.paths.sessionDir, 'intent.json');
+  const intent = readJson(intentFile);
+  if (!isObject(intent)) {
+    throw new Error('Cannot correct work kind: intent.json is missing or malformed.');
+  }
+  atomicWriteJson(intentFile, { ...intent, work_kind: correction.to, updated_at: now() });
+  return updateStatus(
+    workspace,
+    current.session.status,
+    { work_kind: correction.to, work_kind_correction: correction },
+    current,
+  );
 }
 
 function isLegacyClassificationArtifact(bundleVersion) {
@@ -886,6 +948,11 @@ function isLegacyClassificationArtifact(bundleVersion) {
 
 function authoritativeWorkKind(current) {
   const errors = [];
+  const correction = current.session.work_kind_correction ?? null;
+  const grantedKind = correctedWorkKind(correction);
+  if (correction !== null && grantedKind === null) {
+    errors.push(`session work_kind_correction is invalid: ${workKindCorrectionErrors(correction).join('; ')}`);
+  }
   const sessionSummary = current.session.intent_summary;
   if (typeof sessionSummary !== 'string' || sessionSummary.trim() === '') {
     errors.push('session intent_summary is missing or malformed');
@@ -896,7 +963,7 @@ function authoritativeWorkKind(current) {
       && !isLegacyClassificationArtifact(current.session.bundle_version)) {
       errors.push('session work_kind is missing from a current classification artifact');
     }
-    sessionKind = resolveWorkKind(current.session.work_kind, sessionSummary);
+    sessionKind = resolveWorkKind(current.session.work_kind, sessionSummary, correction);
     if (current.session.work_kind !== sessionKind) {
       errors.push('session work_kind conflicts with defect signals in session intent_summary');
     }
@@ -925,7 +992,7 @@ function authoritativeWorkKind(current) {
         && !isLegacyClassificationArtifact(intent.bundle_version)) {
         errors.push('intent.json work_kind is missing from a current classification artifact');
       }
-      intentKind = resolveWorkKind(intent.work_kind, intent.summary);
+      intentKind = resolveWorkKind(intent.work_kind, intent.summary, correction);
       if (intent.work_kind !== undefined && intent.work_kind !== intentKind) {
         errors.push('intent.json work_kind conflicts with defect signals in its summary');
       }
@@ -938,8 +1005,9 @@ function authoritativeWorkKind(current) {
     errors.push('session and intent.json work_kind classifications do not match');
   }
   if (hasDefectSignal(sessionSummary) || hasDefectSignal(intent?.summary)) {
-    if (sessionKind !== 'investigation' || intentKind !== 'investigation') {
-      errors.push('defect signals require investigation classification');
+    const requiredKind = grantedKind ?? 'investigation';
+    if (sessionKind !== requiredKind || intentKind !== requiredKind) {
+      errors.push(`defect signals require ${requiredKind} classification`);
     }
   }
   return { errors, workKind: sessionKind };
@@ -1654,11 +1722,11 @@ function ship(workspace) {
       'phantom-state.mjs execute --workspace <path>',
     );
   }
-  if (!granted(lifecycle.authorizations['ship-draft-pr'])) {
+  if (!granted(lifecycle.authorizations['ship-pr'])) {
     missingPrerequisite(
       'ship',
-      'draft-PR shipping authorization is missing',
-      'phantom-state.mjs authorize --scope ship-draft-pr --workspace <path>',
+      'PR shipping authorization is missing',
+      'phantom-state.mjs authorize --scope ship-pr --workspace <path>',
     );
   }
   const fingerprint = requireCurrentPassedGates(current, 'ship');
@@ -1672,14 +1740,25 @@ function ship(workspace) {
 
 function complete(workspace) {
   const current = requireCurrent(workspace);
-  if (current.session.lifecycle.actions.execute.status !== 'started') {
-    missingPrerequisite(
-      'complete',
-      'execution has not started through the lifecycle gate',
-      'phantom-state.mjs execute --workspace <path>',
-    );
+  if (current.session.lifecycle.mode === 'to-plan') {
+    const plan = readJson(join(current.paths.sessionDir, 'plan.json'));
+    const errors = approvalArtifactErrors('plan', plan, current);
+    if (errors.length) {
+      throw new Error(
+        `Cannot complete: ${errors.join('; ')}. `
+        + 'Record a fresh passed plan artifact, then complete this plan-only session.',
+      );
+    }
+  } else {
+    if (current.session.lifecycle.actions.execute.status !== 'started') {
+      missingPrerequisite(
+        'complete',
+        'execution has not started through the lifecycle gate',
+        'phantom-state.mjs execute --workspace <path>',
+      );
+    }
+    requireCurrentPassedGates(current, 'complete');
   }
-  requireCurrentPassedGates(current, 'complete');
   if (existsSync(current.paths.completedDir)) {
     throw new Error(`Completed session already exists: ${current.paths.completedDir}`);
   }
@@ -1710,6 +1789,7 @@ function main() {
       if (command === 'resume') return updateStatus(workspace, 'active', { resumed_at: now() });
       if (command === 'approve') return approve(workspace, args);
       if (command === 'authorize') return authorize(workspace, args);
+      if (command === 'correct-work-kind') return correctWorkKind(workspace, args);
       if (command === 'execute') return execute(workspace);
       if (command === 'verify') return verify(workspace);
       if (command === 'record') return record(workspace, args);
@@ -1717,7 +1797,8 @@ function main() {
       if (command === 'complete') return complete(workspace);
       throw new Error(
         'Usage: phantom-state.mjs '
-        + '<start|status|fingerprint|pause|resume|approve|authorize|execute|verify|record|ship|complete> [options]',
+        + '<start|status|fingerprint|pause|resume|approve|authorize|correct-work-kind'
+        + '|execute|verify|record|ship|complete> [options]',
       );
     });
     const output = args.json === true

@@ -60,12 +60,11 @@ const criticalEligibleRoles = [
   'lens',
   'archer',
   'rival',
-  'plan-checker',
   'hound',
 ];
 const criticalExemptRoles = ['apex', 'ward', 'sweep', 'warden'];
 const activeRoles = [
-  'apex', 'blade', 'ward', 'gaze', 'sage', 'lens', 'archer', 'rival', 'plan-checker',
+  'apex', 'blade', 'ward', 'gaze', 'sage', 'lens', 'archer', 'rival',
   'hound', 'sweep', 'warden',
 ];
 
@@ -233,10 +232,8 @@ function validateModelPolicy(policy, errors) {
     !== JSON.stringify([...activeRoles].sort())) {
     errors.push('Model policy roles must contain exactly the active portable roles.');
   }
-  for (const role of ['rival', 'plan-checker']) {
-    if (policy.roles?.[role] !== 'balanced') {
-      errors.push(`Model policy ordinary ${role} must use balanced.`);
-    }
+  if (policy.roles?.rival !== 'balanced') {
+    errors.push('Model policy ordinary rival must use balanced.');
   }
 }
 
@@ -488,6 +485,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       '--gate plan',
       '--gate wiring',
       '--scope implementation',
+      '--scope ship-pr',
       '--scope ship-draft-pr',
       'worktree_fingerprint',
       'record_sequence',
@@ -496,6 +494,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     ],
     'scripts/phantom-state.mjs': [
       "const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full'])",
+      "'ship-pr'",
       "'ship-draft-pr'",
       'worktreeFingerprint',
       'APPROVAL_ARTIFACTS',

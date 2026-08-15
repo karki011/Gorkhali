@@ -14,7 +14,7 @@ No external plugins required.
 |-------|-----------|-------------|-----------|
 | **B (Planning)** | Structured planning with decomposition | Apex agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
 | **B (Planning)** | Brainstorming for ambiguous scope | Apex detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
-| **B (Planning)** | Adversarial challenge | Rival agent (sonnet (pinned), no tools) | Max 5 challenges, PROCEED/REVISE/RETHINK verdict |
+| **B (Planning)** | Adversarial challenge + plan validation | Rival agent (sonnet (pinned), no tools) - the one plan critic | Max 5 challenges, PROCEED/REVISE/RETHINK verdict in `plan-check.json` |
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
 | **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
 | **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Blade climbs the ladder before writing code | Minimalism discipline (below) |
@@ -43,4 +43,4 @@ No external plugins required.
 
 Two rungs work → take the higher one and move on. Bug fix = root cause, not symptom: grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller broken (reinforces Debugging discipline above). **Never lazy about:** understanding the problem, input validation at trust boundaries, error handling that prevents data loss, security, accessibility, or anything explicitly requested. A small diff you don't understand is laziness dressed up as efficiency. _Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (MIT)._
 
-**Model-routing discipline:** Spawns default to a task-appropriate tier, not the session model — cheap (sonnet) is the floor for mechanical and well-scoped work; escalate only for complex, ambiguous, or cross-cutting subtasks. `reference/agents.md` → **Model Routing** is canonical; do not duplicate or restate the rubric here.
+**Model-routing discipline:** owned entirely by `reference/agents.md` → **Model Routing**. Not restated here.

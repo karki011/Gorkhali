@@ -1,6 +1,7 @@
 # Deliberation Protocol
 
-Planner (Apex) and Challenger (Rival, session model, no tools) deliberate **before** presenting to human.
+Planner (Apex) and Challenger (Rival, sonnet, read-only tools) deliberate **before** presenting to human.
+Rival is the one plan critic, so its `plan-check.json` verdict lands in the same rounds — there is no separate validation pass. Spawn it per `reference/planning.md` → Rival (mandatory, every plan).
 
 ## Round Flow
 - Round 1: Planner sends plan -> Challenger returns verdict (PROCEED / REVISE / RETHINK)
@@ -20,7 +21,7 @@ Planner (Apex) and Challenger (Rival, session model, no tools) deliberate **befo
 ## Challenger Constraints
 - Max 5 challenges per round, max 100 words each
 - Must cite specifics: task numbers, file paths, function names
-- No tools (reason from plan text only)
+- Read-only tools: Read, read-only Bash, `code-review-graph`; writes only `plan-check.json`
 - No vague concerns ("this might have issues" = rejected)
 
 ## When Deliberation Runs

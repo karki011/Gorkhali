@@ -12,13 +12,15 @@ user-invocable: false
 
 Execute a plan from artifacts. Used by start.md router or standalone.
 
+Every `reference/…` pointer below names the canonical text for that rule. Follow it there; this file never restates it.
+
 <instructions>
 
 1. **Detect ticket** from $ARGUMENTS or git branch
 
 2. **Load plan**: Read `{TEAM_DIR}/sessions/{TICKET}/plan.json`
    - If missing: "No plan found. Run `/phantom:start` first."
-   Checkpoint (self-resolve {PLUGIN_ROOT} env-free): `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
@@ -30,18 +32,13 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    classifies or describes defect/regression work, require
    `workKind: "investigation"` consistently and read
    `{SESSION_DIR}/defect-proof.json`. Classification disagreement or omitted
-   proof fails closed. Validate the complete contract in
-   `reference/defect-proof.md`.
-   - Require `state: "ready_for_fix"`,
-     `verdict: "confirmed_defect"`, an observed current reproduction with
-     evidence, and a confirmed causal code path with
-     `confirmedByUser: true`.
-   - Missing, stale, malformed, contradictory, or incomplete proof → set or
-     preserve `state: "waiting_for_evidence"` and
-     `verdict: "unconfirmed_defect"`, then BLOCK before Blade dispatch.
-   - Diagnostic instrumentation is allowed only under an unexpired
-     `DiagnosticGrant` that explicitly lists its objective, actions, paths,
-     expiry, and cleanup. It never authorizes this implementation step.
+   proof fails closed.
+   Gate per `reference/defect-proof.md`: only
+   `ready_for_fix` / `confirmed_defect` may proceed; missing, stale, malformed,
+   contradictory, or incomplete proof sets or preserves
+   `waiting_for_evidence` / `unconfirmed_defect` and BLOCKS before Blade
+   dispatch. Diagnostic instrumentation requires a recorded, unexpired
+   `DiagnosticGrant`, which never authorizes this implementation step.
 
 5. **Per-spawn lifecycle**: validated hooks own Blade lifecycle state.
 
@@ -53,9 +50,8 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
      `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `blade-kaze`).
    - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
-     (see `reference/agents.md` → Model Routing):
-     # default: task-appropriate tier — `model: "sonnet"` for mechanical & well-scoped, contract-backed subtasks; escalate to opus (implementer ceiling - never fable) for complex, ambiguous, or cross-cutting work.
-     # effort is uniform high (session-inherited) — there is no per-spawn effort param.
+     per `reference/agents.md` → Model Routing; effort is the session's `high`, never a
+     per-spawn param.
    - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
      spawn `subagent_type: blade` with `model: "haiku"` override.
    - All agents: `mode: "bypassPermissions"`.
@@ -63,21 +59,19 @@ Execute a plan from artifacts. Used by start.md router or standalone.
    - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"`
      (sonnet/haiku override for small or trivial subtasks only)
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
-   - **Context discipline at spawn** (canonical: `reference/agents.md` → Context Discipline):
+   - **Context discipline at spawn** (`reference/agents.md` → Context Discipline):
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
      in. After an agent returns, Apex verifies via fs/git spot-check (file exists, ≥1 commit, no
      `Self-Check: FAILED`/verdict-failure line), NOT by re-reading the file or pulling its full output back.
-   - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/{name}.json`, where `{name}` is the roster-assigned name for that task per `reference/roster.md`'s Execute-Wave Reservation (blade derivation + overflow rule; e.g. task 1 → `blade-kaze`) (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass that identical `{name}` as `name: "{name}"` — the stub filename and the spawn's `name:` param are the SAME string, never independently derived. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
+   - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/{name}.json` (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass that identical `{name}` as `name: "{name}"` — the stub filename and the spawn's `name:` param are the SAME string, never independently derived. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
    - **Independent verification assignment**: every implementation task in the
      plan MUST name a Ward or other read-only verifier that is independent of
      its implementing Blade. The verifier's name derives from the same task
      index as the task's Blade per `reference/roster.md`'s Execute-Wave
-     Reservation (ward derivation + overflow rule; e.g. task 1 → `ward-torvan`),
-     which keeps concurrent verifiers collision-free across a parallel SHADOWS
-     wave since task indexes are unique within it. After that Blade returns, the
-     verifier reruns the task's acceptance checks and writes
+     Reservation (ward derivation + overflow rule; e.g. task 1 → `ward-torvan`).
+     After that Blade returns, the verifier reruns the task's acceptance checks and writes
      `{SESSION_DIR}/scope-verifications/{task-id}.json` per
      `reference/defect-proof.md`; for confirmed defects it also reruns the
      reproduction and focused regression check recorded in
@@ -85,7 +79,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
      only a later aggregate suite as the per-scope independent result. A scope
      without its own `status: "passed"` record cannot be marked `done`.
 
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 7. **Complete the wave**: wait for every dispatched Blade and verifier result.
 
@@ -136,7 +130,7 @@ Execute a plan from artifacts. Used by start.md router or standalone.
 
 <no_git_until_wrap>
 
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written || :; fi` (advisory; resume reads latest; empty `$PR` skips silently).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 9. **No git operations.** All work is local until wrap.
 

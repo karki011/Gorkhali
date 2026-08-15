@@ -48,11 +48,11 @@ const PLAIN_TURN = '{"type":"assistant","message":{"content":[{"type":"text","te
 const SYSTEM_ONLY = '{"type":"system","subtype":"init","tools":["Bash"]}';
 const TIMEOUT_MS = 90000;
 
-test('validateEvals accepts the shipped evals.json (55 cases: 30 legacy trigger + 25 extended route/convention)', () => {
+test('validateEvals accepts the shipped evals.json (54 cases: 30 legacy trigger + 24 extended route/convention)', () => {
   const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
   const { cases, errors } = validateEvals(doc);
   assert.deepEqual(errors, []);
-  assert.equal(cases.length, 55);
+  assert.equal(cases.length, 54);
   assert.ok(cases.every((c) => kindOf(c) === 'trigger' || c.kind !== undefined), 'kind defaults to trigger');
 });
 

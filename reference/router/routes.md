@@ -5,7 +5,7 @@
 Context -> Router(DIRECT) -> status report -> Spawn Blade -> Ward verify -> Done
 ```
 - 0 questions. Human sees: `"[DIRECT] Fix typo in UserProfile.tsx -- executing"`
-- Rival SKIPPED (known pattern = no value)
+- Rival plan gate SKIPPED — known pattern = no value, so no plan-check.json
 - If verify FAILS -> auto-escalate to PLAN (not retry)
 - If >3 files changed -> log routing correction to shadows.md, bias future similar tasks
 - Artifacts: context.json, route-decision.json, execution.json, verification.json

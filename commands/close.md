@@ -15,7 +15,7 @@ Post-merge terminal closeout. Two hard principles: **(a) IDEMPOTENT** — safe t
 
 Close is 100% mechanical, so it runs on a fixed cheap model — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `warden` agent to execute Steps 2–6:
 
-`Agent({ subagent_type: "warden", name: "warden-sena", mode: "bypassPermissions", run_in_background: true })` — model + effort come from warden's definition (`sonnet`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Warden runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what warden returns.
+`Agent({ subagent_type: "warden", name: "warden-sena", mode: "bypassPermissions", run_in_background: true })` — model + effort come from warden's definition (`haiku`; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Warden runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what warden returns.
 
 If `warden` is unavailable (older install without the agent), fall back to running Steps 2–6 inline.
 </execution>
@@ -41,13 +41,13 @@ gh pr view {pr.number} --json state,mergedAt,mergeCommit,headRefName
 ```
 
 - `state == "MERGED"` → proceed
-- `state == "OPEN"` or `"DRAFT"` → **STOP**: "PR #{pr.number} is {state} — merge the PR first, or run `/phantom:greploop` if review is still in progress."
+- `state == "OPEN"` (or legacy `"DRAFT"`) → **STOP**: "PR #{pr.number} is {state} — merge the PR first, or run `/phantom:greploop` if review is still in progress."
 - Any other state → **STOP** with the actual state value.
 
 ## Step 3: Jira → Done
 
 Running this command IS the authorization; no confirmation required.
-Read `jira.auto_transition` from the real reader (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && node "$PR/scripts/phantom-config.js" get jira.auto_transition`).
+Read `jira.auto_transition` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/phantom-config.js" get jira.auto_transition` - `{PR_BOOTSTRAP}` per `_shared.md` §Paths).
 Skip the transition ONLY when that command prints exactly `false`.
 Unset prints nothing on stdout (exit 1, reason on stderr) and is NOT a skip signal, so the transition proceeds - unchanged from today for anyone who has never set the key.
 
@@ -80,12 +80,12 @@ git worktree prune
 
 Skip cleanly if branch/worktree already gone. Log each action and result.
 
-Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${PHANTOM_DATA:-$HOME/.phantom}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
+Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${PHANTOM_DATA:-$HOME/.phantom}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
 
 ## Step 5: Cost Finalize
 
 ```bash
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+{PR_BOOTSTRAP}
 [ -n "$PR" ] && node "$PR/scripts/cost-link.js" close {TICKET}
 [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}
 ```
@@ -99,7 +99,7 @@ The wrap emitted a Repo Brain card with an empty `trace.commit` (the merge commi
 Read `brainCard.id` from wrap.json (skip cleanly if absent/`null`). Enrich as a **guarded RUN** — a card failure NEVER blocks the close:
 
 ```bash
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+{PR_BOOTSTRAP}
 REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"
 CARD_ID="{brainCard.id from wrap.json}"
 [ -n "$PR" ] && [ -n "$REPO" ] && [ -n "$CARD_ID" ] && node -e '
@@ -159,7 +159,7 @@ Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
 Write the closed-schema outcome record for this ticket now that the session is finalized, so it picks up the final merged state (never blocks the close; on failure, log one line and continue):
 
 ```bash
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+{PR_BOOTSTRAP}
 [ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} || echo "phantom: outcome-write failed or unavailable - outcome.json not written, close continues"
 ```
 
