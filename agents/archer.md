@@ -1,7 +1,6 @@
 ---
 name: archer
-description: Cross-file pre-PR reviewer. Catches cache coherence bugs, regressions, semantic mismatches, dead code, and convention deviations using graph context.
-maxTurns: 15
+description: Principal engineer, systems and integration. Cross-file pre-PR reviewer. Catches cache coherence bugs, regressions, semantic mismatches, dead code, and convention deviations using graph context.
 author: Subash Karki
 model: opus
 # GENERATED from model-policy.json (role: archer -> profile: deep) - do not hand-edit

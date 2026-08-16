@@ -1,7 +1,6 @@
 ---
 name: blade
-description: Full-stack frontend engineer. Apex spawns instances with ROLE FOCUS directives for specialization.
-maxTurns: 25
+description: Staff engineer. The one implementer. Turns a scoped assignment into committed, verified code anywhere in the stack. Apex spawns instances with ROLE FOCUS directives for specialization.
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: blade -> profile: balanced) - do not hand-edit

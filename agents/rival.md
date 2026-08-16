@@ -1,7 +1,6 @@
 ---
 name: rival
-description: The one plan critic. Challenges assumptions, edge cases, scope creep, and over-engineering, and validates learnings collisions, blast radius, coverage, and dependency order before execution.
-maxTurns: 10
+description: Staff engineer, design review. The one plan critic. Challenges assumptions, edge cases, scope creep, and over-engineering, and validates learnings collisions, blast radius, coverage, and dependency order before execution.
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: rival -> profile: balanced) - do not hand-edit

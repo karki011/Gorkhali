@@ -53,6 +53,13 @@ const actionableCases = [
   ['last agent in wave', { ...doneMidWave, wave: { isLastInWave: true } }, 'last-in-wave'],
   ['wave underivable', { status: 'done', blocker: null, selfReviewScore: 9 }, 'wave-underivable'],
   ['missing record', null, 'missing-record'],
+  // A dead agent leaves Apex's spawn stub untouched. Every field below says
+  // "healthy mid-wave" except the one that matters: nothing ever reported a
+  // terminal status. This case read as benign('passed-mid-wave') before the
+  // terminal-status check, which is how killed agents went unnoticed.
+  ['stub never overwritten', { ...doneMidWave, status: 'spawned' }, 'never-reported'],
+  ['status absent entirely', { blocker: null, selfReviewScore: 9, wave: { isLastInWave: false } }, 'never-reported'],
+  ['status not a string', { ...doneMidWave, status: 42 }, 'never-reported'],
 ];
 
 for (const [name, record, reason] of actionableCases) {
@@ -75,6 +82,13 @@ test('classify: a missing self-review score does not by itself trigger low-self-
   const record = { status: 'done', blocker: null, wave: { isLastInWave: false } };
   const result = classify(record, SELF_REVIEW_THRESHOLD);
   assert.equal(result.verdict, 'benign', 'no numeric score → score rule does not fire');
+});
+
+test('classify: every terminal status still reaches benign mid-wave', () => {
+  for (const status of ['done', 'passed', 'skipped']) {
+    const result = classify({ ...doneMidWave, status }, SELF_REVIEW_THRESHOLD);
+    assert.equal(result.verdict, 'benign', `${status} is terminal and must not be escalated`);
+  }
 });
 
 // ── end-to-end: actionable record lands in the queue ────────────────────────
@@ -281,6 +295,26 @@ test('hook: a PASSED message record over a "spawned" mid-wave stub → benign, e
   const { records, liveness } = drain(dir);
   assert.equal(records.length, 0, 'passed message + mid-wave stub → benign');
   assert.equal(liveness.absorbedSinceLastDrain, 1, 'benign wake triaged as absorbed');
+});
+
+// The dead-agent shape: the stub says "spawned" and the agent contributed no
+// message record at all, because it was killed before it could write one. This
+// is what a turn cap, a harness kill, or an API error actually looks like at
+// SubagentStop, and it must reach the queue rather than be absorbed.
+test('hook: a "spawned" stub with no message record → actionable(never-reported), exit 0', () => {
+  const dir = tmpDir();
+  const { code } = runHook({
+    dir,
+    record: { status: 'spawned', wave: { index: 0, isLastInWave: false } },
+    stdin: JSON.stringify({ session_id: 's-dead', tool_use_id: 't-dead' }),
+  });
+  assert.equal(code, 0);
+
+  const { records, liveness } = drain(dir);
+  assert.equal(records.length, 1, 'a killed agent must surface, never be absorbed as passed');
+  assert.equal(records[0].key, 't-dead');
+  assert.equal(records[0].payload.reason, 'never-reported');
+  assert.equal(liveness.absorbedSinceLastDrain, 0, 'nothing was absorbed');
 });
 
 test('hook: a garbage / non-JSON message record falls back to stub behavior, exit 0', () => {

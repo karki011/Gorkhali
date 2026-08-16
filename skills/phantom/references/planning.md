@@ -20,15 +20,19 @@ not authorize code mutation or external lifecycle actions.
    omit unnecessary machinery, reuse the repository, prefer standard or native
    behavior, reuse installed dependencies, then write the smallest custom
    implementation that completely satisfies the approved outcome.
+6. Verify the request's claims before planning against them. A ticket or a
+   reported behavior is a hypothesis: classify every claim the plan depends on
+   as `confirmed`, `refuted`, or `stale` against a repository location or
+   command result. A refuted or stale premise stops planning; report it.
+7. Measure what is measurable. A limit, count, size, rendered dimension, or
+   contrast ratio the workspace can report is read, never estimated. Where a
+   design artifact or schema defines the intended result, it is the source of
+   truth; a neighboring implementation file shows only what exists today.
 
 ## Classify the route
 
-Routing selects decision gates and artifacts, not worker count.
-
-- `direct`: one clear, low-risk outcome with no material design choice.
-- `plan`: a known outcome whose execution needs an explicit plan.
-- `brainstorm`: materially ambiguous direction requiring researched options.
-- `full`: ambiguous direction plus architectural or cross-scope wiring risk.
+Routing selects decision gates and artifacts, not worker count. The router owns
+the route table; do not restate it here.
 
 The route and material intent are immutable for an active session. Capture a
 material change as a revision or start a new task; never silently retain old
@@ -63,7 +67,8 @@ parsed back into state.
 A plan should communicate only what a reviewer or implementer needs:
 
 - decision question, recommendation, intended outcome, and scope boundaries;
-- inspected evidence with observation time, confidence, and conflicts;
+- inspected evidence with observation time, confidence, and conflicts,
+  including the verified claim set and any premise found refuted or stale;
 - alternatives and substantive tradeoffs;
 - affected and newly created repository-relative paths;
 - risks, triggers, recovery, validation, and acceptance criteria;
@@ -81,9 +86,7 @@ cross-scope decisions after the plan.
 Record canonical artifacts through the engine:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type brainstorm --status passed --input <json-file>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type plan --status passed --input <json-file>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type decisions --status passed --input <json-file>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type <brainstorm|plan|decisions> --status passed --input <json-file>
 ```
 
 The input path is a transport into the canonical record, not a second durable
@@ -125,13 +128,8 @@ plan is incomplete. Rewrite it as a command or an observable fact.
 
 Trace every acceptance criterion to at least one task before recording the plan.
 A criterion with no matching task is a coverage gap: add the task or remove the
-criterion.
-
-### Placeholder Prohibition
-
-Reject and revise the plan when a task description carries a banned form, an
-acceptance criterion is not independently verifiable by command, file, or grep,
-a task owns no file, or a dependency names a task that does not exist.
+criterion. Reject and revise the plan the same way when a task owns no file or
+a dependency names a task that does not exist.
 
 ### Research-Free Tasking
 

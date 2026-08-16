@@ -2,19 +2,26 @@
 
 ## Personas
 
-| Agent | Default model | Role | File |
-|-------|---------------|------|------|
-| Apex | inherits session model (effort: high) | Orchestrator — plans, decomposes, coordinates, routes models | agents/apex.md |
-| Blade | sonnet for well-scoped/contract-backed work · escalate to opus (hard ceiling - never fable, never session-inherit) for complex, ambiguous, cross-cutting work | Implementation — code, tests, config | agents/blade.md |
-| Ward | haiku (frontmatter pin) | QA — runs verify commands, checks contracts | agents/ward.md |
-| Gaze | opus (pinned — review tier) | Quality gate — power level, scoring | agents/gaze.md |
-| Sage | opus (pinned — top tier) | Advisory — <100 words, no tools, no user output | agents/sage.md |
-| Lens | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/lens.md |
-| Archer | opus (pinned — review tier) | Cross-file — cache coherence, regression, dead code | agents/archer.md |
-| Rival | sonnet (frontmatter pin) · escalate for large/complex plans | Plan critic — 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/rival.md |
-| Hound | opus (frontmatter pin) | Forensic investigator — root-cause tracing, HTML report | agents/hound.md |
-| Sweep | sonnet (frontmatter pin) | Code clarity — simplify changed files post-verify | agents/sweep.md |
-| Warden | haiku (frontmatter pin) | Lifecycle plumbing — mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
+The team runs a ladder, and the rung is not decoration: it is the `model-policy.json`
+profile in plain language, so it moves only when the policy moves. `frontier` is the
+lead, `deep` is principal, `balanced` is staff, `economy` is engineer. The rung sets how
+much judgment the role is trusted with and therefore how tightly Apex briefs it: a
+principal is handed the problem, a staff engineer a scoped assignment, an engineer a
+command to run. `test/agent-seniority.test.js` holds title and profile together.
+
+| Agent | Seniority | Default model | Role | File |
+|-------|-----------|---------------|------|------|
+| Apex | Engineering lead | inherits session model (effort: high) | Orchestrator: plans, decomposes, coordinates, routes models | agents/apex.md |
+| Blade | Staff | sonnet for well-scoped/contract-backed work · escalate to opus (hard ceiling - never fable, never session-inherit) for complex, ambiguous, cross-cutting work | Implementation: code, tests, config | agents/blade.md |
+| Ward | Engineer | haiku (frontmatter pin) | QA: runs verify commands, checks contracts | agents/ward.md |
+| Gaze | Principal | opus (pinned, review tier) | Quality gate: power level, scoring | agents/gaze.md |
+| Sage | Principal | opus (pinned, top tier) | Advisory: <100 words, no tools, no user output | agents/sage.md |
+| Lens | Staff | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/lens.md |
+| Archer | Principal | opus (pinned, review tier) | Cross-file: cache coherence, regression, dead code | agents/archer.md |
+| Rival | Staff | sonnet (frontmatter pin) · escalate for large/complex plans | Plan critic: 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/rival.md |
+| Hound | Principal | opus (frontmatter pin) | Forensic investigator: root-cause tracing, HTML report | agents/hound.md |
+| Sweep | Staff | sonnet (frontmatter pin) | Code clarity: simplify changed files post-verify | agents/sweep.md |
+| Warden | Engineer | haiku (frontmatter pin) | Lifecycle plumbing: mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
 
 ## Model Routing (Apex decides at spawn)
 

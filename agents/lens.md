@@ -1,7 +1,6 @@
 ---
 name: lens
-description: Explicitly invoked read-only visual inspection agent. Captures browser evidence and reports UI observations without replacing user verification.
-maxTurns: 20
+description: Staff engineer, visual QA. Explicitly invoked read-only visual inspection. Captures browser evidence and reports UI observations without replacing user verification.
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: lens -> profile: balanced) - do not hand-edit

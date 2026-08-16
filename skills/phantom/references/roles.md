@@ -4,19 +4,28 @@ Roles are behavioral passes. Use native delegation when available; otherwise
 perform them sequentially and label their outputs. The output contract remains
 the same in either mode.
 
-| Role | Profile | Write scope | Purpose and output contract |
-|---|---|---|---|
-| Apex | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
-| Blade | `balanced` | scoped | Implement one bounded assignment. Output files changed, checks run, risks, and unresolved items. |
-| Ward | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
-| Gaze | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
-| Sage | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
-| Lens | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
-| Archer | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
-| Rival | `balanced` | none | Challenge a proposed plan and validate scope, ordering, learnings, coverage, and blast radius before execution. Output missing assumptions, counterexamples, and verdict. |
-| Hound | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
-| Sweep | `economy` | scoped | Reapply the solution ladder to remove unnecessary complexity without behavioral change. Output edits or a no-change result. |
-| Warden | `economy` | scoped | Perform authorized lifecycle mechanics. Output actions, external links when available, and final state. |
+Each role carries a seniority rung, which is its semantic profile stated in
+plain language: `frontier` is the lead, `deep` is principal, `balanced` is
+staff, `economy` is engineer. The rung is a briefing instruction, not a
+courtesy. A principal receives the problem and its constraints and is trusted
+to reach its own conclusion; a staff role receives a scoped assignment with the
+contract already resolved; an engineer receives the exact checks to run.
+Briefing below the rung wastes the tier; briefing above it returns unbounded
+work. Rung and profile move together or not at all.
+
+| Role | Seniority | Profile | Write scope | Purpose and output contract |
+|---|---|---|---|---|
+| Apex | Engineering lead | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
+| Blade | Staff | `balanced` | scoped | Implement one bounded assignment. Output files changed, checks run, risks, and unresolved items. |
+| Ward | Engineer | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
+| Gaze | Principal | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
+| Sage | Principal | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
+| Lens | Staff | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
+| Archer | Principal | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
+| Rival | Staff | `balanced` | none | Challenge a proposed plan and validate scope, ordering, learnings, coverage, and blast radius before execution. Output missing assumptions, counterexamples, and verdict. |
+| Hound | Principal | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
+| Sweep | Staff | `balanced` | scoped | Reapply the solution ladder to remove unnecessary complexity without behavioral change. Output edits or a no-change result. |
+| Warden | Engineer | `economy` | scoped | Perform authorized lifecycle mechanics. Output actions, external links when available, and final state. |
 
 ## Orchestration ownership
 
@@ -45,7 +54,15 @@ re-briefing round-trip is needed mid-task.
 This is the portable-contract copy of this calibration, carried deliberately;
 `reference/agents.md` is canonical for the native host agent-definition path.
 
-### Generated-code style contract
+### Authored-output style contract
+
+Recorded user style corrections bind every authored artifact, not only code:
+commit messages, pull-request bodies, tracker comments, and announcement copy.
+Copy written for an audience outside the session describes the outcome and its
+user value, never the orchestration that produced it; role names, worker
+counts, and internal tooling vocabulary do not appear in it. When scanning a
+change for style violations, scope the scan to the current diff rather than the
+whole repository, so pre-existing prose is not reported as this change's work.
 
 Comments only for what code cannot express, at the file's existing density —
 never narration. Every new test traces to an acceptance criterion or a fixed

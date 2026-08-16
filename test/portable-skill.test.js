@@ -293,7 +293,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.2.9',
+    bundle_version: '2.3.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -447,7 +447,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.2.9');
+    assert.equal(result.bundle_version, '2.3.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -630,7 +630,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.2.9');
+  assert.equal(resolver.bundle_version, '2.3.0');
   assert.equal(resolver.model, 'opus');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [

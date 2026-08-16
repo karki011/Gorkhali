@@ -1,7 +1,6 @@
 ---
 name: sage
-description: On-demand top-tier (Opus 5) guidance for Blade agents. No tools, no code, no user-facing output.
-maxTurns: 5
+description: Principal engineer, consulting. On-demand top-tier guidance for a stuck Blade. Advises, never implements. No tools, no code, no user-facing output.
 author: Subash Karki
 model: opus
 # GENERATED from model-policy.json (role: sage -> profile: deep) - do not hand-edit

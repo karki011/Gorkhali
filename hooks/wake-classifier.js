@@ -238,7 +238,14 @@ function extractMessageRecord(payload) {
 // timing assumption — that assumption was never enforced.
 function mergeRecords(stub, message, threshold) {
   if (stub && message) {
-    if (classify(stub, threshold).verdict === 'actionable') return stub;
+    // Escalate-only: an actionable stub is a signal Apex already recorded, and a
+    // message record must not downgrade it. `never-reported` is the exception:
+    // it means the stub is still the untouched spawn placeholder, so it holds no
+    // verdict to protect and the message is exactly what resolves it. Without
+    // this carve-out every message would be discarded once a bare stub started
+    // classifying as actionable.
+    const stubVerdict = classify(stub, threshold);
+    if (stubVerdict.verdict === 'actionable' && stubVerdict.reason !== 'never-reported') return stub;
     return { ...stub, ...message, wave: stub.wave !== undefined ? stub.wave : message.wave };
   }
   return message || stub || null;
@@ -259,15 +266,27 @@ function resolveRecord(payload, wakeDir, threshold) {
 /**
  * classify(record, threshold) -> { verdict: 'actionable'|'benign', reason }
  *
- * ACTIONABLE when any of: missing/garbage record; status 'failed'; a non-null
- * blocker; a numeric selfReviewScore below threshold; a drift flag; or
- * last-agent-in-wave. Wave membership is derived from record.wave.isLastInWave;
- * when it is not a boolean the position is underivable, so we fail open to
- * actionable. BENIGN only when the record positively proves passed + mid-wave.
+ * ACTIONABLE when any of: missing/garbage record; status 'failed'; a status that
+ * is not terminal (the agent never reported one); a non-null blocker; a numeric
+ * selfReviewScore below threshold; a drift flag; or last-agent-in-wave. Wave
+ * membership is derived from record.wave.isLastInWave; when it is not a boolean
+ * the position is underivable, so we fail open to actionable. BENIGN only when
+ * the record positively proves passed + mid-wave.
+ *
+ * The non-terminal check is what makes a dead agent visible. Apex writes the
+ * stub at spawn with `status: "spawned"` and only overwrites it after reading a
+ * result, so an agent killed mid-work (turn cap, harness kill, API error) leaves
+ * that stub behind and contributes no message record to merge over it. Absent
+ * this check every one of those deaths matched the benign path and reported as
+ * `passed-mid-wave`, which is the exact shape of a wave that silently never
+ * lands. A stub is proof of a spawn, never proof of a completion.
  */
+const TERMINAL_STATUSES = new Set(['done', 'passed', 'skipped']);
+
 function classify(record, threshold) {
   if (!record || typeof record !== 'object') return { verdict: 'actionable', reason: 'missing-record' };
   if (record.status === 'failed') return { verdict: 'actionable', reason: 'failed' };
+  if (!TERMINAL_STATUSES.has(record.status)) return { verdict: 'actionable', reason: 'never-reported' };
   if (record.blocker != null) return { verdict: 'actionable', reason: 'blocker' };
   if (typeof record.selfReviewScore === 'number' && record.selfReviewScore < threshold) {
     return { verdict: 'actionable', reason: 'low-self-review' };

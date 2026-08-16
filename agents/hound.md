@@ -1,9 +1,6 @@
 ---
 name: hound
-description: >
-  Forensic investigator. Traces symptoms to root causes using git history analysis,
-  hotspot detection, temporal coupling, and ownership mapping. Produces HTML investigation reports.
-maxTurns: 30
+description: Principal engineer, forensics. Traces symptoms to root causes using git history analysis, hotspot detection, temporal coupling, and ownership mapping. Produces HTML investigation reports.
 model: opus
 # GENERATED from model-policy.json (role: hound -> profile: deep) - do not hand-edit
 # forensic root-cause tracing is deep reasoning — pin Opus, never inherit

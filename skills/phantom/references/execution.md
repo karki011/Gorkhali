@@ -32,6 +32,8 @@ Turn each approved task into a compact assignment containing:
 - repository-relative read-first and owned-write paths;
 - dependencies and producer-consumer order;
 - relevant instructions, corrections, and risk triggers;
+- the failure modes a reviewer would raise for this scope, handled in the same
+  change;
 - required checks and declared output contract;
 - current task identity and baseline fingerprint reference.
 
@@ -47,6 +49,35 @@ when distinct judgment helps but writes depend on each other. Use parallel
 delegates only for proven independent scopes with non-overlapping write
 ownership and no unresolved dependency edge.
 
+State the roster before spawning it: one line per delegate naming its role,
+objective, and owned write scope, plus how many run at once. Five concurrent
+delegates is the ceiling, and it counts every live delegate whatever its role,
+because past that the coordination and context each one carries cost more than
+the parallelism returns. Exceeding the ceiling requires the user's explicit
+agreement, and so does widening a wave beyond the roster they have already
+seen. Keep the count at the smallest number the proven independent scopes
+justify, and batch related assignments into fewer delegates rather than adding
+workers. A large gateless fan-out is a workflow recommendation, not a silent
+escalation.
+
+Session bootstrap is coordinator work, not a wave: reading instructions,
+corrections, durable status, and repository patterns to reach a route belongs
+in the current context. A bounded research step that an approved route defines
+is the exception, and it counts against the ceiling like any other spawn.
+
+### Treat a silent delegate as failed
+
+A delegate's recorded typed result, not its liveness signal, is the
+deliverable. Record the delegation task before the pass and require the worker
+to persist its result through the state helper before it reports.
+
+Give every wave a bound stated up front, in wall time or coordinator turns.
+When the bound passes with no recorded result, stop waiting: reap that
+delegate, name the unfinished assignment, and either reassign it once with the
+prior failure as context or complete it in the coordinating context. Never poll
+a wave indefinitely, and never let a missing result read as a wave that might
+still land.
+
 Use native delegation only. Never launch another copy of the active runtime or
 assume that parent instructions automatically reach a worker. Inject the
 bounded assignment and required rules explicitly. If delegation is unavailable,
@@ -61,8 +92,15 @@ quality phase.
 
 Stay within approved scope. Preserve unrelated edits and shared-file ownership.
 Use repository-native patterns and the selected minimum-sufficient solution.
+
 When new evidence invalidates the plan, stop and revise the decision artifact
 instead of expanding scope silently.
+
+Name the failure modes a reviewer would raise before writing the scope, such as
+empty, duplicate, or absent inputs, stale cache keys, and permission
+boundaries, and handle them in the same change rather than in a follow-up after
+review. Do not invent a threshold, breakpoint, or limit the approved outcome
+does not specify; when one is genuinely needed, it is a plan revision.
 
 Record execution evidence through the state helper using the canonical payload
 once. Keep timestamps, hashes, run identifiers, and routing diagnostics in the

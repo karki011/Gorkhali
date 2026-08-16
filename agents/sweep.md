@@ -1,7 +1,6 @@
 ---
 name: sweep
-description: Simplifies and refines recently modified code for clarity, consistency, and maintainability while preserving all functionality.
-maxTurns: 15
+description: Staff engineer, code health. Simplifies and refines recently modified code for clarity, consistency, and maintainability while preserving all functionality.
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: sweep -> profile: balanced) - do not hand-edit

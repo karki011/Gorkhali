@@ -98,8 +98,11 @@ investigation rather than stacking patches.
 Archer runs only when cross-file architecture or integration risk triggers an
 independent structural pass. Visual and interaction behavior uses explicit
 user verification in the ordinary verification artifact; it does not create a
-specialist artifact. Other risk-specific checks remain deterministic
-verification checks or repository-required review inputs.
+specialist artifact. When a design artifact or specification defines the
+intended result, compare the rendered change against that artifact rather than
+a neighboring implementation file, cite what was compared, and report the
+observed deltas as measured values. Other risk-specific checks remain
+deterministic verification checks or repository-required review inputs.
 
 ### Risk triggers
 
