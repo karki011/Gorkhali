@@ -1,7 +1,7 @@
 # PHANTOM - Your Shadow Army of AI Agents
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-0.2.8-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-0.4.1-blue)](.claude-plugin/plugin.json)
 [![tests](https://img.shields.io/badge/tests-689-brightgreen)](test/)
 [![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI-8A2BE2)](project-docs/install.md)
 

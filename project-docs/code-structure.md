@@ -39,6 +39,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── phantom-config.js      # config CLI: get/set/list (see Configuration)
 │   ├── baseline-report.js     # read-only retrospective miner: PR/merge rates, spawn counts, policy-vs-observed model
 │   ├── outcome-write.js       # writes the per-ticket outcome record (closed pr_state enum); called from wrap and close
+│   ├── route-report.js        # read-only route-effectiveness miner: per-session-route outcome aggregates with attribution caveats
 │   ├── run-guard.js           # unattended-run guard: spend ceiling + stuck detection
 │   ├── gen-agent-frontmatter.js  # regenerates agents/*.md model pins from model-policy.json; --check is the CI drift gate
 │   └── release-version.js     # keeps the three plugin manifests' versions in sync; --check / --set <semver>

@@ -513,6 +513,11 @@ function requireCurrent(workspace) {
 function start(workspace, args) {
   if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
   const route = args.route || 'plan';
+  // route_source records WHY the session carries this route: 'explicit' when the
+  // caller passed --route, 'default' when the 'plan' fallback above applied. The
+  // vocabulary is closed to 'explicit' | 'default' | 'unknown'; 'unknown' is only
+  // ever assigned below, to a preserved legacy route that predates this field.
+  const routeSource = args.route ? 'explicit' : 'default';
   if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
   }
@@ -563,11 +568,21 @@ function start(workspace, args) {
     bundle_version: BUNDLE_VERSION,
     workspace: paths.repo.root,
     route,
+    route_source: routeSource,
     intent_summary: args.intent,
   });
   session.bundle_version = BUNDLE_VERSION;
   session.status = 'active';
   session.route = ROUTES.has(existing?.route) ? existing.route : route;
+  // route is immutable on an existing active task, so its provenance is too: when
+  // the existing route wins, the existing route_source wins with it. A legacy
+  // session that predates route_source gets 'unknown' - whether its route was
+  // chosen or defaulted is no longer attributable.
+  session.route_source = ROUTES.has(existing?.route)
+    ? (existing.route_source === 'explicit' || existing.route_source === 'default'
+      ? existing.route_source
+      : 'unknown')
+    : routeSource;
   session.work_kind = requestedWorkKind;
   session.lifecycle = lifecycleFor(existing ? session : { ...session, mode: requestedMode });
   session.intent_summary = existing?.intent_summary || args.intent;
@@ -577,6 +592,7 @@ function start(workspace, args) {
     bundle_version: BUNDLE_VERSION,
     summary: session.intent_summary,
     route: session.route,
+    route_source: session.route_source,
     work_kind: session.work_kind,
   }));
   atomicWriteJson(paths.currentFile, {

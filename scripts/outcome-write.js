@@ -16,6 +16,20 @@
 // text, no model output, no arbitrary blobs - a durable record stores references,
 // not bytes.
 //
+// ROUTE FIELDS: `route` and `route_source` are copied from session.json so the
+// router's choice survives into the durable record. `route` here is the SESSION
+// route (the closed enum direct | plan | brainstorm | full) chosen at start by
+// phantom-state.mjs - it is NOT the solo | shadows EXECUTION route that lives in
+// plan.json/wrap.json and is validated by validate-artifact.js. `route_source`
+// (closed vocabulary explicit | default | unknown) records whether that route was
+// chosen or defaulted; a session.json written before route_source existed yields
+// 'unknown' plus an unresolved[] entry, because explicit-vs-defaulted is no longer
+// attributable. When `route` itself is null (no session, or no usable route),
+// `route_source` is null too, and the single unresolved entry for `route` carries
+// the reason. An out-of-enum session route is NEVER written verbatim: it is
+// nulled with an unresolved[] entry, exactly as pr_state handles unmappable
+// gh states.
+//
 // Usage:
 //   node scripts/outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>]
 //                                 [--no-gh] [--dry-run] [--json]
@@ -39,6 +53,16 @@ const USAGE =
 // The ONLY legal pr_state values. Anything gh reports that does not map onto one of
 // these leaves pr_state null plus an unresolved[] entry.
 const PR_STATE = ['draft', 'open', 'merged', 'closed', 'absent'];
+
+// The ONLY legal route values. This is the SESSION route recorded in session.json
+// by phantom-state.mjs, distinct from wrap.json/plan.json's solo|shadows EXECUTION
+// route. A session route outside this enum leaves route null plus an unresolved[]
+// entry - never written verbatim.
+const ROUTE = ['direct', 'plan', 'brainstorm', 'full'];
+
+// The ONLY legal route_source values (who chose the route: the caller, the
+// default, or unattributable on a legacy session).
+const ROUTE_SOURCE = ['explicit', 'default', 'unknown'];
 
 function loadJson(file) {
   try {
@@ -272,6 +296,36 @@ function deriveOutcome(opts) {
       : 'session.json absent - no session start/end timestamps');
   }
 
+  // route: the SESSION route from session.json (direct|plan|brainstorm|full), not
+  // the solo|shadows execution route in wrap.json/plan.json. An out-of-enum value
+  // is nulled with a reason naming it, mirroring how ghStateToEnum handles an
+  // unmappable gh state.
+  let route = null;
+  if (!session) {
+    add('route', 'session.json absent - no recorded session route');
+  } else if (typeof session.route === 'string' && ROUTE.includes(session.route)) {
+    route = session.route;
+  } else if (session.route == null) {
+    add('route', 'session.json has no usable route field');
+  } else {
+    add('route', 'session.json route ' + JSON.stringify(session.route) + ' maps to no route enum value');
+  }
+
+  // route_source travels with route. When route is null, route_source is null too
+  // and the single unresolved entry for route carries the reason. A session that
+  // predates route_source yields 'unknown' plus its own unresolved entry.
+  let routeSource = null;
+  if (route !== null) {
+    if (ROUTE_SOURCE.includes(session.route_source)) {
+      routeSource = session.route_source;
+    } else {
+      routeSource = 'unknown';
+      add('route_source', session.route_source == null
+        ? 'session.json predates route_source - explicit vs defaulted is unattributable'
+        : 'session.json route_source ' + JSON.stringify(session.route_source) + ' is outside the closed vocabulary');
+    }
+  }
+
   const timing = readAgents(repo);
   if (timing.reason) add('agents', timing.reason);
 
@@ -289,6 +343,8 @@ function deriveOutcome(opts) {
     ticket,
     repo,
     branch,
+    route,
+    route_source: routeSource,
     pr_url: pr.url,
     pr_state: pr.state,
     verified: verdict,
@@ -304,6 +360,11 @@ function deriveOutcome(opts) {
 /** True when `record.pr_state` is a legal value of the closed enum. */
 function validPrState(record) {
   return record.pr_state === null || PR_STATE.includes(record.pr_state);
+}
+
+/** True when `record.route` is a legal value of the closed SESSION-route enum. */
+function validRoute(record) {
+  return record.route === null || ROUTE.includes(record.route);
 }
 
 function usageError(msg) {
@@ -330,6 +391,8 @@ function parseArgs(argv) {
 function printHuman(record, target) {
   const w = (s) => process.stdout.write(s + '\n');
   w('outcome: ' + record.ticket + ' @ ' + record.repo);
+  w('  route          ' + (record.route === null ? 'null' : record.route));
+  w('  route_source   ' + (record.route_source === null ? 'null' : record.route_source));
   w('  pr_state       ' + (record.pr_state === null ? 'null' : record.pr_state));
   w('  pr_url         ' + (record.pr_url || 'null'));
   w('  verified       ' + (record.verified || 'null'));
@@ -352,7 +415,9 @@ function main(argv = process.argv.slice(2)) {
     return;
   }
   if (opts.help) {
-    process.stdout.write(USAGE + '\npr_state is a closed enum: ' + PR_STATE.join(' | ') + '\n');
+    process.stdout.write(USAGE
+      + '\npr_state is a closed enum: ' + PR_STATE.join(' | ')
+      + '\nroute is a closed enum (session route, not solo|shadows): ' + ROUTE.join(' | ') + '\n');
     process.exitCode = 0;
     return;
   }
@@ -361,6 +426,12 @@ function main(argv = process.argv.slice(2)) {
   if (!validPrState(record)) {
     throw new PhantomError(
       'refusing to write: pr_state ' + JSON.stringify(record.pr_state) + ' is outside the closed enum',
+      'VALIDATION_ERROR',
+    );
+  }
+  if (!validRoute(record)) {
+    throw new PhantomError(
+      'refusing to write: route ' + JSON.stringify(record.route) + ' is outside the closed enum',
       'VALIDATION_ERROR',
     );
   }
@@ -383,7 +454,7 @@ function main(argv = process.argv.slice(2)) {
   process.exitCode = 0;
 }
 
-module.exports = { deriveOutcome, ghStateToEnum, validPrState, PR_STATE, main };
+module.exports = { deriveOutcome, ghStateToEnum, validPrState, validRoute, PR_STATE, ROUTE, ROUTE_SOURCE, main };
 
 if (require.main === module) {
   try {

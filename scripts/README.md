@@ -205,6 +205,57 @@ node routing-report.js ~/.phantom/repos/myrepo/sessions/ENG-1234 --json
 
 ---
 
+### `outcome-write.js`
+
+Derives and atomically writes the per-ticket `outcome.json` durable record from ground-truth sources (gh, `verification.json`, the timing jsonl, git, `session.json`). A script authors this record, not prose, so the shape is CLOSED: any field whose source is unavailable is written as `null` and named in `unresolved[]` with a reason - never fabricated.
+
+```bash
+node outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] [--no-gh] [--dry-run] [--json]
+```
+
+**Flags:** `--repo-path` selects the checkout to interrogate (default cwd); `--out` overrides the target file; `--no-gh` skips the gh query (pr fields become `null` + unresolved); `--dry-run` derives without writing; `--json` emits the record instead of the human summary.
+
+**Checks:**
+- `pr_state` is a closed enum (`draft | open | merged | closed | absent`) mapped only from gh's own answer; an unmappable state is nulled with a reason, never guessed
+- `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`direct | plan | brainstorm | full`) chosen at `start` by `phantom-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
+- An out-of-enum `route` or `pr_state` is refused at write time, never persisted verbatim
+- `verified`, `fix_loops`, `wall_time_ms`, `agents` come from `verification.json`, loop-controller, the session timestamps, and the timing jsonl respectively
+
+**Exit:** 0 = record produced; 1 = write or internal error; 2 = usage error
+
+**Example:**
+```bash
+node outcome-write.js --ticket ENG-1234 --dry-run --json
+```
+
+---
+
+### `route-report.js`
+
+Scores the router: aggregates every canonical `outcome.json` record per SESSION route (`direct | plan | brainstorm | full`) - record counts, the `route_source` breakdown, and one metric block PER ATTRIBUTION CLASS (`explicit` vs `unattributable`): `pr_state` distribution, merge rate over settled PRs only, `verified` distribution, mean `fix_loops` / `review_comments` over non-null values. READ-ONLY: this script has no side effects.
+
+```bash
+node route-report.js [--json]
+```
+
+**Flags:** `--json` emits the stable machine shape (`{records, perRoute, scanned, caveat}`) instead of the human table.
+
+**Checks:**
+- Walks `${PHANTOM_DATA:-~/.phantom}/repos/*/{sessions,completed}/<ticket>/` at exactly depth 3; nested and off-bucket `outcome.json` copies are counted and reported, never aggregated
+- Falls back to `session.json` for the route only when `outcome.json` predates the route field (key absent, not `null`)
+- Merge rate = merged / (merged + closed): the denominator is SETTLED records only, and the sample is stated before the rate
+- ATTRIBUTION CAVEAT (carried by both outputs): only `route_source: explicit` records measure a routing decision; `default`/`unknown`/unset records measure the router's default and accumulate in their own `unattributable` metric block per route - no combined number exists, because a rate over mixed attribution would ascribe the default's outcomes to the router's decisions
+- Unparseable JSON is skipped and counted, never fatal
+
+**Exit:** 0 = report produced (including an empty corpus); 2 = unknown flag/argument
+
+**Example:**
+```bash
+PHANTOM_DATA=~/.phantom node route-report.js --json
+```
+
+---
+
 ### `migrate-data.js`
 
 Consolidates every historical Phantom data root into the one canonical neutral root (`<data>`, resolved by the T1 codec, `~/.phantom` by default).

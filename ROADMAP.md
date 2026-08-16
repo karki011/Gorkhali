@@ -62,6 +62,8 @@ Same rule as above: this document does not restate those findings.
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the three plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
+| E4 | Roster-degradation drill | PENDING | 2d | - |
+| E5 | Verifier-first escalation for direct routes | PENDING | 2d | needs the outcome `route` field |
 
 C1 and B2 landed after this table was first written; the status column above is authoritative.
 
@@ -525,6 +527,18 @@ Test: run the bump to a new version and watch all three files change in one `git
 What: read failing route case ids 31-36 in `evals/evals.json` against what `run-evals.js` actually asserts for `kind: route`, and determine whether the harness asserts the wrong thing rather than routing being broken (F7).
 Why: a 0% subscore this far from the measured 99.1% merge rate must be explained before the 47.3% baseline is quoted anywhere; cross-refs E1.
 Test: after the fix or explanation, re-run the baseline and watch the route subscore change from 0/6 to a number that matches manual inspection of the same 6 prompts.
+
+### E4 - Roster-degradation drill. 2d.
+
+What: a `PHANTOM_POOL_DROP`-style test mode that makes one named model or agent unavailable, then runs each route (`direct`, `plan`, `brainstorm`, `full`) against the degraded roster and asserts every run either completes or pauses honestly — never a silent fallback, never a fabricated result.
+Why: the Conductor trains against randomized k-of-n agent pools precisely because a policy tuned to one fixed roster breaks the day a worker is missing (the Conductor paper, arXiv 2512.04388); Phantom's routing is deterministic but has never been PROVEN to degrade honestly, only assumed to.
+Test: set the drop flag for one implementer model, run a ticket through each route, and watch every session end in either a completed state or a pause record naming the unavailable roster member as the reason — with zero runs that report success while the dropped model's work is absent.
+
+### E5 - Verifier-first escalation for direct routes. 2d.
+
+What: on a `direct`-route ticket, run deterministic verification (lint, build, focused tests) BEFORE any planning overhead, and escalate to the `plan` route only when verification surfaces breadth the router did not see; the escalation is recorded, never silent.
+Why: effort should scale with difficulty decided per request, and the cheapest honest difficulty probe Phantom owns is its existing mechanical verification, not more up-front classification (the Conductor paper, arXiv 2512.04388, adapts effort to difficulty per request); depends on the route field this PR adds to `outcome.json`, because an escalation that is not recorded cannot be scored.
+Test: hand a direct-route ticket whose fix actually spans multiple files, and watch verification fail, the session escalate to `plan` with the escalation reason recorded, and the outcome record carry both the original and the escalated route; hand a genuinely trivial ticket and watch it ship with no plan artifact ever created.
 
 ---
 

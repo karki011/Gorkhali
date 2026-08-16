@@ -111,7 +111,7 @@ Every JSON artifact must include:
   "status": "active",
   "created_at": "2026-01-01T00:00:00.000Z",
   "updated_at": "2026-01-01T00:00:00.000Z",
-  "bundle_version": "2.2.8",
+  "bundle_version": "2.2.9",
   "producer": {
     "role": "apex",
     "compute_profile": "frontier"
@@ -227,6 +227,14 @@ For an existing active task, route and material intent are immutable. `start`
 may backfill a missing route on a legacy session, but a route or intent change
 must be captured as an explicit revision or restarted under a new task id. It
 must never silently retain approvals across changed intent.
+
+`start` also records `route_source` next to `route` in both `session.json` and
+`intent.json`: `explicit` when `--route` was supplied, `default` when the
+`plan` fallback applied, and `unknown` when a preserved legacy route predates
+the field (whether it was chosen or defaulted is no longer attributable). The
+vocabulary is closed to those three values, and because route is immutable on
+an active task, the preserved route's recorded `route_source` is preserved
+with it.
 
 Record decisions and cross lifecycle gates with the helper:
 
