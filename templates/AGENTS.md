@@ -20,11 +20,13 @@ host by `skills/phantom/references/model-presets.json`. A drift test fails CI
 if a pin is hand-edited out of sync with that policy. Do not hand-edit a pin or
 restate a concrete model name here - change the policy file instead.
 
-Only Apex inherits the session model (Opus 5 recommended); every other role
-pins a profile with an opus hard ceiling. Two roles pin the top tier
-deliberately, not as leftover aliases:
-- Gaze pins the top tier, now that Fable is retired from Phantom's routing. Do not "fix" this down to a cheaper profile.
-- Sage pins the top tier so escalations from a cheaper Blade always reach it. No plugin-source edits needed.
+Only Apex inherits the session model (Opus 5 recommended); every other role is
+delegated, and on this host every delegated profile resolves to `sonnet`. The
+profile a role pins is still meaningful - it sets the seniority Apex briefs that
+role at, and it still spreads across models on other hosts - so do not "fix" a
+role's profile down (or up) because the resolved pin looks the same either way.
+One consequence to keep in mind: there is no richer model to escalate a stuck
+assignment into, so re-decompose it instead.
 
 ## Workflow
 

@@ -2,7 +2,7 @@
 name: gaze
 description: Principal engineer, code review. Independent read-only review of the current verified diff. The one default code reviewer in the normal shipping path.
 author: Subash Karki
-model: opus
+model: sonnet
 # GENERATED from model-policy.json (role: gaze -> profile: deep) - do not hand-edit
 ---
 

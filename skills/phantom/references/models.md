@@ -16,6 +16,18 @@ host-specific model identifiers. Users do not need to create a model map.
 
 Profiles express desired reasoning capacity and cost posture. They never change
 artifact schemas, safety rules, verification gates, or acceptance criteria.
+
+A host may map several profiles onto the same model, and one bundled preset
+currently does: every profile resolves to the same delegate model there, because
+that host reserves its top tier for the orchestrating session and runs everything
+delegated one tier down. A flat mapping does not make the profiles decorative.
+The profile still selects how a role is briefed — a `deep` role is
+handed the problem and trusted to reach its own conclusion, an `economy` role is
+handed the commands — it still separates the tiers on hosts whose presets are not
+flat, and it remains the only vocabulary this skill uses to talk about compute.
+Where a host is flat, escalation stops being available as a routing move: a
+subtask that outgrows its profile gets re-decomposed, because there is nothing
+above it to route into.
 Apex requests `frontier` for planning, decomposition, and synthesis.
 Delegated work uses the lowest sufficient profile: `economy` for deterministic
 mechanical tasks, `balanced` for well-scoped implementation, and `deep` only
@@ -111,3 +123,8 @@ Prefer re-scoping a task before escalating compute. Escalate implementation
 from `balanced` to `deep` only when ambiguity, cross-cutting risk, or failed
 bounded attempts show that the original profile is insufficient. Do not move
 implementation to `frontier`; Apex should re-decompose the assignment instead.
+
+On a host whose presets are flat, escalating the profile changes the brief but
+buys no additional compute, so re-scoping is not merely preferred there — it is
+the only remedy. Record the escalation anyway: `requested_profile` is what the
+routing diagnostics compare against.

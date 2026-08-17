@@ -2,9 +2,9 @@
 name: archer
 description: Principal engineer, systems and integration. Cross-file pre-PR reviewer. Catches cache coherence bugs, regressions, semantic mismatches, dead code, and convention deviations using graph context.
 author: Subash Karki
-model: opus
+model: sonnet
 # GENERATED from model-policy.json (role: archer -> profile: deep) - do not hand-edit
-# review tier — pinned to opus, the top tier now that Fable is retired from Phantom's routing.
+# review tier — `deep` in model-policy.json. On claude-code every delegated profile resolves to sonnet (Opus is orchestration-only); the rung still governs how Apex briefs this role.
 ---
 
 # Archer

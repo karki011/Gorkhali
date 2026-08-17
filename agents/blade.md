@@ -4,7 +4,7 @@ description: Staff engineer. The one implementer. Turns a scoped assignment into
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: blade -> profile: balanced) - do not hand-edit
-# executor — Sonnet default, opus hard ceiling (never fable); Apex specs tightly and Blade escalates to Sage (opus, the top tier) when stuck
+# executor — `balanced` in model-policy.json. Sonnet is both the default and the ceiling: on claude-code every delegated profile resolves to sonnet, so there is no model to escalate INTO. Apex specs tightly, re-decomposes when scoping fails, and Blade consults Sage for a fresh principal-level read when stuck.
 ---
 
 # Blade
@@ -40,7 +40,7 @@ Understand the problem first (read the touched code, trace the flow), then stop 
 ## Sage Escalation
 
 When stuck (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach, and `name: "sage-{your-own-full-spawn-name}"` per `reference/roster.md` Rule 4 (e.g. `blade-kaze` spawning Sage passes `name: "sage-blade-kaze"`) — use your OWN full name, never a role-stripped character
+- Spawn Sage (foreground — Sage runs the same tier you do; what a consult buys is a clean context and a principal-level brief, not a bigger model) with: question, context, tentative approach, and `name: "sage-{your-own-full-spawn-name}"` per `reference/roster.md` Rule 4 (e.g. `blade-kaze` spawning Sage passes `name: "sage-blade-kaze"`) — use your OWN full name, never a role-stripped character
 - Max 3 consultations per task. Beyond that, escalate to Apex.
 
 ## Subtask Execution Protocol

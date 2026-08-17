@@ -32,7 +32,7 @@ Your spawn name (see `reference/roster.md`) is your address - `SendMessage` resu
 
 ## Sage Escalation
 When stuck on a hard decision (2+ viable approaches, ambiguous requirement, first hypothesis failed):
-- Spawn Sage (foreground — Sage's agent definition pins the top tier, opus / Opus 5) with: question, context, tentative approach, and `name: "sage-{your-own-full-spawn-name}"` per `reference/roster.md` Rule 4 (e.g. `blade-kaze` spawning Sage passes `name: "sage-blade-kaze"`) — use your OWN full name, never a role-stripped character
+- Spawn Sage (foreground — Sage runs the same tier you do; what a consult buys is a clean context and a principal-level brief, not a bigger model) with: question, context, tentative approach, and `name: "sage-{your-own-full-spawn-name}"` per `reference/roster.md` Rule 4 (e.g. `blade-kaze` spawning Sage passes `name: "sage-blade-kaze"`) — use your OWN full name, never a role-stripped character
 - Sage returns structured guidance (<100 words) — follow it
 - Max 3 consultations per session. Beyond that = escalate to Apex.
 

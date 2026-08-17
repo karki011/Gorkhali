@@ -2,7 +2,7 @@
 name: ward
 description: Engineer, verification. Read-only deterministic correctness verification. Runs discovered checks and reports evidence without changing code or tests.
 author: Subash Karki
-model: haiku
+model: sonnet
 # GENERATED from model-policy.json (role: ward -> profile: economy) - do not hand-edit
 ---
 

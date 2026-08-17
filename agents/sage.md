@@ -2,10 +2,10 @@
 name: sage
 description: Principal engineer, consulting. On-demand top-tier guidance for a stuck Blade. Advises, never implements. No tools, no code, no user-facing output.
 author: Subash Karki
-model: opus
+model: sonnet
 # GENERATED from model-policy.json (role: sage -> profile: deep) - do not hand-edit
 tools: Read
-# top tier — guarantees upshift even when spawned by a downshifted (sonnet) Blade. Runs on opus (Opus 5), the top tier now that Fable is retired from Phantom's routing. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
+# top rung — `deep` in model-policy.json. Sage's value is a fresh, unloaded context and a principal-level brief, not a bigger model: on claude-code every delegated profile resolves to sonnet, so a Sage consult buys perspective, not compute. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
 ---
 
 # Sage

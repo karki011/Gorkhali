@@ -6,24 +6,26 @@
 
 ## Model Routing
 
-Canonical rubric - floors, the escalation ladder, precedence, the uniform-`high` effort rule, and the
-visible scope-check line - is `reference/agents.md` → **Model Routing**. Deliberately not restated
-here. This file carries only the agent → default-model lookup that goes with it:
+Canonical rubric - the delegate-everything-on-sonnet rule, precedence, the uniform-`high` effort
+rule, and the visible scope-check line - is `reference/agents.md` → **Model Routing**. Deliberately
+not restated here. This file carries only the agent → default-model lookup that goes with it:
 
 | Agent | default model | role |
 |-------|---------------|------|
 | apex | inherits session model (effort high) | orchestrator |
-| blade | sonnet for well-scoped/contract-backed work; opus hard ceiling - never fable | implementation |
-| hound | opus (pinned - forensic root-cause tracing) | forensics |
-| sage | opus (pinned — top-tier advisory; override via config `models.sage`) | deepest advisory |
-| gaze | opus (pinned — review tier) | quality gate |
-| archer | opus (pinned — review tier) | cross-file review |
-| rival | sonnet (frontmatter pin) · escalate for large/complex plans | the one plan critic: adversarial review + plan validation |
-| ward | haiku (frontmatter pin) | build/test QA |
+| blade | sonnet (frontmatter pin) | implementation |
+| hound | sonnet (frontmatter pin) | forensics |
+| sage | sonnet (frontmatter pin; override via config `models.sage`) | deepest advisory |
+| gaze | sonnet (frontmatter pin) | quality gate |
+| archer | sonnet (frontmatter pin) | cross-file review |
+| rival | sonnet (frontmatter pin) | the one plan critic: adversarial review + plan validation |
+| ward | sonnet (frontmatter pin) | build/test QA |
 | lens | sonnet (frontmatter pin; explicit user opt-in only) | advisory visual inspection |
-| sweep | sonnet | simplification |
+| sweep | sonnet (frontmatter pin) | simplification |
 
-- `opus` resolves to `claude-opus-5` (Phantom's top tier); `sonnet` to `claude-sonnet-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
+- Every delegated role is `sonnet` on this host - the seniority differences in the table above are
+  about how tightly Apex briefs each role, not about what each one costs. Opus is orchestration-only.
+- `sonnet` resolves to `claude-sonnet-5`; `opus` to `claude-opus-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
 - Check MODEL_OVERRIDE at session start.
 
 Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, and worktree isolation also live in `reference/agents.md`.

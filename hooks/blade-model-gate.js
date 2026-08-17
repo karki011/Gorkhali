@@ -5,9 +5,11 @@
 //
 // RULE 1 (fable-deny): blade|sweep|ward|lens|warden are bounded worker agents -
 // none may run on a Fable-tier model (bare alias "fable" or full id like
-// "claude-fable-5"). Fable is retired from Phantom's routing (opus/Opus 5 is
-// the top tier); this rule stays as a defensive guard so a stray fable pin
-// never reaches an implementer.
+// "claude-fable-5"). Fable is retired from Phantom's routing; this rule stays as
+// a defensive guard so a stray fable pin never reaches an implementer. Note the
+// gate does NOT enforce the current "every delegated role runs sonnet" mapping:
+// that lives in model-presets.json, and a user's explicit model choice is still
+// theirs to make (reference/agents.md -> Model Routing, Precedence).
 // Matching on subagent_type is EXACT and case-insensitive after stripping the "phantom:" prefix -
 // never substring - so "phantom:reference:blade-conventions" does not match
 // "blade". config.yaml model overrides (see evals/evals.json) surface here as
@@ -335,9 +337,9 @@ function main() {
         permissionDecisionReason:
           'BLADE MODEL GATE: Blade has no default model — you must set model: ' +
           'explicitly on the spawn.' + policyGuidance(name) +
-          ' Stay on the role profile for well-scoped, contract-backed subtasks; ' +
-          'raise the assignment risk (not a bare model alias) for complex, ' +
-          'ambiguous, or cross-cutting work. Re-spawn with an explicit model:. ' +
+          ' Resolve the role profile rather than guessing an alias; a subtask ' +
+          'that feels too big for the resolved model needs re-decomposing, not ' +
+          'a hand-picked one. Re-spawn with an explicit model:. ' +
           'See reference/agents.md → Model Routing.',
       },
     }));

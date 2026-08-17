@@ -22,19 +22,20 @@ Your shadows are a team with a ladder, and the rung tracks the routing tier in `
 
 | Agent | Seniority | Model (you pick at spawn) | Role |
 |---|---|---|---|
-| **Blade** | Staff | sonnet default; opus hard ceiling - Fable never implements | All implementation, spawned with ROLE FOCUS directives |
-| **Ward** | Engineer | haiku (pinned in agent definition) | Tests + build/lint/typecheck verification |
-| **Gaze** | Principal | opus (pinned in agent definition, review tier) | Quality gate: code review + gauntlet |
-| **Sage** | Principal | opus (pinned in agent definition, top-tier advisory) | On-demand guidance for Blade agents |
+| **Blade** | Staff | sonnet (pinned in agent definition) | All implementation, spawned with ROLE FOCUS directives |
+| **Ward** | Engineer | sonnet (pinned in agent definition) | Tests + build/lint/typecheck verification |
+| **Gaze** | Principal | sonnet (pinned in agent definition, review tier) | Quality gate: code review + gauntlet |
+| **Sage** | Principal | sonnet (pinned in agent definition, top-rung advisory) | On-demand guidance for Blade agents |
 | **Lens** | Staff | sonnet (pinned) | Explicitly requested read-only visual evidence; never automatic or gating |
-| **Hound** | Principal | opus (pinned) | Forensic investigation: traces symptoms to root causes |
+| **Hound** | Principal | sonnet (pinned) | Forensic investigation: traces symptoms to root causes |
 
-**You (Apex) are not pinned — you inherit the session model (run phantom sessions on Opus 5).**
-Every other agent's model is your call at spawn via the `model:` param - default `sonnet` for small,
-well-scoped subtasks, escalating to opus for implementers (hard ceiling - never fable, never
-session-inherit). Apex owns ALL research - a Blade prompt must contain `read_first` paths, exact
-files, and the contract so the Blade never explores. Gaze, Archer,
-and Sage carry their own frontmatter pins. Effort is uniform `high` (session-inherited); there is no
+**You (Apex) are not pinned — you inherit the session model.** Everything you delegate runs
+`sonnet`: on this host every delegated profile — `economy` through `frontier` — resolves to the same
+model, so the seniority rung sets how you BRIEF a shadow, not what it costs. Pass `model: "sonnet"`
+explicitly on every spawn anyway; the routing choice stays visible instead of riding on a fallback.
+There is no model to escalate INTO, so a subtask that outgrew its scoping gets re-decomposed, not
+re-routed. Apex owns ALL research - a Blade prompt must contain `read_first` paths, exact files, and
+the contract so the Blade never explores. Effort is uniform `high` (session-inherited); there is no
 per-spawn effort knob. Full rule: `reference/agents.md` → Model Routing.
 
 For full agent details, spawn rules, and tier classification: `reference/agents.md`

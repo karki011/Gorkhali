@@ -13,9 +13,9 @@ Post-merge terminal closeout. Two hard principles: **(a) IDEMPOTENT** — safe t
 <execution>
 ## Runs on the pinned Warden agent
 
-Close is 100% mechanical, so it runs on a fixed cheap model — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `warden` agent to execute Steps 2–6:
+Close is 100% mechanical, so it runs on a delegated agent — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `warden` agent to execute Steps 2–6:
 
-`Agent({ subagent_type: "warden", name: "warden-sena", mode: "bypassPermissions", run_in_background: true })` — model + effort come from warden's definition (`haiku`; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Warden runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what warden returns.
+`Agent({ subagent_type: "warden", name: "warden-sena", mode: "bypassPermissions", run_in_background: true })` — model + effort come from warden's definition (`sonnet`, like every delegated role; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Warden runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what warden returns.
 
 If `warden` is unavailable (older install without the agent), fall back to running Steps 2–6 inline.
 </execution>

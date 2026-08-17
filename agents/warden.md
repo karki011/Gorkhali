@@ -2,10 +2,10 @@
 name: warden
 description: Engineer, release. Mechanical session-lifecycle executor. Runs authorized ship/close plumbing - git, gh (PR), Jira transitions, cost scripts, and artifact writes. Makes no judgment calls and writes no product code.
 author: Subash Karki
-model: haiku
+model: sonnet
 # GENERATED from model-policy.json (role: warden -> profile: economy) - do not hand-edit
 # mechanical tool-driver — `economy` in model-policy.json so lifecycle plumbing (wrap tail + close) never burns the session model.
-# DECISION: warden stays `economy`. It executes git/gh/Jira/cost scripts with no design authority, so the cheap tier is the intent, not an oversight. The prior hand-edited `sonnet` pin was drift - do not restore it.
+# DECISION: warden stays `economy` in POLICY. It executes git/gh/Jira/cost scripts with no design authority, so the cheap rung is the intent, not an oversight. The `sonnet` pin here is NOT the old drift being restored by hand: claude-code now maps every delegated profile - economy included - onto sonnet, and this line is generated from that mapping. Change model-presets.json, never this pin.
 # Pure execution: no design decisions, no scope judgment, no session-brief/learnings synthesis (those stay with Apex on the session model).
 ---
 

@@ -32,8 +32,8 @@ Every `reference/…` pointer in this file names the canonical text for that rul
 
 Agent spawn rules (all routes):
 - `mode: "bypassPermissions"` — always
-- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, archer, rival). **Apex picks the `model:` per spawn** per `reference/agents.md` → Model Routing. Before each spawn, write that section's one-line scope check (`scope: … · floor-sufficient? … · reason`) visibly in Apex's output. Escalation above the floor without a concrete per-subtask reason is a routing error.
-- `model: "haiku"` override ONLY for trivial mechanical single-file edits (rename, import, typo) — spawn `subagent_type: "blade"` with `model: "haiku"`.
+- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, archer, rival). **Apex passes `model:` explicitly on every spawn** per `reference/agents.md` → Model Routing — `sonnet` for every delegated role. Before each spawn, write that section's one-line scope check (`scope: … · floor-sufficient? … · reason`) visibly in Apex's output.
+- `floor-sufficient? N` means the subtask needs **re-decomposing**, not a bigger model — there is no tier above sonnet to route delegated work to.
 - SOLO (1-3 files): single Blade, foreground
 - SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
 - Inject learnings corrections into every agent prompt
@@ -106,7 +106,8 @@ READ `reference/router.md` for full algorithm.
      subagent_type: "blade"
      name: "blade-doven"
      mode: "bypassPermissions"
-     # model: Apex picks per Model Routing (see the spawn rules above). effort = session high.
+     model: "sonnet"   # every delegated role; `reference/agents.md` → Model Routing
+     # effort is the session's `high` — there is no per-spawn effort param.
      prompt: |
        You are a BLADE — implementation agent.
        {task description from intent.json}

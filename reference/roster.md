@@ -171,7 +171,7 @@ One row per non-execute spawn site in `commands/*.md`.
 | `verify.md` | Step 3 - Auto-Address fix agent | blade | 15 | `blade-talvik` |
 | `wrap.md` | RPSL panel, 4 parallel archers (full protocol: `reference/wrap/rpsl.md`) | archer | function (Rule 2) | `archer-scope`, `archer-regression`, `archer-architecture`, `archer-skeptic` |
 | `wrap.md` | Ship ceremony mechanical tail (full protocol: `reference/wrap/ship-ceremony.md`) | warden | 1 | `warden-gorath` |
-| `wrap.md` | Evolution check sidecar (full protocol: `reference/wrap/evolution.md`, which describes the same site generically as a "Haiku agent" - Ward pins haiku, so this is one site, not two) | ward | 10 | `ward-isolde` |
+| `wrap.md` | Evolution check sidecar (full protocol: `reference/wrap/evolution.md`, which describes the same site generically as a Ward sidecar - one site, not two) | ward | 10 | `ward-isolde` |
 | `close.md` | Steps 2-6 - mechanical closeout tail | warden | 2 | `warden-sena` |
 | `recruit.md` | Step 4 - ad hoc Blade with ROLE FOCUS | blade | 16 | `blade-ossian` |
 | `evolve.md` | Step 2 - Ward sidecar (learnings pipeline) | ward | 11 | `ward-corben` |

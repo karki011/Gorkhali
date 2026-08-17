@@ -12,68 +12,60 @@ command to run. `test/agent-seniority.test.js` holds title and profile together.
 | Agent | Seniority | Default model | Role | File |
 |-------|-----------|---------------|------|------|
 | Apex | Engineering lead | inherits session model (effort: high) | Orchestrator: plans, decomposes, coordinates, routes models | agents/apex.md |
-| Blade | Staff | sonnet for well-scoped/contract-backed work · escalate to opus (hard ceiling - never fable, never session-inherit) for complex, ambiguous, cross-cutting work | Implementation: code, tests, config | agents/blade.md |
-| Ward | Engineer | haiku (frontmatter pin) | QA: runs verify commands, checks contracts | agents/ward.md |
-| Gaze | Principal | opus (pinned, review tier) | Quality gate: power level, scoring | agents/gaze.md |
-| Sage | Principal | opus (pinned, top tier) | Advisory: <100 words, no tools, no user output | agents/sage.md |
+| Blade | Staff | sonnet (frontmatter pin) | Implementation: code, tests, config | agents/blade.md |
+| Ward | Engineer | sonnet (frontmatter pin) | QA: runs verify commands, checks contracts | agents/ward.md |
+| Gaze | Principal | sonnet (frontmatter pin, review tier) | Quality gate: power level, scoring | agents/gaze.md |
+| Sage | Principal | sonnet (frontmatter pin, top rung) | Advisory: <100 words, no tools, no user output | agents/sage.md |
 | Lens | Staff | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/lens.md |
-| Archer | Principal | opus (pinned, review tier) | Cross-file: cache coherence, regression, dead code | agents/archer.md |
-| Rival | Staff | sonnet (frontmatter pin) · escalate for large/complex plans | Plan critic: 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/rival.md |
-| Hound | Principal | opus (frontmatter pin) | Forensic investigator: root-cause tracing, HTML report | agents/hound.md |
+| Archer | Principal | sonnet (frontmatter pin, review tier) | Cross-file: cache coherence, regression, dead code | agents/archer.md |
+| Rival | Staff | sonnet (frontmatter pin) | Plan critic: 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/rival.md |
+| Hound | Principal | sonnet (frontmatter pin) | Forensic investigator: root-cause tracing, HTML report | agents/hound.md |
 | Sweep | Staff | sonnet (frontmatter pin) | Code clarity: simplify changed files post-verify | agents/sweep.md |
-| Warden | Engineer | haiku (frontmatter pin) | Lifecycle plumbing: mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
+| Warden | Engineer | sonnet (frontmatter pin) | Lifecycle plumbing: mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/warden.md |
 
 ## Model Routing (Apex decides at spawn)
 
-**Implementer roles (Blade, Sweep, Ward, Warden) are capped at opus and never run fable;
-the escalation ladder is re-decompose -> sonnet -> opus. If a subtask can't be scoped to fit within
-opus, the scoping failed - Apex re-decomposes.**
+**Everything Apex delegates runs `sonnet`. Opus is orchestration-only.** On this host
+`model-presets.json` maps every delegated profile — `economy`, `balanced`, `deep`, and `frontier`
+alike — onto `sonnet`, so there is no cheaper tier to fall to and no richer tier to escalate into.
+The seniority ladder is unchanged and still load-bearing: the rung a role sits at in
+`model-policy.json` decides how Apex BRIEFS it (a principal gets the problem, a staff engineer gets
+a resolved contract, an engineer gets the commands), not what it costs.
 
-**Default = task-appropriate tier, not "inherit everything."** The session model (now Opus 5)
-belongs to orchestration; for implementer roles the ceiling is opus, and the floor logic below routes
-the cheapest model that fits the work. Apex picks the model per spawn via the Agent tool `model:` param.
+**One consequence worth stating plainly: escalation is no longer a routing move.** When a subtask
+turns out to be too big, too fuzzy, or too cross-cutting for the model, the answer is to
+**re-decompose it** — there is nothing above sonnet to hand it to. Weak scoping used to be
+survivable by throwing a bigger model at it; now it is not.
+
 **Effort is uniform `high`**, inherited from the session — there is NO per-spawn effort param, so
-never try to set effort at spawn time. Tune speed/cost via **model**, not effort.
+never try to set effort at spawn time.
 
-Apex has OPTIONS, not a rigid lookup. Use these criteria per role:
+Apex still picks the model per spawn via the Agent tool `model:` param, and on this host that value
+is always `sonnet`. Spawn it explicitly rather than leaning on the frontmatter pin: the routing
+choice belongs in Apex's visible output, and `hooks/blade-model-gate.js` denies any Blade spawn that
+omits it.
 
-- **Mechanical / tool-driver roles** (Sweep, Lens, and search/Explore-style
-  spawns) → default **CHEAP (sonnet)**. These pin `sonnet` in frontmatter. Ward pins `haiku`
-  (verification is mechanical). Escalate to opus (the
-  implementer ceiling - never fable, never session-inherit) ONLY if the task proves non-trivial (e.g.
-  a sweep spanning many files with subtle semantics, verification requiring real debugging).
-- **Implementation** (Blade) → default **sonnet** for well-scoped, contract-backed subtasks
-  (clear inputs/outputs, named file owner, no open design decisions). Escalate to
-  opus (hard ceiling for implementers - never fable, never session-inherit) for complex, ambiguous, or
-  cross-cutting work, or where decomposition left the subtask fuzzy. "Good tasking earns Sonnet" — fix
-  weak scoping by re-decomposing, not by throwing the expensive model at it.
-- **Reasoning / review roles** (Gaze, Archer, Hound, Rival, Sage) → **UNCHANGED**. Gaze and Archer
-  pin `opus` in frontmatter (review tier — opus is the top tier now that Fable is retired from
-  Phantom's routing). Sage pins `opus` (top-tier advisory). Hound pins opus
-  and Rival pins sonnet in frontmatter — escalate Rival only for a large or ambiguous plan.
-  Do NOT downshift Gaze, Archer, or Hound.
-- **Orchestration** (Apex) → the session model.
+- **Implementation** (Blade), **mechanical / tool-driver roles** (Sweep, Lens, Ward, Warden, and
+  search/Explore-style spawns), and **reasoning / review roles** (Gaze, Archer, Hound, Rival, Sage)
+  → `sonnet`, every one of them.
+- **Orchestration** (Apex) → the session model, which is the only place Opus still belongs.
 
-When decomposing, keep tagging each subtask `mechanical | standard | complex`. CHEAP (sonnet) is the
-**floor** for mechanical work and for standard work that has a tight contract:
-- mechanical → sonnet (escalate only if it turns out non-trivial)
-- standard with a tight contract → sonnet
-- standard but fuzzy, or complex / ambiguous / cross-cutting → opus (hard ceiling for implementers -
-  never fable, never session-inherit)
+When decomposing, keep tagging each subtask `mechanical | standard | complex`. The tag no longer
+selects a model — it is the honest scope signal that tells Apex whether the subtask is small enough
+for one Blade at all. A `complex` tag on a single assignment is now a decomposition smell, not a
+routing instruction.
 
 **Precedence (highest wins):** explicit spawn `model:` param > config override (`config.yaml`
 `models:` block, if present) > agent frontmatter pin > this rubric default. Frontmatter pins are
 honored, and any user-supplied config override is honored on top of them — the rubric only fills the
-gap when nothing more specific is set. For implementer roles (blade, sweep, ward, warden) any
-override above opus is invalid - `hooks/blade-model-gate.js` denies fable regardless of source.
-Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
+gap when nothing more specific is set. A user who explicitly asks for a different model gets it;
+`hooks/blade-model-gate.js` denies fable for implementer roles regardless of source.
+Use bare aliases (sonnet/opus/haiku); never pin dated or prior-generation model IDs.
 
-**Articulate before you escalate.** Every implementer spawn MUST state one visible line:
-`scope: mechanical|standard|complex · floor-sufficient? Y/N · reason`. The floor is sonnet (haiku
-for trivial mechanical). Choosing opus requires a concrete reason tied to *this* subtask - a named
-design decision, cross-file coupling, or genuine ambiguity. "It's subtle/tricky" is not a reason.
-If you can't name why the floor fails, the floor wins. Weak scoping is fixed by re-decomposing, not
-by escalating.
+**Articulate before you spawn.** Every implementer spawn MUST still state one visible line:
+`scope: mechanical|standard|complex · floor-sufficient? Y/N · reason`. `floor-sufficient? N` no
+longer buys a bigger model — it is a signal that this assignment needs re-decomposing before it is
+dispatched. Recording it keeps the scoping judgment visible instead of silent.
 
 **Delegation calibration.** Spawning a subagent pays off on sizeable, genuinely independent tracks
 of work, and multiplies cost on small ones - each spawn carries its own context load, coordination
@@ -124,7 +116,7 @@ all point here rather than restating the columns.
 ## Spawning Rules
 
 - All agents: `mode: "bypassPermissions"`
-- Model: Apex picks per spawn per **Model Routing** above (default = task-appropriate tier; sonnet floor for mechanical and well-scoped work, escalate for complex/ambiguous/cross-cutting up to opus - hard ceiling for implementers, never fable, never session-inherit). Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (opus/sonnet/haiku); never pin dated or prior-generation model IDs.
+- Model: Apex passes it explicitly per spawn per **Model Routing** above — `sonnet` for every delegated role on this host, never session-inherit. Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (sonnet/opus/haiku); never pin dated or prior-generation model IDs.
 - Parallel agents: use `isolation: "worktree"` to prevent file conflicts
 - Sage: max 3 calls per Blade. No tools. No user output.
 - Background: use `run_in_background: true` for non-blocking agents
@@ -157,9 +149,10 @@ point here.
 
 ## Route & Model Guidance
 
-Effort is uniform `high` for every agent (session-inherited; Apex pinned). Tune speed via **model**,
-not effort.
+Effort is uniform `high` for every agent (session-inherited; Apex pinned). Model is uniform `sonnet`
+for everything delegated, so the only real knobs left are **scope and route**.
 
-- Simple fix (1-2 files): SOLO, Blade on sonnet, ~5 min
-- Feature (3-5 files): SOLO or SHADOWS, Blade on sonnet for tightly-scoped subtasks, escalate fuzzy/cross-cutting subtasks to opus (hard ceiling for implementers - never fable, never session-inherit), ~15 min
-- Complex feature (5+ files): SHADOWS, Blade on opus (hard ceiling for implementers - never fable, never session-inherit) for the hard subtasks + Sage (top tier), ~30 min
+- Simple fix (1-2 files): SOLO, one Blade on sonnet, ~5 min
+- Feature (3-5 files): SOLO or SHADOWS, Blade(s) on sonnet, ~15 min
+- Complex feature (5+ files): SHADOWS on sonnet — split the hard subtasks smaller rather than
+  reaching for a bigger model, and let a stuck Blade consult Sage for a fresh read, ~30 min

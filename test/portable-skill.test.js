@@ -293,7 +293,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.3.0',
+    bundle_version: '2.4.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -447,7 +447,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.3.0');
+    assert.equal(result.bundle_version, '2.4.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -463,7 +463,9 @@ test('critical risk elevates eligible roles before preset lookup and preserves e
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical', '--host', 'claude-code']);
     assert.equal(result.risk, 'critical');
     assert.equal(result.requested_profile, 'deep');
-    assert.equal(result.model, 'opus');
+    // claude-code maps every delegated profile onto sonnet: the elevation is
+    // visible in requested_profile, not in the model it resolves to.
+    assert.equal(result.model, 'sonnet');
   }
 
   for (const [role, profile] of [
@@ -524,10 +526,12 @@ test('bundled presets cover every profile and resolve each role tier', () => {
   const expected = {
     'claude-code': {
       inherit: [null, null],
-      economy: ['haiku', null],
+      // Flat on purpose: Opus is reserved for the orchestrating session, so
+      // every delegated profile resolves to sonnet on this host.
+      economy: ['sonnet', null],
       balanced: ['sonnet', 'high'],
-      deep: ['opus', 'high'],
-      frontier: ['opus', 'high'],
+      deep: ['sonnet', 'high'],
+      frontier: ['sonnet', 'high'],
     },
     codex: {
       inherit: [null, null],
@@ -595,31 +599,35 @@ test('model resolution honors user choice, external map, bundled preset, then in
   }
 });
 
-test('delegated model profiles downshift by complexity while Apex stays frontier', () => {
-  const mechanical = runJson(RESOLVER, [
-    '--role', 'blade', '--profile', 'economy', '--host', 'claude-code',
-  ]);
-  assert.equal(mechanical.requested_profile, 'economy');
-  assert.equal(mechanical.model, 'haiku');
+// The profile ladder is SEMANTIC, and this test is what keeps that honest now
+// that claude-code's presets are flat: a downshift must still be visible in
+// `requested_profile` even where it buys no cheaper model, and it must still
+// move the model on a host whose presets are not flat. Asserting only the
+// claude-code side would let a future edit collapse the profiles themselves
+// without failing anything.
+test('delegated profiles downshift semantically while Apex stays frontier', () => {
+  const claudeCode = {};
+  for (const profile of ['economy', 'balanced', 'deep']) {
+    const result = runJson(RESOLVER, [
+      '--role', 'blade', '--profile', profile, '--host', 'claude-code',
+    ]);
+    assert.equal(result.requested_profile, profile, `${profile} must survive resolution`);
+    assert.equal(result.model, 'sonnet', `${profile} resolves to sonnet on claude-code`);
+    claudeCode[profile] = result;
+  }
+  assert.equal(claudeCode.balanced.effort, 'high');
 
-  const complex = runJson(RESOLVER, [
-    '--role', 'blade', '--profile', 'deep', '--host', 'claude-code',
-  ]);
-  assert.equal(complex.requested_profile, 'deep');
-  assert.equal(complex.model, 'opus');
-  assert.equal(complex.effort, 'high');
-
-  const scoped = runJson(RESOLVER, [
-    '--role', 'blade', '--profile', 'balanced', '--host', 'claude-code',
-  ]);
-  assert.equal(scoped.requested_profile, 'balanced');
-  assert.equal(scoped.model, 'sonnet');
+  // Same three requests on a host whose ladder is not flat still spread.
+  const codex = ['economy', 'balanced', 'deep'].map((profile) => runJson(RESOLVER, [
+    '--role', 'blade', '--profile', profile, '--host', 'codex',
+  ]).model);
+  assert.equal(new Set(codex).size, 3, 'a non-flat host must still spread the profiles');
 
   const apex = runJson(RESOLVER, [
     '--role', 'apex', '--profile', 'economy', '--host', 'claude-code',
   ]);
-  assert.equal(apex.requested_profile, 'frontier');
-  assert.equal(apex.model, 'opus');
+  assert.equal(apex.requested_profile, 'frontier', 'Apex ignores a downshift request');
+  assert.equal(apex.model, 'sonnet');
 });
 
 test('portable CLI entrypoints execute through a symlinked skill installation', () => {
@@ -630,8 +638,8 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'apex', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.3.0');
-  assert.equal(resolver.model, 'opus');
+  assert.equal(resolver.bundle_version, '2.4.0');
+  assert.equal(resolver.model, 'sonnet');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
     'inspect', '--workspace', REPO_ROOT, 'skills/phantom/scripts/lib/portable.mjs',

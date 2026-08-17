@@ -16,10 +16,11 @@
 // runs on, so it carries no pin at all (see agents/apex.md frontmatter).
 //
 // RECORDED DECISIONS - do not "fix" these back:
-//   warden -> economy (haiku). Warden is a mechanical git/gh/Jira/cost-script
-//     executor with no design authority; its own definition says it runs on a
-//     fixed cheap model. The long-standing `sonnet` pin was drift, not intent,
-//     and every warden spawn inherited it. Policy stays economy on purpose.
+//   warden -> economy. Warden is a mechanical git/gh/Jira/cost-script executor
+//     with no design authority, so the cheapest rung is the intent. Policy stays
+//     economy on purpose even though claude-code currently maps every profile
+//     onto the same delegate model: the rung governs how Apex briefs the role,
+//     and it still separates tiers on hosts whose presets are not flat.
 //   sweep  -> balanced (sonnet). Code simplification is judgment work: a weak
 //     model's bad suggestion costs more review time than the tokens it saves.
 //     Here the POLICY was wrong (it said economy) and the sonnet pin was right,

@@ -65,11 +65,6 @@ function blockFor(lines, i) {
 // on every edit).
 const POLICY_PROSE = [
   {
-    file: 'commands/start.md',
-    match: '`model: "haiku"` override ONLY for trivial mechanical',
-    why: 'model-override rule; the DIRECT-route spawn block below it carries the name',
-  },
-  {
     file: 'commands/scout.md',
     match: 'All scouts `subagent_type: "blade"` with read-only ROLE FOCUS',
     why: 'restates the scout naming rule and points at roster.md',
@@ -78,11 +73,6 @@ const POLICY_PROSE = [
     file: 'commands/execute.md',
     match: 'All implementation tasks spawn `subagent_type: blade`',
     why: 'model-routing rule for the wave; names come from the Rule 1 task index',
-  },
-  {
-    file: 'commands/execute.md',
-    match: 'with `model: "haiku"` override',
-    why: 'mechanical-edit fast path — a model-override rule for the same wave spawn as above',
   },
   {
     file: 'commands/execute.md',

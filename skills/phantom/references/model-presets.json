@@ -10,10 +10,10 @@
     "claude-code": {
       "profiles": {
         "inherit": { "model": null, "effort": null },
-        "economy": { "model": "haiku", "effort": null },
+        "economy": { "model": "sonnet", "effort": null },
         "balanced": { "model": "sonnet", "effort": "high" },
-        "deep": { "model": "opus", "effort": "high" },
-        "frontier": { "model": "opus", "effort": "high" }
+        "deep": { "model": "sonnet", "effort": "high" },
+        "frontier": { "model": "sonnet", "effort": "high" }
       }
     },
     "codex": {

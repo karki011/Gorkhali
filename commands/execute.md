@@ -49,15 +49,14 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
      table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
      from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
      `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `blade-kaze`).
-   - All implementation tasks spawn `subagent_type: blade`. Apex picks the model per subtask
+   - All implementation tasks spawn `subagent_type: blade` with `model: "sonnet"` passed explicitly
      per `reference/agents.md` → Model Routing; effort is the session's `high`, never a
      per-spawn param.
-   - **Mechanical-edit fast path:** for truly trivial single-file edits (rename, import, typo, config),
-     spawn `subagent_type: blade` with `model: "haiku"` override.
+   - **A subtask too big for sonnet is a decomposition failure, not a routing one:** split it and
+     re-dispatch, since no delegated role runs above sonnet.
    - All agents: `mode: "bypassPermissions"`.
    - SOLO route: spawn 1 `subagent_type: blade` with full task scope
    - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"`
-     (sonnet/haiku override for small or trivial subtasks only)
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - **Context discipline at spawn** (`reference/agents.md` → Context Discipline):
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
