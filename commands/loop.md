@@ -59,6 +59,21 @@ Otherwise AC is WEAK.
 **AC SOLID → autonomous to a PR.** Run the full phantom workflow unattended:
 `Skill(skill="phantom:start", args="{TICKET}")`. Because AC is solid and no human is present, run it autonomously end-to-end: the loop acts as the plan approver (treat the PLAN/FULL plan-gate as auto-approved — solid AC is the precondition that licenses this), auto-chain verify → fix → wrap, and finish at a **ready-for-review PR**. Record the PR URL for the report. Never ask the user a question — pick recommended defaults and record assumptions.
 
+**Run guard.** No human is watching, so the run-level ceiling is the only one there is. Before each unattended ticket and again before each `phantom:fix` chained from it:
+
+```text
+{PR_BOOTSTRAP}
+[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+node "$PR/scripts/run-guard.js" --ticket {TICKET} --unattended
+```
+
+(`{PR_BOOTSTRAP}` per `_shared.md` §Paths. The empty-guard is the GATE-CRITICAL
+form on purpose: an unresolved plugin dir would otherwise make `node` exit 1 on
+MODULE_NOT_FOUND, and exit 1 is the halt code — a missing install would read as a
+confirmed budget overage.)
+
+Exit 0 continues. **Exit 1 halts THIS ticket** — it wrote `halt.json` in the session dir naming the state (`halted_budget` or `halted_stuck`); record that ticket as halted with the guard's reason and move to the next one. Exit 2 is a caller bug in the invocation above, not a halt. Invoking `/phantom:loop` IS the authorization for the `--unattended` flag; the guard is fail-open everywhere else, so it never traps a run it cannot read.
+
 **AC WEAK → plan + wait.** Run plan-only, no execution:
 `Skill(skill="phantom:start", args="{TICKET} --to-plan")` — produces `plan.json` in the session dir and stops before any implementation, verify, wrap, or git mutation. Then post ONE Jira comment to the ticket (Atlassian MCP) containing:
 - the triage verdict (`AC weak`) and which rubric checks failed,

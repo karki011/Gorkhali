@@ -13,17 +13,40 @@ Fix loop from latest failed verification.
 > **Loop authority:** the attempt count, the hard stop, and the same-finding-class
 > escalation are OWNED by `hooks/loop-controller.js`, NOT by this prose. The ceiling
 > (`FIX_LOOP_CEILING`, sourced from `scripts/lib/constants.js`; env override
-> `PHANTOM_FIX_LOOP_CEILING`) is not restated here. The controller reads/writes
-> the same counter as `verification.json` `review.fixLoops`. The ONLY way past the
+> `PHANTOM_FIX_LOOP_CEILING`) is not restated here. The controller counts from the
+> review round ledger `{SESSION_DIR}/reviews/rounds.json` — how many times the
+> reviewed worktree fingerprint CHANGED between consecutive rounds, so
+> re-reviewing an unchanged diff adds a round but not an attempt, while step
+> 8.5's revert-and-retry still counts as the two attempts it is — falling back to
+> legacy `verification.json`
+> `review.fixLoops` only for pre-portable sessions. The ONLY way past the
 > ceiling is the controller's explicit, logged operator override (a NEW narrower
-> problem surfaced — genuine progress, not patch-stacking).
+> problem surfaced — genuine progress, not patch-stacking), recorded at
+> `verification.json` `review.override` and honoured by both the CLI below and
+> `hooks/fix-loop-gate.js`.
 
 <instructions>
 
 Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
 
 1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/phantom:verify` first).
-2. **Check loop count** — ask `hooks/loop-controller.js` (`shouldContinue`): at the ceiling and no operator override → structured escalation (step 8).
+2. **Check loop count** — read the standing the ledger already holds:
+
+   ```text
+   {PR_BOOTSTRAP}
+   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR} --json
+   ```
+
+   Its `loop` object is `hooks/loop-controller.js` `shouldContinue()` applied to
+   the recorded rounds, with this session's operator override already folded in
+   (that is what `--session` supplies). `loop.decision.escalate` → structured
+   escalation (step 9).
+
+   Two shapes are NOT permission to continue, and neither is an escalation:
+   `loop: null` (the controller could not be loaded) and `loop.fixLoops: null`
+   with `source: "unknown"` (the ledger could not be read — unknown, never zero).
+   Report the standing as-is and get the state readable before opening a loop.
 3. **Debugging discipline** — reproduce (pipe the failing command through `scripts/lib/log-capture.js --label fix-repro` for a bounded summary; set `set -o pipefail` and read the captured `$?` before the pipe — `log-capture.js` always exits 0, so without pipefail a still-failing repro looks fixed) → trace → confirm root cause BEFORE fixing. If loop 2+, trigger hound deep investigation (step 3.5).
 
 **3.5. Hound escalation (loop 2+ only):** Same failure class repeating → full 7-step investigation per `reference/detective/protocol.md`. Produces `investigation.html`. Feed hypothesis into step 7 (scrap-and-redo).

@@ -282,11 +282,19 @@ function deriveOutcome(opts) {
   const verdict = verification && typeof verification.verdict === 'string' ? verification.verdict : null;
   if (verification && !verdict) add('verified', 'verification.json has no verdict field');
 
-  // fix_loops comes from loop-controller, which reads the VERIFICATION OBJECT
-  // (review.fixLoops) - there is no separate loop state file. No verification
-  // artifact means no count, which is null, not 0.
-  const fixLoops = verification ? loopController.getFixLoops(verification) : null;
-  if (!verification) add('fix_loops', 'verification.json absent - loop-controller has no review.fixLoops to read');
+  // fix_loops comes from loop-controller, which counts the REVIEW ROUND LEDGER
+  // (reviews/rounds.json - one append per validly completed round, written by
+  // the portable flow), falling back to the legacy verification object
+  // (review.fixLoops) for pre-portable sessions. Neither present means no count,
+  // which is null, not 0 - a session that never reviewed has not run zero fix
+  // loops, it has an unknown number.
+  const roundsLedger = sessionDir ? loadJson(path.join(sessionDir, 'reviews', 'rounds.json')) : null;
+  const rounds = roundsLedger && Array.isArray(roundsLedger.rounds) ? roundsLedger.rounds : null;
+  const loopState = loopController.resolveFixLoops({ rounds, verification });
+  const fixLoops = loopState.source === 'none' ? null : loopState.loops;
+  if (loopState.source === 'none') {
+    add('fix_loops', 'neither reviews/rounds.json nor verification.json present - no loop count to read');
+  }
 
   const session = sessionDir ? loadJson(path.join(sessionDir, 'session.json')) : null;
   const wallTimeMs = sessionWallTimeMs(session);

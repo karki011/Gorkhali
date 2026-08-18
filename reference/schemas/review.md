@@ -62,7 +62,8 @@ equality is what a hash can promise.
 
 **Disposition.** `findings[].disposition` records the outcome of the individual
 finding when the fix loop closes, written by `hooks/loop-controller.js`
-(`closeFixLoop`), which owns the same loop's `review.fixLoops` counter. The
+(`closeFixLoop`), which is also the authority for how many loops that is —
+counted from the review round ledger, `reference/fix-loop.md`. The
 attribution rules, in order: an explicit human dismissal wins; otherwise a
 disposition already recorded stands; otherwise `fixed` when the finding's file
 is among the files the loop changed (the code changed after the finding — a

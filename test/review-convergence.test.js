@@ -358,8 +358,10 @@ test('commands/review.md still deletes gaze.json and explicitly spares the ledge
   assert.match(review, /never\s+`\{SESSION_DIR\}\/reviews\/rounds\.json`/);
   assert.match(review, /prevents a failed or truncated run\s+from reusing an older verdict/);
   assert.match(review, /holds no verdict to reuse/);
-  assert.match(review, /review-round\.js status/);
-  assert.match(review, /review-round\.js close/);
+  // The path form is the plugin-root bootstrap (`_shared.md` §Paths), so the
+  // script name is followed by a closing quote before the action.
+  assert.match(review, /review-round\.js"? status/);
+  assert.match(review, /review-round\.js"? close/);
 });
 
 test('commands/verify.md runs the same pass and spares the same ledger', () => {
@@ -419,6 +421,233 @@ test('a blocked review does not consume a round', () => {
     const good = JSON.parse(run(ROUND, ['close', '--reviews', s.reviews, '--json']).stdout);
     assert.equal(good.round, 1, 'the blocked pass did not advance the round');
     assert.equal(good.reported.length, 2);
+  } finally {
+    s.cleanup();
+  }
+});
+
+// --- the ledger is also the fix-loop counter ---------------------------------
+// B12 bounded review NOISE. It did not bound the number of ROUNDS, and the thing
+// that was supposed to (FIX_LOOP_CEILING) counted a field on verification.json
+// that the portable lifecycle stopped writing — so the ceiling never fired and
+// the verify -> review -> fix -> verify cycle ran unbounded. The ledger is the
+// artifact that already knows how many rounds happened, so it is now the count.
+
+const lc = require('../hooks/loop-controller');
+
+test('the fix-loop standing is reported on every pass, and round 1 is not a fix loop', () => {
+  const s = session();
+  try {
+    const before = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.deepEqual(
+      { fixLoops: before.loop.fixLoops, source: before.loop.source, escalate: before.loop.decision.escalate },
+      { fixLoops: 0, source: 'rounds-ledger', escalate: false },
+      'no rounds recorded: no fix loop has run'
+    );
+
+    s.write([BLOCKING]);
+    const first = JSON.parse(run(ROUND, ['close', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(first.loop.fixLoops, 0, 'the first review is not a fix loop');
+    assert.equal(first.loop.ceiling, lc.FIX_LOOP_CEILING, 'the ceiling comes from the controller, not from here');
+    assert.equal(first.loop.decision.continue, true);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('closing the ceiling-th round escalates instead of inviting another fix loop', () => {
+  const s = session();
+  try {
+    // Round 1 = first review. Rounds 2 and 3 each follow a fix loop, so closing
+    // round 3 is the ceiling with FIX_LOOP_CEILING = 2.
+    for (const round of [1, 2, 3]) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      const r = JSON.parse(run(ROUND, ['close', '--reviews', s.reviews, '--json']).stdout);
+      assert.equal(r.round, round);
+      assert.equal(r.loop.fixLoops, round - 1, 'N rounds mean N-1 fix loops');
+      assert.equal(
+        r.loop.decision.escalate,
+        round > lc.FIX_LOOP_CEILING,
+        `round ${round} escalation`
+      );
+    }
+
+    // And the operator can SEE it without --json, which is the half that was
+    // missing: a count nobody is shown is a count nobody acts on.
+    const text = run(ROUND, ['status', '--reviews', s.reviews]);
+    assert.equal(text.code, 0, text.stderr);
+    assert.match(text.stdout, /FIX LOOP CEILING REACHED: 2\/2 — ceiling-reached/);
+    assert.match(text.stdout, /commands\/fix\.md step 9/);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('a round that does not validly close does not advance the fix-loop count either', () => {
+  const s = session();
+  try {
+    s.write([BLOCKING]);
+    run(ROUND, ['close', '--reviews', s.reviews, '--json']);
+
+    // A blocked pass records nothing (asserted above); the standing must not move
+    // with it, or a truncated run would spend a fix loop it never used.
+    s.deleteGazeArtifact();
+    s.write([BLOCKING], 'blocked');
+    const blocked = run(ROUND, ['close', '--reviews', s.reviews, '--json']);
+    assert.notEqual(blocked.code, 0, 'a blocked review does not consume a round');
+
+    const after = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(after.round, 2, 'still the same next round');
+    assert.equal(after.loop.fixLoops, 0, 'and still the same fix-loop count');
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('a dry run reports the standing it would produce and still writes nothing', () => {
+  const s = session();
+  try {
+    for (const _ of [1, 2]) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      run(ROUND, ['close', '--reviews', s.reviews, '--json']);
+    }
+    const before = fs.readFileSync(s.ledger, 'utf-8');
+
+    s.deleteGazeArtifact();
+    s.write([BLOCKING]);
+    const dry = JSON.parse(run(ROUND, ['close', '--reviews', s.reviews, '--json', '--dry-run']).stdout);
+    assert.equal(dry.recorded, false);
+    assert.equal(dry.loop.fixLoops, 2, 'the standing round 3 WOULD produce');
+    assert.equal(dry.loop.decision.escalate, true);
+    assert.equal(fs.readFileSync(s.ledger, 'utf-8'), before, 'the ledger is untouched');
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('reference/fix-loop.md names the ledger as the counter and no longer claims wrap reviews', () => {
+  const doc = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'fix-loop.md'), 'utf8');
+  assert.match(doc, /rounds\.json/, 'the counter has a named home');
+  assert.ok(
+    !/prose discipline and wrap review still apply/.test(doc),
+    'commands/wrap.md validates recorded review artifacts and runs no review of its own'
+  );
+});
+
+// --- what code review caught on the counter, pinned -------------------------
+
+test('re-reviewing an unchanged worktree does not spend the ceiling', () => {
+  const s = session();
+  try {
+    // Three read-only reviews of ONE untouched diff. Counting rounds alone would
+    // report 2/2 here and escalate the first genuine fix that follows.
+    for (const _ of [1, 2, 3]) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      run(ROUND, ['close', '--reviews', s.reviews, '--fingerprint', 'sha256:unchanged', '--json']);
+    }
+    const after = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(after.round, 4, 'three rounds were recorded');
+    assert.equal(after.loop.fixLoops, 0, 'but the worktree never changed, so no fix was attempted');
+    assert.equal(after.loop.decision.escalate, false);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('distinct reviewed fingerprints are what count as attempts', () => {
+  const s = session();
+  try {
+    for (const fp of ['sha256:a', 'sha256:b', 'sha256:c']) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      run(ROUND, ['close', '--reviews', s.reviews, '--fingerprint', fp, '--json']);
+    }
+    const after = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(after.loop.fixLoops, 2, 'two fixes changed the worktree between three reviews');
+    assert.equal(after.loop.decision.escalate, true);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('an unreadable ledger reports UNKNOWN, never a fresh zero', () => {
+  const s = session();
+  try {
+    fs.writeFileSync(s.ledger, '{"rounds": [{"round": 1}');
+
+    const status = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(status.ledgerSource, 'unreadable');
+    assert.equal(status.loop.fixLoops, null, 'corruption must not hand back a ceiling of attempts');
+    assert.equal(status.loop.source, 'unknown');
+    assert.equal(status.loop.decision, null, 'unknown is not a decision');
+
+    const text = run(ROUND, ['status', '--reviews', s.reviews]);
+    assert.match(text.stdout, /fix loops: UNKNOWN/);
+    assert.match(text.stdout, /Not zero/);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('a logged operator override is honoured when the session is named', () => {
+  const s = session();
+  try {
+    for (const fp of ['sha256:a', 'sha256:b', 'sha256:c']) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      run(ROUND, ['close', '--reviews', s.reviews, '--fingerprint', fp, '--json']);
+    }
+    const sessionDir = path.dirname(s.reviews);
+
+    // Without --session no override is read, and the standing says so rather than
+    // reporting an escalation the operator already authorized away.
+    const blind = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(blind.overrideEvaluated, undefined);
+    assert.equal(blind.loop.overrideEvaluated, false);
+    assert.equal(blind.loop.decision.escalate, true);
+
+    fs.writeFileSync(
+      path.join(sessionDir, 'verification.json'),
+      JSON.stringify({ review: { override: { newNarrowerProblem: true, justification: 'narrower repro found' } } })
+    );
+    const allowed = JSON.parse(
+      run(ROUND, ['status', '--reviews', s.reviews, '--session', sessionDir, '--json']).stdout
+    );
+    assert.equal(allowed.loop.overrideEvaluated, true);
+    assert.equal(allowed.loop.decision.continue, true);
+    assert.equal(allowed.loop.decision.reason, 'operator-override');
+
+    // An override with no justification is not an override.
+    fs.writeFileSync(
+      path.join(sessionDir, 'verification.json'),
+      JSON.stringify({ review: { override: { newNarrowerProblem: true } } })
+    );
+    const refused = JSON.parse(
+      run(ROUND, ['status', '--reviews', s.reviews, '--session', sessionDir, '--json']).stdout
+    );
+    assert.equal(refused.loop.decision.escalate, true, 'an unjustified override is ignored');
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('scrap-and-redo reverting the worktree still spends its fix loops', () => {
+  const s = session();
+  try {
+    // A -> B is one fix; step 8.5 then reverts to A, which is a second attempt
+    // that happened to land back where it started. Counting distinct values would
+    // report 1/2 here and allow a third chained fix past the ceiling.
+    for (const fp of ['sha256:a', 'sha256:b', 'sha256:a']) {
+      s.deleteGazeArtifact();
+      s.write([BLOCKING]);
+      run(ROUND, ['close', '--reviews', s.reviews, '--fingerprint', fp, '--json']);
+    }
+    const after = JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout);
+    assert.equal(after.loop.fixLoops, 2, 'a revert is a failed attempt, not an absent one');
+    assert.equal(after.loop.decision.escalate, true);
   } finally {
     s.cleanup();
   }

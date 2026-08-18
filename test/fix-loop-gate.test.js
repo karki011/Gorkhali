@@ -57,6 +57,22 @@ function seedVerification(data, review) {
   fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({ review }));
 }
 
+// The artifact the PORTABLE flow writes: one append per validly completed review
+// round. `rounds` entries only need to exist — the gate counts them, it does not
+// read them.
+function seedRounds(data, count, contents = null) {
+  const dir = path.join(data, 'repos', REPO, 'sessions', TICKET, 'reviews');
+  fs.mkdirSync(dir, { recursive: true });
+  const body =
+    contents !== null
+      ? contents
+      : JSON.stringify({
+          schema: 'phantom.review-rounds/1',
+          rounds: Array.from({ length: count }, (_, i) => ({ round: i + 1, findings: [] })),
+        });
+  fs.writeFileSync(path.join(dir, 'rounds.json'), body);
+}
+
 function fixPayload(cwd, extraInput = {}) {
   return {
     tool_name: 'Skill',
@@ -130,6 +146,83 @@ test('4. same-class repeat under the ceiling → advisory (never a deny)', () =>
   }
 });
 
+// ---------------------------------------------------------------------------
+// The portable path. Tests 2-4 and 8 above seed the LEGACY artifact, which no
+// live path has written since verify/review moved onto the portable lifecycle —
+// which is exactly how this gate came to resolve `verification-missing` and stay
+// silent through every loop it exists to bound. These pin the ledger source.
+// ---------------------------------------------------------------------------
+
+test('9. round ledger at the ceiling → advisory, with no verification.json anywhere', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    // 3 recorded rounds = the first review + 2 fix loops = the ceiling.
+    seedRounds(data, 3);
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertAdvisory(res, /FIX LOOP advisory: 2\/2 — ceiling-reached \(counted from rounds-ledger\)/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('10. round ledger under the ceiling → silent', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    seedRounds(data, 2); // first review + 1 fix loop
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertSilent(res, 'one fix loop is under the ceiling');
+  } finally {
+    cleanup();
+  }
+});
+
+test('11. the first review is not a fix loop', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    seedRounds(data, 1);
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertSilent(res, 'round 1 is the first review, before any fix');
+  } finally {
+    cleanup();
+  }
+});
+
+test('12. the ledger wins over a stale legacy artifact', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    seedVerification(data, { fixLoops: 0 }); // stale: nothing has written it in this session
+    seedRounds(data, 3);
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertAdvisory(res, /2\/2 — ceiling-reached \(counted from rounds-ledger\)/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('13. a corrupt ledger falls back to the legacy artifact rather than fabricating 0', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    seedRounds(data, 0, '{{{not json');
+    seedVerification(data, { fixLoops: 2 });
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertAdvisory(res, /2\/2 — ceiling-reached \(counted from verification-artifact\)/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('14. an operator override on the legacy artifact still allows a ledger-counted loop past the ceiling', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    seedRounds(data, 3);
+    seedVerification(data, { override: { newNarrowerProblem: true, justification: 'narrower repro found' } });
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertSilent(res, 'a logged override is the one documented way past the ceiling');
+  } finally {
+    cleanup();
+  }
+});
+
 test('5. missing verification.json → silent (errors never gate in advisory mode)', () => {
   const { data, cwd, cleanup } = setup();
   try {
@@ -177,6 +270,25 @@ test('8. at-ceiling WITH valid operator override → silent (override allows)', 
     });
     const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
     assertSilent(res, 'operator override past the ceiling passes silently');
+  } finally {
+    cleanup();
+  }
+});
+
+test('15. the gate counts distinct reviewed fingerprints, not rounds', () => {
+  const { data, cwd, cleanup } = setup();
+  try {
+    const dir = path.join(data, 'repos', REPO, 'sessions', TICKET, 'reviews');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'rounds.json'),
+      JSON.stringify({
+        schema: 'phantom.review-rounds/1',
+        rounds: [1, 2, 3].map((round) => ({ round, findings: [], fingerprint: 'sha256:unchanged' })),
+      })
+    );
+    const res = runGate({ PHANTOM_DATA: data, PHANTOM_REPO: REPO }, fixPayload(cwd));
+    assertSilent(res, 'three reviews of one untouched diff are not three fix attempts');
   } finally {
     cleanup();
   }

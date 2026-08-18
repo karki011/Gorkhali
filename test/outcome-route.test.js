@@ -202,3 +202,85 @@ test('the exported enums are closed and validRoute enforces them', () => {
   assert.equal(validRoute({ route: 'shadows' }), false, 'the execution route is not a session route');
   assert.equal(validRoute({ route: 'solo' }), false);
 });
+
+// --- fix_loops: the durable record reads the ledger the portable flow writes ---
+// outcome.json's fix_loops fed the router/baseline scoring off `verification.json`
+// review.fixLoops. Nothing has written that file since verify/review moved onto
+// the portable lifecycle, so every portable session recorded fix_loops: null and
+// the metric was starved. It now counts the review round ledger.
+
+function seedRounds(fixture, count) {
+  const dir = path.join(fixture.dataRoot, 'repos', REPO, 'sessions', TICKET, 'reviews');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'rounds.json'),
+    JSON.stringify({
+      schema: 'phantom.review-rounds/1',
+      rounds: Array.from({ length: count }, (_, i) => ({ round: i + 1, findings: [] })),
+    }),
+  );
+}
+
+function seedLegacyVerification(fixture, fixLoops) {
+  const dir = path.join(fixture.dataRoot, 'repos', REPO, 'sessions', TICKET);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({ verdict: 'pass', review: { fixLoops } }));
+}
+
+function recordOf(fixture) {
+  const json = runCli(fixture, ['--json']);
+  assert.equal(json.code, 0, json.stderr);
+  return JSON.parse(json.stdout);
+}
+
+test('fix_loops is counted from the review round ledger, with no verification.json present', () => {
+  const root = mkTmp();
+  try {
+    const fixture = buildDataRoot(root, { schema_version: 1, status: 'active', route: 'direct' });
+    seedRounds(fixture, 3); // first review + 2 fix loops
+
+    const record = recordOf(fixture);
+    assert.equal(record.fix_loops, 2);
+    assert.ok(!unresolvedFields(record).includes('fix_loops'), 'a counted value is not unresolved');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('fix_loops prefers the ledger over a stale legacy artifact', () => {
+  const root = mkTmp();
+  try {
+    const fixture = buildDataRoot(root, { schema_version: 1, status: 'active', route: 'direct' });
+    seedLegacyVerification(fixture, 0);
+    seedRounds(fixture, 2);
+
+    assert.equal(recordOf(fixture).fix_loops, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('fix_loops falls back to a pre-portable verification artifact', () => {
+  const root = mkTmp();
+  try {
+    const fixture = buildDataRoot(root, { schema_version: 1, status: 'active', route: 'direct' });
+    seedLegacyVerification(fixture, 2);
+
+    assert.equal(recordOf(fixture).fix_loops, 2);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('fix_loops with neither artifact is null and named in unresolved - never a fabricated 0', () => {
+  const root = mkTmp();
+  try {
+    const fixture = buildDataRoot(root, { schema_version: 1, status: 'active', route: 'direct' });
+
+    const record = recordOf(fixture);
+    assert.equal(record.fix_loops, null);
+    assert.ok(unresolvedFields(record).includes('fix_loops'));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

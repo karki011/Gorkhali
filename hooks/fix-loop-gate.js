@@ -7,6 +7,14 @@
 //   at/over ceiling (or same-class repeat) → advisory via additionalContext.
 //   NEVER denies — worst case is an advisory; under-ceiling/errors stay silent.
 //
+// WHICH ARTIFACT IT READS. The review round ledger
+// ({SESSION_DIR}/reviews/rounds.json) first: it is what the portable
+// verify/review flow writes, one append per validly completed review round.
+// {SESSION_DIR}/verification.json second, for sessions predating the portable
+// move — nothing writes that file any more, and reading only it is why this
+// gate resolved `verification-missing` and stayed silent through every loop it
+// existed to bound.
+//
 // Always exits 0 — the advisory rides the stdout JSON; a non-zero exit would
 // block sessions on hook bugs, which is forbidden.
 'use strict';
@@ -96,31 +104,48 @@ function resolveTicket() {
   return null;
 }
 
-// Returns { decision, loops, ceiling } or an { error } marker. Errors stay
-// silent in advisory mode — they never block.
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+// The ledger's rounds, or null when there is no readable ledger. A corrupt
+// ledger reads as null rather than an empty array so the legacy artifact still
+// gets its turn and corruption never reads as "no loops have run yet".
+function ledgerRounds(sessionDir) {
+  const ledger = readJson(path.join(sessionDir, 'reviews', 'rounds.json'));
+  if (!ledger || typeof ledger !== 'object' || !Array.isArray(ledger.rounds)) return null;
+  return ledger.rounds;
+}
+
+// Returns { decision, loops, ceiling, source } or an { error } marker. Errors
+// stay silent in advisory mode — they never block.
 function evaluate() {
   const ticket = resolveTicket();
   if (!ticket) return { error: 'ticket-unresolvable' };
 
-  const verificationPath = path.join(sessionsDir(repo), ticket, 'verification.json');
-  if (!fs.existsSync(verificationPath)) return { error: 'verification-missing', ticket };
+  const sessionDir = path.join(sessionsDir(repo), ticket);
+  const rounds = ledgerRounds(sessionDir);
+  const verification = readJson(path.join(sessionDir, 'verification.json'));
+  const { loops, source } = loopController.resolveFixLoops({ rounds, verification });
+  // Neither artifact present: the ceiling is unenforceable for this session, and
+  // an advisory built on a fabricated zero would be worse than none.
+  if (source === 'none') return { error: 'loop-state-missing', ticket };
 
-  let verification;
-  try {
-    verification = JSON.parse(fs.readFileSync(verificationPath, 'utf-8'));
-  } catch (_) {
-    return { error: 'verification-unparseable', ticket };
-  }
-
+  // classHistory / lastAttempt / override live only on the legacy artifact; the
+  // ledger carries no failure class and no override. Absent, they are simply not
+  // evaluated, and the ceiling branch decides on its own.
   const review = (verification && verification.review) || {};
-  const fixLoops = loopController.getFixLoops(verification);
   const decision = loopController.shouldContinue({
-    fixLoops,
+    fixLoops: loops,
     currentClass: review.lastAttempt && review.lastAttempt.class,
     classHistory: review.classHistory,
     override: review.override,
   });
-  return { decision, loops: fixLoops, ceiling: loopController.FIX_LOOP_CEILING, ticket };
+  return { decision, loops, ceiling: loopController.FIX_LOOP_CEILING, source, ticket };
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +155,10 @@ function evaluate() {
 try {
   const result = evaluate();
   if (!result.error && result.decision.continue !== true) {
-    advisory(`FIX LOOP advisory: ${result.loops}/${result.ceiling} — ${result.decision.reason}`);
+    advisory(
+      `FIX LOOP advisory: ${result.loops}/${result.ceiling} — ${result.decision.reason} ` +
+        `(counted from ${result.source})`
+    );
   }
 } catch (_err) { /* never blocked or nagged by hook bugs */ }
 

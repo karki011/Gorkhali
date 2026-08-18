@@ -2,9 +2,26 @@
 // loop-controller.js — canonical authority for the verify/fix loop ceiling.
 //
 // Standalone library (NOT wired into hooks.json). Prose in fix.md/verify.md/apex.md
-// DEFERS to this module so the Markdown and the count can't drift. The counter is
-// the same `review.fixLoops` field in verification.json
-// — there is no parallel source of truth.
+// DEFERS to this module so the Markdown and the count can't drift.
+//
+// WHERE THE COUNT COMES FROM, and why it moved. The counter used to be the
+// `review.fixLoops` field on `{SESSION_DIR}/verification.json`, incremented by an
+// `incrementFixLoops()` that this module exported and NOTHING ever called outside
+// its own test. When verify/review moved onto the portable lifecycle
+// (`phantom-state.mjs`, artifacts under `runs/`), the last writer of that file
+// went with it — `commands/wrap.md` now refuses to read it at all. So the ceiling
+// was reading a field no live path wrote: `getFixLoops()` returned 0 forever, the
+// hard stop never fired, and the verify -> review -> fix -> verify cycle had no
+// brake. The escalation in `commands/fix.md` step 9 could not render.
+//
+// The count is now derived from the review round ledger
+// (`{SESSION_DIR}/reviews/rounds.json`, owned by scripts/review-round.js), which
+// the portable flow DOES write. That ledger is append-only and gets exactly one
+// entry per validly completed review round, so it increments itself by
+// construction — there is nothing left for an increment function to forget to
+// call, which is why `incrementFixLoops()` is gone rather than rewired.
+// `getFixLoops()` stays for pre-portable sessions whose verification.json is
+// still on disk; resolveFixLoops() prefers the ledger and says which it used.
 //
 // Rationale for the ceiling: user's CLAUDE.md — "if a fix attempt fails twice with
 // the same error class, STOP patching; the approach is wrong."
@@ -47,19 +64,78 @@ try {
   standard = require('../scripts/lib/review-standard');
 } catch (_) { /* fail open */ }
 
-// Read the loop count off a verification artifact (review.fixLoops). Missing/garbage
-// state fails safe to 0 (loop has not run).
+// LEGACY source: the loop count off a pre-portable verification artifact
+// (review.fixLoops). Missing/garbage state fails safe to 0 (loop has not run).
+// Kept because sessions written before the portable move still have the file;
+// nothing writes it any more, so it is a fallback and never the primary.
 function getFixLoops(verification) {
   const n = verification && verification.review && verification.review.fixLoops;
   return typeof n === 'number' && n >= 0 ? n : 0;
 }
 
-// Increment the counter on the artifact in place and return the new count. Keeps
-// review.fixLoops as the single source of truth that validate-artifact.js checks.
-function incrementFixLoops(verification) {
-  if (!verification.review || typeof verification.review !== 'object') verification.review = {};
-  verification.review.fixLoops = getFixLoops(verification) + 1;
-  return verification.review.fixLoops;
+/**
+ * PRIMARY source: how many fix loops the review round ledger says have run.
+ *
+ * A ROUND IS NOT AN ATTEMPT. Round 1 is the first review of the work — nothing
+ * has been fixed yet. And a later round only means a fix happened if the code
+ * CHANGED between the two: `/phantom:review` is read-only and re-runnable, so
+ * counting rounds alone lets three reviews of one untouched diff spend the whole
+ * ceiling and escalate the first genuine fix.
+ *
+ * The evidence for "a fix happened" is already in the ledger: each entry may
+ * carry the worktree `fingerprint` the round reviewed. When every entry has one,
+ * the count is how many times that fingerprint CHANGED between consecutive
+ * rounds — re-reviewing the same worktree adds a round but not an attempt.
+ *
+ * Transitions, not distinct values. Counting the SET would undercount the one
+ * sequence this repo runs on purpose: `commands/fix.md` step 8.5 scrap-and-redo
+ * does `git checkout -- <touched files>`, which restores an earlier worktree, so
+ * a real A -> B -> A is two fix attempts whose fingerprints collapse to two
+ * distinct values. A revert is a fix attempt that failed, not a fix that never
+ * happened.
+ *
+ * When any entry is unstamped the ledger cannot answer the question at all, so
+ * it falls back to round count minus one — the conservative direction: it can
+ * escalate a round early, never a round late.
+ *
+ * @param {Array} rounds  the `rounds` array of {SESSION_DIR}/reviews/rounds.json
+ */
+function fixLoopsFromLedger(rounds) {
+  const list = Array.isArray(rounds) ? rounds.filter((r) => r && typeof r === 'object' && !Array.isArray(r)) : [];
+  if (list.length === 0) return 0;
+
+  const fingerprints = list.map((r) => (typeof r.fingerprint === 'string' && r.fingerprint.trim()) || null);
+  if (!fingerprints.every(Boolean)) return list.length - 1;
+
+  let changes = 0;
+  for (let i = 1; i < fingerprints.length; i++) {
+    if (fingerprints[i] !== fingerprints[i - 1]) changes += 1;
+  }
+  return changes;
+}
+
+/**
+ * The count plus WHICH artifact produced it, so a caller can say so out loud
+ * rather than presenting a fallback number as the real one. `source` is
+ * `rounds-ledger` (portable, current), `verification-artifact` (legacy session),
+ * or `none` — and `none` means the ceiling is unenforceable for this session,
+ * which callers report rather than silently treating as zero loops run.
+ *
+ * An EMPTY `rounds` array is a real observation (the ledger owner read the
+ * ledger and it holds no rounds), so it claims the ledger source. A caller that
+ * could NOT read a ledger — absent, truncated, malformed — passes `null` and
+ * falls through to the legacy artifact. That distinction is the whole point of
+ * reporting a source at all: a corrupt ledger must not read as "zero loops so
+ * far", which would let corruption hand back a ceiling's worth of attempts.
+ */
+function resolveFixLoops({ rounds = null, verification = null } = {}) {
+  if (Array.isArray(rounds)) {
+    return { loops: fixLoopsFromLedger(rounds), source: 'rounds-ledger' };
+  }
+  if (verification && typeof verification === 'object') {
+    return { loops: getFixLoops(verification), source: 'verification-artifact' };
+  }
+  return { loops: 0, source: 'none' };
 }
 
 // ---------------------------------------------------------------------------
@@ -98,8 +174,8 @@ function normalizeChangedFile(file) {
 
 /**
  * Record a disposition for every finding on `verification.review.findings`,
- * assigning each its stable id first. Mutates in place (same as
- * incrementFixLoops - one artifact, no parallel state) and returns
+ * assigning each its stable id first. Mutates in place (one artifact, no
+ * parallel state) and returns
  * `{ recorded, rows, counts }`; `rows` is one row per finding id, which is the
  * per-finding table the baseline miner prints.
  *
@@ -313,7 +389,8 @@ module.exports = {
   HALT_STATES,
   DEFAULT_DEFER_REASON,
   getFixLoops,
-  incrementFixLoops,
+  fixLoopsFromLedger,
+  resolveFixLoops,
   closeFixLoop,
   // B10: the findings a fix loop may act on - blocking, and not preExisting.
   // Re-exported from the review standard so a caller holding the controller

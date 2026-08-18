@@ -141,7 +141,9 @@ message. A missing or invalid artifact is `blocked`, never an approval.
 ## 5. Close the round
 
 ```text
-node <skill-directory>/scripts/review-round.js close --reviews {REVIEW_DIR} --json
+{PR_BOOTSTRAP}
+[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+node "$PR/scripts/review-round.js" close --reviews {REVIEW_DIR} --json
 ```
 
 The ledger is keyed by PR number rather than session, and is what distinguishes a

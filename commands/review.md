@@ -23,7 +23,9 @@ review stage rather than restating it.
 4. Read the round number before deleting anything:
 
    ```text
-   node <skill-directory>/scripts/review-round.js status --reviews {SESSION_DIR}/reviews
+   {PR_BOOTSTRAP}
+   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR}
    ```
 
    Delete only `{SESSION_DIR}/reviews/gaze.json` — never
@@ -61,17 +63,31 @@ review stage rather than restating it.
 7. Close the round, but only once a valid Gaze artifact was actually read:
 
    ```text
-   node <skill-directory>/scripts/review-round.js close --reviews {SESSION_DIR}/reviews --json
+   {PR_BOOTSTRAP}
+   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   node "$PR/scripts/review-round.js" close --reviews {SESSION_DIR}/reviews --session {SESSION_DIR} --fingerprint <current worktree fingerprint> --json
    ```
 
+   Pass the fingerprint from `phantom-state.mjs fingerprint` — the same one this
+   round's verification is bound to. It is what separates a re-review of an
+   unchanged worktree from a round that followed an actual fix, and the fix-loop
+   count below is derived from it. An unstamped round still records; the count
+   just falls back to counting rounds, which escalates earlier than it needs to.
+
    It stamps the finding ids, appends this round to the ledger, and returns
-   `reported`, `suppressed` and a `convergence` object. On round 2 and later,
-   itemize only the `reported` blocking findings and give the non-blocking ones
-   as the `suppressed` counts (`carriedOver` / `new`) — never re-listed one by
-   one. Skip this entirely when no artifact was written or the review is
-   `blocked`: an unrecorded round leaves the next pass at the same round number,
-   so a truncated run cannot advance convergence any more than it can reuse a
-   verdict.
+   `reported`, `suppressed`, a `convergence` object and a `loop` object. On round
+   2 and later, itemize only the `reported` blocking findings and give the
+   non-blocking ones as the `suppressed` counts (`carriedOver` / `new`) — never
+   re-listed one by one. Skip this entirely when no artifact was written or the
+   review is `blocked`: an unrecorded round leaves the next pass at the same round
+   number, so a truncated run cannot advance convergence any more than it can
+   reuse a verdict.
+
+   Report `loop` verbatim alongside the verdict. It is the fix-loop standing the
+   ledger now holds (`reference/fix-loop.md`), and `loop.decision.escalate` means
+   the next fix loop is the one that must not silently happen — this command
+   still never starts one, but it is what makes the ceiling visible at the moment
+   it is reached rather than after another round.
 8. Record the merged outcome through the portable helper:
 
    ```json

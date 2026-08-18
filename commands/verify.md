@@ -102,7 +102,7 @@ Run the round defined by `commands/review.md` → `## Review round procedure`. T
 heading is the single copy of the procedure; follow its steps there. Supply this
 verify context:
 
-- **Round source** — `node <skill-directory>/scripts/review-round.js status --reviews {SESSION_DIR}/reviews`, and tell Gaze the round it prints.
+- **Round source** — `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR}` (`{PR_BOOTSTRAP}` per `_shared.md` §Paths), and tell Gaze the round it prints.
 - **Artifacts** — Delete only `{SESSION_DIR}/reviews/gaze.json` — never `{SESSION_DIR}/reviews/rounds.json` — then run one fresh, read-only Gaze pass against this verification's Ward evidence and the current diff. Close the round with `review-round.js close` only after a valid artifact was read.
 - **Required check** — Gaze checks this verification's `userVerification` classification against the complete diff; `commands/review.md` steps 5-6 own the pass/duplicate/missing consequences.
 - **Specialists** — run exactly the roles in this verification's `requiredSpecialists`, without reclassifying the diff. For `archer`, create `{SESSION_DIR}/reviews/specialists/`, then delete only `{SESSION_DIR}/reviews/specialists/archer.json` immediately before spawning it, and bind each role's evidence to this verification's Ward artifact; `commands/review.md` steps 5, 6 and 8 own the verdict shape and the fail/blocked reduction.
@@ -111,8 +111,9 @@ verify context:
 ## Result
 
 Report the ordered evidence: Ward checks, Sweep result, affected Ward rerun,
-Gaze verdict, user visual confirmation when required, triggered specialists,
-and portable artifact locations. End with:
+Gaze verdict, the closed round's `loop` standing (the fix-loop count against the
+ceiling — see `reference/fix-loop.md`), user visual confirmation when required,
+triggered specialists, and portable artifact locations. End with:
 
 - `done` only when required checks and review passed;
 - `done-with-caveat` only for a genuinely optional unavailable capability; or

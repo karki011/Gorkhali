@@ -100,11 +100,18 @@ async function evaluate(opts) {
   // Failure-class history rides the SAME field the fix loop uses
   // (verification.json review.classHistory / review.lastAttempt.class). No
   // parallel stuck-state file: if verify has not run, there is no history and the
-  // stuck check simply has nothing to fire on.
+  // stuck check simply has nothing to fire on. HONEST LIMIT: no live path writes
+  // those fields, so the stuck branch is currently inert and the spend ceiling is
+  // what this guard actually enforces. The loop count below does not share that
+  // limit - it reads the review round ledger the portable flow writes.
   const verification = sessionDir ? loadJson(path.join(sessionDir, 'verification.json')) : null;
   const review = (verification && verification.review) || {};
   const classHistory = Array.isArray(review.classHistory) ? review.classHistory : [];
   const currentClass = (review.lastAttempt && review.lastAttempt.class) || null;
+
+  const roundsLedger = sessionDir ? loadJson(path.join(sessionDir, 'reviews', 'rounds.json')) : null;
+  const rounds = roundsLedger && Array.isArray(roundsLedger.rounds) ? roundsLedger.rounds : null;
+  const loopState = loopController.resolveFixLoops({ rounds, verification });
 
   const decision = loopController.unattendedHalt({
     unattended: opts.unattended,
@@ -118,7 +125,7 @@ async function evaluate(opts) {
     repo,
     sessionDir,
     spend,
-    fixLoops: verification ? loopController.getFixLoops(verification) : null,
+    fixLoops: loopState.source === 'none' ? null : loopState.loops,
     decision,
   };
 }

@@ -219,7 +219,7 @@ node outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] [--no-gh]
 - `pr_state` is a closed enum (`draft | open | merged | closed | absent`) mapped only from gh's own answer; an unmappable state is nulled with a reason, never guessed
 - `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`direct | plan | brainstorm | full`) chosen at `start` by `phantom-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
 - An out-of-enum `route` or `pr_state` is refused at write time, never persisted verbatim
-- `verified`, `fix_loops`, `wall_time_ms`, `agents` come from `verification.json`, loop-controller, the session timestamps, and the timing jsonl respectively
+- `verified`, `fix_loops`, `wall_time_ms`, `agents` come from `verification.json`, loop-controller (counting `reviews/rounds.json`, the portable review round ledger, and falling back to legacy `verification.json` `review.fixLoops`), the session timestamps, and the timing jsonl respectively
 
 **Exit:** 0 = record produced; 1 = write or internal error; 2 = usage error
 

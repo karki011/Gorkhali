@@ -17,7 +17,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 | review | object | yes | Self-review results |
 | review.temperature | number | yes | Reviewer strictness (0-1). NOT a severity: it is a knob on how hard the reviewer looks, orthogonal to how a finding is scored once found (`findings[].severity`) |
 | review.findings | object[] | yes | Array of finding objects. Element shape is the review artifact's finding (`reference/schemas/review.md`) — ONE shape and ONE severity scale, enforced there; array-only here so no verification artifact already on disk starts failing |
-| review.fixLoops | number | yes | How many fix/re-verify loops ran. Counter owned by `hooks/loop-controller.js`; capped at the fix-loop ceiling (canonical: `reference/fix-loop.md`, currently 2) unless a logged operator override extended it |
+| review.fixLoops | number | yes | How many fix/re-verify loops ran. LEGACY source: the portable flow counts the review round ledger (`{SESSION_DIR}/reviews/rounds.json`) instead, and this field is read only for sessions written before that move. Either way the count is owned by `hooks/loop-controller.js` and capped at the fix-loop ceiling (canonical: `reference/fix-loop.md`) unless a logged operator override extended it |
 | simplifyRan | boolean | yes | Whether simplify was run on changed files |
 | intentAlignment | `"aligned"` \| `"drift"` \| `"wrong"` | yes | How well output matches intent.json |
 | userVerification | object | yes for passed verdict | Compact UI classification and conditional user-verification result; use `{ "required": false }` for non-UI work |
