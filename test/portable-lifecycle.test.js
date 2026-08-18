@@ -1984,7 +1984,7 @@ test('wiring approval explicitly binds the current passed plan and decisions art
   );
 });
 
-test('record failures do not advance execution or verification lifecycle state', async () => {
+test('record failures do not advance execution or verification lifecycle state', async (t) => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   parse(await run([
@@ -2028,7 +2028,25 @@ test('record failures do not advance execution or verification lifecycle state',
   assert.equal(writeFailure.code, 1);
   assert.equal(parse(await run(['status', ...common], context.env)).lifecycle.actions.verify.status, 'pending');
 
-  if (process.platform !== 'win32') {
+  // This injection makes the pointer directory unwritable while keeping it
+  // READABLE, because `record` must still resolve the current session before it
+  // attempts the write it is supposed to fail on. That read/no-write split is
+  // expressible only through permission bits, and uid 0 bypasses them by
+  // definition: as root the write succeeds, `record` exits 0, and the assertions
+  // below fail for a reason that has nothing to do with the behavior under test.
+  //
+  // Substituting a regular file for the directory would fail uid-independently
+  // but also blocks the read, so `record` would exit 1 with "no active session"
+  // and the assertions would pass vacuously - a worse outcome than skipping.
+  //
+  // So skip on root, loudly. Container and CI images that run as root keep a
+  // green suite instead of one permanently red failure everyone learns to
+  // ignore, and every non-root run still covers it.
+  const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+  if (isRoot) {
+    t.diagnostic('skipped the unwritable-pointer case: uid 0 bypasses the permission bits it needs');
+  }
+  if (process.platform !== 'win32' && !isRoot) {
     const pointerDirectory = path.join(context.data, 'state', 'current-session');
     const partialArtifact = path.join(runDirectory, 'state-write-failure', 'verification.json');
     fs.chmodSync(pointerDirectory, 0o555);

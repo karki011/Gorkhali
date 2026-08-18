@@ -89,6 +89,27 @@ capabilities when exposed. If a capability is unavailable, use the smallest
 labeled fallback that preserves the same artifact and gate. Missing required
 evidence blocks only the dependent action; it does not erase completed work.
 
+## Response shape
+
+Applies to every response for the rest of the session, not only the one being
+written and not only to workflow reports. It does not lapse when the topic
+changes.
+
+1. Lead with the decision, verdict, or result, never with the approach.
+2. Name where the run stands: which gate of how many, which action, what is next.
+3. Give measured quantities, never adjectives. Unknown is stated as unknown.
+4. Rank findings by severity, show at most five, report the rest as a count and
+   where to read them.
+5. State a failure as cause then fix. Surface a blocker before its explanation.
+6. Defer a second problem to one line at the end.
+7. No preamble, no recap, no closing pleasantry.
+
+Yield when the user asks for an explanation or walkthrough, when a destructive
+or external action needs confirmation, when the request is genuinely ambiguous,
+when the answer is a set of options, when the host's own instructions require
+otherwise, or when an invariant above requires words this would cut. Shape never
+suppresses a required disclosure, an authorization request, or a stated gap.
+
 ## Pause, resume, and finish
 
 ```text

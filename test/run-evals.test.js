@@ -25,6 +25,8 @@ const {
   parseJudgeResponse,
   boundedJudgeTranscript,
   diffBaseline,
+  passRateOf,
+  evaluateGate,
   hasAssistantTurn,
   evidencePredicate,
   finalizeVerdict,
@@ -235,7 +237,7 @@ test('diffBaseline reports flips, added, and removed cases', () => {
 });
 
 test('parseArgs: defaults, flags, and rejection of junk', () => {
-  assert.deepEqual(parseArgs([]), { filter: null, model: null, dryRun: false, baseline: false, date: null, concurrency: 2, keepTranscripts: null });
+  assert.deepEqual(parseArgs([]), { filter: null, model: null, dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null });
   const opts = parseArgs(['--dry-run', '--filter', 'route', '--model', 'sonnet', '--concurrency', '4', '--baseline', '--date', '2026-06-10']);
   assert.equal(opts.dryRun, true);
   assert.equal(opts.filter, 'route');
@@ -384,4 +386,169 @@ test('validateEvals: id-less entries skip the duplicate-id check', () => {
   ]);
   assert.equal(errors.filter((e) => e.includes('id must be an integer')).length, 2);
   assert.ok(!errors.some((e) => e.includes('duplicate id')), 'no spurious "case ?" duplicate');
+});
+
+// ---------------------------------------------------------------------------
+// Release gate. The rules exist so a green-looking run cannot ship a
+// regression; each test below pins one way that used to be possible.
+// ---------------------------------------------------------------------------
+
+const GATE_BASELINE = {
+  model: 'sonnet',
+  date: '2026-07-29',
+  cases: { 1: 'pass', 2: 'pass', 3: 'fail' },
+  passRate: 0.667,
+};
+
+test('parseArgs: --gate parses and is mutually exclusive with --baseline', () => {
+  assert.equal(parseArgs(['--gate']).gate, true);
+  assert.throws(
+    () => parseArgs(['--gate', '--baseline']),
+    /mutually exclusive/,
+    'gating a run against the baseline it is writing would pass unconditionally',
+  );
+});
+
+test('evaluateGate passes when the same cases hold their baseline verdicts', () => {
+  const gate = evaluateGate({
+    baseline: GATE_BASELINE,
+    results: { 1: 'pass', 2: 'pass', 3: 'fail' },
+    model: 'sonnet',
+  });
+  assert.equal(gate.passed, true, gate.reasons.join(' | '));
+  assert.deepEqual(gate.reasons, []);
+});
+
+test('evaluateGate: a known-failing baseline case that still fails is not a regression', () => {
+  // The gate measures movement against the record, not absolute greenness.
+  const gate = evaluateGate({ baseline: GATE_BASELINE, results: { 1: 'pass', 2: 'pass', 3: 'fail' }, model: 'sonnet' });
+  assert.equal(gate.passed, true);
+  assert.ok(gate.currentRate < 1, 'baseline is not all-green');
+});
+
+test('evaluateGate blocks a pass -> fail regression and names the case', () => {
+  const gate = evaluateGate({
+    baseline: GATE_BASELINE,
+    results: { 1: 'pass', 2: 'fail', 3: 'fail' },
+    model: 'sonnet',
+  });
+  assert.equal(gate.passed, false);
+  assert.ok(gate.reasons.some((r) => /regressed pass -> fail \(2\)/.test(r)), gate.reasons.join(' | '));
+});
+
+test('evaluateGate blocks an unpaired comparison in both directions', () => {
+  // The filtered-run hole: three green cases out of a 55-case baseline used to
+  // print "no flips, 100% pass" and read as a clean release.
+  const partial = evaluateGate({ baseline: GATE_BASELINE, results: { 1: 'pass' }, model: 'sonnet' });
+  assert.equal(partial.passed, false);
+  assert.ok(partial.reasons.some((r) => r.includes('2 baseline case(s) did not run')), partial.reasons.join(' | '));
+
+  const widened = evaluateGate({
+    baseline: GATE_BASELINE,
+    results: { 1: 'pass', 2: 'pass', 3: 'fail', 4: 'pass' },
+    model: 'sonnet',
+  });
+  assert.equal(widened.passed, false);
+  assert.ok(widened.reasons.some((r) => r.includes('the baseline does not cover')), widened.reasons.join(' | '));
+});
+
+test('evaluateGate blocks a cross-model comparison', () => {
+  const gate = evaluateGate({ baseline: GATE_BASELINE, results: { 1: 'pass', 2: 'pass', 3: 'fail' }, model: 'opus' });
+  assert.equal(gate.passed, false);
+  assert.ok(gate.reasons.some((r) => r.includes('confound')), gate.reasons.join(' | '));
+});
+
+test('evaluateGate blocks when no baseline exists', () => {
+  const gate = evaluateGate({ baseline: null, results: { 1: 'pass' }, model: 'sonnet' });
+  assert.equal(gate.passed, false);
+  assert.equal(gate.reasons.length, 1);
+  assert.ok(/nothing to gate against/.test(gate.reasons[0]), gate.reasons[0]);
+});
+
+test('evaluateGate blocks a pass-rate drop even with no single-case regression', () => {
+  // Swapping which cases pass keeps every id present and flips one the other
+  // way, so the regression rule alone would let a net loss through.
+  const gate = evaluateGate({
+    baseline: { model: 'sonnet', cases: { 1: 'pass', 2: 'pass', 3: 'pass' } },
+    results: { 1: 'pass', 2: 'pass', 3: 'fail' },
+    model: 'sonnet',
+  });
+  assert.equal(gate.passed, false);
+  assert.ok(gate.reasons.some((r) => r.includes('Pass rate fell below baseline')), gate.reasons.join(' | '));
+});
+
+test('evaluateGate ignores a hand-edited passRate and recomputes from cases', () => {
+  const lying = { model: 'sonnet', cases: { 1: 'pass', 2: 'fail' }, passRate: 1 };
+  const gate = evaluateGate({ baseline: lying, results: { 1: 'pass', 2: 'fail' }, model: 'sonnet' });
+  assert.equal(gate.passed, true, gate.reasons.join(' | '));
+  assert.equal(gate.baselineRate, 0.5, 'stored passRate is display-only');
+});
+
+test('evaluateGate defaults an absent model on both sides to "default"', () => {
+  const gate = evaluateGate({ baseline: { cases: { 1: 'pass' } }, results: { 1: 'pass' }, model: null });
+  assert.equal(gate.passed, true, gate.reasons.join(' | '));
+});
+
+test('passRateOf handles the empty case set without dividing by zero', () => {
+  assert.equal(passRateOf({}), 0);
+  assert.equal(passRateOf(undefined), 0);
+  assert.equal(passRateOf({ 1: 'pass', 2: 'fail' }), 0.5);
+});
+
+test('evaluateGate caps the id list so a reason stays readable in a CI log', () => {
+  const cases = {};
+  for (let id = 1; id <= 30; id++) cases[id] = 'pass';
+  const gate = evaluateGate({ baseline: { model: 'sonnet', cases }, results: { 1: 'pass' }, model: 'sonnet' });
+  const unpaired = gate.reasons.find((r) => r.includes('did not run'));
+  assert.ok(unpaired.includes('and 19 more'), unpaired);
+  assert.ok(unpaired.includes('29 baseline case(s)'), 'the full count is still stated');
+});
+
+test('every committed baseline covers exactly the cases in evals.json', () => {
+  // A stale baseline makes the gate unpassable rather than lenient: case 41 was
+  // deleted from evals.json in #116 and its verdict outlived it, so every full
+  // --gate run blocked on a case that could not be run. Pin the pairing here so
+  // the next deletion cannot ship the same way.
+  const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
+  const caseIds = doc.evals.map((c) => String(c.id)).sort();
+  const dir = path.join(__dirname, '..', 'evals', 'baselines');
+  const baselines = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+  assert.ok(baselines.length, 'at least one baseline is committed');
+  for (const file of baselines) {
+    const baseline = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    const ids = Object.keys(baseline.cases).sort();
+    assert.deepEqual(ids, caseIds, `${file} case ids drifted from evals.json`);
+    const rate = ids.filter((id) => baseline.cases[id] === 'pass').length / ids.length;
+    assert.equal(Number(rate.toFixed(3)), baseline.passRate, `${file} passRate does not match its own verdicts`);
+  }
+});
+
+test('the shipped baseline actually lets a clean full run pass the gate', () => {
+  // Guards the whole point: a gate no run can satisfy is not a gate.
+  const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
+  const baseline = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'baselines', 'sonnet.json'), 'utf8'));
+  const replay = {};
+  for (const c of doc.evals) replay[c.id] = baseline.cases[String(c.id)];
+  const gate = evaluateGate({ baseline, results: replay, model: 'sonnet' });
+  assert.equal(gate.passed, true, gate.reasons.join(' | '));
+});
+
+test('evaluateGate rejects a baseline with no verdicts instead of treating it as a zero bar', () => {
+  for (const cases of [undefined, {}, []]) {
+    const gate = evaluateGate({ baseline: { model: 'sonnet', cases }, results: { 1: 'pass' }, model: 'sonnet' });
+    assert.equal(gate.passed, false, `cases=${JSON.stringify(cases)}`);
+    assert.ok(gate.reasons.some((r) => r.includes('unusable')), gate.reasons.join(' | '));
+  }
+});
+
+test('evaluateGate rejects verdicts outside the pass|fail enum', () => {
+  // 'passed' is not 'pass': it would count as a non-pass, depressing the
+  // baseline rate while never arming the regression rule.
+  const gate = evaluateGate({
+    baseline: { model: 'sonnet', cases: { 1: 'pass', 2: 'passed', 3: 'skipped' } },
+    results: { 1: 'pass', 2: 'fail', 3: 'fail' },
+    model: 'sonnet',
+  });
+  assert.equal(gate.passed, false);
+  assert.ok(gate.reasons.some((r) => /outside pass\|fail \(2, 3\)/.test(r)), gate.reasons.join(' | '));
 });

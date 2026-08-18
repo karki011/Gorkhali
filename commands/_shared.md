@@ -96,12 +96,36 @@ by `test/portable-skill.test.js` - the sites stay verbatim and change only toget
 13. **Subagent-driven** — all edits via Agent tool
 14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Apex can't self-launch). See `reference/workflow-delegation.md`.
 15. **Output contract** — script/skill output is minimal-field, counted, truncated-with-escape-hatch, `help[N]`-hinted, fails loud on unknown flags; human-facing deliverables (plans, research, reports, summaries) are self-contained HTML, never markdown. See `reference/output-contract.md`.
+16. **Response shape** — the conversational response leads with the decision, names where the run stands, measures instead of hedging, ranks and caps findings, and carries no preamble or closer. See `reference/response-shape.md` and § Response Shape below.
 
 </constraints>
 
 ### Self-Check (before "done")
 
 All true? Feature branch, verify ran, anti-repetition, rival, simplify, intent, learnings, subagent-only. If ANY no → fix first.
+
+## Response Shape
+
+Governs the prose Apex writes to the human. Script output stays under `reference/output-contract.md`;
+the last line stays under § Final Status Block below. Full contract and the conditions that override
+it: `reference/response-shape.md`.
+
+1. **Decision first** — first line is the verdict, route, or result. A report token (`[{ROUTE}]`,
+   `[PLANNED]`) already satisfies this.
+2. **Say where the run is** — "Gate 2 of 3 cleared: …". The reader does not carry state between turns.
+3. **Measure, never hedge** — `4m12s, $0.38, 6 files`, not "a while" or "a fair amount". Unknown is
+   stated as unknown, with why.
+4. **Rank then cap** — findings by severity, five visible, remainder as a count plus where to read it.
+5. **Errors: cause, then fix** — no "uh oh", no apology.
+6. **Blockers first** — the blocker leads; its explanation follows.
+7. **Tangents wait** — one line, at the end, as an offer.
+8. **No preamble, no recap, no closer** — not "Great question", "Let me", "Hope this helps", "Let me
+   know if you need anything else". The Final Status Block is the ending.
+
+Overridden by: an explicit request to explain or walk through, a destructive action needing
+confirmation, genuine ambiguity, an options question, the host's own system prompt, and any gate,
+invariant, or Core Discipline that requires words this would cut. Shape never suppresses a required
+disclosure, an authorization request, or a stated gap.
 
 ## Final Status Block
 

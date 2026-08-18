@@ -1,0 +1,94 @@
+# Author: Subash Karki
+# Load-layer gate. The CI workflow proves the repo's *contents* are consistent
+# (schemas, drift, portable-skill boundary); this one proves the plugin those
+# contents describe actually LOADS in Claude Code.
+#
+# The two are not the same check. A malformed hooks/hooks.json passes every one
+# of the unit tests and still leaves the installed plugin at "failed to load",
+# because nothing in the suite parses hooks.json the way the host does.
+name: plugin load
+
+on:
+  pull_request:
+    paths:
+      - .claude-plugin/**
+      - hooks/**
+      - skills/**
+      - commands/**
+      - agents/**
+      - scripts/**
+      - .github/workflows/plugin-load.yml
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: every hook and script parses
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Parse every JS, Python, and shell entry point
+        run: |
+          set -euo pipefail
+          status=0
+          for file in hooks/*.js hooks/*.mjs hooks/*.cjs \
+                      scripts/*.js scripts/*.mjs scripts/lib/*.js scripts/lib/*.cjs \
+                      skills/phantom/scripts/*.mjs skills/phantom/scripts/lib/*; do
+            [ -e "$file" ] || continue
+            case "$file" in *.sh) continue ;; esac
+            node --check "$file" || { echo "::error file=$file::does not parse"; status=1; }
+          done
+          # sh -n rejects bash syntax these scripts legitimately use; every one
+          # of them declares a bash shebang, so check them with bash.
+          for file in hooks/*.sh scripts/*.sh scripts/lib/*.sh; do
+            [ -e "$file" ] || continue
+            bash -n "$file" || { echo "::error file=$file::does not parse"; status=1; }
+          done
+          # scripts/compress is a Python entry point run as `python3 -m compress`,
+          # so a syntax error there is a load failure this job would otherwise miss.
+          while IFS= read -r file; do
+            python3 -m py_compile "$file" || { echo "::error file=$file::does not parse"; status=1; }
+          done < <(find scripts hooks -name '*.py' -not -path '*/__pycache__/*')
+          exit $status
+
+  load:
+    name: plugin reaches enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Install the plugin from this checkout into a scratch config
+        run: |
+          set -euo pipefail
+          export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude-scratch"
+          mkdir -p "$CLAUDE_CONFIG_DIR"
+          claude plugin marketplace add "$GITHUB_WORKSPACE"
+          # `plugin install` exits 0 even when the plugin later fails to load
+          # (verified against a malformed hooks.json), so its exit code is not
+          # the assertion — the status line below is.
+          claude plugin install phantom@phantom
+          claude plugin list | tee plugin-list.txt
+          # The status glyph is terminal-dependent (✔ or √), so match the word.
+          grep -qE '^[[:space:]]*Status:.*enabled' plugin-list.txt || {
+            echo "::error::phantom did not reach \"enabled\" from this checkout; see the plugin list output above"
+            exit 1
+          }

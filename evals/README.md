@@ -46,6 +46,14 @@ Send each prompt to Claude Code and verify:
 2. The behavior matches `expected_behavior`
 3. Near-miss prompts route to a different skill (not the tested one)
 
+### Release gate
+
+```bash
+node scripts/run-evals.js --gate --model sonnet   # live run; exits 1 with named reasons if it may not ship
+```
+
+Compares the run to `evals/baselines/<model>.json` mechanically instead of printing a drift report to read. It blocks on a missing baseline, a cross-model comparison, an unpaired case set, any `pass` → `fail` flip, or a pass rate below baseline. Rules and caveats: [baselines/README.md](baselines/README.md).
+
 ### Automated eval script (future)
 
 ```bash

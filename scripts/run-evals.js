@@ -3,7 +3,7 @@
 // run-evals.js — Runs evals/evals.json against the claude CLI.
 // Kinds: trigger (default when absent) | route | convention. See evals/README.md.
 // Usage: run-evals.js [--filter <skill|kind|id[,..]>] [--model <alias>]
-//        [--dry-run] [--baseline] [--date <YYYY-MM-DD>] [--concurrency N]
+//        [--dry-run] [--baseline] [--gate] [--date <YYYY-MM-DD>] [--concurrency N]
 //        [--keep-transcripts <dir>]
 // Env: PHANTOM_EVAL_TIMEOUT_S (per-case cap, default 60)
 //      PHANTOM_EVAL_JUDGE_MODEL (llm-judge model, default haiku)
@@ -11,6 +11,10 @@
 //      PHANTOM_EVAL_DATE        (baseline date fallback for --baseline)
 // Live runs spend tokens — `npm run evals` stays --dry-run by default.
 // Exit 0 = all pass (or clean dry run), 1 = any failure.
+//
+// --gate turns the advisory drift report into a release decision: the run is
+// compared to the baseline mechanically and a blocked release exits 1 with the
+// reasons named. See evaluateGate for the rules and why each one blocks.
 
 'use strict';
 
@@ -29,11 +33,11 @@ const JUDGE_OMISSION = '\n... [middle omitted for judge] ...\n';
 const STREAM_EVENT_TYPES = new Set(['assistant', 'result', 'system', 'user']);
 
 const USAGE = `Usage: node scripts/run-evals.js [--filter <skill|kind|id[,..]>] [--model <alias>]
-       [--dry-run] [--baseline] [--date <YYYY-MM-DD>] [--concurrency N]
+       [--dry-run] [--baseline] [--gate] [--date <YYYY-MM-DD>] [--concurrency N]
        [--keep-transcripts <dir>]`;
 
 function parseArgs(argv) {
-  const opts = { filter: null, model: null, dryRun: false, baseline: false, date: null, concurrency: 2, keepTranscripts: null };
+  const opts = { filter: null, model: null, dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null };
   // A silently-missing value (e.g. a bare --filter on a live run) would
   // execute ALL cases — a token hazard. Fail loud instead.
   const takeValue = (flag, i) => {
@@ -45,6 +49,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--baseline') opts.baseline = true;
+    else if (a === '--gate') opts.gate = true;
     else if (a === '--filter') opts.filter = takeValue(a, ++i);
     else if (a === '--model') opts.model = takeValue(a, ++i);
     else if (a === '--date') opts.date = takeValue(a, ++i);
@@ -54,6 +59,11 @@ function parseArgs(argv) {
   }
   if (!Number.isInteger(opts.concurrency) || opts.concurrency < 1) {
     throw new Error('--concurrency must be a positive integer');
+  }
+  // --baseline WRITES the record --gate reads. Doing both in one run would
+  // compare a run to itself and pass unconditionally.
+  if (opts.baseline && opts.gate) {
+    throw new Error('--baseline and --gate are mutually exclusive: a run cannot be gated against itself');
   }
   return opts;
 }
@@ -271,6 +281,88 @@ function diffBaseline(baselineCases, results) {
   return drift;
 }
 
+// Gate reasons name the cases involved, but a filtered run can leave 50+ ids
+// unpaired and a wall of numbers buries the reason itself in a CI log.
+function listIds(ids, cap = 10) {
+  if (ids.length <= cap) return ids.join(', ');
+  return `${ids.slice(0, cap).join(', ')}, and ${ids.length - cap} more`;
+}
+
+function passRateOf(cases) {
+  const ids = Object.keys(cases || {});
+  if (!ids.length) return 0;
+  return ids.filter((id) => cases[id] === 'pass').length / ids.length;
+}
+
+// The release gate. `diffBaseline` above REPORTS what moved; this DECIDES
+// whether the run may ship, and returns every reason it may not.
+//
+// The pairing rule is the load-bearing one. Without it a `--filter` run over
+// three green cases prints "no flips, 100% pass" against a 55-case baseline and
+// reads exactly like a clean release. Comparing unequal case sets is not
+// discouraged here, it is refused.
+//
+// Deviation worth stating: the pass-rate rule requires "not below baseline"
+// rather than "strictly above". This is a regression gate on a capped metric —
+// a re-run that ties a 100% baseline is a legitimate release, not a stall.
+//
+// `baseline.passRate` is display-only; the rate is recomputed from
+// `baseline.cases` so a hand-edited number cannot move the decision.
+function evaluateGate({ baseline, results, model }) {
+  const reasons = [];
+  const requested = model || 'default';
+
+  if (!baseline) {
+    return {
+      passed: false,
+      reasons: [`No baseline for model "${requested}": nothing to gate against. Write one with --baseline first.`],
+    };
+  }
+
+  const baselineModel = baseline.model || 'default';
+  if (baselineModel !== requested) {
+    reasons.push(`Baseline is for model "${baselineModel}" but the run used "${requested}": cross-model comparison is a confound.`);
+  }
+
+  // A baseline is data the gate trusts to lower or raise its own bar, so its
+  // shape is checked before it is believed. An absent map, or a verdict outside
+  // the closed pass|fail enum, silently reads as "not a pass": it would depress
+  // the baseline rate and slip past the regression rule, which only fires on a
+  // recorded 'pass'. Reject the record instead of comparing against a fiction.
+  const prev = baseline.cases;
+  if (!prev || typeof prev !== 'object' || Array.isArray(prev) || !Object.keys(prev).length) {
+    reasons.push('Baseline has no recorded case verdicts: the record is unusable, not a bar of zero.');
+    return { passed: false, reasons, baselineRate: 0, currentRate: passRateOf(results) };
+  }
+  const malformed = Object.keys(prev).filter((id) => prev[id] !== 'pass' && prev[id] !== 'fail');
+  if (malformed.length) {
+    reasons.push(`Baseline holds ${malformed.length} verdict(s) outside pass|fail (${listIds(malformed)}): regenerate it with --baseline.`);
+    return { passed: false, reasons, baselineRate: 0, currentRate: passRateOf(results) };
+  }
+
+  const missing = Object.keys(prev).filter((id) => !(id in results));
+  const extra = Object.keys(results).filter((id) => !(id in prev));
+  if (missing.length) {
+    reasons.push(`Not judged on the same cases as baseline: ${missing.length} baseline case(s) did not run (${listIds(missing)}).`);
+  }
+  if (extra.length) {
+    reasons.push(`Not judged on the same cases as baseline: ${extra.length} case(s) ran that the baseline does not cover (${listIds(extra)}).`);
+  }
+
+  const regressions = Object.keys(prev).filter((id) => prev[id] === 'pass' && results[id] === 'fail');
+  if (regressions.length) {
+    reasons.push(`${regressions.length} case(s) regressed pass -> fail (${listIds(regressions)}).`);
+  }
+
+  const baselineRate = passRateOf(prev);
+  const currentRate = passRateOf(results);
+  if (currentRate < baselineRate) {
+    reasons.push(`Pass rate fell below baseline: ${(currentRate * 100).toFixed(1)}% vs ${(baselineRate * 100).toFixed(1)}%.`);
+  }
+
+  return { passed: reasons.length === 0, reasons, baselineRate, currentRate };
+}
+
 function baselinePath(model) {
   const name = (model || 'default').replace(/[^A-Za-z0-9._-]/g, '_');
   return path.join(BASELINES_DIR, `${name}.json`);
@@ -453,6 +545,12 @@ async function main() {
       detail: judgeLabel(c),
     })));
     console.log('\nDry run — no claude invocations. Drop --dry-run for a live (token-spending) run.');
+    if (opts.gate) {
+      // Say so rather than letting the flag look honoured: a gate needs real
+      // results, so --dry-run --gate decides nothing.
+      const bp = baselinePath(opts.model);
+      console.log(`--gate is inert in a dry run: it needs live results to compare against ${path.relative(ROOT, bp)}.`);
+    }
     process.exit(0);
   }
 
@@ -479,6 +577,19 @@ async function main() {
   for (const r of results) resultMap[r.id] = r.status === 'PASS' ? 'pass' : 'fail';
 
   const bp = baselinePath(opts.model);
+  if (opts.gate) {
+    const baseline = fs.existsSync(bp) ? JSON.parse(fs.readFileSync(bp, 'utf8')) : null;
+    const gate = evaluateGate({ baseline, results: resultMap, model: opts.model });
+    console.log(`\nRelease gate vs ${path.relative(ROOT, bp)}${baseline ? ` (${baseline.date})` : ''}:`);
+    if (gate.passed) {
+      console.log(`  PASS — paired on ${Object.keys(resultMap).length} case(s), `
+        + `pass rate ${(gate.currentRate * 100).toFixed(1)}% vs baseline ${(gate.baselineRate * 100).toFixed(1)}%.`);
+    } else {
+      for (const reason of gate.reasons) console.log(`  BLOCKED: ${reason}`);
+    }
+    process.exit(gate.passed ? 0 : 1);
+  }
+
   if (opts.baseline) {
     fs.mkdirSync(BASELINES_DIR, { recursive: true });
     const date = opts.date || process.env.PHANTOM_EVAL_DATE || new Date().toISOString().slice(0, 10);
@@ -520,6 +631,8 @@ module.exports = {
   parseJudgeResponse,
   boundedJudgeTranscript,
   diffBaseline,
+  passRateOf,
+  evaluateGate,
   hasAssistantTurn,
   evidencePredicate,
   finalizeVerdict,

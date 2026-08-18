@@ -24,7 +24,11 @@ function directReferenceLinks(markdown) {
 test('portable router stays within its activated context budget', (t) => {
   const routerBytes = bytes(ROUTER);
   t.diagnostic(`router: ${routerBytes} bytes / ~${approximateTokens(routerBytes)} tokens`);
-  assert.ok(routerBytes <= 6_000, `router is ${routerBytes} bytes; budget is 6000`);
+  // Raised 6000 -> 6500 when § Response shape landed in the router. The contract
+  // governs every response, so it has to be resident wherever the router is, and
+  // the four-phase-reference invariant below deliberately blocks a fifth file.
+  // The extra ~1.1KB buys that; the ceiling still exists so it cannot creep.
+  assert.ok(routerBytes <= 6_500, `router is ${routerBytes} bytes; budget is 6500`);
 });
 
 test('standard start closure stays below the mandatory context budget', (t) => {
@@ -33,7 +37,10 @@ test('standard start closure stays below the mandatory context budget', (t) => {
   const total = measured.reduce((sum, component) => sum + component.bytes, 0);
   t.diagnostic(`${measured.map(({ file, bytes: size }) => `${file}=${size}`).join(', ')}`);
   t.diagnostic(`standard start: ${total} bytes / ~${approximateTokens(total)} tokens`);
-  assert.ok(total <= 16_000, `standard start closure is ${total} bytes; budget is 16000`);
+  // Raised 16000 -> 17500 for the same reason as the router budget above. The
+  // closure sat at 15994 of 16000 before this, so the old ceiling had six bytes
+  // of headroom and would have blocked any addition at all.
+  assert.ok(total <= 17_500, `standard start closure is ${total} bytes; budget is 17500`);
 });
 
 test('router exposes exactly four direct one-hop phase references', () => {

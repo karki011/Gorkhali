@@ -35,6 +35,12 @@ Phantom's gates are code that returns a decision before the tool call runs.
   It is opt-in via `PHANTOM_ROUTING_ENFORCE=1`, can explicitly expand to every Git repository with `PHANTOM_ROUTING_SCOPE=all-git`, and fails open on operational errors.
 - `test/agent-frontmatter-drift.test.js` fails CI when any `agents/*.md` model pin drifts from `skills/phantom/references/model-policy.json`.
   A hand-edited routing decision does not survive to a merge.
+- `scripts/run-evals.js --gate` decides whether an eval run may ship instead of printing a drift report for a human to read.
+  It refuses to compare unequal case sets, so a `--filter` run over three green cases cannot pass as a clean release against a 55-case baseline, and it recomputes the baseline pass rate from the recorded verdicts rather than trusting the stored number.
+- `hooks/response-shape.js` is a `SessionStart` hook that keeps the response-shape contract resident for the whole session, re-injecting on `compact` because compaction drops it and a mode that dies mid-session is worse than one never enabled.
+  Opt in with `node scripts/phantom-config.js set output.response_shape always`; `/phantom:*` reports are shaped either way, because `commands/_shared.md` carries the contract into every preamble tier.
+- `.github/workflows/plugin-load.yml` installs the plugin from the checkout into a scratch config and fails unless it reaches `enabled`.
+  Schema validation and all unit tests pass over a malformed `hooks/hooks.json`; the installed plugin still reports `failed to load`.
 
 Every registration is visible in `hooks/hooks.json`.
 

@@ -48,6 +48,10 @@ const KEYS = {
   'jira.auto_transition': { type: 'boolean' },
   'review.external': { type: 'enum', values: ['greptile', 'none'] },
   'spend.ceiling_usd': { type: 'number' },
+  // `off` (or unset) still shapes every /phantom:* report, because commands load
+  // the contract from _shared.md. `always` extends it to every turn of the
+  // session via hooks/response-shape.js, including replies that are not commands.
+  'output.response_shape': { type: 'enum', values: ['off', 'always'] },
 };
 
 const SECTIONS = new Set(Object.keys(KEYS).map((k) => k.split('.')[0]));
@@ -61,6 +65,7 @@ const DETECTED_KEYS = new Set(['tracker.provider']);
 const QUESTIONS = {
   'tracker.provider': 'Which ticket tracker should Phantom use for this repo?',
   'review.external': 'Which external reviewer should Phantom run on a PR?',
+  'output.response_shape': 'Should the response-shape contract apply to every turn of the session, not only /phantom:* reports?',
 };
 
 function invalid(message, suggestions = []) {

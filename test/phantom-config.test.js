@@ -181,6 +181,7 @@ test('list reports provenance per key, including unset keys', () => {
     const report = JSON.parse(cli(['list', '--repo', repo, '--json'], data).stdout);
     assert.deepEqual(Object.keys(report.keys).sort(), [
       'jira.auto_transition',
+      'output.response_shape',
       'review.external',
       'spend.ceiling_usd',
       'tracker.chosen',
