@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Run one independent Gaze review of the current verified diff. Adds Archer only for explicit risk triggers; UI confirmation remains a user verification step."
+description: "Run one independent Auditor review of the current verified diff. Adds Justice only for explicit risk triggers; UI confirmation remains a user verification step."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
@@ -16,7 +16,7 @@ review stage rather than restating it.
 1. Resolve the active portable session and current worktree fingerprint.
 2. Require the latest portable verification artifact to be passed, current, and
    bound to that fingerprint. If it is absent or stale, stop with `blocked` and
-   direct the caller to `/phantom:verify`; do not recreate Ward evidence here.
+   direct the caller to `/phantom:verify`; do not recreate Inspector evidence here.
    Read its `requiredSpecialists` role-string array as the authoritative
    selection; do not reclassify the diff in this command.
 3. Load the intent, repository rules, current changed-file list, and diff.
@@ -28,9 +28,9 @@ review stage rather than restating it.
    node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR}
    ```
 
-   Delete only `{SESSION_DIR}/reviews/gaze.json` — never
+   Delete only `{SESSION_DIR}/reviews/auditor.json` — never
    `{SESSION_DIR}/reviews/rounds.json`, and never any other file — then
-   run one fresh, read-only Gaze pass using `agents/gaze.md`, telling it the
+   run one fresh, read-only Auditor pass using `agents/auditor.md`, telling it the
    round number that command printed. The targeted delete prevents a failed or truncated run
    from reusing an older verdict; the round ledger survives it because it is a
    different file and holds no verdict to reuse — only the finding ids earlier
@@ -41,12 +41,12 @@ review stage rather than restating it.
    reclassifying the diff. For each named role, create
    `{SESSION_DIR}/reviews/specialists/`, delete only that role's
    `{SESSION_DIR}/reviews/specialists/{role}.json` immediately before spawning
-   it, then spawn that role — the only role in the normal path is `archer`, at
-   `{SESSION_DIR}/reviews/specialists/archer.json`.
+   it, then spawn that role — the only role in the normal path is `justice`, at
+   `{SESSION_DIR}/reviews/specialists/justice.json`.
 
    Do not delete, require, or spawn a role absent from the persisted array. An
-   empty array means Gaze is the only reviewer.
-6. Read Gaze's verdict from `{SESSION_DIR}/reviews/gaze.json`, not its final
+   empty array means Auditor is the only reviewer.
+6. Read Auditor's verdict from `{SESSION_DIR}/reviews/auditor.json`, not its final
    message. If the file is missing or unreadable, give the same agent one
    `SendMessage` resume (never a respawn). If it remains absent, record
    `not_observed`/`blocked`, never an approval. For every required specialist,
@@ -54,13 +54,13 @@ review stage rather than restating it.
    `role`; `verdict: pass|fail|blocked`; `findings` as an array; and
    `observationGaps` as an array. Missing or invalid evidence is blocked.
 
-   When this procedure runs from `/phantom:verify`, the accepted Gaze result
+   When this procedure runs from `/phantom:verify`, the accepted Auditor result
    must also carry exactly one passed check named
-   `user-verification-classification`: Gaze checks verification's
+   `user-verification-classification`: Auditor checks verification's
    `userVerification` classification against the complete diff, and any
    user-visible behavior paired with `required: false` is a blocking finding. A
    missing, duplicate, failed, or skipped check blocks the review record.
-7. Close the round, but only once a valid Gaze artifact was actually read:
+7. Close the round, but only once a valid Auditor artifact was actually read:
 
    ```text
    {PR_BOOTSTRAP}
@@ -95,7 +95,7 @@ review stage rather than restating it.
      "verdict": "pass",
      "findings": [],
      "specialists": [
-       { "role": "archer", "verdict": "pass", "findings": [], "observationGaps": [] }
+       { "role": "justice", "verdict": "pass", "findings": [], "observationGaps": [] }
      ],
      "observationGaps": []
    }
@@ -109,7 +109,7 @@ review stage rather than restating it.
    `specialists` array, and carry step 7's `convergence` object into the payload
    unchanged when it exists. Do not introduce another reducer or fingerprint. A
    specialist `fail` forces overall review status `failed`; a missing, invalid,
-   or `blocked` specialist forces `blocked`. Overall `passed` requires Gaze pass
+   or `blocked` specialist forces `blocked`. Overall `passed` requires Auditor pass
    and every role named by verification's `requiredSpecialists` to pass.
 
 The helper is authoritative for fingerprint and ordering: review must be newer

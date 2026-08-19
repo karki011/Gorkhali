@@ -3,7 +3,7 @@
 // timing-report.js — aggregate agent timing captured by hooks/timing-capture.js.
 //
 // Answers two questions:
-//   1. Is Apex's model routing actually firing? (exact: spawn counts per model)
+//   1. Is Chief's model routing actually firing? (exact: spawn counts per model)
 //   2. Do downshifted models cut wall-clock? (approximate: per-model durations from paired spawn->stop)
 //
 // Usage:

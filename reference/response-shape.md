@@ -3,7 +3,7 @@
 Author: Subash Karki
 
 `output-contract.md` governs output an **agent** reads: script prints, skill summaries, artifacts.
-This file governs the response a **human** reads: what Apex writes in the conversation while a run
+This file governs the response a **human** reads: what Chief writes in the conversation while a run
 is in flight. Different reader, different failure mode. An agent misled by a bad field list makes a
 wrong next call; a human misled by a bad response loses the thread of a run that has been going for
 twenty minutes across six agents and three gates.
@@ -19,7 +19,7 @@ nothing after). This file owns the opening and the body.
 These rules apply to **every response for the rest of the session**, not only the one being written
 now and not only to `/phantom:*` command reports. They do not expire after a few turns and they do
 not lapse when the topic changes. A follow-up question about a run — "why did it pick PLAN?", "what
-did Ward actually run?" — is shaped exactly like the report that prompted it. If it is unclear
+did Inspector actually run?" — is shaped exactly like the report that prompted it. If it is unclear
 whether they still apply, they do.
 
 Two mechanisms carry them, because one is not enough:
@@ -69,7 +69,7 @@ Every response in a multi-step run states its position before anything else vari
 many, which phase, which agent finished.
 
 Bad: "Done. Ready for the next part?"
-Good: "Gate 2 of 3 cleared: Ward verified lint, build, tests green. Next: Gaze and Archer review."
+Good: "Gate 2 of 3 cleared: Inspector verified lint, build, tests green. Next: Auditor and Justice review."
 
 The reader cannot hold "we are between gate 2 and gate 3" across a `/clear`, a compaction, or a
 coffee break. Restating it costs one line and is never wasted.
@@ -111,7 +111,7 @@ No "uh oh", no "it looks like something went wrong", no apology. What failed, wh
 
 Bad: "Hmm, the tests seem to be unhappy. Let me look into it."
 Good: "`billing.test.ts:88` fails: expected 200, got 401. Cause: the fixture omits the auth header.
-Fix: Hound is adding it and re-running verify."
+Fix: Detective is adding it and re-running verify."
 
 ### 6. Blockers surface before their explanation
 

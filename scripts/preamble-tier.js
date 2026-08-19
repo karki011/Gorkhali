@@ -30,15 +30,15 @@ const TIERS = {
   },
   T2: {
     label: 'T2 — Verification (diagnose / report)',
-    commands: ['verify', 'fix', 'validate', 'eval', 'hound', 'brainstorm', 'close', 'greploop', 'loop', 'q', 'wire'],
+    commands: ['verify', 'fix', 'validate', 'eval', 'detective', 'brainstorm', 'close', 'greploop', 'loop', 'q', 'wire'],
     sharedContexts: [
       '_shared.md',
       '_shared-repo-detection.md',
       '_shared-auto-learning.md',
     ],
-    conditionalContexts: ['_shared-hound.md (on hound trigger)'],
+    conditionalContexts: ['_shared-detective.md (on detective trigger)'],
     ironLaws: [1, 2, 3, 5, 11],
-    description: 'Stack detection + learnings read/write. Hound loaded on trigger.',
+    description: 'Stack detection + learnings read/write. Detective loaded on trigger.',
   },
   T3: {
     label: 'T3 — Planning (research / review / discuss)',
@@ -64,7 +64,7 @@ const TIERS = {
       '_shared-shadows.md',
       '_shared-discipline.md',
       '_shared-contracts.md',
-      '_shared-hound.md',
+      '_shared-detective.md',
     ],
     ironLaws: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
     description: 'All shared contexts. Full Core Rules.',
@@ -79,8 +79,8 @@ const CONTEXT_PURPOSES = {
   '_shared-shadows.md': 'Agent spawning, shadows roles',
   '_shared-discipline.md': 'Plan/execution discipline',
   '_shared-contracts.md': 'Contract templates, hooks',
-  '_shared-hound.md': 'Forensic analysis (loaded on hound trigger)',
-  '_shared-archer.md': 'Archer spec (loaded on demand)',
+  '_shared-detective.md': 'Forensic analysis (loaded on detective trigger)',
+  '_shared-justice.md': 'Justice spec (loaded on demand)',
 };
 
 function findTier(cmd) {

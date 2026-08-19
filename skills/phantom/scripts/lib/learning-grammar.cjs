@@ -10,7 +10,7 @@
 //     capture/consolidate/graduate parse and rebuild through this grammar;
 //   * the CommonJS data-root migrator (scripts/migrate-data.js) requires it to
 //     merge learnings semantically under the T3 per-dir lock;
-//   * the CommonJS repo-dirs sweep (scripts/migrate-repo-dirs.js) requires it so a
+//   * the CommonJS repo-dirs steward (scripts/migrate-repo-dirs.js) requires it so a
 //     branch-named orphan's learnings merge the SAME way.
 //
 // Pure string operations only -- no fs, no lock, no I/O -- so every caller composes

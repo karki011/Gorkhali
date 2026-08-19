@@ -43,7 +43,7 @@ node review-gaps.js --json                   # machine-readable
 git diff --name-only | node review-gaps.js   # or a list on stdin
 ```
 
-Correspondence is derived from the file list alone — a changed test whose stem matches the source's stem (`src/session/Resume.ts` ↔ `test/resume.test.js`, `pkg/ledger.go` ↔ `pkg/ledger_test.go`). It is deliberately not an opinion about what "deserves" a test; that phrasing is what made the old Gaze priority un-auditable.
+Correspondence is derived from the file list alone — a changed test whose stem matches the source's stem (`src/session/Resume.ts` ↔ `test/resume.test.js`, `pkg/ledger.go` ↔ `pkg/ledger_test.go`). It is deliberately not an opinion about what "deserves" a test; that phrasing is what made the old Auditor priority un-auditable.
 
 **Exit:** always 0 — this reports, it does not gate. A missing test cannot clear the blocking bar, so findings from it are `advisory` by construction. `--exit-code` opts into exit 1 when gaps exist.
 
@@ -58,7 +58,7 @@ node review-round.js status --reviews {SESSION_DIR}/reviews          # which rou
 node review-round.js close  --reviews {SESSION_DIR}/reviews --json   # apply the rule, append the round
 ```
 
-`commands/review.md` deletes `gaze.json` before every pass so a truncated run cannot reuse an older verdict. The prior rounds' finding ids therefore cannot live in that file — they live in the sibling `rounds.json`, which the delete does not name and which carries **ids, severities and files only, never a verdict**. There is no stale verdict in it to reuse, so the freshness property is preserved by construction rather than by discipline. Rounds are appended only after a real artifact is read, so a truncated run leaves the round number where it was.
+`commands/review.md` deletes `auditor.json` before every pass so a truncated run cannot reuse an older verdict. The prior rounds' finding ids therefore cannot live in that file — they live in the sibling `rounds.json`, which the delete does not name and which carries **ids, severities and files only, never a verdict**. There is no stale verdict in it to reuse, so the freshness property is preserved by construction rather than by discipline. Rounds are appended only after a real artifact is read, so a truncated run leaves the round number where it was.
 
 On round 2 and later, `close` reports `blocking` findings individually and returns the non-blocking ones as counts split into `carriedOver` and `new`, plus a `convergence` object for the recorded review payload.
 
@@ -76,7 +76,7 @@ node gen-review-standard.js --check    # verify no drift; exit 2 on drift
 node gen-review-standard.js --list     # targets and their blocks
 ```
 
-**Targets:** `agents/gaze.md`, `agents/archer.md`, `reference/agent-protocols/archer-protocol.md`, `reference/temperature-review.md`.
+**Targets:** `agents/auditor.md`, `agents/justice.md`, `reference/agent-protocols/justice-protocol.md`, `reference/temperature-review.md`.
 
 Same source-of-truth-plus-generator-plus-`--check` shape as `gen-schema-docs.js` and `gen-agent-frontmatter.js`, for the same reason: one severity concept spelled four ways in four prose files is exactly the drift this pattern exists to stop (ROADMAP F1, F5, F9). Prose outside the markers is hand-written and preserved.
 

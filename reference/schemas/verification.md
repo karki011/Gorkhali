@@ -71,7 +71,7 @@ Written by `phantom:verify`. Read by `phantom:wrap` to decide PR strategy.
 `review.findings[]` elements are review findings: one shape, one severity scale,
 defined and enforced in [`review.md`](review.md). The example above used to read
 `{"severity": "warn", "message": "Unused import"}` — a fifth severity spelling
-attached to a lint nit that `agents/gaze.md` explicitly forbids reporting because
+attached to a lint nit that `agents/auditor.md` explicitly forbids reporting because
 it is enforced mechanically elsewhere. Corrected in B10: the worked example is now
 something a reviewer is actually allowed to report.
 

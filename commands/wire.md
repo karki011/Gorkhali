@@ -11,7 +11,7 @@ user-invocable: false
 
 # /phantom:wire "$ARGUMENTS"
 
-Dependency topology from plan.json. Main LLM = **coordinator**: validate prereqs → spawn Blade for analysis → review + present.
+Dependency topology from plan.json. Main LLM = **coordinator**: validate prereqs → spawn Engineer for analysis → review + present.
 
 <wire_context>
 
@@ -29,12 +29,12 @@ Dependency topology from plan.json. Main LLM = **coordinator**: validate prereqs
 
 ## Step 2: Spawn Dependency Analyst
 
-Agent tool — `subagent_type: "blade"`, `name: "blade-sennor"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing):
+Agent tool — `subagent_type: "engineer"`, `name: "engineer-jarnek"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing):
 
 ```
 description: "Wire topology for {TICKET}: {task_count} tasks"
 prompt: |
-  You are a BLADE with ROLE FOCUS: dependency analyst.
+  You are an ENGINEER with ROLE FOCUS: dependency analyst.
   Job: analyze task dependencies, generate wiring topology.
 
   ## Plan Contents
@@ -75,7 +75,7 @@ prompt: |
 
 ## Step 3: Review and Present (Coordinator)
 
-After Blade completes:
+After Engineer completes:
 1. Read `{TEAM_DIR}/sessions/{TICKET}/wiring.json` — verify written correctly
 2. Validate: no ERROR-level risk points blocking execution
 3. Present summary: wave breakdown (tasks per wave), risk points, integration points
@@ -90,8 +90,8 @@ If validation finds errors (circular deps, missing produces): report specific er
 
 ## Rules
 
-- Coordinator does NOT run analysis — delegates entirely to the Blade agent.
-- Agent spawn MUST use `subagent_type: "blade"` (ROLE FOCUS: dependency analyst), `name: "blade-sennor"`, `mode: "bypassPermissions"` (routing per the spawn spec above).
+- Coordinator does NOT run analysis — delegates entirely to the Engineer agent.
+- Agent spawn MUST use `subagent_type: "engineer"` (ROLE FOCUS: dependency analyst), `name: "engineer-jarnek"`, `mode: "bypassPermissions"` (routing per the spawn spec above).
 - BLOCK if plan.json missing. No exceptions.
 - HUMAN GATE on FULL route mandatory. Do not skip.
 - Task count <= 2 with no shared files → skip wiring entirely (inform user why).

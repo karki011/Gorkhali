@@ -1,20 +1,20 @@
-# Phantom Shadows -- Hound Mode Context
+# Phantom Shadows -- Detective Mode Context
 
-> Loaded at T2+ when hound mode activates.
-> Skip entirely if not in a hound flow (bug investigation, verify failure, fix loop 2+).
+> Loaded at T2+ when detective mode activates.
+> Skip entirely if not in a detective flow (bug investigation, verify failure, fix loop 2+).
 
 ---
 
 <detective_triggers>
 
-## When Hound Mode Activates
+## When Detective Mode Activates
 
 | Trigger | Source | Depth |
 |---------|--------|-------|
 | Defect or regression detected in `start.md` Phase A | Keywords, Jira type, branch prefix | Defect proof gate |
 | Verification failure in `verify.md` | Any correctness check fails | Failure scan (targeted) |
 | Fix loop 2+ in `fix.md` | Same failure class repeats | Deep investigation (full) |
-| Explicit `/phantom:hound` | User invocation | Full investigation |
+| Explicit `/phantom:detective` | User invocation | Full investigation |
 
 Depth levels and abbreviated flows defined in `reference/detective/depth-levels.md`.
 The start-time pre-scan may enrich context, but it never authorizes a fix.
@@ -39,7 +39,7 @@ Gate - canonical in `reference/defect-proof.md`, not restated here: only
 `waiting_for_evidence` / `unconfirmed_defect` with no implementation mutation.
 Diagnostic instrumentation requires a recorded, unexpired `DiagnosticGrant`.
 
-`commands/execute.md` rechecks this artifact before the Blade marker is
+`commands/execute.md` rechecks this artifact before the Engineer marker is
 activated. Missing or contradictory proof fails closed.
 
 </defect_proof_gate>

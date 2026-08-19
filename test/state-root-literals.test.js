@@ -21,7 +21,7 @@ const ALLOWLIST = new Map([
   ['evals/evals.json', [
     {
       kind: 'literal',
-      context: 'The Blade hits a hard decision',
+      context: 'The Engineer hits a hard decision',
       reason: 'historical compatibility fixture for the retired config-driven flow',
     },
   ]],

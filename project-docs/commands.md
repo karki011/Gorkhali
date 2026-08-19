@@ -13,9 +13,9 @@ Every command the native compatibility plugin exposes, with the route it takes.
 | `/phantom:fix` | - | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
 | `/phantom:pause` | - | Save session state + emit a portable handoff packet (`handoff.md`) for cold/cross-session continuation |
 | `/phantom:resume` | - | Restore session from saved state |
-| `/phantom:hound` | - | Forensic investigation with HTML report |
-| `/phantom:review` | - | Trigger Gaze quality gate |
-| `/phantom:visual` | - | Present a UI checklist; optionally run advisory Lens with explicit `--lens` |
+| `/phantom:detective` | - | Forensic investigation with HTML report |
+| `/phantom:review` | - | Trigger Auditor quality gate |
+| `/phantom:visual` | - | Present a UI checklist; optionally run advisory Surveyor with explicit `--surveyor` |
 | `/phantom:visualflow` | - | Visual flow pass for net-new UI (auto-recommended, user-gated) |
 | `/phantom:scout` | - | Background research agents |
 | `/phantom:recruit` | - | Spawn specialist agent (role focus) |

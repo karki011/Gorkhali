@@ -9,10 +9,24 @@ const { MARKER_FRESHNESS_MS } = require('../scripts/lib/constants');
 
 const MAX_AGE_MS = Math.min(MARKER_FRESHNESS_MS, 24 * 60 * 60 * 1000);
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
-const ELIGIBLE_NAME_RE = /^(?:blade|sweep)-[a-z0-9][a-z0-9-]*$/;
+const ELIGIBLE_NAME_RE = /^(?:engineer|steward)-[a-z0-9][a-z0-9-]*$/;
 
 function markerDir(cwd = process.cwd()) {
-  return path.join(phantomData(cwd), '.blade-editing.d', detectRepo(cwd));
+  return path.join(phantomData(cwd), '.engineer-editing.d', detectRepo(cwd));
+}
+
+// One-release upgrade shim: .blade-editing / .blade-editing.d were this
+// marker's names before the blade->engineer rename (mirrors greploop-gate.js
+// MARKER_NAMES). New sessions only ever write the .engineer-editing /
+// .engineer-editing.d names via start() above; these dual reads keep a
+// marker written by a not-yet-upgraded install visible until it naturally
+// expires. Remove the .blade-editing fallbacks once no install can still be
+// carrying a pre-rename marker.
+const LEGACY_MARKER_DIR_NAME = '.blade-editing.d';
+const LEGACY_MARKER_FILE_NAME = '.blade-editing';
+
+function legacyMarkerDir(cwd = process.cwd()) {
+  return path.join(phantomData(cwd), LEGACY_MARKER_DIR_NAME, detectRepo(cwd));
 }
 
 function payloadId(payload = {}) {
@@ -44,8 +58,7 @@ function validMarker(marker, id) {
   );
 }
 
-function freshMarkers(cwd = process.cwd(), now = Date.now()) {
-  const dir = markerDir(cwd);
+function freshMarkersIn(dir, now) {
   let names;
   try { names = fs.readdirSync(dir); } catch (_) { return []; }
   return names.flatMap((name) => {
@@ -54,6 +67,13 @@ function freshMarkers(cwd = process.cwd(), now = Date.now()) {
     if (!validMarker(marker, name) || now - marker.mtimeMs >= MAX_AGE_MS) return [];
     return [{ ...marker, file: name }];
   });
+}
+
+function freshMarkers(cwd = process.cwd(), now = Date.now()) {
+  return [
+    ...freshMarkersIn(markerDir(cwd), now),
+    ...freshMarkersIn(legacyMarkerDir(cwd), now),
+  ];
 }
 
 function start(payload = {}) {
@@ -92,11 +112,12 @@ function active(payload = {}) {
 }
 
 function legacyActive(cwd = process.cwd(), now = Date.now()) {
-  try {
-    return now - fs.statSync(path.join(phantomData(cwd), '.blade-editing')).mtimeMs < MAX_AGE_MS;
-  } catch (_) {
-    return false;
+  for (const name of ['.engineer-editing', LEGACY_MARKER_FILE_NAME]) {
+    try {
+      if (now - fs.statSync(path.join(phantomData(cwd), name)).mtimeMs < MAX_AGE_MS) return true;
+    } catch (_) { /* try next namespace */ }
   }
+  return false;
 }
 
 function readPayload() {
@@ -118,5 +139,5 @@ function main() {
   }
 }
 
-module.exports = { MAX_AGE_MS, markerDir, freshMarkers, start, stop, active, legacyActive };
+module.exports = { MAX_AGE_MS, markerDir, legacyMarkerDir, freshMarkers, start, stop, active, legacyActive };
 if (require.main === module) main();

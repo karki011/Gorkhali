@@ -16,7 +16,7 @@ Pre-implementation visual flow planning — produces a reviewable HTML flow arti
 ## Modes
 
 - **Standalone**: interactive, default — gather → render → human gate → handoff
-- **Auto-recommended**: Apex surfaces this via the `net_new_ui` signal before contracts/plan when a net-new screen/feature with no design is detected. User-gated — Apex recommends, never auto-runs.
+- **Auto-recommended**: Chief surfaces this via the `net_new_ui` signal before contracts/plan when a net-new screen/feature with no design is detected. User-gated — Chief recommends, never auto-runs.
 
 ## Execution
 

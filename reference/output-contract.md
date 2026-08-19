@@ -20,9 +20,9 @@ enough for the agent to decide the next action, not a full record dump.
 
 ```
 tasks[3]{id,status,owner}:
-  T1,done,blade
-  T2,in_progress,blade
-  T3,blocked,gaze
+  T1,done,engineer
+  T2,in_progress,engineer
+  T3,blocked,auditor
 ```
 
 Long-form content (descriptions, full diffs, transcripts) belongs in a detail view or a file
@@ -98,11 +98,11 @@ manual dumped underneath it.
 ## Human-facing deliverables
 
 Plans, research, specs, reports, and investigation/eval/session summaries are **self-contained
-styled HTML** — never markdown. This is already load-bearing precedent in this repo: Hound's
+styled HTML** — never markdown. This is already load-bearing precedent in this repo: Detective's
 `reference/detective/report-template.md` and the visualflow `reference/visualflow/flow-template.md`
 are both HTML. This section makes the rule general, not feature-local. Contract
 (`contracts/{type}.html`, `reference/contract/contract-template.md`) and eval (`eval.html`,
-`reference/eval/eval-template.md`) are HTML-compliant producers alongside hound/plan/visualflow.
+`reference/eval/eval-template.md`) are HTML-compliant producers alongside detective/plan/visualflow.
 
 **Stays as-is** (unaffected by this rule): machine state (`intent.json`, `plan.json`, checkpoint
 JSON), `learnings/INDEX.md` + `EDGES.md`, agent handoff output between phantom agents, portability

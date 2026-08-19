@@ -77,7 +77,7 @@ Non-repository files and Phantom's mutable data tree remain outside the gate. `P
 
 A Phantom session satisfies routing only when the canonical repository identity resolves to `<PHANTOM_DATA>/state/current-session/<repo-id>.json`, that pointer references a session under the same repository's `sessions/` directory, and `session.json` is schema 1, active, task-matched, repository-matched, and identity-root-matched. The gate mirrors the portable lifecycle engine's identity root instead of inventing a second worktree rule: no-origin linked worktrees resolve through their shared Git common root, while remote-backed worktrees retain distinct checkout roots and cannot unlock sibling worktrees.
 
-Missing, corrupt, dangling, paused, completed, and cross-repository state does not satisfy routing. Permission errors and other operational read failures are unknown rather than negative evidence, so the discipline gate fails open. The legacy global `.apex-active` marker remains available to legacy Claude/Apex behavior but is never accepted as portable lifecycle evidence.
+Missing, corrupt, dangling, paused, completed, and cross-repository state does not satisfy routing. Permission errors and other operational read failures are unknown rather than negative evidence, so the discipline gate fails open. The legacy global `.chief-active` marker remains available to legacy Claude/Chief behavior but is never accepted as portable lifecycle evidence.
 
 The prompt nudge intentionally does not inspect lifecycle state. Each new Codex or Claude session receives its own one-shot reminder so an active task in another host session cannot silence routing instructions.
 

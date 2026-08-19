@@ -55,8 +55,8 @@ export function resolveProfile({
   if (risk && !policy.risk_levels.includes(risk)) {
     throw new Error(`Unknown risk level: ${risk}`);
   }
-  const baseProfile = normalizedRole === 'apex'
-    ? policy.roles.apex
+  const baseProfile = normalizedRole === 'chief'
+    ? policy.roles.chief
     : profileOverride || policy.roles[normalizedRole] || policy.default_profile;
   const critical = policy.critical_elevation;
   const shouldElevate = risk === critical.risk

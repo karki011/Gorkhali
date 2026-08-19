@@ -1,6 +1,6 @@
 ---
 name: health
-description: Diagnose the Phantom SYSTEM ITSELF - stale learnings index, corrupted sessions, missing artifacts; NOT for broken user code (use fix or hound).
+description: Diagnose the Phantom SYSTEM ITSELF - stale learnings index, corrupted sessions, missing artifacts; NOT for broken user code (use fix or detective).
 ---
 ## Triggers
 

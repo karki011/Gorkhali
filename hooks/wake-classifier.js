@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // wake-classifier.js — SubagentStop hook. Classifies a stopping agent's typed
-// execution record (reference/schemas/execution.md) into ACTIONABLE (Apex must
+// execution record (reference/schemas/execution.md) into ACTIONABLE (Chief must
 // wake) or BENIGN (absorb), then routes it to the durable wake queue.
 //
 // Adapted from firstmate fm-classify-lib.sh (MIT, © 2026 Kun Chen) —
 // github.com/kunchenguid/firstmate. The bash original tests free-text status
 // lines against a captain-relevant verb regex; this port classifies the typed
-// Blade→Apex completion record instead, which carries status/blocker/score
+// Engineer→Chief completion record instead, which carries status/blocker/score
 // directly and needs no verb-matching.
 //
 // FAIL-OPEN, ALWAYS: the entire body is wrapped so any thrown error still does a
@@ -73,7 +73,7 @@ function resolveSessionDir() {
   return stateDir();
 }
 
-// Read the per-agent record stub Apex writes at spawn (commands/execute.md) into
+// Read the per-agent record stub Chief writes at spawn (commands/execute.md) into
 // <wakeDir>/agent-records/<id>.json, resolved on SubagentStop. The stub is keyed
 // by agent identity; we try each identity field the payload may carry.
 //
@@ -166,8 +166,8 @@ function balancedObject(s, start) {
   return null;
 }
 
-// The Blade's typed completion record is the LAST thing in its final message
-// (a Blade's convention), so we scan only the message TAIL and walk '{' positions
+// The Engineer's typed completion record is the LAST thing in its final message
+// (an Engineer's convention), so we scan only the message TAIL and walk '{' positions
 // from the END backwards. Front-truncation is the correct direction — records come
 // last — and the FIRST status-bearing object found scanning backwards IS the last
 // one, which both picks the trailing record over any earlier decoy (a stray
@@ -175,7 +175,7 @@ function balancedObject(s, start) {
 const MSG_TAIL_LIMIT = 32 * 1024; // chars (~32KB ASCII); tail is where records live
 const MAX_BRACE_STARTS = 50; // cap balancedObject attempts over untrusted input
 
-// Extract the Blade's typed completion record from its final message.
+// Extract the Engineer's typed completion record from its final message.
 // `last_assistant_message` carries that message verbatim (confirmed against the
 // live SubagentStop payload). It is UNTRUSTED free text: find the LAST balanced-
 // brace object that BOTH parses as JSON AND carries a `status` field. Bounded to
@@ -218,7 +218,7 @@ function extractMessageRecord(payload) {
 }
 
 // Merge the live message record over the on-disk stub, ESCALATE-ONLY: the message
-// may raise the verdict to actionable but must never lower it. Apex updates the
+// may raise the verdict to actionable but must never lower it. Chief updates the
 // stub with the real typed record after reading results (commands/execute.md), so
 // on a resume/re-fire the stub can already carry status:'failed' / a blocker / a
 // low score. A stale or hallucinated 'passed' in the message must not flip that
@@ -238,7 +238,7 @@ function extractMessageRecord(payload) {
 // timing assumption — that assumption was never enforced.
 function mergeRecords(stub, message, threshold) {
   if (stub && message) {
-    // Escalate-only: an actionable stub is a signal Apex already recorded, and a
+    // Escalate-only: an actionable stub is a signal Chief already recorded, and a
     // message record must not downgrade it. `never-reported` is the exception:
     // it means the stub is still the untouched spawn placeholder, so it holds no
     // verdict to protect and the message is exactly what resolves it. Without
@@ -273,7 +273,7 @@ function resolveRecord(payload, wakeDir, threshold) {
  * the position is underivable, so we fail open to actionable. BENIGN only when
  * the record positively proves passed + mid-wave.
  *
- * The non-terminal check is what makes a dead agent visible. Apex writes the
+ * The non-terminal check is what makes a dead agent visible. Chief writes the
  * stub at spawn with `status: "spawned"` and only overwrites it after reading a
  * result, so an agent killed mid-work (turn cap, harness kill, API error) leaves
  * that stub behind and contributes no message record to merge over it. Absent
@@ -320,7 +320,7 @@ function main() {
 
   // Resolve the wake dir AND which source produced it. Fix C: when no phantom
   // session is pointed at this repo (source 'state' = fell through to the global
-  // state dir with no pointer and no env override) there is no Apex consumer, so
+  // state dir with no pointer and no env override) there is no Chief consumer, so
   // appending would grow the global state dir unbounded with wakes nobody drains.
   // Skip cleanly. A live pointer or env override ('pointer'/'env') → append as before.
   let sessionDir, source;

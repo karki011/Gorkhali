@@ -68,7 +68,7 @@ Verification must contain at least one named passed check and enough observation
 to connect checks to the approved criteria. Distinguish passed, failed, blocked,
 and not observed. A skipped or unavailable check is not a pass.
 
-### Ward evidence
+### Inspector evidence
 
 Deterministic verification is read-only. Record, for every applicable check:
 
@@ -95,7 +95,7 @@ investigation rather than stacking patches.
 
 ## Risk-triggered specialists
 
-Archer runs only when cross-file architecture or integration risk triggers an
+Justice runs only when cross-file architecture or integration risk triggers an
 independent structural pass. Visual and interaction behavior uses explicit
 user verification in the ordinary verification artifact; it does not create a
 specialist artifact. When a design artifact or specification defines the
@@ -109,20 +109,20 @@ deterministic verification checks or repository-required review inputs.
 | Observed diff risk | Specialist |
 |---|---|
 | User-visible UI/visual behavior | Explicit user verification before passed verification evidence |
-| Auth, authorization, permissions | Archer |
-| Money, destructive operations, data-loss risk | Archer |
-| Migration or public API compatibility | Archer |
-| Concurrency or broad cross-module architecture | Archer |
-| Infrastructure/deploy or dependency changes | Archer |
+| Auth, authorization, permissions | Justice |
+| Money, destructive operations, data-loss risk | Justice |
+| Migration or public API compatibility | Justice |
+| Concurrency or broad cross-module architecture | Justice |
+| Infrastructure/deploy or dependency changes | Justice |
 
 Resolve this table once against the final post-simplification diff. Persist a
-unique `requiredSpecialists` array containing only `"archer"`, or `[]` when no
-Archer row applies. RPSL remains an explicit optional deep-review preset, never
+unique `requiredSpecialists` array containing only `"justice"`, or `[]` when no
+Justice row applies. RPSL remains an explicit optional deep-review preset, never
 a normal shipping prerequisite.
 
 Each required specialist returns a current passed, failed, or blocked artifact
 with findings and observation gaps. Missing, stale, failed, or blocked required specialist
-evidence blocks review completion and shipping. Untriggered Archer work creates
+evidence blocks review completion and shipping. Untriggered Justice work creates
 no artifact.
 
 When user observation is required, add it to the same verification payload:
@@ -146,17 +146,17 @@ classify it explicitly with `userVerification: { "required": false }`. When
 `required: true`, the same object requires `status: "confirmed"`,
 `confirmedBy: "user"`, and non-empty routes. Pending confirmation blocks a
 passed verification record. With `required: false`, omit status, routes,
-confirmation provenance, and observations. Optional Lens inspection runs only
+confirmation provenance, and observations. Optional Surveyor inspection runs only
 when the user explicitly requests it; its evidence is advisory, does not enter
 `requiredSpecialists`, and never replaces user confirmation. A legacy
-verification artifact that requires Lens cannot advance; keep it inspectable,
+verification artifact that requires Surveyor cannot advance; keep it inspectable,
 then record fresh verification with explicit user verification instead of
-recreating the former Lens gate.
+recreating the former Surveyor gate.
 
 The portable helper stores that decision atomically with the complete final
 worktree fingerprint. Any later tracked, indexed, mode, deletion, untracked,
 symlink, or gitlink change makes the verification stale and requires a fresh
-classification. Ward classifies the whole diff rather than relying on path or
+classification. Inspector classifies the whole diff rather than relying on path or
 extension heuristics, so non-UI work remains prompt-free while rendered changes
 through API data, configuration, or unconventional source paths still require
 the confirmed arm.
@@ -168,11 +168,11 @@ approved outcome, changed scope, verification evidence, repository rules, and
 relevant risks. It should inspect code and tests directly rather than trust an
 implementation summary.
 
-Gaze must compare `userVerification` with the complete diff bound to the Ward
+Auditor must compare `userVerification` with the complete diff bound to the Inspector
 artifact. Any user-visible behavior paired with `required: false` is a blocking
 finding and cannot produce a passed review. This is semantic review over the
 actual change set; the state engine intentionally does not guess UI behavior
-from filenames. The accepted Gaze delegation result must contain a passed check
+from filenames. The accepted Auditor delegation result must contain a passed check
 named `user-verification-classification`; missing, duplicate, failed, or
 skipped blocks the portable review record.
 
@@ -182,14 +182,14 @@ execution, rerun affected checks and simplification, record newer verification,
 then run a fresh review.
 
 Record review only after the authoritative current verification passes. Use one
-run id for the independent Gaze delegation task, its accepted result, and the
+run id for the independent Auditor delegation task, its accepted result, and the
 review. The state engine validates and binds that result so a caller-supplied
 role label cannot establish independence by itself:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-task --run <review-run> --status pending --input <gaze-task-json>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-result --run <review-run> --status passed --input <gaze-result-json>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type review --run <review-run> --role gaze --status passed --input <review-json>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-task --run <review-run> --status pending --input <auditor-task-json>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-result --run <review-run> --status passed --input <auditor-result-json>
+node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type review --run <review-run> --role auditor --status passed --input <review-json>
 ```
 
 Do not manually select an older passing record. The engine treats the newest

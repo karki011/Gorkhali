@@ -46,8 +46,8 @@ Mark `delegation.parallel` available only when multiple native workers can run
 concurrently and their completion can be observed. Mark
 `delegation.model_select` available only when the spawn mechanism accepts a
 per-worker compute selection. A runtime-required approval is a boundary to
-honor, not a guard to bypass: request it after Apex selects delegation; if it is
-denied or cannot be surfaced, apply the sequential fallback. Apex performs this
+honor, not a guard to bypass: request it after Chief selects delegation; if it is
+denied or cannot be surfaced, apply the sequential fallback. Chief performs this
 negotiation automatically and records the chosen topology and fallback.
 
 ## Required baseline

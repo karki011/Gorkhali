@@ -4,7 +4,7 @@
 // `name:` alongside its `subagent_type:`. A name-less spawn is unresolvable by
 // hooks/wake-classifier.js (the spawn's `name:`, the agent-records stub
 // filename and `payload.agent_type` are the SAME string), and the live gate in
-// hooks/blade-model-gate.js now denies one — this test stops the docs from
+// hooks/engineer-model-gate.js now denies one — this test stops the docs from
 // specifying a spawn the gate would reject.
 //
 // Pure string checks, no LLM. A line is a spawn spec when it carries either
@@ -13,7 +13,7 @@
 // `name:` must appear in the SAME spawn construct, delimited structurally by
 // blockFor() below, so one spawn can never borrow its neighbour's name.
 //
-// KNOWN LIMIT: a spawn written as pure prose ("spawn Archer agent (opus)")
+// KNOWN LIMIT: a spawn written as pure prose ("spawn Justice agent (opus)")
 // carries no param token at all, and no token scan can see it. Those are caught
 // by review; the fix — writing the spawn as a real spec — brings the site under
 // this scan.
@@ -66,22 +66,22 @@ function blockFor(lines, i) {
 const POLICY_PROSE = [
   {
     file: 'commands/scout.md',
-    match: 'All scouts `subagent_type: "blade"` with read-only ROLE FOCUS',
+    match: 'All scouts `subagent_type: "engineer"` with read-only ROLE FOCUS',
     why: 'restates the scout naming rule and points at roster.md',
   },
   {
     file: 'commands/execute.md',
-    match: 'All implementation tasks spawn `subagent_type: blade`',
+    match: 'All implementation tasks spawn `subagent_type: engineer`',
     why: 'model-routing rule for the wave; names come from the Rule 1 task index',
   },
   {
     file: 'commands/execute.md',
-    match: 'SOLO route: spawn 1 `subagent_type: blade`',
+    match: 'SOLO route: spawn 1 `subagent_type: engineer`',
     why: 'route description; the wake-bookkeeping bullet fixes the name for both routes',
   },
   {
     file: 'commands/execute.md',
-    match: 'SHADOWS route: spawn parallel `subagent_type: blade`',
+    match: 'SHADOWS route: spawn parallel `subagent_type: engineer`',
     why: 'route description; the wake-bookkeeping bullet fixes the name for both routes',
   },
   {
@@ -105,9 +105,9 @@ const POLICY_PROSE = [
     why: 'canonical blanket mode rule for every spawn site',
   },
   {
-    file: 'agents/apex.md',
+    file: 'agents/chief.md',
     match: 'ALWAYS `bypassPermissions` + `run_in_background`',
-    why: "Apex's spawn-discipline bullet; not a call site",
+    why: "Chief's spawn-discipline bullet; not a call site",
   },
   {
     file: 'commands/brainstorm.md',
@@ -183,8 +183,8 @@ test('reference/roster.md exists and pins the stub-binding invariant', () => {
   assert.match(roster, /agent_type/, 'stub binding must name the wake-classifier payload field');
 });
 
-test('hooks/blade-model-gate.js enforces the roster name rule', () => {
-  const gate = fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'blade-model-gate.js'), 'utf8');
+test('hooks/engineer-model-gate.js enforces the roster name rule', () => {
+  const gate = fs.readFileSync(path.join(REPO_ROOT, 'hooks', 'engineer-model-gate.js'), 'utf8');
   assert.match(gate, /AGENT NAME GATE/, 'gate must carry the name-gate deny reason');
   assert.match(gate, /roster\.md/, 'deny reason must point at reference/roster.md');
 });

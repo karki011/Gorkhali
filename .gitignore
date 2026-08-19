@@ -7,6 +7,10 @@
 /repos/
 
 # Runtime markers + audit logs (per-session, not shared)
+.chief-active
+.engineer-editing
+.engineer-editing.d/
+# legacy pre-0.8.0 marker names kept one release
 .apex-active
 .blade-editing
 audit/

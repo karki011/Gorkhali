@@ -1,7 +1,7 @@
 # Deliberation Protocol
 
-Planner (Apex) and Challenger (Rival, sonnet, read-only tools) deliberate **before** presenting to human.
-Rival is the one plan critic, so its `plan-check.json` verdict lands in the same rounds — there is no separate validation pass. Spawn it per `reference/planning.md` → Rival (mandatory, every plan).
+Planner (Chief) and Challenger (Opposition, sonnet, read-only tools) deliberate **before** presenting to human.
+Opposition is the one plan critic, so its `plan-check.json` verdict lands in the same rounds — there is no separate validation pass. Spawn it per `reference/planning.md` → Opposition (mandatory, every plan).
 
 ## Round Flow
 - Round 1: Planner sends plan -> Challenger returns verdict (PROCEED / REVISE / RETHINK)
@@ -14,7 +14,7 @@ Rival is the one plan critic, so its `plan-check.json` verdict lands in the same
 
 | Outcome | Human Sees |
 |---------|------------|
-| Consensus (PROCEED) | Unified plan: "Plan reviewed by Rival (PROCEED). Ready to execute?" |
+| Consensus (PROCEED) | Unified plan: "Plan reviewed by Opposition (PROCEED). Ready to execute?" |
 | Partial (REVISE after R2) | Plan with annotated unresolved concerns. Human decides per point. |
 | Disagreement (RETHINK after R2) | Two approaches side-by-side. Human picks A, B, or "neither." |
 

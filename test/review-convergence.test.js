@@ -5,11 +5,11 @@
 // the remaining advisories BY COUNT without adding new ones.
 //
 // The design problem underneath it is the one this file mostly pins:
-// `commands/review.md` step 4 deletes `{SESSION_DIR}/reviews/gaze.json` before
+// `commands/review.md` step 4 deletes `{SESSION_DIR}/reviews/auditor.json` before
 // every pass so a truncated run cannot reuse a stale verdict. That delete stays.
 // So the prior round's finding ids have to survive it — and the ledger that
 // carries them must not become a new way to resurrect a verdict. Both halves are
-// asserted below by deleting gaze.json between rounds, exactly as the command
+// asserted below by deleting auditor.json between rounds, exactly as the command
 // does, and by grepping the ledger for anything verdict-shaped.
 'use strict';
 
@@ -45,17 +45,17 @@ function session() {
   fs.mkdirSync(reviews, { recursive: true });
   return {
     reviews,
-    gaze: path.join(reviews, 'gaze.json'),
+    auditor: path.join(reviews, 'auditor.json'),
     ledger: path.join(reviews, std.REVIEW_ROUNDS_FILE),
     write(findings, verdict = 'fail') {
       fs.writeFileSync(
-        path.join(reviews, 'gaze.json'),
-        JSON.stringify({ role: 'gaze', verdict, findings, observationGaps: [] }, null, 2)
+        path.join(reviews, 'auditor.json'),
+        JSON.stringify({ role: 'auditor', verdict, findings, observationGaps: [] }, null, 2)
       );
     },
     // Exactly what commands/review.md step 4 does before every pass.
     deleteGazeArtifact() {
-      fs.rmSync(path.join(reviews, 'gaze.json'), { force: true });
+      fs.rmSync(path.join(reviews, 'auditor.json'), { force: true });
     },
     cleanup() {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -103,7 +103,7 @@ test('round 2 reports the remaining advisories BY COUNT and adds none of its own
     // The fix loop fixes only the blocking finding. The command deletes the
     // artifact before the next pass; the ledger is a different file and stays.
     s.deleteGazeArtifact();
-    assert.equal(fs.existsSync(s.gaze), false, 'the pre-pass delete really happened');
+    assert.equal(fs.existsSync(s.auditor), false, 'the pre-pass delete really happened');
     assert.equal(fs.existsSync(s.ledger), true, 'the carry-over ledger survives the delete');
 
     // Round 2: the blocking finding is gone, both advisories are still there.
@@ -194,7 +194,7 @@ test('a truncated round records nothing, so the next pass is still the same roun
     assert.equal(JSON.parse(run(ROUND, ['status', '--reviews', s.reviews, '--json']).stdout).round, 2);
 
     // Round 2 is spawned and dies before writing anything: the command deleted
-    // gaze.json and there is no artifact to close.
+    // auditor.json and there is no artifact to close.
     s.deleteGazeArtifact();
     const failed = run(ROUND, ['close', '--reviews', s.reviews]);
     assert.equal(failed.code, 1, 'a missing artifact is an error, never an empty round');
@@ -303,7 +303,7 @@ test('close hands back a convergence object the review payload can carry, and it
     assert.deepEqual(second.convergence, { round: 2, suppressed: { total: 2, carriedOver: 2, new: 0 } });
 
     const payload = {
-      role: 'gaze',
+      role: 'auditor',
       verdict: 'pass',
       findings: [ADVISORY_A, ADVISORY_B],
       convergence: second.convergence,
@@ -324,7 +324,7 @@ test('a convergence count that does not add up is rejected', () => {
     fs.writeFileSync(
       file,
       JSON.stringify({
-        role: 'gaze',
+        role: 'auditor',
         verdict: 'pass',
         findings: [],
         convergence: { round: 2, suppressed: { total: 5, carriedOver: 1, new: 1 } },
@@ -343,7 +343,7 @@ test('an artifact with no convergence key still validates - round 1 has none', (
   const s = session();
   try {
     const file = path.join(s.reviews, 'r1.json');
-    fs.writeFileSync(file, JSON.stringify({ role: 'gaze', verdict: 'pass', findings: [], observationGaps: [] }));
+    fs.writeFileSync(file, JSON.stringify({ role: 'auditor', verdict: 'pass', findings: [], observationGaps: [] }));
     assert.equal(run(VALIDATOR, ['review', file]).code, 0);
   } finally {
     s.cleanup();
@@ -352,9 +352,9 @@ test('an artifact with no convergence key still validates - round 1 has none', (
 
 // --- the commands still delete the artifact, and never the ledger -------------
 
-test('commands/review.md still deletes gaze.json and explicitly spares the ledger', () => {
+test('commands/review.md still deletes auditor.json and explicitly spares the ledger', () => {
   const review = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'review.md'), 'utf8');
-  assert.match(review, /Delete only `\{SESSION_DIR\}\/reviews\/gaze\.json`/);
+  assert.match(review, /Delete only `\{SESSION_DIR\}\/reviews\/auditor\.json`/);
   assert.match(review, /never\s+`\{SESSION_DIR\}\/reviews\/rounds\.json`/);
   assert.match(review, /prevents a failed or truncated run\s+from reusing an older verdict/);
   assert.match(review, /holds no verdict to reuse/);
@@ -366,17 +366,17 @@ test('commands/review.md still deletes gaze.json and explicitly spares the ledge
 
 test('commands/verify.md runs the same pass and spares the same ledger', () => {
   const verify = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'verify.md'), 'utf8');
-  assert.match(verify, /Delete only `\{SESSION_DIR\}\/reviews\/gaze\.json` — never `\{SESSION_DIR\}\/reviews\/rounds\.json`/);
+  assert.match(verify, /Delete only `\{SESSION_DIR\}\/reviews\/auditor\.json` — never `\{SESSION_DIR\}\/reviews\/rounds\.json`/);
   assert.match(verify, /review-round\.js close/);
 });
 
-test('agents/gaze.md carries the round rule and does not claim to count rounds itself', () => {
-  const gaze = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'gaze.md'), 'utf8');
-  assert.match(gaze, /## Re-review rounds/);
-  assert.match(gaze, /report `blocking` findings only/);
-  assert.match(gaze, /You are TOLD which round this is; you never count rounds yourself/);
+test('agents/auditor.md carries the round rule and does not claim to count rounds itself', () => {
+  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
+  assert.match(auditor, /## Re-review rounds/);
+  assert.match(auditor, /report `blocking` findings only/);
+  assert.match(auditor, /You are TOLD which round this is; you never count rounds yourself/);
   // The artifact stays complete: suppression is about what a round SAYS.
-  assert.match(gaze, /Keep every finding you stand behind in the artifact/);
+  assert.match(auditor, /Keep every finding you stand behind in the artifact/);
 });
 
 // --- an invalid review must not consume a round (Greptile, PR #114) -----------
@@ -390,7 +390,7 @@ test('a schema-invalid review does not consume a round, so the next valid pass i
   try {
     // Has a findings array, so the old shape check accepted it - but the finding
     // carries no evidence and no severity, which the review schema rejects.
-    fs.writeFileSync(s.gaze, JSON.stringify({ role: 'gaze', verdict: 'fail', findings: [{ file: 'a.ts' }] }));
+    fs.writeFileSync(s.auditor, JSON.stringify({ role: 'auditor', verdict: 'fail', findings: [{ file: 'a.ts' }] }));
     const bad = run(ROUND, ['close', '--reviews', s.reviews, '--json']);
     assert.notEqual(bad.code, 0, 'an invalid review artifact is rejected');
     assert.match(bad.stderr, /not a valid review artifact/);

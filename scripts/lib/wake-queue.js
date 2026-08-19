@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// wake-queue.js — durable, lockless wake queue for the Apex wake loop.
+// wake-queue.js — durable, lockless wake queue for the Chief wake loop.
 // Adapted from firstmate fm-wake-lib.sh (MIT, © 2026 Kun Chen) —
 // github.com/kunchenguid/firstmate. Bash → Node port.
 //
@@ -9,7 +9,7 @@
 //                                       rename, returns deduped records + liveness
 //   triage(dir, line)                -> one-line stub appended to .triage-log
 //
-// CONCURRENCY (no lock): Phantom runs a SINGLE consumer (Apex drains) and any
+// CONCURRENCY (no lock): Phantom runs a SINGLE consumer (Chief drains) and any
 // number of lockless producers (classifier processes append/triage). append is a
 // single O_APPEND write — atomic for row-sized payloads; drain moves the queue
 // aside with an atomic rename, so a concurrent append either lands before the
@@ -39,7 +39,7 @@ const TRIAGE_FILE = '.triage-log';
 
 // Pointer file naming the active wake session dir. Written under stateDir() by
 // commands/start.md; read by resolveWakeSource() so the producer (classifier) and
-// consumer (Apex drain) resolve the same session dir without inheriting Apex env.
+// consumer (Chief drain) resolve the same session dir without inheriting Chief env.
 // The active repo name is appended (see resolveWakeSource) so sessions in
 // different repos don't clobber one global pointer.
 const POINTER_FILE = '.active-wake-session';

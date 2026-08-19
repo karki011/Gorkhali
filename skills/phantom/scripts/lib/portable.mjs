@@ -163,7 +163,7 @@ export function envelope(type, paths, status, extra = {}) {
     status,
     created_at: timestamp,
     updated_at: timestamp,
-    producer: { role: 'apex', compute_profile: 'frontier' },
+    producer: { role: 'chief', compute_profile: 'frontier' },
     ...extra,
   };
 }

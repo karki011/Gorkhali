@@ -58,7 +58,7 @@ for (const heading of SECTION_HEADINGS) {
   });
 }
 
-test('wrap.md contains the warden preflight grep for all six section headings', () => {
+test('wrap.md contains the clerk preflight grep for all six section headings', () => {
   const content = read('commands/wrap.md');
   for (const heading of SECTION_HEADINGS) {
     assert.ok(
@@ -68,7 +68,7 @@ test('wrap.md contains the warden preflight grep for all six section headings', 
   }
   assert.ok(
     content.includes('grep -qF "## $h"'),
-    'wrap.md must give warden the exact grep -qF "## $h" preflight command'
+    'wrap.md must give clerk the exact grep -qF "## $h" preflight command'
   );
   assert.ok(
     content.includes('defense-brief.md'),
@@ -84,11 +84,11 @@ test('wrap.md Step 2 references reference/wrap/defense-brief.md', () => {
   );
 });
 
-test('wrap.md Step 2 is Apex judgment work, never warden', () => {
+test('wrap.md Step 2 is Chief judgment work, never clerk', () => {
   const content = read('commands/wrap.md');
   assert.ok(
-    /never warden/i.test(content),
-    'wrap.md must state defense brief authoring is never warden'
+    /never clerk/i.test(content),
+    'wrap.md must state defense brief authoring is never clerk'
   );
 });
 

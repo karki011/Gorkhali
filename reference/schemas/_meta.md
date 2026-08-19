@@ -5,7 +5,7 @@ the top level. There is exactly one documented exception, below.
 
 ## The one exception: reviewer artifacts
 
-`{SESSION_DIR}/reviews/gaze.json` and `{SESSION_DIR}/reviews/specialists/*.json`
+`{SESSION_DIR}/reviews/auditor.json` and `{SESSION_DIR}/reviews/specialists/*.json`
 carry `_meta` only when they happen to have it. `scripts/validate-artifact.js`
 validates it when present and never requires it
 ([`review.md`](review.md)).

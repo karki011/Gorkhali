@@ -1,6 +1,6 @@
-# Optional Lens visual protocol
+# Optional Surveyor visual protocol
 
-Load this reference only for an explicitly requested Lens inspection.
+Load this reference only for an explicitly requested Surveyor inspection.
 
 ## Resolve the worktree URL
 
@@ -20,14 +20,14 @@ Otherwise:
    Include `http://localhost:3333`, the branch, and the worktree path so the
    user can start the correct server and paste its displayed Dev link.
 
-Keep the Lens inspection pending while waiting for that URL. Do not convert it
+Keep the Surveyor inspection pending while waiting for that URL. Do not convert it
 to a pass, failure, or checklist-only flow. Never click Start/Restart Dev,
 guess a port, or select a different worktree on the user's behalf.
 
 ## Browser backend
 
 Use the browser backend supplied by the caller. When `agent-browser` is the
-available backend, use one persistent `lens-qa` session. If no supported browser
+available backend, use one persistent `surveyor-qa` session. If no supported browser
 backend is available, report a skipped check and observation gap; do not install
 software or substitute an unverified pass.
 
@@ -46,10 +46,10 @@ For every assigned route:
 For `agent-browser`, the core commands are:
 
 ```text
-agent-browser --session-name lens-qa open <url>
-agent-browser --session-name lens-qa snapshot -i
-agent-browser --session-name lens-qa screenshot <evidence-path>
-agent-browser --session-name lens-qa set viewport <width> <height>
+agent-browser --session-name surveyor-qa open <url>
+agent-browser --session-name surveyor-qa snapshot -i
+agent-browser --session-name surveyor-qa screenshot <evidence-path>
+agent-browser --session-name surveyor-qa set viewport <width> <height>
 ```
 
 Element references belong only to the snapshot that produced them. Never carry
@@ -57,7 +57,7 @@ a reference across navigation, modal changes, or another snapshot.
 
 ## Evidence boundary
 
-Lens reports evidence and gaps only. It does not edit files, dispatch repair
+Surveyor reports evidence and gaps only. It does not edit files, dispatch repair
 agents, retry fixes, write a specialist review artifact, or claim the user's
-confirmation. A failed or blocked optional Lens pass does not change the normal
+confirmation. A failed or blocked optional Surveyor pass does not change the normal
 verification lifecycle; the user may continue with the human checklist.

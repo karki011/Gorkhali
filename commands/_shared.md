@@ -84,7 +84,7 @@ by `test/portable-skill.test.js` - the sites stay verbatim and change only toget
 1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `PHANTOM_PROTECTED_BRANCHES`)
 2. **Verify** — run commands, read output, confirm
 3. **Anti-repetition** — scan INDEX.md before planning
-4. **Rival** — the one plan critic; challenges every plan and writes `plan-check.json`
+4. **Opposition** — the one plan critic; challenges every plan and writes `plan-check.json`
 5. **Simplify** — after verify pass
 6. **Intent check** — diff vs contract
 7. **Smart PR** — ready-for-review PR with the 3-section body
@@ -94,7 +94,7 @@ by `test/portable-skill.test.js` - the sites stay verbatim and change only toget
 11. **Root cause** — reproduce → trace → confirm → fix
 12. **Parallel agents** — independent files → concurrent spawn
 13. **Subagent-driven** — all edits via Agent tool
-14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Apex can't self-launch). See `reference/workflow-delegation.md`.
+14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Chief can't self-launch). See `reference/workflow-delegation.md`.
 15. **Output contract** — script/skill output is minimal-field, counted, truncated-with-escape-hatch, `help[N]`-hinted, fails loud on unknown flags; human-facing deliverables (plans, research, reports, summaries) are self-contained HTML, never markdown. See `reference/output-contract.md`.
 16. **Response shape** — the conversational response leads with the decision, names where the run stands, measures instead of hedging, ranks and caps findings, and carries no preamble or closer. See `reference/response-shape.md` and § Response Shape below.
 
@@ -102,11 +102,11 @@ by `test/portable-skill.test.js` - the sites stay verbatim and change only toget
 
 ### Self-Check (before "done")
 
-All true? Feature branch, verify ran, anti-repetition, rival, simplify, intent, learnings, subagent-only. If ANY no → fix first.
+All true? Feature branch, verify ran, anti-repetition, opposition, simplify, intent, learnings, subagent-only. If ANY no → fix first.
 
 ## Response Shape
 
-Governs the prose Apex writes to the human. Script output stays under `reference/output-contract.md`;
+Governs the prose Chief writes to the human. Script output stays under `reference/output-contract.md`;
 the last line stays under § Final Status Block below. Full contract and the conditions that override
 it: `reference/response-shape.md`.
 
@@ -167,7 +167,7 @@ Compact with hints. Subagents for heavy reads. After compact: re-read `intent.md
 | Tier | Commands | Shared Contexts |
 |------|----------|----------------|
 | **T1** | status, sessions, health, learn, note, scout | `_shared.md` only |
-| **T2** | verify, fix, validate, eval, hound | + repo-detection + auto-learning |
+| **T2** | verify, fix, validate, eval, detective | + repo-detection + auto-learning |
 | **T3** | review, contract, recruit, visual | + shadows + discipline + contracts |
 | **T4** | start, execute, wrap, resume, pause | ALL shared contexts |
 

@@ -3,7 +3,7 @@
 // reference/wrap/pr-body.md, its cannot-degrade Verification rule, the
 // stated-gap convention, the derived Review-focus ranking, the single-copy
 // discipline (wrap.md and ship-ceremony.md point at the spec, never restate it),
-// the ready-for-review `gh pr create` (no --draft), and warden's
+// the ready-for-review `gh pr create` (no --draft), and clerk's
 // substitute-only boundary.
 //
 // The gate tests EXECUTE the preflight snippet lifted verbatim out of
@@ -184,31 +184,31 @@ test('the example skeleton stays inside the 40-line cap', () => {
   );
 });
 
-// ── ownership: Apex renders, warden substitutes ──────────────────────────────
+// ── ownership: Chief renders, clerk substitutes ──────────────────────────────
 
-test('pr-body.md keeps rendering with Apex and substitution with warden', () => {
+test('pr-body.md keeps rendering with Chief and substitution with clerk', () => {
   const content = read('reference/wrap/pr-body.md');
   assert.ok(
-    /Warden never authors/i.test(content),
-    'pr-body.md must state warden never authors a section'
+    /Clerk never authors/i.test(content),
+    'pr-body.md must state clerk never authors a section'
   );
-  assert.ok(content.includes('--body-file'), 'pr-body.md must confine warden to --body-file');
+  assert.ok(content.includes('--body-file'), 'pr-body.md must confine clerk to --body-file');
 });
 
-test('warden.md takes the body as a file and forbids authoring it', () => {
-  const content = read('agents/warden.md');
+test('clerk.md takes the body as a file and forbids authoring it', () => {
+  const content = read('agents/clerk.md');
   assert.ok(
     content.includes('--body-file'),
-    'warden.md PR ops must take the body as --body-file'
+    'clerk.md PR ops must take the body as --body-file'
   );
   assert.ok(
     /three-heading preflight/i.test(content),
-    'warden.md must run the three-heading preflight'
+    'clerk.md must run the three-heading preflight'
   );
   const notOwned = content.slice(content.indexOf('## What you do NOT own'));
   assert.ok(
     /never write, fill, summarize, re-order, or repair/i.test(notOwned),
-    'warden.md must spell out that it never fills or repairs a section'
+    'clerk.md must spell out that it never fills or repairs a section'
   );
 });
 
@@ -233,8 +233,8 @@ for (const file of ['commands/wrap.md', 'reference/wrap/ship-ceremony.md']) {
 test('wrap.md Step 3 renders pr-body.md and names the three headings', () => {
   const content = read('commands/wrap.md');
   assert.ok(
-    /never warden work/i.test(content),
-    'wrap.md must state PR body rendering is never warden work'
+    /never clerk work/i.test(content),
+    'wrap.md must state PR body rendering is never clerk work'
   );
   for (const heading of SECTIONS) {
     assert.ok(
@@ -244,13 +244,13 @@ test('wrap.md Step 3 renders pr-body.md and names the three headings', () => {
   }
 });
 
-test('wrap.md offers a Lens screenshot as optional, never-blocking evidence', () => {
+test('wrap.md offers a Surveyor screenshot as optional, never-blocking evidence', () => {
   const content = read('commands/wrap.md');
-  const idx = content.indexOf('Lens screenshot');
-  assert.notEqual(idx, -1, 'wrap.md must mention the optional Lens screenshot');
+  const idx = content.indexOf('Surveyor screenshot');
+  assert.notEqual(idx, -1, 'wrap.md must mention the optional Surveyor screenshot');
   const nearby = content.slice(idx - 200, idx + 300);
-  assert.ok(/MAY/.test(nearby), 'the Lens screenshot must be optional');
-  assert.ok(/never blocks/i.test(nearby), 'the Lens screenshot must never block the wrap');
+  assert.ok(/MAY/.test(nearby), 'the Surveyor screenshot must be optional');
+  assert.ok(/never blocks/i.test(nearby), 'the Surveyor screenshot must never block the wrap');
 });
 
 test('wrap.md records prBody in the wrap.json outcome', () => {
@@ -366,7 +366,7 @@ test('known-good draft mentions survive the scanner', () => {
 // ── the preflight actually gates ─────────────────────────────────────────────
 
 // Lift the preflight verbatim out of the doc so the test exercises the exact
-// snippet warden is told to run.
+// snippet clerk is told to run.
 function preflightScript() {
   const content = read('reference/wrap/ship-ceremony.md');
   const blocks = content.match(/```bash\n([\s\S]*?)```/g) || [];
@@ -381,7 +381,7 @@ const POPULATED_BODY = [
   '',
   '## Verification',
   '- focused tests — passed',
-  '- gaze — pass — 0 findings',
+  '- auditor — pass — 0 findings',
   '',
   '## Review focus',
   '- `src/hooks/useUsageRange.ts:47` — plan risk lands here',
@@ -428,7 +428,7 @@ for (const heading of SECTIONS) {
 
 test('preflight REJECTS an empty section in the middle of the body', () => {
   const empty = POPULATED_BODY.replace(
-    '## Verification\n- focused tests — passed\n- gaze — pass — 0 findings\n',
+    '## Verification\n- focused tests — passed\n- auditor — pass — 0 findings\n',
     '## Verification\n'
   );
   assert.equal(

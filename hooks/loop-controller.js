@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // loop-controller.js — canonical authority for the verify/fix loop ceiling.
 //
-// Standalone library (NOT wired into hooks.json). Prose in fix.md/verify.md/apex.md
+// Standalone library (NOT wired into hooks.json). Prose in fix.md/verify.md/chief.md
 // DEFERS to this module so the Markdown and the count can't drift.
 //
 // WHERE THE COUNT COMES FROM, and why it moved. The counter used to be the

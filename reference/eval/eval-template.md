@@ -219,7 +219,7 @@ Every scored row MUST carry its evidence line (`{criterion}: {score}/{confidence
     </tr>
   </thead>
   <tbody>
-    <!-- Repeat for each active shadow (Apex, Blade per focus, Ward per mode, Gaze).
+    <!-- Repeat for each active shadow (Chief, Engineer per focus, Inspector per mode, Auditor).
          Each row's evidence-line repeats per scored criterion for that agent. -->
     <tr>
       <td>{AGENT_NAME_1}</td>
@@ -288,12 +288,12 @@ Every scored row MUST carry its evidence line (`{criterion}: {score}/{confidence
 | `{DIMENSION_SCORE_N}` | 1-5 or `n/e` | `5`, `n/e` |
 | `{DIMENSION_CONFIDENCE_N}` / `{DIMENSION_CONFIDENCE_CLASS_N}` | high/medium/low/n/e | `high` / `high` |
 | `{DIMENSION_EVIDENCE_N}` | Required evidence line | `Outcome quality: 5/high — sessions/CP-1234/verification.json :: verdict "pass", 409/409 tests` |
-| `{AGENT_NAME_N}` | Scored shadow | `Blade (UI focus)` |
+| `{AGENT_NAME_N}` | Scored shadow | `Engineer (UI focus)` |
 | `{AGENT_SCORE_N}` | Mean of evaluable criteria | `4.3` |
 | `{AGENT_EVIDENCE_N}` | Required evidence line(s) for that agent | `a11y checks: 4/high — review-panel.json :: 2 findings fixed pre-ship` |
 | `{AGENT_NE_COUNT_N}` | `n/e`-scored criteria for that agent | `1` |
 | `{AGENT_CONFIDENCE_N}` / `{AGENT_CONFIDENCE_CLASS_N}` | high/medium/low | `medium` / `medium` |
 | `{WENT_WELL_N}` | Retrospective positive | `Fix loop converged in one pass` |
 | `{TO_IMPROVE_N}` | Retrospective gap | `Contract lacked a non-goals section, caused scope drift` |
-| `{COORDINATION_NOTES}` | Free-text on agent handoffs, timing, blockers | `Blade (API) blocked 12min waiting on contract revision` |
+| `{COORDINATION_NOTES}` | Free-text on agent handoffs, timing, blockers | `Engineer (API) blocked 12min waiting on contract revision` |
 | `{LAYOUT_AUDIT_SCRIPT}` | Output of `node scripts/layout-audit.js --source` | zero-dep auditor; defines `window.__lavishAudit()` |

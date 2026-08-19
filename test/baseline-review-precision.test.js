@@ -34,7 +34,7 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
-// A finding in the shape agents/gaze.md writes today.
+// A finding in the shape agents/auditor.md writes today.
 function finding(file, severity, evidence, extra = {}) {
   return { severity, file, line: 42, evidence, impact: 'x', remediation: 'y', ...extra };
 }
@@ -84,30 +84,30 @@ function buildCorpus() {
   const base = path.join(data, 'repos', 'feature-web-apps');
 
   writeJson(path.join(base, 'sessions', 'CP-100', 'wrap.json'), { brief: 'pre-B9', pr: null });
-  writeJson(path.join(base, 'sessions', 'CP-100', 'reviews', 'gaze.json'), {
-    role: 'gaze',
+  writeJson(path.join(base, 'sessions', 'CP-100', 'reviews', 'auditor.json'), {
+    role: 'auditor',
     verdict: 'fail',
     findings: PRE_B9,
     observation_gaps: [],
   });
 
   writeJson(path.join(base, 'sessions', 'CP-200', 'wrap.json'), { brief: 'post-B9', pr: null });
-  writeJson(path.join(base, 'sessions', 'CP-200', 'reviews', 'gaze.json'), {
-    role: 'gaze',
+  writeJson(path.join(base, 'sessions', 'CP-200', 'reviews', 'auditor.json'), {
+    role: 'auditor',
     verdict: 'fail',
     findings: [GAZE_FIXED, GAZE_DISMISSED, GAZE_DEFERRED],
     observation_gaps: [],
   });
-  writeJson(path.join(base, 'sessions', 'CP-200', 'reviews', 'specialists', 'archer.json'), {
-    role: 'archer',
+  writeJson(path.join(base, 'sessions', 'CP-200', 'reviews', 'specialists', 'justice.json'), {
+    role: 'justice',
     verdict: 'fail',
     findings: [ARCHER_FIXED_P0, ARCHER_FIXED_P2, ARCHER_PRE_EXISTING],
     observationGaps: [],
   });
 
   writeJson(path.join(base, 'completed', 'CP-300', 'wrap.json'), { brief: 'clean', pr: null });
-  writeJson(path.join(base, 'completed', 'CP-300', 'reviews', 'gaze.json'), {
-    role: 'gaze',
+  writeJson(path.join(base, 'completed', 'CP-300', 'reviews', 'auditor.json'), {
+    role: 'auditor',
     verdict: 'pass',
     findings: [],
     observation_gaps: [],
@@ -141,7 +141,7 @@ test('the miner prints one row per finding id with a fixed/dismissed/deferred co
   withCorpus((data) => {
     const r = mineJson(data);
 
-    assert.equal(r.findingsTotal, 8, 'two pre-B9 + three gaze + three archer findings');
+    assert.equal(r.findingsTotal, 8, 'two pre-B9 + three auditor + three justice findings');
     assert.equal(r.rows.length, 8, 'one row per finding, none collapsed');
     const ids = new Set(r.rows.map((row) => row.id));
     assert.equal(ids.size, 8, 'ids are distinct, so a row is addressable by id');
@@ -149,7 +149,7 @@ test('the miner prints one row per finding id with a fixed/dismissed/deferred co
     const fixedRow = r.rows.find((row) => row.id === GAZE_FIXED.id);
     assert.deepEqual(
       { id: fixedRow.id, agent: fixedRow.agent, severity: fixedRow.severity, disposition: fixedRow.disposition },
-      { id: GAZE_FIXED.id, agent: 'gaze', severity: 'blocking', disposition: 'fixed' }
+      { id: GAZE_FIXED.id, agent: 'auditor', severity: 'blocking', disposition: 'fixed' }
     );
 
     // The hand-dismissal from B9's stated test reads back as `dismissed`, with
@@ -193,11 +193,11 @@ test('pre-B9 findings are shown as unmeasurable and never enter a denominator', 
       assert.match(row.id, rf.FINDING_ID_RE);
     }
 
-    // gaze reviewed 5 findings but only 3 are countable; the pre-B9 pair must
-    // not swell the gaze denominator.
-    const gaze = r.byAgent.find((t) => t.key === 'gaze');
-    assert.equal(gaze.dispositioned, 3);
-    assert.equal(gaze.fixed, 1);
+    // auditor reviewed 5 findings but only 3 are countable; the pre-B9 pair must
+    // not swell the auditor denominator.
+    const auditor = r.byAgent.find((t) => t.key === 'auditor');
+    assert.equal(auditor.dispositioned, 3);
+    assert.equal(auditor.fixed, 1);
 
     const human = mine(data);
     assert.match(human, /with a disposition 6\/8   measurable 5\/8/);
@@ -215,10 +215,10 @@ test('a preExisting finding is deferred by rule and never enters a rate', () => 
     assert.equal(row.preExisting, true, 'the row is still printed - excluded, not hidden');
     assert.equal(row.disposition, 'deferred');
 
-    // Were it counted, archer would read 2 fixed of 3 (66.7%) instead of 2 of 2.
-    const archer = r.byAgent.find((t) => t.key === 'archer');
-    assert.equal(archer.dispositioned, 2);
-    assert.equal(archer.precisionLower, 1);
+    // Were it counted, justice would read 2 fixed of 3 (66.7%) instead of 2 of 2.
+    const justice = r.byAgent.find((t) => t.key === 'justice');
+    assert.equal(justice.dispositioned, 2);
+    assert.equal(justice.precisionLower, 1);
     assert.equal(r.overall.deferred, 1, 'only the genuinely deferred finding counts as deferred');
 
     const human = mine(data);
@@ -238,7 +238,7 @@ test('severity folds onto the one scale while the row keeps what is on disk', ()
     assert.match(r.severityBasis, /review-standard\.js/);
 
     const blocking = r.bySeverity.find((t) => t.key === 'blocking');
-    assert.equal(blocking.dispositioned, 2, 'gaze blocking + archer P0');
+    assert.equal(blocking.dispositioned, 2, 'auditor blocking + justice P0');
     assert.equal(blocking.precisionLower, 1, 'both blocking findings were fixed');
 
     const advisory = r.bySeverity.find((t) => t.key === 'advisory');
@@ -286,7 +286,7 @@ test('an empty corpus reports UNMEASURABLE, never 0% and never a clean review', 
 
 test('the miner reads dispositions and never records one', () => {
   withCorpus((data) => {
-    const preB9 = path.join(data, 'repos', 'feature-web-apps', 'sessions', 'CP-100', 'reviews', 'gaze.json');
+    const preB9 = path.join(data, 'repos', 'feature-web-apps', 'sessions', 'CP-100', 'reviews', 'auditor.json');
     const before = fs.readFileSync(preB9, 'utf-8');
     mine(data);
     mine(data, ['--json']);

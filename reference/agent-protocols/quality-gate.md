@@ -1,33 +1,33 @@
 # Quality Gate Protocol
 
-Reference for Gaze agent — full gauntlet steps, dual-lens protocol, and re-review details.
+Reference for Auditor agent — full gauntlet steps, dual-auditor protocol, and re-review details.
 
 ## Full Gauntlet Steps
 
-When Apex requests gauntlet mode:
+When Chief requests gauntlet mode:
 
 1. `git add .` -- baseline all changes
-2. Spawn sweep agent (`agents/sweep.md`, `subagent_type: "sweep"`, `name: "sweep-oda"`) + `pr-review-toolkit:silent-failure-hunter` (`name: "hunter-vane"`) in parallel — names per `reference/roster.md`
-3. Review sweep diff -- **APPROVE** (keep simplification) or **REJECT** (revert)
+2. Spawn steward agent (`agents/steward.md`, `subagent_type: "steward"`, `name: "steward-tessle"`) + `pr-review-toolkit:silent-failure-hunter` (`name: "hunter-quarrick"`) in parallel — names per `reference/roster.md`
+3. Review steward diff -- **APPROVE** (keep simplification) or **REJECT** (revert)
 4. Full verify: lint + typecheck + build + tests
 5. Final report:
-   - Sweep changes accepted/rejected with rationale
+   - Steward changes accepted/rejected with rationale
    - Silent failure findings
    - Build verification results
    - **CLEARED FOR USER TESTING** or **BLOCKED** with blocking issues
 
-## Dual-Lens Protocol
+## Dual-Auditor Protocol
 
-Apex may spawn a second reviewer alongside Gaze on the same diff for dual-lens coverage
-(`subagent_type: "gaze"`, `name: "gaze-sura"` per `reference/roster.md`).
+Chief may spawn a second reviewer alongside Auditor on the same diff for dual-auditor coverage
+(`subagent_type: "auditor"`, `name: "auditor-pruett"` per `reference/roster.md`).
 
 **How it works:**
 - Both reviews run in parallel on the same changeset
 - Each reviewer produces independent findings with severity and dimension scores
-- Conflicts (where one reviewer flags an issue the other approved) are resolved by Gaze (this agent)
-- Gaze's verdict is final — the second reviewer's input is advisory
+- Conflicts (where one reviewer flags an issue the other approved) are resolved by Auditor (this agent)
+- Auditor's verdict is final — the second reviewer's input is advisory
 
-**When Apex uses dual-lens:**
+**When Chief uses dual-auditor:**
 - High-risk changes (security, data mutations, auth flows)
 - Cross-cutting changes that touch 5+ packages
 - Architecture-level refactors
@@ -35,13 +35,13 @@ Apex may spawn a second reviewer alongside Gaze on the same diff for dual-lens c
 ## Re-Review Protocol (Quality Gate Loop)
 
 ### When verdict = NEEDS WORK:
-1. Apex extracts actionable findings (CRITICAL + WARNING items)
-2. Blade receives findings, fixes, runs self-review node, hands back
-3. Ward re-verifies (fixes didn't break build/tests)
-4. Gaze re-reviews **ONLY the findings** (not full review) and re-scores affected dimensions
+1. Chief extracts actionable findings (CRITICAL + WARNING items)
+2. Engineer receives findings, fixes, runs self-review node, hands back
+3. Inspector re-verifies (fixes didn't break build/tests)
+4. Auditor re-reviews **ONLY the findings** (not full review) and re-scores affected dimensions
 5. New weighted score produces new verdict
 6. Max 2 quality iterations — if still NEEDS WORK after 2, escalate to user with full score breakdown
 
 ### When verdict = REJECTED:
 - No fix loop. Return to Phase B (planning). The approach is fundamentally wrong.
-- Gaze provides a brief rationale for rejection to guide re-planning.
+- Auditor provides a brief rationale for rejection to guide re-planning.

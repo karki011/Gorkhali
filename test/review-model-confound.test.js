@@ -2,7 +2,7 @@
 // review-model-confound.test.js — F11. The B11 precision gate compares findings
 // that carry a `confidence` against findings that carry none. That is only a
 // comparison of the VERIFICATION PASS if both populations came out of the same
-// reviewer, and the 2026-08-13 baseline run says they did not: `gaze` is pinned
+// reviewer, and the 2026-08-13 baseline run says they did not: `auditor` is pinned
 // `opus` in frontmatter and in model-policy.json, and it spawned
 // `opus:18 sonnet:7`. 28% of the default reviewer's runs were the cheaper tier
 // while the frontmatter drift check still read `match`.
@@ -17,7 +17,7 @@
 //      verdict.
 //
 // What is NOT fixed here, stated so nobody reads the green test as more than it
-// is: the underlying drift (gaze running sonnet against an opus pin) is B1's
+// is: the underlying drift (auditor running sonnet against an opus pin) is B1's
 // scope. This is the gate being honest about it.
 'use strict';
 
@@ -53,7 +53,7 @@ function writeJson(file, value) {
 
 function validate(artifact) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f11-validate-'));
-  const file = path.join(dir, 'gaze.json');
+  const file = path.join(dir, 'auditor.json');
   writeJson(file, artifact);
   try {
     return run(VALIDATOR, ['review', file]);
@@ -75,7 +75,7 @@ const finding = (overrides = {}) => ({
 });
 
 const artifact = (overrides = {}) => ({
-  role: 'gaze',
+  role: 'auditor',
   verdict: 'fail',
   findings: [finding()],
   observationGaps: [],
@@ -121,7 +121,7 @@ test('the prose tells reviewers never to copy the model from a frontmatter pin',
   assert.match(shape, /NEVER copy it from a\s+frontmatter pin/);
   assert.match(shape, /7 of 25 spawns/);
   // Every reviewer that gets the shape gets the rule, because it is generated.
-  for (const file of ['agents/gaze.md', 'agents/archer.md']) {
+  for (const file of ['agents/auditor.md', 'agents/justice.md']) {
     const text = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
     assert.match(text, /`model` is OPTIONAL/, file + ' carries the model rule');
   }
@@ -145,7 +145,7 @@ const AFTER = tally(9, 1, 0);
 const fill = (n, model) => Array(n).fill(model);
 
 test('a MIXED-model population produces no verdict, however good the numbers look', () => {
-  // Exactly the split F11 measured on gaze: most of the side on the pinned
+  // Exactly the split F11 measured on auditor: most of the side on the pinned
   // model, a quarter of it on the cheaper one.
   const mixed = std.precisionGate({
     before: BEFORE,
@@ -257,8 +257,8 @@ function buildConfoundedCorpus() {
   ];
 
   writeJson(path.join(base, 'sessions', 'CP-900', 'wrap.json'), { brief: 'verified on opus', pr: null });
-  writeJson(path.join(base, 'sessions', 'CP-900', 'reviews', 'gaze.json'), {
-    role: 'gaze',
+  writeJson(path.join(base, 'sessions', 'CP-900', 'reviews', 'auditor.json'), {
+    role: 'auditor',
     model: 'opus',
     verdict: 'fail',
     findings: verified,
@@ -266,8 +266,8 @@ function buildConfoundedCorpus() {
   });
 
   writeJson(path.join(base, 'sessions', 'CP-901', 'wrap.json'), { brief: 'unverified on sonnet', pr: null });
-  writeJson(path.join(base, 'sessions', 'CP-901', 'reviews', 'gaze.json'), {
-    role: 'gaze',
+  writeJson(path.join(base, 'sessions', 'CP-901', 'reviews', 'auditor.json'), {
+    role: 'auditor',
     model: 'sonnet',
     verdict: 'fail',
     findings: unverified,
@@ -337,7 +337,7 @@ test('an artifact with no model leaves the side UNRECORDED and the gate silent',
   const data = buildConfoundedCorpus();
   try {
     // Drop the model from the opus side only.
-    const file = path.join(data, 'repos', 'feature-web-apps', 'sessions', 'CP-900', 'reviews', 'gaze.json');
+    const file = path.join(data, 'repos', 'feature-web-apps', 'sessions', 'CP-900', 'reviews', 'auditor.json');
     const art = JSON.parse(fs.readFileSync(file, 'utf8'));
     delete art.model;
     writeJson(file, art);

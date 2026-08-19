@@ -65,23 +65,23 @@ test('empty session: exit 0 with a clear no-records line', () => {
 test('multi-role: per-role requested distribution and outcome tallies', () => {
   const dir = mkTmp();
   try {
-    writeArtifact(dir, 'plan.json', 'apex', routing('frontier', null, null, 'passed'));
-    writeArtifact(dir, 'a.task.json', 'blade', routing('balanced', null, null, 'passed'));
-    writeArtifact(dir, 'b.task.json', 'blade', routing('balanced', null, null, 'failed'));
+    writeArtifact(dir, 'plan.json', 'chief', routing('frontier', null, null, 'passed'));
+    writeArtifact(dir, 'a.task.json', 'engineer', routing('balanced', null, null, 'passed'));
+    writeArtifact(dir, 'b.task.json', 'engineer', routing('balanced', null, null, 'failed'));
 
     const res = runCli([dir]);
     assert.equal(res.code, 0, res.stderr);
-    assert.match(res.stdout, /apex\s+requested: frontier×1/);
-    assert.match(res.stdout, /blade\s+requested: balanced×2/);
+    assert.match(res.stdout, /chief\s+requested: frontier×1/);
+    assert.match(res.stdout, /engineer\s+requested: balanced×2/);
     assert.match(res.stdout, /outcomes: failed×1, passed×1/);
 
     const json = JSON.parse(runCli([dir, '--json']).stdout);
     assert.equal(json.records, 3);
     assert.equal(typeof json.reconciliationActive, 'boolean');
     assert.equal(json.reconciliationActive, false);
-    assert.deepEqual(json.perRole.apex.requested, { frontier: 1 });
-    assert.deepEqual(json.perRole.blade.requested, { balanced: 2 });
-    assert.deepEqual(json.perRole.blade.outcomes, { failed: 1, passed: 1 });
+    assert.deepEqual(json.perRole.chief.requested, { frontier: 1 });
+    assert.deepEqual(json.perRole.engineer.requested, { balanced: 2 });
+    assert.deepEqual(json.perRole.engineer.outcomes, { failed: 1, passed: 1 });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -90,16 +90,16 @@ test('multi-role: per-role requested distribution and outcome tallies', () => {
 test('runs/ subdir layout: nested artifacts are collected', () => {
   const dir = mkTmp();
   try {
-    writeArtifact(dir, 'plan.json', 'apex', routing('frontier'));
-    writeArtifact(dir, 'runs/handoff/delegation-task.json', 'blade', routing('balanced'));
-    writeArtifact(dir, 'runs/handoff/delegation-result.json', 'blade', routing('balanced'));
+    writeArtifact(dir, 'plan.json', 'chief', routing('frontier'));
+    writeArtifact(dir, 'runs/handoff/delegation-task.json', 'engineer', routing('balanced'));
+    writeArtifact(dir, 'runs/handoff/delegation-result.json', 'engineer', routing('balanced'));
 
     const files = collectJsonFiles(dir);
     assert.equal(files.filter((f) => f.includes(`${path.sep}runs${path.sep}`)).length, 2);
 
     const json = JSON.parse(runCli([dir, '--json']).stdout);
     assert.equal(json.records, 3);
-    assert.deepEqual(json.perRole.blade.requested, { balanced: 2 });
+    assert.deepEqual(json.perRole.engineer.requested, { balanced: 2 });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -108,8 +108,8 @@ test('runs/ subdir layout: nested artifacts are collected', () => {
 test('all-null actuals: reconciliation inactive, no deltas', () => {
   const dir = mkTmp();
   try {
-    writeArtifact(dir, 'plan.json', 'apex', routing('frontier', null));
-    writeArtifact(dir, 'run.json', 'blade', routing('balanced', null));
+    writeArtifact(dir, 'plan.json', 'chief', routing('frontier', null));
+    writeArtifact(dir, 'run.json', 'engineer', routing('balanced', null));
 
     const res = runCli([dir]);
     assert.equal(res.code, 0, res.stderr);
@@ -128,22 +128,22 @@ test('non-null actual + fallback: deltas and fallbacks populated, active', () =>
   const dir = mkTmp();
   try {
     // Host reported actual_profile that differs from requested, plus a reason.
-    writeArtifact(dir, 'run.json', 'blade', routing('frontier', 'balanced', 'capacity', 'passed'));
+    writeArtifact(dir, 'run.json', 'engineer', routing('frontier', 'balanced', 'capacity', 'passed'));
     // A record whose actual equals requested contributes no delta.
-    writeArtifact(dir, 'plan.json', 'apex', routing('frontier', 'frontier', null, 'passed'));
+    writeArtifact(dir, 'plan.json', 'chief', routing('frontier', 'frontier', null, 'passed'));
 
     const res = runCli([dir]);
     assert.equal(res.code, 0, res.stderr);
     assert.doesNotMatch(res.stdout, /reconciliation inactive/);
-    assert.match(res.stdout, /blade: frontier -> balanced ×1/);
-    assert.match(res.stdout, /blade: capacity ×1/);
+    assert.match(res.stdout, /engineer: frontier -> balanced ×1/);
+    assert.match(res.stdout, /engineer: capacity ×1/);
 
     const json = JSON.parse(runCli([dir, '--json']).stdout);
     assert.equal(json.reconciliationActive, true);
     assert.equal(json.deltas.length, 1);
-    assert.deepEqual(json.deltas[0], { role: 'blade', requested: 'frontier', actual: 'balanced', count: 1 });
+    assert.deepEqual(json.deltas[0], { role: 'engineer', requested: 'frontier', actual: 'balanced', count: 1 });
     assert.equal(json.fallbacks.length, 1);
-    assert.deepEqual(json.fallbacks[0], { role: 'blade', reason: 'capacity', count: 1 });
+    assert.deepEqual(json.fallbacks[0], { role: 'engineer', reason: 'capacity', count: 1 });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -198,8 +198,8 @@ test('a symlinked runs/ directory is skipped, matching walkJson\'s non-follow po
   const dir = mkTmp();
   const realRunsTarget = mkTmp();
   try {
-    writeArtifact(dir, 'plan.json', 'apex', routing('frontier'));
-    writeArtifact(realRunsTarget, 'delegation-task.json', 'blade', routing('balanced'));
+    writeArtifact(dir, 'plan.json', 'chief', routing('frontier'));
+    writeArtifact(realRunsTarget, 'delegation-task.json', 'engineer', routing('balanced'));
 
     const runsLink = path.join(dir, 'runs');
     try {
@@ -217,7 +217,7 @@ test('a symlinked runs/ directory is skipped, matching walkJson\'s non-follow po
 
     const json = JSON.parse(runCli([dir, '--json']).stdout);
     assert.equal(json.records, 1);
-    assert.deepEqual(json.perRole, { apex: { requested: { frontier: 1 }, outcomes: { passed: 1 } } });
+    assert.deepEqual(json.perRole, { chief: { requested: { frontier: 1 }, outcomes: { passed: 1 } } });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(realRunsTarget, { recursive: true, force: true });

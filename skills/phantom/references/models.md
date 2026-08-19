@@ -28,21 +28,21 @@ flat, and it remains the only vocabulary this skill uses to talk about compute.
 Where a host is flat, escalation stops being available as a routing move: a
 subtask that outgrows its profile gets re-decomposed, because there is nothing
 above it to route into.
-Apex requests `frontier` for planning, decomposition, and synthesis.
+Chief requests `frontier` for planning, decomposition, and synthesis.
 Delegated work uses the lowest sufficient profile: `economy` for deterministic
 mechanical tasks, `balanced` for well-scoped implementation, and `deep` only
 for ambiguity, cross-cutting risk, or demanding review.
 
 Risk is provider-neutral assignment metadata: `low`, `moderate`, `high`, or
-`critical`. A critical assignment elevates Blade, Gaze, Sage, Lens, Archer,
-Rival, and Hound to at least `deep` before host presets are
-resolved. Apex remains `frontier`; Ward, Sweep, and Warden remain on their
+`critical`. A critical assignment elevates Engineer, Auditor, Advisor, Surveyor, Justice,
+Opposition, and Detective to at least `deep` before host presets are
+resolved. Chief remains `frontier`; Inspector, Steward, and Clerk remain on their
 ordinary profiles. An explicit `deep` or `frontier` request is never
-downgraded. Ordinary Rival work remains `balanced`.
+downgraded. Ordinary Opposition work remains `balanced`.
 
 ## Resolve after topology
 
-Apex chooses the execution topology before resolving worker compute. For every
+Chief chooses the execution topology before resolving worker compute. For every
 bounded assignment, request the lowest sufficient profile just in time. The
 user does not need to configure workers, choose their models, or maintain a
 model map. An explicit user choice still wins.
@@ -67,7 +67,7 @@ environment variables. Resolve a role with:
 node <skill-directory>/scripts/resolve-profile.mjs --role <role> --profile <profile> --risk <risk> --host <host-key>
 ```
 
-Omit `--profile` to use the role default. Apex always resolves to `frontier`;
+Omit `--profile` to use the role default. Chief always resolves to `frontier`;
 profile downshifts apply only to delegated work.
 
 Apply the returned model and effort only when the runtime supports per-delegate
@@ -122,7 +122,7 @@ guessing a value.
 Prefer re-scoping a task before escalating compute. Escalate implementation
 from `balanced` to `deep` only when ambiguity, cross-cutting risk, or failed
 bounded attempts show that the original profile is insufficient. Do not move
-implementation to `frontier`; Apex should re-decompose the assignment instead.
+implementation to `frontier`; Chief should re-decompose the assignment instead.
 
 On a host whose presets are flat, escalating the profile changes the brief but
 buys no additional compute, so re-scoping is not merely preferred there — it is

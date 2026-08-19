@@ -45,7 +45,7 @@ const DOMAIN_KEYWORDS = {
   data: ['api', 'fetch', 'axios', 'graphql', 'endpoint', 'route', 'rest', 'http', 'query', 'mutation', 'request', 'response'],
   auth: ['auth', 'jwt', 'token', 'oauth', 'session', 'login', 'password', 'credential', 'permission', 'rbac'],
   testing: ['test', 'spec', 'mock', 'jest', 'vitest', 'mocha', 'assert', 'expect', 'coverage', 'fixture'],
-  shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'apex', 'blade', 'sage', 'ward', 'gaze', 'archer', 'hound'],
+  shadows: ['agent', 'shadows', 'skill', 'spawn', 'hook', 'chief', 'engineer', 'advisor', 'inspector', 'auditor', 'justice', 'detective'],
   migration: ['migrate', 'schema', 'migration', 'alter', 'column', 'table', 'database', 'sql', 'prisma', 'drizzle'],
   tooling: ['config', 'eslint', 'tsconfig', 'webpack', 'vite', 'prettier', 'lint', 'build', 'ci', 'pipeline', 'docker', 'deploy'],
   'model-routing': ['model-routing', 'compute-profile', 'fallback', 'requested_profile', 'actual_profile', 'frontier'],

@@ -2,7 +2,7 @@
 
 Author: Subash Karki
 
-Hound's 7-step forensic investigation flow. Each step builds on the previous. Not all steps are needed for every depth level — see [depth-levels.md](depth-levels.md).
+Detective's 7-step forensic investigation flow. Each step builds on the previous. Not all steps are needed for every depth level — see [depth-levels.md](depth-levels.md).
 
 ---
 
@@ -49,4 +49,4 @@ Classify input as bug report if ANY match:
 
 **Negative signals (NOT a bug):** `feature`, `add`, `implement`, `create`, `new`, `enhance`, `refactor`, `chore`
 
-If mixed signals -> ask user: "This looks like it might be a bug investigation. Want me to run hound mode first?"
+If mixed signals -> ask user: "This looks like it might be a bug investigation. Want me to run detective mode first?"

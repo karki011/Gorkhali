@@ -30,7 +30,7 @@ Each eval entry:
 | `phantom:verify` | 4–6 | 4, 5 | 6 |
 | `phantom:fix` | 7–9 | 7, 8 | 9 |
 | `phantom:review` | 10–12 | 10, 11 | 12 |
-| `phantom:hound` | 13–15 | 13, 14 | 15 |
+| `phantom:detective` | 13–15 | 13, 14 | 15 |
 | `phantom:wrap` | 16–18 | 16, 17 | 18 |
 | `phantom:scout` | 19–21 | 19, 20 | 21 |
 | `phantom:recruit` | 22–24 | 22, 23 | 24 |

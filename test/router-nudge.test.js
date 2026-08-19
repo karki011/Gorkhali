@@ -112,10 +112,10 @@ test('4. imperative implementation verb → emitted', () => {
   }
 });
 
-test('5. fresh legacy .apex-active does not suppress a host-session nudge', () => {
+test('5. fresh legacy .chief-active does not suppress a host-session nudge', () => {
   const { data, env, cleanup } = setup();
   try {
-    fs.writeFileSync(path.join(data, '.apex-active'), '');
+    fs.writeFileSync(path.join(data, '.chief-active'), '');
     const res = runHook(env, payload('fix the login bug'));
     assertNudged(res, 'legacy global state cannot prove this host session routed');
   } finally {

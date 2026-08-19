@@ -15,21 +15,21 @@ work. Rung and profile move together or not at all.
 
 | Role | Seniority | Profile | Write scope | Purpose and output contract |
 |---|---|---|---|---|
-| Apex | Engineering lead | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
-| Blade | Staff | `balanced` | scoped | Implement one bounded assignment. Output files changed, checks run, risks, and unresolved items. |
-| Ward | Engineer | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
-| Gaze | Principal | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
-| Sage | Principal | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
-| Lens | Staff | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
-| Archer | Principal | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
-| Rival | Staff | `balanced` | none | Challenge a proposed plan and validate scope, ordering, learnings, coverage, and blast radius before execution. Output missing assumptions, counterexamples, and verdict. |
-| Hound | Principal | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
-| Sweep | Staff | `balanced` | scoped | Reapply the solution ladder to remove unnecessary complexity without behavioral change. Output edits or a no-change result. |
-| Warden | Engineer | `economy` | scoped | Perform authorized lifecycle mechanics. Output actions, external links when available, and final state. |
+| Chief | Engineering lead | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
+| Engineer | Staff | `balanced` | scoped | Implement one bounded assignment. Output files changed, checks run, risks, and unresolved items. |
+| Inspector | Engineer | `economy` | none | Run deterministic checks. Output commands, results, failures, and skipped checks. |
+| Auditor | Principal | `deep` | none | Perform independent quality review. Output findings by severity with evidence and gate decision. |
+| Advisor | Principal | `deep` | none | Give brief advice when work is stuck. Output a bounded recommendation, not implementation. |
+| Surveyor | Staff | `balanced` | none | On explicit user request only, inspect visual behavior and return advisory evidence; never replace user verification or become a lifecycle gate. |
+| Justice | Principal | `deep` | none | Review cross-file structure and integration. Output dependency risks and actionable findings. |
+| Opposition | Staff | `balanced` | none | Challenge a proposed plan and validate scope, ordering, learnings, coverage, and blast radius before execution. Output missing assumptions, counterexamples, and verdict. |
+| Detective | Principal | `deep` | none | Reproduce and trace a defect. Output evidence, exact code path, root-cause hypothesis, and confidence. |
+| Steward | Staff | `balanced` | scoped | Reapply the solution ladder to remove unnecessary complexity without behavioral change. Output edits or a no-change result. |
+| Clerk | Engineer | `economy` | scoped | Perform authorized lifecycle mechanics. Output actions, external links when available, and final state. |
 
 ## Orchestration ownership
 
-Apex decides automatically whether delegation adds value; the user does not
+Chief decides automatically whether delegation adds value; the user does not
 need to choose workers, worker count, or models. Work directly when the task is
 small, single-pass, tightly coupled, dominated by shared writes, or cheaper to
 coordinate in one context. Delegate automatically when two or more bounded
@@ -39,7 +39,7 @@ fresh adversarial review materially improves confidence.
 Honor an explicit user instruction to require, limit, or disable delegation
 within repository safety, runtime permissions, and dependency constraints. When
 the runtime requires approval, request it before spawning and preserve a
-sequential fallback if approval is denied. Apex remains the default sole
+sequential fallback if approval is denied. Chief remains the default sole
 delegator: a worker may not create more workers unless the plan explicitly
 authorizes bounded nesting and the runtime provides it natively.
 
@@ -82,7 +82,7 @@ The task shape is:
   "contract_version": 2,
   "task_id": "T1",
   "delegation_id": "delegation-T1-attempt-1",
-  "role": "Blade",
+  "role": "Engineer",
   "profile": "balanced",
   "risk": "moderate",
   "objective": "Implement one bounded change",
@@ -144,17 +144,17 @@ reasoning reaches a delegated context automatically.
 
 The delegator validates each result before advancing. On a shape failure, retry
 the same assignment once with the validation errors. If the retry also fails,
-escalate it to a judgment-capable Apex pass and surface the structured failure;
+escalate it to a judgment-capable Chief pass and surface the structured failure;
 never advance on malformed output. Parallelize only assignments without shared
-writes or unresolved producer-consumer edges. Apex waits for every required
+writes or unresolved producer-consumer edges. Chief waits for every required
 return, resolves conflicts against repository evidence and acceptance criteria,
 and produces one synthesized result.
 
 ## Sequential fallback
 
-When delegation is unavailable, Apex performs each required role as a separate
+When delegation is unavailable, Chief performs each required role as a separate
 pass. Reset the pass objective, re-read the artifact under review, and avoid
-using implementation intent as evidence. A sequential Gaze pass must still
+using implementation intent as evidence. A sequential Auditor pass must still
 search for defects independently rather than narrating the implementation.
 When structured output is unavailable, preserve the same task and result fields
 as labeled prose and validate them manually. Lack of a structured-output API

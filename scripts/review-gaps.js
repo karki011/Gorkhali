@@ -4,7 +4,7 @@
 // Names every changed SOURCE file with no corresponding changed TEST file.
 //
 // This exists so one review priority stops being a judgement call. `agents/
-// gaze.md` asked for "missing focused tests for non-trivial logic"; nobody can
+// auditor.md` asked for "missing focused tests for non-trivial logic"; nobody can
 // audit whether that was honoured, because "non-trivial" is unfalsifiable. This
 // answers the narrow, checkable question instead, from the changed-file list.
 //

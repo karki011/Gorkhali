@@ -304,12 +304,19 @@ function mapRepoId(rawId, context) {
 // --------------------------------------------------------------------------
 
 // Runtime, per-process state that must never be copied into the canonical root:
-// managed worktrees, the runtime session-telemetry, stale active markers, and the
+// the runtime session-telemetry, stale active markers under state/, and the
 // current-session pointers (reconstructed separately with identity validation).
+//
+// Managed worktrees (<root>/worktrees) and the active-editing markers
+// (.chief-active/.engineer-editing, and their pre-rename spellings
+// .apex-active/.blade-editing) live as root-level SIBLINGS of the WHITELIST_DIRS
+// entries, not inside them. inventory() below only walks
+// `source.root/<WHITELIST_DIRS entry>/...`, so relParts[0] here is always a
+// WHITELIST_DIRS entry -- these root-level paths never reach this classifier;
+// the whitelist walk itself is what excludes them from migration. See the
+// "root-level runtime state is never inventoried" test in migrate-data.test.js.
 function liveStateReason(relParts) {
   const [top, second] = relParts;
-  if (top === 'worktrees') return 'managed-worktrees';
-  if (top === '.apex-active' || top === '.blade-editing') return 'stale-active-marker';
   if (top !== 'state') return null;
   if (second === 'current-session') return 'current-session-pointer';
   if (second === 'session-telemetry') return 'runtime-session-telemetry';
@@ -1207,6 +1214,7 @@ module.exports = {
     canonicalDest,
     describeItem,
     resolveClass,
+    liveStateReason,
     inventory,
     buildContext,
     dryRun,

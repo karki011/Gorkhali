@@ -1,10 +1,10 @@
 ---
 name: visual
-description: Prepare a human UI-verification checklist for UI changes; optionally run read-only Phantom Lens inspection only when explicitly requested.
+description: Prepare a human UI-verification checklist for UI changes; optionally run read-only Phantom Surveyor inspection only when explicitly requested.
 ---
 ## Triggers
 
-Prepare a human UI-verification checklist, or run optional read-only Phantom Lens inspection when the user explicitly requests Lens; user confirmation remains authoritative.
+Prepare a human UI-verification checklist, or run optional read-only Phantom Surveyor inspection when the user explicitly requests Surveyor; user confirmation remains authoritative.
 
 Apply `../../codex-support/codex-compatibility.md` for workflow `visual` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/visual.md`.
 
@@ -14,5 +14,5 @@ Return confirmed routes and observations only when the user explicitly passes
 the checklist. Non-UI work does not invoke this skill; verification records the
 compact `{ "required": false }` decision without user interaction.
 
-Do not invoke Lens unless the user explicitly requests it. Lens evidence is
+Do not invoke Surveyor unless the user explicitly requests it. Surveyor evidence is
 advisory and never replaces the checklist confirmation or becomes a ship gate.

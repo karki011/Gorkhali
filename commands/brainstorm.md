@@ -13,7 +13,7 @@ user-invocable: false
 
 Diverge → Converge. Output: locked decision in `decisions.json` feeding downstream planning.
 READ `skills/phantom/references/brainstorming.md` for full protocol (question rules, anti-patterns,
-learnings check); `reference/brainstorm.md` adds the native Council Mode, Rival Pass, and Convergence
+learnings check); `reference/brainstorm.md` adds the native Council Mode, Opposition Pass, and Convergence
 spawn/artifact mechanics.
 
 <brainstorm_context>
@@ -33,22 +33,22 @@ spawn/artifact mechanics.
 
 ### Parallel Research Agents
 
-Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "blade"` with a read-only ROLE FOCUS: scout directive, named from the `scout` roster row per `reference/roster.md` (`scout-quorra`, `scout-haldis`, `scout-brint` in spawn order below). (effort = session `high`; model per `reference/agents.md` → Model Routing)
+Spawn 2-3 research agents **in parallel** to gather context before forming approaches. All agents run concurrently and return 500-token structured summaries. Each is a `subagent_type: "engineer"` with a read-only ROLE FOCUS: scout directive, named from the `scout` roster row per `reference/roster.md` (`scout-wrennick`, `scout-arvick`, `scout-bolen` in spawn order below). (effort = session `high`; model per `reference/agents.md` → Model Routing)
 
 **Agent 1: Codebase Explorer** (always spawned)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-quorra"`, mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `engineer` (ROLE FOCUS: scout, read-only), `name: "scout-wrennick"`, mode: `bypassPermissions`, run_in_background: `true`
 - Scans existing patterns, conventions, and related code in the project
 - Checks how similar problems were solved before
 - Returns: relevant files, patterns found, reusable abstractions
 
 **Agent 2: Constraint Mapper** (always spawned)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-haldis"`, mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `engineer` (ROLE FOCUS: scout, read-only), `name: "scout-arvick"`, mode: `bypassPermissions`, run_in_background: `true`
 - Checks `learnings/INDEX.md` for `[failed]` and `[validated:5+]` entries matching the problem space
 - Checks package constraints, API contracts, type boundaries
 - Returns: hard constraints, soft constraints, learnings that apply
 
 **Agent 3: Domain Researcher** (optional — only for unfamiliar domains)
-- subagent_type: `blade` (ROLE FOCUS: scout, read-only), `name: "scout-brint"`, mode: `bypassPermissions`, run_in_background: `true`
+- subagent_type: `engineer` (ROLE FOCUS: scout, read-only), `name: "scout-bolen"`, mode: `bypassPermissions`, run_in_background: `true`
 - Explores documentation, type definitions, external API patterns
 - Only spawn when the problem touches a domain the codebase hasn't solved before
 - Returns: relevant API patterns, type signatures, integration examples
@@ -64,7 +64,7 @@ approaches before any evaluation touches any of them (anti-anchoring), and each 
 lens (`whyLens`) — never a vague "be creative". Full rules:
 `skills/phantom/references/brainstorming.md` → **Exploration Protocol**.
 - **Council** (route is FULL, architecture choice, high uncertainty, or `--council`): independent
-  lens-agents generate candidates in parallel → Apex anonymizes + peer-ranks them → a Chairman synthesizes the
+  lens-agents generate candidates in parallel → Chief anonymizes + peer-ranks them → a Chairman synthesizes the
   recommended approach + ranked alternatives. Full steps: `reference/brainstorm.md` → **Council Mode**.
   The Chairman's output becomes the approaches presented at Convergence.
 - **Simple** (default for clearer brainstorms, or `--simple`): the coordinator drafts all approaches in
@@ -74,10 +74,10 @@ Either path: `[failed]` = exclude, `[validated:5+]` = recommend as `recommendedD
 approach fills the full spine in `reference/schemas/brainstorm.md` (`id`, `name`, `thesis`, `whyLens`,
 `effort`, `risk`, `reversibility`, `whatBreaks`, `whenToPick`, optional `mutualExclusivity`/`visualType`).
 
-**Rival Pass** — before Convergence, one lightweight adversarial pass challenges the approaches
-themselves (borrows `agents/rival.md`'s stance, scoped to the spine not a full plan). It tightens the
+**Opposition Pass** — before Convergence, one lightweight adversarial pass challenges the approaches
+themselves (borrows `agents/opposition.md`'s stance, scoped to the spine not a full plan). It tightens the
 cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `reference/brainstorm.md`
-→ **Rival Pass**.
+→ **Opposition Pass**.
 
 </diverge_protocol>
 

@@ -54,18 +54,18 @@ const lifecycleContractResources = [
 ];
 const riskLevels = ['low', 'moderate', 'high', 'critical'];
 const criticalEligibleRoles = [
-  'blade',
-  'gaze',
-  'sage',
-  'lens',
-  'archer',
-  'rival',
-  'hound',
+  'engineer',
+  'auditor',
+  'advisor',
+  'surveyor',
+  'justice',
+  'opposition',
+  'detective',
 ];
-const criticalExemptRoles = ['apex', 'ward', 'sweep', 'warden'];
+const criticalExemptRoles = ['chief', 'inspector', 'steward', 'clerk'];
 const activeRoles = [
-  'apex', 'blade', 'ward', 'gaze', 'sage', 'lens', 'archer', 'rival',
-  'hound', 'sweep', 'warden',
+  'chief', 'engineer', 'inspector', 'auditor', 'advisor', 'surveyor', 'justice', 'opposition',
+  'detective', 'steward', 'clerk',
 ];
 
 function isObject(value) {
@@ -227,13 +227,13 @@ function validateModelPolicy(policy, errors) {
       errors.push('Model policy critical_elevation.exempt_roles is invalid.');
     }
   }
-  if (policy.roles?.apex !== 'frontier') errors.push('Model policy Apex must use frontier.');
+  if (policy.roles?.chief !== 'frontier') errors.push('Model policy Chief must use frontier.');
   if (JSON.stringify(Object.keys(policy.roles || {}).sort())
     !== JSON.stringify([...activeRoles].sort())) {
     errors.push('Model policy roles must contain exactly the active portable roles.');
   }
-  if (policy.roles?.rival !== 'balanced') {
-    errors.push('Model policy ordinary rival must use balanced.');
+  if (policy.roles?.opposition !== 'balanced') {
+    errors.push('Model policy ordinary opposition must use balanced.');
   }
 }
 

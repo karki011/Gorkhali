@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // test-companion.test.js — B10(f). "Which source files changed without their
 // tests changing?" must be DERIVABLE from the changed-file list, not a
-// judgement. `agents/gaze.md` previously asked for "missing focused tests for
+// judgement. `agents/auditor.md` previously asked for "missing focused tests for
 // non-trivial logic", which nobody can audit: "non-trivial" is unfalsifiable, so
 // a reviewer can honour or ignore it and the artifact looks identical either way.
 //

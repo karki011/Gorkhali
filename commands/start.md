@@ -14,7 +14,7 @@ Adaptive router: context → classify → route(DIRECT|PLAN|BRAINSTORM|FULL) →
 Each phase reads/writes artifacts in `{TEAM_DIR}/sessions/{TICKET}/`.
 No git operations until wrap. All work is local.
 
-> **Tip:** Run `/effort high` before starting. Phantom runs every agent at `high` (Apex pinned). Avoid `ultracode`/`xhigh` — under ultracode the runtime can wrap a gated phase in a background workflow that takes no mid-run input, silently bypassing Phantom's approval gates.
+> **Tip:** Run `/effort high` before starting. Phantom runs every agent at `high` (Chief pinned). Avoid `ultracode`/`xhigh` — under ultracode the runtime can wrap a gated phase in a background workflow that takes no mid-run input, silently bypassing Phantom's approval gates.
 >
 > Run the session on Opus 5 (recommended) - its stronger instruction-following, built-in self-verification, and fewer steers make the subagent-driven flow and pause/resume more reliable. Agents inherit the session model unless their definition pins one.
 
@@ -22,19 +22,19 @@ No git operations until wrap. All work is local.
 
 ## CORE DISCIPLINE: Subagent-Driven Work
 
-**The main LLM (Apex) NEVER implements code directly.** All code changes go through the Agent tool.
+**The main LLM (Chief) NEVER implements code directly.** All code changes go through the Agent tool.
 
 Every `reference/…` pointer in this file names the canonical text for that rule. Follow it there; this file never restates it.
 
-- **Phase A + B:** Apex gathers context and classifies. This is coordinator work — read files, call MCP tools, write session artifacts. This is fine.
-- **Implementation:** ALWAYS spawn Blade agent(s) via the Agent tool. Apex writes `intent.json`, `plan.json`, `contracts/` — but NEVER edits project source files.
-- **If you catch yourself about to call Edit/Write on a project file:** STOP. Spawn a Blade instead.
+- **Phase A + B:** Chief gathers context and classifies. This is coordinator work — read files, call MCP tools, write session artifacts. This is fine.
+- **Implementation:** ALWAYS spawn Engineer agent(s) via the Agent tool. Chief writes `intent.json`, `plan.json`, `contracts/` — but NEVER edits project source files.
+- **If you catch yourself about to call Edit/Write on a project file:** STOP. Spawn an Engineer instead.
 
 Agent spawn rules (all routes):
 - `mode: "bypassPermissions"` — always
-- Spawn by `subagent_type` (blade, gaze, ward, hound, sage, sweep, archer, rival). **Apex passes `model:` explicitly on every spawn** per `reference/agents.md` → Model Routing — `sonnet` for every delegated role. Before each spawn, write that section's one-line scope check (`scope: … · floor-sufficient? … · reason`) visibly in Apex's output.
+- Spawn by `subagent_type` (engineer, auditor, inspector, detective, advisor, steward, justice, opposition). **Chief passes `model:` explicitly on every spawn** per `reference/agents.md` → Model Routing — `sonnet` for every delegated role. Before each spawn, write that section's one-line scope check (`scope: … · floor-sufficient? … · reason`) visibly in Chief's output.
 - `floor-sufficient? N` means the subtask needs **re-decomposing**, not a bigger model — there is no tier above sonnet to route delegated work to.
-- SOLO (1-3 files): single Blade, foreground
+- SOLO (1-3 files): single Engineer, foreground
 - SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
 - Inject learnings corrections into every agent prompt
 
@@ -47,7 +47,7 @@ Agent spawn rules (all routes):
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
    `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
-2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Apex env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${PHANTOM_DATA:-$HOME/.phantom}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.apex-active"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
+2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Chief env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${PHANTOM_DATA:-$HOME/.phantom}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.chief-active"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
 2.6. Link session to cost ledger (silent, never blocks): `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (advisory guard, `{PR_BOOTSTRAP}` per `_shared.md` §Paths - empty `$PR` skips silently)
 3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
 3.2. **Jira lifecycle sync** (only when TICKET matches `[A-Z][A-Z0-9]+-\d+`; slug sessions skip silently). In order:
@@ -68,12 +68,12 @@ Agent spawn rules (all routes):
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 4. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
    Jira type, or branch prefix → classify `workKind: "investigation"` in
-   `context.json` and `intent.json`, then spawn Hound (`subagent_type: "hound"`,
-   `name: "hound-corva"` per `reference/roster.md`) and write
+   `context.json` and `intent.json`, then spawn Detective (`subagent_type: "detective"`,
+   `name: "detective-colven"` per `reference/roster.md`) and write
    `{SESSION_DIR}/defect-proof.json` per `reference/defect-proof.md`.
    Gate per `reference/defect-proof.md`: only
    `ready_for_fix` / `confirmed_defect` may proceed; everything else STOPS before
-   Blade dispatch in `waiting_for_evidence` / `unconfirmed_defect`, recording the
+   Engineer dispatch in `waiting_for_evidence` / `unconfirmed_defect`, recording the
    missing evidence and next observation. Diagnostic instrumentation requires a
    recorded, unexpired `DiagnosticGrant`; resume the proof gate after diagnostics.
 
@@ -93,34 +93,34 @@ READ `reference/router.md` for full algorithm.
    `ready_for_fix` / `confirmed_defect` contract from
    `reference/defect-proof.md`; otherwise STOP in
    `waiting_for_evidence` / `unconfirmed_defect`.
-2. Per-spawn Blade lifecycle state is owned by validated hooks.
+2. Per-spawn Engineer lifecycle state is owned by validated hooks.
 2.5. **Dispatch table (mandatory, before the spawn below):** render the pre-dispatch routing
    table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
-   from `intent.json` (file targets) and the roster-assigned `name` (`blade-doven`, DIRECT's
+   from `intent.json` (file targets) and the roster-assigned `name` (`engineer-norvale`, DIRECT's
    fixed slot per `reference/roster.md` Spawn-Site Slot Table). `Wave` is always `1` for DIRECT
    — there is no wave fan-out.
-3. **Spawn Blade agent** via Agent tool:
+3. **Spawn Engineer agent** via Agent tool:
    ```
    Agent call:
-     description: "Blade: {1-line task summary}"
-     subagent_type: "blade"
-     name: "blade-doven"
+     description: "Engineer: {1-line task summary}"
+     subagent_type: "engineer"
+     name: "engineer-norvale"
      mode: "bypassPermissions"
      model: "sonnet"   # every delegated role; `reference/agents.md` → Model Routing
      # effort is the session's `high` — there is no per-spawn effort param.
      prompt: |
-       You are a BLADE — implementation agent.
+       You are an ENGINEER — implementation agent.
        {task description from intent.json}
        {acceptance criteria from Jira}
        {relevant learnings/corrections}
        {file paths to modify}
        Self-review your changes before returning.
    ```
-4. Wait for the Blade's durable result.
-5. After Blade returns → independent
+4. Wait for the Engineer's durable result.
+5. After Engineer returns → independent
    `Skill(skill="phantom:verify", args="--chained")` (chained flow). For a
    confirmed defect, the verifier must rerun the recorded reproduction and the
-   focused regression check. The implementing Blade's self-review or test
+   focused regression check. The implementing Engineer's self-review or test
    result is not independent verification. Before marking the direct scope
    done, write its independent
    `{SESSION_DIR}/scope-verifications/{task-id}.json` record per
@@ -131,11 +131,11 @@ READ `reference/router.md` for full algorithm.
 ## Route: PLAN (1 gate)
 
 1. Intent → research → decision-first plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 3`. The decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts required by `reference/schemas/plan.md` must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate.
-2. Deliberation: Planner (Apex) ↔ Rival (`rival-veyra`, the one plan critic, writes `plan-check.json`), 2 rounds per `reference/router/deliberation.md`
-3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with the approval question, recommendation, evidence, architecture, risks, and validation, with files/tasks/waves in an execution appendix. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat. Material feedback updates `plan.json` and reruns Rival before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same decision-first hierarchy in chat and state the capability failure. Never degrade to a task-only gate.
+2. Deliberation: Planner (Chief) ↔ Opposition (`opposition-parlow`, the one plan critic, writes `plan-check.json`), 2 rounds per `reference/router/deliberation.md`
+3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with the approval question, recommendation, evidence, architecture, risks, and validation, with files/tasks/waves in an execution appendix. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat. Material feedback updates `plan.json` and reruns Opposition before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same decision-first hierarchy in chat and state the capability failure. Never degrade to a task-only gate.
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 4. Contracts. >5 files → `Skill(skill="phantom:wire")`.
-5. **Spawn Blade(s)** via `Skill(skill="phantom:execute")`: execute rechecks
+5. **Spawn Engineer(s)** via `Skill(skill="phantom:execute")`: execute rechecks
    defect proof, spawns agents per plan, and requires independent verification
    for every implementation scope
 6. `Skill(skill="phantom:verify", args="--chained")`, then chain onward per `## Auto-chaining`.
@@ -162,7 +162,7 @@ Between phases: if heavy context, `Skill(skill="phantom:pause")`. Resume reads `
 
 Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` at Phase A step 1). Planning runs headless and produces a plan only — it NEVER executes. There is no queue: the plan lands in the session dir as `plan.json` and the run stops.
 
-> Without `--to-plan` the gated flow above applies unchanged. In this mode NOTHING EVER EXECUTES — no Blade implementation spawns, no verify, no fix, no wrap, and no git mutations. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
+> Without `--to-plan` the gated flow above applies unchanged. In this mode NOTHING EVER EXECUTES — no Engineer implementation spawns, no verify, no fix, no wrap, and no git mutations. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
 
 **Route collapse:**
 - DIRECT → still produce a compact decision-first `plan.json` (plan-only — even trivial work produces a plan); the same `_meta.version: 3` contract applies, with concise sections and no unnecessary fan-out.
@@ -170,6 +170,6 @@ Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` a
 
 **Headless contract:**
 - NEVER ask the user questions in this mode. Pick recommended defaults; record every assumption made in an `assumptions[]` array inside `plan.json`.
-- Run the Rival review of `plan.json` INLINE when nested agent spawns are unavailable; a human still reviews the plan before any execution. On failure: revise ONCE, then record the finding in `plan.json` with `selfCheck: "flagged"` + a finding summary.
+- Run the Opposition review of `plan.json` INLINE when nested agent spawns are unavailable; a human still reviews the plan before any execution. On failure: revise ONCE, then record the finding in `plan.json` with `selfCheck: "flagged"` + a finding summary.
 
-**EXIT:** write `plan.json` to the session dir, then best-effort have the active AI author `{SESSION_DIR}/plan.candidate.html` and run `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html` for the human who reviews later. Candidate generation or validation failure is non-blocking and does not stop the exit. Then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Blade implementation spawns, verify, fix, wrap, git mutations, worktree creation, or opening browsers.
+**EXIT:** write `plan.json` to the session dir, then best-effort have the active AI author `{SESSION_DIR}/plan.candidate.html` and run `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html` for the human who reviews later. Candidate generation or validation failure is non-blocking and does not stop the exit. Then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Engineer implementation spawns, verify, fix, wrap, git mutations, worktree creation, or opening browsers.

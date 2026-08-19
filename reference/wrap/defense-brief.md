@@ -1,6 +1,6 @@
 # Defense Brief
 
-> **Context:** Called during `/phantom:wrap` Step 2, on every wrap - no file-count threshold, no skip flag. Authored by Apex (session-model judgment work, never warden). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 4 ship - see the warden preflight grep in `commands/wrap.md` Step 2.
+> **Context:** Called during `/phantom:wrap` Step 2, on every wrap - no file-count threshold, no skip flag. Authored by Chief (session-model judgment work, never clerk). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 4 ship - see the clerk preflight grep in `commands/wrap.md` Step 2.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ Feeds from: `intent.json`, `decisions.json`. The problem or ticket goal, and why
 
 ### 3. `## Watch out for`
 
-Feeds from: `plan.json` risks, `review-panel.json` findings (including findings the panel passed with caveats), and any Gaze fix loops that ran. Fragile spots, known gaps, follow-ups left open, anything a reviewer could trip on that isn't obvious from the diff.
+Feeds from: `plan.json` risks, `review-panel.json` findings (including findings the panel passed with caveats), and any Auditor fix loops that ran. Fragile spots, known gaps, follow-ups left open, anything a reviewer could trip on that isn't obvious from the diff.
 
 ### 4. `## What you need to know`
 
@@ -28,7 +28,7 @@ Feeds from: `verification.json`, `execution.json`, session decisions. Context a 
 
 ### 5. `## Likely questions and answers`
 
-Feeds from: RPSL findings (Scope/Regression/Architecture/Skeptic), Gaze fix loops, plan risks, and the diff's blast radius. Q/A pairs. Every question must be one a real reviewer would ask about this specific diff - not a generic template question. Every answer must cite a `file:line` or name a session artifact (`verification.json`, `review-panel.json`, `decisions.json`, etc). No generic reassurance ("tests pass", "should be fine", "this is safe") without a citation backing it.
+Feeds from: RPSL findings (Scope/Regression/Architecture/Skeptic), Auditor fix loops, plan risks, and the diff's blast radius. Q/A pairs. Every question must be one a real reviewer would ask about this specific diff - not a generic template question. Every answer must cite a `file:line` or name a session artifact (`verification.json`, `review-panel.json`, `decisions.json`, etc). No generic reassurance ("tests pass", "should be fine", "this is safe") without a citation backing it.
 
 ### 6. `## Decision log`
 
@@ -36,9 +36,9 @@ Feeds from: `decisions.json` (`alternatives[]`), `intent.json` (`exploredAlterna
 
 ## Quality bar
 
-- Exactly six sections, exact heading text and order as listed above. These are grepped verbatim by the warden preflight (`commands/wrap.md` Step 2) and by `test/wrap-defense-brief.test.js` - a paraphrased heading fails both.
+- Exactly six sections, exact heading text and order as listed above. These are grepped verbatim by the clerk preflight (`commands/wrap.md` Step 2) and by `test/wrap-defense-brief.test.js` - a paraphrased heading fails both.
 - Every answer in "Likely questions and answers" cites a `file:line` or a session artifact path. An answer with no citation is not acceptable, regardless of how confident it reads.
-- Questions must be the hard ones - seeded from RPSL findings, Gaze fix loops, plan risks, and blast radius - not softballs a reviewer would never bother asking.
+- Questions must be the hard ones - seeded from RPSL findings, Auditor fix loops, plan risks, and blast radius - not softballs a reviewer would never bother asking.
 - Anchor to what actually happened this session. Do not invent content to fill a section that has nothing to report; write "None flagged this session" instead of padding.
 
 ## Example skeleton

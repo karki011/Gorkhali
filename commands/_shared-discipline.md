@@ -12,14 +12,14 @@ No external plugins required.
 
 | Phase | Discipline | Enforced By | Reference |
 |-------|-----------|-------------|-----------|
-| **B (Planning)** | Structured planning with decomposition | Apex agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
-| **B (Planning)** | Brainstorming for ambiguous scope | Apex detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
-| **B (Planning)** | Adversarial challenge + plan validation | Rival agent (sonnet (pinned), no tools) - the one plan critic | Max 5 challenges, PROCEED/REVISE/RETHINK verdict in `plan-check.json` |
+| **B (Planning)** | Structured planning with decomposition | Chief agent + `reference/planning.md` | Plan must have verifiable acceptance criteria, no placeholders |
+| **B (Planning)** | Brainstorming for ambiguous scope | Chief detects ambiguity → diverge/converge exploration | Ask targeted questions, propose 2-3 approaches with tradeoffs |
+| **B (Planning)** | Adversarial challenge + plan validation | Opposition agent (sonnet (pinned), no tools) - the one plan critic | Max 5 challenges, PROCEED/REVISE/RETHINK verdict in `plan-check.json` |
 | **D (Dispatch)** | Parallel agent coordination | Execute phase, native Agent tool | Spawn independent agents with worktree isolation |
-| **D (Dispatch)** | Spec-compliance enforcement | Blade agents check contracts before writing code | `reference/contracts.md` |
-| **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Blade climbs the ladder before writing code | Minimalism discipline (below) |
-| **D→Fix** | Systematic debugging | Hound agent + `reference/detective-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
-| **Verify** | Evidence-before-assertions | Ward agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
+| **D (Dispatch)** | Spec-compliance enforcement | Engineer agents check contracts before writing code | `reference/contracts.md` |
+| **D (Dispatch)** | Pre-write minimalism (YAGNI ladder) | Engineer climbs the ladder before writing code | Minimalism discipline (below) |
+| **D→Fix** | Systematic debugging | Detective agent + `reference/detective-protocol.md` | Reproduce → trace → confirm cause → fix. No stacking patches. |
+| **Verify** | Evidence-before-assertions | Inspector agent + `reference/verification.md` | Run lint/build/tests, capture output, THEN claim pass/fail |
 
 ## Key Principles (why, not just what)
 

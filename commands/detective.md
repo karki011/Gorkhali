@@ -1,15 +1,15 @@
 ---
-name: hound
+name: detective
 description: "Use when investigating an UNKNOWN cause — a bug, regression, or mysterious failure where you don't yet know what's wrong: behaving wrong with no error, wrong output, or it started failing after a deploy. Also use when user says 'investigate why', 'I suspect', 'started happening after', 'no error but it's behaving wrong', or 'something's off, find out why'. NOT for known failures (use phantom:fix) and NOT for the Phantom system itself (use phantom:health). Produces HTML forensic reports."
 argument-hint: "<symptoms or file paths>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-hound.md`
+> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-detective.md`
 
-# /phantom:hound "$ARGUMENTS"
+# /phantom:detective "$ARGUMENTS"
 
-Forensic investigation engine. Main LLM = **coordinator**: gather symptoms, spawn Hound agent to investigate, present findings. Coordinator does NOT run investigation steps — delegates entirely to the Hound agent.
+Forensic investigation engine. Main LLM = **coordinator**: gather symptoms, spawn Detective agent to investigate, present findings. Coordinator does NOT run investigation steps — delegates entirely to the Detective agent.
 
 <instructions>
 
@@ -33,12 +33,12 @@ keeping the raw forensics out of context. ALWAYS scope the recommended prompt "A
 only — do not modify files." Fall back to turn-by-turn investigation if scope is small or workflows
 are unavailable.
 
-## Step 2: Spawn Hound Agent
+## Step 2: Spawn Detective Agent
 
-Agent tool — `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing). Prompt:
+Agent tool — `subagent_type: "detective"`, `name: "detective-draget"`, `mode: "bypassPermissions"`, `run_in_background: false` (effort = session `high`; model per `reference/agents.md` → Model Routing). Prompt:
 
 ```
-You are the HOUND — forensic investigator for codebase bugs and regressions.
+You are the DETECTIVE — forensic investigator for codebase bugs and regressions.
 
 ## Symptoms
 {parsed symptoms from Step 1}
@@ -67,7 +67,7 @@ restated here.
 Gate: only ready_for_fix / confirmed_defect may proceed, and only when every
 mutation-gate condition in the reference is satisfied; missing or conflicting proof MUST
 produce waiting_for_evidence / unconfirmed_defect. Diagnostic instrumentation requires a
-recorded, unexpired DiagnosticGrant. Hound never authorizes or implements a fix.
+recorded, unexpired DiagnosticGrant. Detective never authorizes or implements a fix.
 
 Never infer: only explicit user confirmation may set confirmedByUser true, only observed
 cleanup evidence may set cleanupStatus to cleaned, and only explicit user approval may set
@@ -84,7 +84,7 @@ Then return a conversation summary: hypothesis + confidence; key evidence (commi
 
 ## Step 3: Present Findings (Coordinator)
 
-After Hound completes:
+After Detective completes:
 1. Read agent's returned summary.
 2. Validate `defect-proof.json` against `reference/defect-proof.md`. Missing,
    malformed, contradictory, or stale proof becomes
@@ -107,11 +107,11 @@ After Hound completes:
 
 | Caller | When | Depth | Output |
 |--------|------|-------|--------|
-| `start.md` Phase A | Bug report detected | Pre-scan | `defect-proof.json` + `hound` field in context.json |
-| `verify.md` | Correctness fails | Failure scan | `defect-proof.json` + `hound` field in verification.json |
+| `start.md` Phase A | Bug report detected | Pre-scan | `defect-proof.json` + `detective` field in context.json |
+| `verify.md` | Correctness fails | Failure scan | `defect-proof.json` + `detective` field in verification.json |
 | `fix.md` loop 2+ | Same failure class repeats | Full | `defect-proof.json` + investigation.html |
 
-Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When triggered with abbreviated depth (Pre-scan or Failure scan), add to Hound prompt: `"Depth: {depth_level} — follow abbreviated flow from reference/detective/depth-levels.md"`.
+Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When triggered with abbreviated depth (Pre-scan or Failure scan), add to Detective prompt: `"Depth: {depth_level} — follow abbreviated flow from reference/detective/depth-levels.md"`.
 
 </auto_trigger_integration>
 
@@ -120,15 +120,15 @@ Depth levels + abbreviated flows: `reference/detective/depth-levels.md`. When tr
 ## Rules
 
 - Evidence before conclusions. Always.
-- Every Hound run writes or updates `defect-proof.json`; inconclusive evidence
+- Every Detective run writes or updates `defect-proof.json`; inconclusive evidence
   fails closed without authorizing mutation.
-- Instrumentation requires a current DiagnosticGrant. Hound records its cleanup
+- Instrumentation requires a current DiagnosticGrant. Detective records its cleanup
   state and evidence but never infers cleanup or user approval.
-- Coordinator delegates entirely to Hound agent — runs no investigation steps itself.
-- Hound uses git recipes from `_shared-hound.md` / `reference/detective/git-recipes.md`. Do not invent variations.
+- Coordinator delegates entirely to Detective agent — runs no investigation steps itself.
+- Detective uses git recipes from `_shared-detective.md` / `reference/detective/git-recipes.md`. Do not invent variations.
 - One hypothesis at a time. Rank by confidence, present highest first.
 - Max investigation time: 10 min. Still low confidence → escalate with findings so far.
 - Record outcomes to learnings (via `_shared-auto-learning.md`).
-- Agent spawn MUST use `subagent_type: "hound"`, `name: "hound-fenrik"`, `mode: "bypassPermissions"` (routing per Step 2).
+- Agent spawn MUST use `subagent_type: "detective"`, `name: "detective-draget"`, `mode: "bypassPermissions"` (routing per Step 2).
 
 </constraints>

@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // resolve-profile-normalization.test.js - EXECUTED tests for role normalization
 // in resolveProfile(). Delegation-v2 tasks carry a title-cased role such as
-// "Blade" (see skills/phantom/references/roles.md), but model-policy.json keys
+// "Engineer" (see skills/phantom/references/roles.md), but model-policy.json keys
 // its roles lowercase. Role matching must normalize case so that neither the
 // policy.roles lookup nor the critical_elevation.eligible_roles check silently
 // falls through to the default profile.
@@ -19,26 +19,26 @@ function runJson(args) {
   return JSON.parse(execFileSync(process.execPath, [RESOLVER, ...args], { encoding: 'utf8' }));
 }
 
-test('title-cased "Blade" role with critical risk elevates to deep', () => {
-  const result = runJson(['--role', 'Blade', '--risk', 'critical', '--host', 'claude-code']);
-  assert.equal(result.role, 'blade');
+test('title-cased "Engineer" role with critical risk elevates to deep', () => {
+  const result = runJson(['--role', 'Engineer', '--risk', 'critical', '--host', 'claude-code']);
+  assert.equal(result.role, 'engineer');
   assert.equal(result.requested_profile, 'deep');
 });
 
-test('title-cased "Apex" role resolves frontier regardless of case', () => {
-  const result = runJson(['--role', 'Apex', '--host', 'claude-code']);
-  assert.equal(result.role, 'apex');
+test('title-cased "Chief" role resolves frontier regardless of case', () => {
+  const result = runJson(['--role', 'Chief', '--host', 'claude-code']);
+  assert.equal(result.role, 'chief');
   assert.equal(result.requested_profile, 'frontier');
 });
 
 test('lowercase roles keep their existing behavior unchanged', () => {
-  const eligible = runJson(['--role', 'blade', '--risk', 'critical', '--host', 'claude-code']);
-  assert.equal(eligible.role, 'blade');
+  const eligible = runJson(['--role', 'engineer', '--risk', 'critical', '--host', 'claude-code']);
+  assert.equal(eligible.role, 'engineer');
   assert.equal(eligible.requested_profile, 'deep');
 
-  const apex = runJson(['--role', 'apex', '--host', 'claude-code']);
-  assert.equal(apex.role, 'apex');
-  assert.equal(apex.requested_profile, 'frontier');
+  const chief = runJson(['--role', 'chief', '--host', 'claude-code']);
+  assert.equal(chief.role, 'chief');
+  assert.equal(chief.requested_profile, 'frontier');
 });
 
 test('unknown role falls back to default_profile', () => {
@@ -48,7 +48,7 @@ test('unknown role falls back to default_profile', () => {
 });
 
 test('mixed-case ineligible role does not elevate under critical risk', () => {
-  const result = runJson(['--role', 'Ward', '--risk', 'critical', '--host', 'claude-code']);
-  assert.equal(result.role, 'ward');
+  const result = runJson(['--role', 'Inspector', '--risk', 'critical', '--host', 'claude-code']);
+  assert.equal(result.role, 'inspector');
   assert.equal(result.requested_profile, 'economy');
 });

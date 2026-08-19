@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// blade-model-gate.js - PreToolUse hook enforcing two implementer model rules
+// engineer-model-gate.js - PreToolUse hook enforcing two implementer model rules
 // and the roster name rule on Agent/Task spawns.
 //
-// RULE 1 (fable-deny): blade|sweep|ward|lens|warden are bounded worker agents -
+// RULE 1 (fable-deny): engineer|steward|inspector|surveyor|clerk are bounded worker agents -
 // none may run on a Fable-tier model (bare alias "fable" or full id like
 // "claude-fable-5"). Fable is retired from Phantom's routing; this rule stays as
 // a defensive guard so a stray fable pin never reaches an implementer. Note the
@@ -11,8 +11,8 @@
 // that lives in model-presets.json, and a user's explicit model choice is still
 // theirs to make (reference/agents.md -> Model Routing, Precedence).
 // Matching on subagent_type is EXACT and case-insensitive after stripping the "phantom:" prefix -
-// never substring - so "phantom:reference:blade-conventions" does not match
-// "blade". config.yaml model overrides (see evals/evals.json) surface here as
+// never substring - so "phantom:reference:engineer-conventions" does not match
+// "engineer". config.yaml model overrides (see evals/evals.json) surface here as
 // an explicit `model:` param on the spawn, so this gate sees them same as any
 // other explicit choice.
 //
@@ -23,12 +23,12 @@
 // completion to some other site's stub. Three layers, cheapest first:
 //   3a SYNTAX   - matches NAME_RE.
 //   3b PREFIX   - starts with the spawn's own role, or a documented naming alias
-//                 for it (scout and council names ride on `blade` spawns).
+//                 for it (scout and council names ride on `engineer` spawns).
 //                 This layer needs no file and always runs.
 //   3c IDENTITY - the character/function segment is one roster.md actually
 //                 defines, or one of the dynamic shapes roster.md defines by
 //                 GRAMMAR rather than by listing ({role}-{N}, {role}-task-{N},
-//                 {role}-backfill-{B}-{S}, {role}-redo-{N}, sage-{parent name}).
+//                 {role}-backfill-{B}-{S}, {role}-redo-{N}, advisor-{parent name}).
 //                 ADVISORY SOURCE, same discipline as the policy read below:
 //                 unreadable or unparseable roster.md skips 3c silently and
 //                 allows - the gate never blocks because it could not read a doc.
@@ -36,11 +36,11 @@
 // the rules above, so non-Phantom agent types (general-purpose, Explore,
 // statusline-setup, ...) and `phantom:reference:*` docs pass through untouched.
 //
-// RULE 2 (blade missing-model): blade.md carries a generated `model:` pin (see
+// RULE 2 (engineer missing-model): engineer.md carries a generated `model:` pin (see
 // scripts/gen-agent-frontmatter.js), so an omitted model falls back to the pin -
-// RULE 2 is kept as defense-in-depth so Apex always makes the routing choice
+// RULE 2 is kept as defense-in-depth so Chief always makes the routing choice
 // explicitly instead of leaning on fallback behavior. Any Agent/Task spawn
-// targeting blade must set model explicitly (any non-fable value passes); any
+// targeting engineer must set model explicitly (any non-fable value passes); any
 // other agent is untouched by this rule.
 //
 // POLICY READ (advisory): the concrete tier names this gate used to hardcode in
@@ -63,23 +63,23 @@
 const fs = require('fs');
 const path = require('path');
 
-const FABLE_DENIED_WORKERS = new Set(['blade', 'sweep', 'ward', 'lens', 'warden']);
+const FABLE_DENIED_WORKERS = new Set(['engineer', 'steward', 'inspector', 'surveyor', 'clerk']);
 
 // Roles carried by reference/roster.md - every one of them has a static name and
 // a `agent-records/<name>.json` stub, so RULE 3 requires a `name:` on their
-// spawns. `apex` is absent on purpose: it is the orchestrator, never spawned as
+// spawns. `chief` is absent on purpose: it is the orchestrator, never spawned as
 // a named worker.
 const ROSTER_ROLES = new Set([
-  'blade', 'archer', 'gaze', 'ward', 'hound', 'lens', 'sweep',
-  'rival', 'sage', 'warden',
+  'engineer', 'justice', 'auditor', 'inspector', 'detective', 'surveyor', 'steward',
+  'opposition', 'advisor', 'clerk',
 ]);
 
 const NAME_RE = /^[a-z][a-z0-9-]*$/;
 
 // Roles whose NAMES legitimately ride on a different `subagent_type`. Scouts and
-// Council members are read-only Blade spawns, so their distinct names prevent
-// either role from being mistaken for an implementation Blade.
-const NAME_ROLE_ALIASES = { blade: ['scout', 'council'] };
+// Council members are read-only Engineer spawns, so their distinct names prevent
+// either role from being mistaken for an implementation Engineer.
+const NAME_ROLE_ALIASES = { engineer: ['scout', 'council'] };
 
 const POLICY_FILE = path.join(
   __dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'
@@ -87,24 +87,24 @@ const POLICY_FILE = path.join(
 
 const ROSTER_FILE = path.join(__dirname, '..', 'reference', 'roster.md');
 
-// Roles that may consult Sage, and therefore the only roles a `sage-{parent}`
+// Roles that may consult Advisor, and therefore the only roles an `advisor-{parent}`
 // name may derive from: the ones whose agent definition cites
-// reference/_base-agent.md's Sage Escalation (Gaze and Warden opt out). Parsed
+// reference/_base-agent.md's Advisor Escalation (Auditor and Clerk opt out). Parsed
 // from roster.md's Ad Hoc section when its wording still matches, since that is
-// the SSoT; this constant is the fallback when it does not. `sage` itself is
-// never a parent - Sage cannot escalate to itself.
-const SAGE_PARENT_ROLES = ['blade', 'ward', 'sweep', 'archer'];
+// the SSoT; this constant is the fallback when it does not. `advisor` itself is
+// never a parent - Advisor cannot escalate to itself.
+const ADVISOR_PARENT_ROLES = ['engineer', 'inspector', 'steward', 'justice'];
 
-// The four role names out of roster.md's Sage bullet ("today that is Blade,
-// Ward, Sweep, and Archer"), or the constant above when that sentence has been
-// reworded. Never returns `sage`.
-function sageParentRoles(text) {
-  const m = text.match(/Sage Escalation is inherited by[\s\S]{0,200}?today that is ([^(.]+)/);
+// The four role names out of roster.md's Advisor bullet ("today that is Engineer,
+// Inspector, Steward, and Justice"), or the constant above when that sentence has been
+// reworded. Never returns `advisor`.
+function advisorParentRoles(text) {
+  const m = text.match(/Advisor Escalation is inherited by[\s\S]{0,200}?today that is ([^(.]+)/);
   const parsed = m
     ? m[1].toLowerCase().split(/,|\band\b/).map((s) => s.trim()).filter((s) => /^[a-z][a-z-]*$/.test(s))
     : [];
-  const roles = parsed.length > 0 ? parsed : SAGE_PARENT_ROLES;
-  return new Set(roles.filter((r) => r !== 'sage'));
+  const roles = parsed.length > 0 ? parsed : ADVISOR_PARENT_ROLES;
+  return new Set(roles.filter((r) => r !== 'advisor'));
 }
 
 // Roles, per-role roster LENGTHS, and full names reference/roster.md defines, or
@@ -130,19 +130,19 @@ function rosterIndex() {
         .map((s) => s.trim())
         .filter((s) => /^[a-z][a-z-]*$/.test(s));
       if (slots.length > 0) lengths.set(m[1], slots.length);
-      // The table lists characters UNQUALIFIED ("kaze, joran, ..."), so they
+      // The table lists characters UNQUALIFIED ("varek, dunmar, ..."), so they
       // must be qualified here. The backtick harvest below cannot stand in for
       // this: it only sees names some prose happens to spell out, which covers
       // the dedicated slot-table sites but misses most execute-wave characters
-      // (blade/ward slots 1-8 are derived, never written out) - and every one
+      // (engineer/inspector slots 1-8 are derived, never written out) - and every one
       // of those is a legal spawn name.
       for (const slot of slots) names.add(m[1] + '-' + slot);
     }
-    // Function names (archer-scope, council-mvp), reference-level sites, and the
+    // Function names (justice-scope, council-mvp), reference-level sites, and the
     // ad hoc/fan-out sections only ever appear as backticked full strings.
     for (const m of text.matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`/g)) names.add(m[1]);
     if (roles.size === 0 || names.size === 0) return null; // unparseable → skip 3c
-    return { roles, lengths, names, sageParents: sageParentRoles(text) };
+    return { roles, lengths, names, advisorParents: advisorParentRoles(text) };
   } catch (_) {
     return null; // unreadable → skip 3c
   }
@@ -154,20 +154,20 @@ const EXECUTE_WAVE_BAND = 8;
 
 // Roles that participate in execute-wave task-index derivation, and therefore
 // the only ones the `-task-` shape may name.
-const EXECUTE_WAVE_ROLES = new Set(['blade', 'ward']);
+const EXECUTE_WAVE_ROLES = new Set(['engineer', 'inspector']);
 
 // A 1-based decimal index, no leading zeros - roster names are canonical
-// strings, so `blade-024` is not a second spelling of `blade-24`.
+// strings, so `engineer-024` is not a second spelling of `engineer-24`.
 const INDEX_RE = /^[1-9]\d*$/;
 
 // Is `name` (already known to start with `role-`) one roster.md defines, either
 // by listing it or by one of its dynamic-shape grammars? Each grammar carries a
 // role set and a valid RANGE - an in-shape string outside its range names a slot
-// that belongs to some other site (`blade-9` is `blade-dorik`'s), which is
+// that belongs to some other site (`engineer-9` is `engineer-dovrin`'s), which is
 // exactly the stub collision this gate exists to stop.
 // A dynamic shape's RANGE VERDICT IS FINAL - it must be decided before the
 // listed-name fallback, never after. roster.md's prose cites out-of-range
-// strings as counterexamples (Rule 3 spells out `blade-9` and `scout-6` as the
+// strings as counterexamples (Rule 3 spells out `engineer-9` and `scout-6` as the
 // forms a site must NOT use), so the tolerant name harvest contains them; a
 // names-first order would let exactly the strings the roster forbids through.
 function nameIsKnown(role, name, index) {
@@ -179,31 +179,31 @@ function nameIsKnown(role, name, index) {
     const length = index.lengths.get(role);
     return length === undefined || Number(rest) > length;
   }
-  // Execute-wave band overflow: blade/ward only, and only past the 1-8 band.
+  // Execute-wave band overflow: engineer/inspector only, and only past the 1-8 band.
   if ((m = rest.match(/^task-(\d+)$/))) {
     return EXECUTE_WAVE_ROLES.has(role)
       && INDEX_RE.test(m[1])
       && Number(m[1]) > EXECUTE_WAVE_BAND;
   }
-  // evolve.md Tier 3 backfill fan-out: blade only, both indexes 1-based.
+  // evolve.md Tier 3 backfill fan-out: engineer only, both indexes 1-based.
   // Deliberately NO upper bound on slotInBatch: roster.md's "≤ 5" bounds
-  // TICKETS per Blade, not Blades per batch, so a batch's slot count is
+  // TICKETS per Engineer, not Engineers per batch, so a batch's slot count is
   // unbounded in the same way its ticket count is.
   if ((m = rest.match(/^backfill-(\d+)-(\d+)$/))) {
-    return role === 'blade' && INDEX_RE.test(m[1]) && INDEX_RE.test(m[2]);
+    return role === 'engineer' && INDEX_RE.test(m[1]) && INDEX_RE.test(m[2]);
   }
-  // fix.md scrap-and-redo: blade only, 1-based fix-packet owner position.
+  // fix.md scrap-and-redo: engineer only, 1-based fix-packet owner position.
   if ((m = rest.match(/^redo-(\d+)$/))) {
-    return role === 'blade' && INDEX_RE.test(m[1]);
+    return role === 'engineer' && INDEX_RE.test(m[1]);
   }
-  // Rule 4: sage-{parent's own full spawn name}. Only the escalation-eligible
-  // roles can be a parent, so `sage-warden-sena` and `sage-gaze-elden` are
-  // shapes the roster can never assign - and `sage` is not among them, so a
-  // Sage consultation can never itself be consulted (`sage-sage-*`). Decisive:
-  // a sage name that derives from nothing does not fall through to the
+  // Rule 4: advisor-{parent's own full spawn name}. Only the escalation-eligible
+  // roles can be a parent, so `advisor-clerk-scrivet` and `advisor-auditor-ledgard` are
+  // shapes the roster can never assign - and `advisor` is not among them, so an
+  // Advisor consultation can never itself be consulted (`advisor-advisor-*`). Decisive:
+  // an advisor name that derives from nothing does not fall through to the
   // listed-name lookup below.
-  if (role === 'sage') {
-    for (const parent of index.sageParents) {
+  if (role === 'advisor') {
+    for (const parent of index.advisorParents) {
       if (rest.startsWith(parent + '-') && nameIsKnown(parent, rest, index)) return true;
     }
     return false;
@@ -262,7 +262,7 @@ function nameViolation(role, rawName) {
   if (index && !nameIsKnown(namedRole, spawnName, index)) {
     return 'name "' + spawnName + '" is not in reference/roster.md - no slot, ' +
       'function, or dynamic shape ({role}-{N}, {role}-task-{N}, ' +
-      '{role}-backfill-{B}-{S}, {role}-redo-{N}, sage-{parent name}) produces it.';
+      '{role}-backfill-{B}-{S}, {role}-redo-{N}, advisor-{parent name}) produces it.';
   }
   return '';
 }
@@ -287,7 +287,7 @@ function main() {
     const model = toolInput.model;
 
     // RULE 1: fable-deny - must run before RULE 2's non-empty-model early
-    // return, or an explicit model:"fable" on a blade spawn would already
+    // return, or an explicit model:"fable" on an engineer spawn would already
     // satisfy RULE 2 and never reach this check.
     if (FABLE_DENIED_WORKERS.has(name) && typeof model === 'string' && /fable/i.test(model)) {
       process.stdout.write(JSON.stringify({
@@ -304,8 +304,8 @@ function main() {
       return;
     }
 
-    // RULE 3: name gate - must run before RULE 2's non-blade early return, or
-    // every non-blade roster role would exit before ever being name-checked.
+    // RULE 3: name gate - must run before RULE 2's non-engineer early return, or
+    // every non-engineer roster role would exit before ever being name-checked.
     if (ROSTER_ROLES.has(name)) {
       const nameDenial = nameViolation(name, toolInput.name);
       if (nameDenial) {
@@ -326,8 +326,8 @@ function main() {
       }
     }
 
-    // RULE 2: blade missing-model (unchanged)
-    if (name !== 'blade') return;
+    // RULE 2: engineer missing-model (unchanged)
+    if (name !== 'engineer') return;
     if (typeof model === 'string' && model.trim() !== '') return; // explicit choice made
 
     process.stdout.write(JSON.stringify({
@@ -335,7 +335,7 @@ function main() {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason:
-          'BLADE MODEL GATE: Blade has no default model — you must set model: ' +
+          'ENGINEER MODEL GATE: Engineer has no default model — you must set model: ' +
           'explicitly on the spawn.' + policyGuidance(name) +
           ' Resolve the role profile rather than guessing an alias; a subtask ' +
           'that feels too big for the resolved model needs re-decomposing, not ' +

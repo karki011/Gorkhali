@@ -4,9 +4,9 @@
 // of reporting rules.
 //
 // WHY THIS FILE EXISTS: F9 counted four severity vocabularies for one concept
-// (gaze `blocking`/`advisory`, archer `P0`-`P2`, temperature-review `P0`-`P3`,
+// (auditor `blocking`/`advisory`, justice `P0`-`P2`, temperature-review `P0`-`P3`,
 // the verification schema's `"warn"`), three finding shapes for the same
-// `gaze.json` path, and two spellings of the same array. All of it was stated in
+// `auditor.json` path, and two spellings of the same array. All of it was stated in
 // prose, in N files, with nothing enforcing agreement — the F1/F5 pattern. A
 // fifth prose restatement would drift the same way, so the vocabulary is DATA
 // here and the prose is GENERATED from it:
@@ -15,7 +15,7 @@
 //     -> scripts/validate-artifact.js   enforces the enum on artifacts
 //        -> reference/schemas/review.md via scripts/gen-schema-docs.js --check
 //     -> scripts/gen-review-standard.js  renders the prose blocks into
-//        agents/gaze.md, agents/archer.md, reference/agent-protocols/archer-protocol.md,
+//        agents/auditor.md, agents/justice.md, reference/agent-protocols/justice-protocol.md,
 //        reference/temperature-review.md — all drift-checked in CI by
 //        test/review-standard.test.js.
 //
@@ -30,10 +30,10 @@
 // ---------------------------------------------------------------------------
 // TWO values, not four, and not a 0-3 ordinal. The reason is behavioural, not
 // aesthetic: every live consumer already collapses its scale to a binary before
-// acting. Archer triages P0/P1 -> FIX and P2 -> SKIP; temperature-review fixes
+// acting. Justice triages P0/P1 -> FIX and P2 -> SKIP; temperature-review fixes
 // P0/P1 and DROPS P2/P3 unreported. So the extra levels carried no decision —
 // they only gave the same finding four spellings. `blocking`/`advisory` is the
-// pair that survives, because it is what Gaze (the one default reviewer) already
+// pair that survives, because it is what Auditor (the one default reviewer) already
 // writes, which means the corpus on disk needs no rewrite and the B9 finding ids
 // — which deliberately exclude severity — stay stable.
 //
@@ -165,7 +165,7 @@ const REVIEW_AXES = Object.freeze([
 // ---------------------------------------------------------------------------
 // The reviewer model (F11).
 // ---------------------------------------------------------------------------
-// F11: a run on 2026-08-13 shows `gaze` — the one default reviewer, pinned
+// F11: a run on 2026-08-13 shows `auditor` — the one default reviewer, pinned
 // `opus` in frontmatter and `deep` in model-policy.json — actually spawning
 // `opus:18 sonnet:7`. The frontmatter drift check passes anyway, because it
 // compares the PIN against the POLICY and neither one is what ran.
@@ -177,7 +177,7 @@ const REVIEW_AXES = Object.freeze([
 //
 // It is recorded VERBATIM and never inferred. A frontmatter pin is what was
 // ASKED for; the whole point of F11 is that the two differ 28% of the time, so
-// a `model` copied from `agents/gaze.md` would be worse than an absent one — it
+// a `model` copied from `agents/auditor.md` would be worse than an absent one — it
 // would make a confounded comparison look controlled.
 const REVIEWER_MODEL = Object.freeze({
   field: 'model',
@@ -231,11 +231,11 @@ const CANONICAL_FINDING_KEYS = Object.freeze([
   'dispositionReason',
 ]);
 
-// Archer's five review dimensions, which until B10 existed ONLY in its chat
+// Justice's five review dimensions, which until B10 existed ONLY in its chat
 // output format — so `scripts/baseline-report.js` could break precision down
 // per severity and per agent but never per dimension, because no artifact field
 // carried one. Optional and closed: a reviewer either names one of these or
-// omits the key. Gaze has no dimension vocabulary and writes nothing here.
+// omits the key. Auditor has no dimension vocabulary and writes nothing here.
 const DIMENSIONS = Object.freeze([
   'cross-file-coherence',
   'regression',
@@ -245,7 +245,7 @@ const DIMENSIONS = Object.freeze([
 ]);
 
 // Legacy key -> canonical key. The three shapes F9 names, collapsed:
-//   gaze                 {severity, file, line, evidence, impact, remediation}  (already canonical)
+//   auditor                 {severity, file, line, evidence, impact, remediation}  (already canonical)
 //   temperature-review   {temperature, file, line, issue, fix}
 //   verification schema  {file, line, severity, message}
 // `component` folds into `file` because one shape means one key for "where";
@@ -265,8 +265,8 @@ const FINDING_KEY_ALIASES = Object.freeze({
 // scripts/lib/review-finding.js imports it rather than keeping a second list.
 const CLAIM_KEYS = Object.freeze(['evidence', 'issue', 'message', 'description']);
 
-// One spelling for the not-observed array. Gaze wrote `observation_gaps`,
-// Archer wrote `observationGaps`; camelCase wins because every other key in
+// One spelling for the not-observed array. Auditor wrote `observation_gaps`,
+// Justice wrote `observationGaps`; camelCase wins because every other key in
 // every Phantom artifact is camelCase.
 const GAPS_KEY = 'observationGaps';
 const LEGACY_GAPS_KEY = 'observation_gaps';
@@ -329,7 +329,7 @@ function fixLoopFindings(findings) {
 const PRE_EXISTING_DEFER_REASON = 'pre-existing: reported, never entered the fix loop';
 
 // ---------------------------------------------------------------------------
-// The rules (B10 a-d, f). Prose lives here so gaze.md, archer.md and the
+// The rules (B10 a-d, f). Prose lives here so auditor.md, justice.md and the
 // schema docs render the SAME words instead of four paraphrases of them.
 // ---------------------------------------------------------------------------
 
@@ -450,8 +450,8 @@ const CONVERGENCE_RULE = {
 //      margin, and it cannot fire on an empty or tiny denominator.
 //
 // AND THE THIRD REFUSAL, added for F11. The two sides are only comparable if
-// they were produced by the SAME reviewer. They were not: gaze ran
-// `opus:18 sonnet:7` against an opus pin, blade `sonnet:128 opus:23 haiku:12`.
+// they were produced by the SAME reviewer. They were not: auditor ran
+// `opus:18 sonnet:7` against an opus pin, engineer `sonnet:128 opus:23 haiku:12`.
 // A gate fed one model on one side and another on the other measures the model,
 // so the model precondition is checked BEFORE the sample size — more samples
 // cannot un-confound a comparison — and a missing model is a refusal too, not a
@@ -617,7 +617,7 @@ function precisionGate({ before, after, minSample = PRECISION_GATE.minSample, mo
 // ---------------------------------------------------------------------------
 // Re-review convergence (B12).
 // ---------------------------------------------------------------------------
-// `commands/review.md` step 4 DELETES `{SESSION_DIR}/reviews/gaze.json` before
+// `commands/review.md` step 4 DELETES `{SESSION_DIR}/reviews/auditor.json` before
 // every pass, so a failed or truncated run cannot reuse an older verdict. That
 // deletion stays. The prior round's finding ids therefore cannot live in the
 // file being deleted — they live in a sibling ledger the delete does not name.
@@ -848,7 +848,7 @@ function renderFindingShape() {
   return [
     '```json',
     '{',
-    '  "role": "gaze",',
+    '  "role": "auditor",',
     '  "model": "the model this review RAN on - omit unless the host told you",',
     '  "verdict": "pass|fail|blocked",',
     '  "findings": [',

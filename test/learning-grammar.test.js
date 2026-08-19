@@ -28,10 +28,10 @@ const EN = '–';
 // --- separator forms: the exact break class -------------------------------------
 
 test('plain-dash CORRECTION parses (the form that is actually on disk)', () => {
-  const src = 'CORRECTION [blade-marker]: [cleared the marker too early] - [keep it until every editor finishes] [failed] (2026-07-02)';
+  const src = 'CORRECTION [engineer-marker]: [cleared the marker too early] - [keep it until every editor finishes] [failed] (2026-07-02)';
   const [e] = G.parseLearningEntries(src, 'workflow.md');
   assert.equal(e.type, 'correction');
-  assert.equal(e.keyword, 'blade-marker');
+  assert.equal(e.keyword, 'engineer-marker');
   assert.equal(e.wrong, 'cleared the marker too early');
   assert.equal(e.right, 'keep it until every editor finishes');
   assert.equal(e.failed, true);
@@ -110,7 +110,7 @@ test('an unknown prefix does NOT parse - the accepted set is closed', () => {
 // --- RECURRED continuations -----------------------------------------------------
 
 test('a RECURRED continuation accretes a second date and a validated count onto ONE entry', () => {
-  const src = 'PATTERN [nul-byte]: raw control byte makes git treat the file as binary (2026-07-03) RECURRED: blade emitted raw NULs again [validated:1] (2026-07-23)';
+  const src = 'PATTERN [nul-byte]: raw control byte makes git treat the file as binary (2026-07-03) RECURRED: engineer emitted raw NULs again [validated:1] (2026-07-23)';
   const entries = G.parseLearningEntries(src, 'workflow.md');
   assert.equal(entries.length, 1, 'a recurrence must not become a second entry');
   const [e] = entries;
@@ -342,7 +342,7 @@ test('FALSIFY: the em-dash-only grammar this replaced fails the plain-dash fixtu
     `^(?:-\\s*)?(?:\\*\\*)?CORRECTION\\s*\\[([^\\]]+)\\]:\\s*\\[([^\\]]*)\\]\\s*${EM}\\s*\\[([^\\]]*)\\]`,
     'i',
   );
-  const onDisk = 'CORRECTION [blade-marker]: [went wrong] - [do instead] [failed] (2026-07-02)';
+  const onDisk = 'CORRECTION [engineer-marker]: [went wrong] - [do instead] [failed] (2026-07-02)';
   assert.equal(oldCorrectionRe.test(onDisk), false, 'the old regex must fail the real shape');
   assert.ok(G.matchEntryHead(onDisk), 'the new grammar must accept the real shape');
 });

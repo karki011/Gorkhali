@@ -1,6 +1,6 @@
 ---
 name: health
-description: "Use when the Phantom SYSTEM ITSELF seems broken — learnings index is stale, sessions are corrupted, or artifacts are missing. Diagnoses the knowledge layer — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is phantom broken', 'is the phantom broken', 'phantom seems broken', 'check phantom health', or 'diagnose phantom'. NOT for broken user code (use phantom:fix for known failures, phantom:hound to investigate unknown ones)."
+description: "Use when the Phantom SYSTEM ITSELF seems broken — learnings index is stale, sessions are corrupted, or artifacts are missing. Diagnoses the knowledge layer — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is phantom broken', 'is the phantom broken', 'phantom seems broken', 'check phantom health', or 'diagnose phantom'. NOT for broken user code (use phantom:fix for known failures, phantom:detective to investigate unknown ones)."
 ---
 
 > **Preamble Tier: T1** — loads '_shared.md' only
@@ -33,7 +33,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
    - `learnings/INDEX.md` > 80 entries → needs pruning
    - `learnings/{domain}.md` > 50 entries → needs condensing
    Report oversized files. Remediation by class:
-   - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via a Blade (compress prose; preserve every instruction, gate, and reference). `*-template.md` files are exempt — they hold full HTML documents by design, not prose. NOT evolve — evolve only touches the learnings layer.
+   - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via an Engineer (compress prose; preserve every instruction, gate, and reference). `*-template.md` files are exempt — they hold full HTML documents by design, not prose. NOT evolve — evolve only touches the learnings layer.
    - Oversized `learnings/INDEX.md` or `learnings/{domain}.md` → suggest `/phantom:evolve`.
 
 10. **Stale sessions**: Sessions in `{TEAM_DIR}/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `{TEAM_DIR}/completed/`.

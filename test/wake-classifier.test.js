@@ -53,7 +53,7 @@ const actionableCases = [
   ['last agent in wave', { ...doneMidWave, wave: { isLastInWave: true } }, 'last-in-wave'],
   ['wave underivable', { status: 'done', blocker: null, selfReviewScore: 9 }, 'wave-underivable'],
   ['missing record', null, 'missing-record'],
-  // A dead agent leaves Apex's spawn stub untouched. Every field below says
+  // A dead agent leaves Chief's spawn stub untouched. Every field below says
   // "healthy mid-wave" except the one that matters: nothing ever reported a
   // terminal status. This case read as benign('passed-mid-wave') before the
   // terminal-status check, which is how killed agents went unnoticed.
@@ -97,7 +97,7 @@ test('hook: actionable record is appended to the wake queue, exit 0', () => {
   const dir = tmpDir();
   const { code } = runHook({
     dir,
-    record: { ...doneMidWave, status: 'failed', agent: 'blade' },
+    record: { ...doneMidWave, status: 'failed', agent: 'engineer' },
     stdin: '{"session_id":"s1","tool_use_id":"t1"}',
   });
   assert.equal(code, 0);
@@ -192,7 +192,7 @@ function seedSession(data) {
 test('hook (production shape): benign resolves from an on-disk agent-records stub via the pointer file, exit 0', () => {
   const data = tmpDir();
   const { sessionDir } = seedSession(data);
-  // Apex-written stub, keyed by the tool_use_id the SubagentStop payload carries.
+  // Chief-written stub, keyed by the tool_use_id the SubagentStop payload carries.
   fs.writeFileSync(
     path.join(sessionDir, 'agent-records', 't-benign.json'),
     JSON.stringify({ status: 'done', blocker: null, selfReviewScore: 9, wave: { index: 0, isLastInWave: false } })
@@ -255,7 +255,7 @@ test('hook (production shape): empty agent_type falls through to actionable miss
 });
 
 // ── live message record (W5-2): last_assistant_message merged over the stub ───
-// At stop time the on-disk stub usually still says "spawned" (Apex has not read
+// At stop time the on-disk stub usually still says "spawned" (Chief has not read
 // results). The agent's own final message carries the real typed record, so the
 // classifier merges it OVER the stub: message status/blocker/score/drift win,
 // the stub contributes wave bookkeeping.
@@ -403,7 +403,7 @@ test('hook: a decoy {"status":"ok"} before the real trailing failed record → a
 });
 
 // ── P1-2 (escalate-only): a message may not de-escalate an actionable stub ────
-// Apex updates the stub with the real typed record after reading results, so a
+// Chief updates the stub with the real typed record after reading results, so a
 // stub can already say failed. A stale/hallucinated message 'done' must not flip
 // it benign — the message may only escalate.
 
@@ -460,7 +460,7 @@ test('hook: a ~100KB brace-dense unterminated message completes fast and escalat
 // outside either bound. Previously that meant extraction silently returned null
 // and mergeRecords fell back to the on-disk stub — usually an un-updated
 // 'spawned' mid-wave stub, which classifies benign by default. A genuine failure
-// was absorbed instead of waking Apex. The fix: a capped scan that finds nothing
+// was absorbed instead of waking Chief. The fix: a capped scan that finds nothing
 // must escalate to actionable('record-truncated'), never silently absorb.
 
 test('hook: a real failed record pushed past the 32KB tail window escalates as truncated, exit 0', () => {
@@ -531,7 +531,7 @@ test('hook (Fix C): no live pointer for this repo and no env override → exit 0
   // No .active-wake-session.<repo> pointer written → resolveWakeSource falls
   // through to the global state dir (source 'state'). With no env override, the
   // classifier must NOT append — otherwise the global state dir grows unbounded
-  // with wakes no Apex is draining.
+  // with wakes no Chief is draining.
   const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: TEST_REPO };
   delete env.PHANTOM_EXECUTION_RECORD;
   delete env.PHANTOM_EXECUTION_FILE;

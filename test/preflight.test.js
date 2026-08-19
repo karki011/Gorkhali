@@ -135,12 +135,12 @@ test('fresh session marker for a DIFFERENT ticket: collision fails', () => {
   }
 });
 
-test('.blade-editing present: collision fails', () => {
+test('.engineer-editing present: collision fails', () => {
   const repo = mkRepo();
   const data = mkData();
   try {
     writePlan(data, repo, ['a.ts']);
-    fs.writeFileSync(path.join(data, '.blade-editing'), '');
+    fs.writeFileSync(path.join(data, '.engineer-editing'), '');
     const res = cli(['--ticket', TICKET, '--repo', repo], data);
     const out = parse(res);
     assert.equal(res.status, 1);
@@ -156,11 +156,11 @@ test('fresh repo-scoped editing marker collides; stale marker is report-only and
   try {
     writePlan(data, repo, ['a.ts']);
     const env = { PHANTOM_REPO: path.basename(repo) };
-    const dir = path.join(data, '.blade-editing.d', path.basename(repo));
+    const dir = path.join(data, '.engineer-editing.d', path.basename(repo));
     fs.mkdirSync(dir, { recursive: true });
     const marker = path.join(dir, 'agent-1');
     fs.writeFileSync(marker, JSON.stringify({
-      id: 'agent-1', name: 'blade-kaze', sessionId: 's1', repo: path.basename(repo),
+      id: 'agent-1', name: 'engineer-varek', sessionId: 's1', repo: path.basename(repo),
     }));
     let res = cli(['--ticket', TICKET, '--repo', repo], data, env);
     assert.equal(parse(res).checks.sessionCollision.status, 'fail');

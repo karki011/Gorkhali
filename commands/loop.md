@@ -19,7 +19,7 @@ ONE pass per invocation. This skill NEVER launches `/loop` itself (validated lea
 
 `--status` in `$ARGUMENTS` → read-only: poll + triage-classify only, print the table, take NO action (no `/phantom:start`, no Jira writes). Then stop.
 
-The loop NEVER edits project source directly — all implementation goes through `/phantom:start`, which spawns Blade agents. The loop is a coordinator: poll, triage, dispatch.
+The loop NEVER edits project source directly — all implementation goes through `/phantom:start`, which spawns Engineer agents. The loop is a coordinator: poll, triage, dispatch.
 
 ## Step 0: Gate
 

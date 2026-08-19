@@ -1,6 +1,6 @@
-# Archer Review Protocol
+# Justice Review Protocol
 
-Detailed review checklist, detection methods, scoring, and triage rules for the Archer cross-file reviewer.
+Detailed review checklist, detection methods, scoring, and triage rules for the Justice cross-file reviewer.
 
 ## Review Dimensions (Detailed)
 

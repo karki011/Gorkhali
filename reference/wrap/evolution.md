@@ -2,9 +2,9 @@
 
 > **Context:** Called during `/phantom:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
 
-## Evolution Check (Ward sidecar, sonnet-pinned)
+## Evolution Check (Inspector sidecar, sonnet-pinned)
 
-Spawn the Ward sidecar (`subagent_type: "ward"`, `name: "ward-isolde"`, `mode: bypassPermissions`, `run_in_background: false`; ward pins `sonnet` in its agent definition, like every delegated role — this is one site, not a separate cheap-model agent):
+Spawn the Inspector sidecar (`subagent_type: "inspector"`, `name: "inspector-zelmar"`, `mode: bypassPermissions`, `run_in_background: false`; inspector pins `sonnet` in its agent definition, like every delegated role — this is one site, not a separate cheap-model agent):
 
 Prompt: "Scan learnings/INDEX.md. Find:
 1. Entries with [validated:5+] -> Tier 1 (auto-promote to reference/)
@@ -61,21 +61,21 @@ Claude's auto-memory loads at session start regardless of whether the Phantom is
 
 1. Update auto-memory (`project_*.md` in memory dir)
 
-2. **Core Discipline #13 audit report** — scan `${PHANTOM_DATA:-~/.phantom}/audit/apex-edits-$(date +%Y-%m-%d).jsonl` for this session:
+2. **Core Discipline #13 audit report** — scan `${PHANTOM_DATA:-~/.phantom}/audit/chief-edits-$(date +%Y-%m-%d).jsonl` for this session:
    ```bash
-   grep "\"session\":\"{SESSION_ID}\"" "${PHANTOM_DATA:-$HOME/.phantom}"/audit/apex-edits-*.jsonl 2>/dev/null
+   grep "\"session\":\"{SESSION_ID}\"" "${PHANTOM_DATA:-$HOME/.phantom}"/audit/chief-edits-*.jsonl 2>/dev/null
    ```
    - If no entries -> Core Discipline #13 held (subagent-driven was respected)
    - If entries found -> violations occurred. Report in wrap summary:
      - Count of violations
      - Files touched directly
-     - Append summary to `learnings/shadows.md ## Corrections`: `CORRECTION [subagent-driven]: Apex edited {N} files directly — should have spawned Blade [failed] ({date})`
+     - Append summary to `learnings/shadows.md ## Corrections`: `CORRECTION [subagent-driven]: Chief edited {N} files directly — should have spawned Engineer [failed] ({date})`
    - This is informational for Option C mode. If Option A (hard block) was active, violations wouldn't have been possible.
 
-3. **Deactivate apex hook ward:**
+3. **Deactivate chief hook inspector:**
    ```
-   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.apex-active"
-   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.blade-editing"
+   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.chief-active"
+   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.engineer-editing"
    ```
 
 4. **Clear native `/goal` if still active:**

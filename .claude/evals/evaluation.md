@@ -73,15 +73,15 @@ These rules are not advisory.
 Example:
 
 ```
-Ward (build) verification completeness: 5/high — sessions/CP-0000/verification.json :: verdict "pass", 409/409 tests, gitHead matches HEAD
-Gaze KISS/DRY enforcement: n/e — no review-panel.json or gaze verdict on disk :: not evaluated
+Inspector (build) verification completeness: 5/high — sessions/CP-0000/verification.json :: verdict "pass", 409/409 tests, gitHead matches HEAD
+Auditor KISS/DRY enforcement: n/e — no review-panel.json or auditor verdict on disk :: not evaluated
 ```
 
 ---
 
 ## Per-Agent Evaluation
 
-The per-agent criterion lists (Apex, Blade React/UI/API/Documentation, Ward test/build, Gaze) live in [`commands/eval.md`](../../commands/eval.md).
+The per-agent criterion lists (Chief, Engineer React/UI/API/Documentation, Inspector test/build, Auditor) live in [`commands/eval.md`](../../commands/eval.md).
 Do not restate them here — read them there, then score each listed criterion 1-5 with a confidence and an evidence line per the format above.
 An agent's score is the mean of its evaluable criteria (`n/e` criteria excluded).
 Report the `n/e` count alongside the mean; an agent scored mostly on `n/e` criteria is reported as `not-evaluable`, not as a low number.

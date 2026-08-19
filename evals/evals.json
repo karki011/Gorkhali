@@ -66,7 +66,7 @@
       "skill": "phantom:fix",
       "prompt": "I think there might be a bug in the currency formatter — can you investigate what's going wrong?",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:hound — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
+      "expected_behavior": "Should route to phantom:detective — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
     },
 
     {
@@ -74,43 +74,43 @@
       "skill": "phantom:review",
       "prompt": "review this before I ship it — I want a second opinion on the approach",
       "should_trigger": true,
-      "expected_behavior": "Load session contracts, spawn Gaze agent (opus) with touched files, produce CRITICAL/WARNING/INFO findings, return APPROVED or NEEDS WORK verdict"
+      "expected_behavior": "Load session contracts, spawn Auditor agent (opus) with touched files, produce CRITICAL/WARNING/INFO findings, return APPROVED or NEEDS WORK verdict"
     },
     {
       "id": 11,
       "skill": "phantom:review",
       "prompt": "Can you do a full code quality review of the changes? I'm particularly concerned about whether we're following KISS/DRY principles and if there's any code that could be simplified.",
       "should_trigger": true,
-      "expected_behavior": "Run Gaze in gauntlet mode: simplify → full review → verify. Check KISS/DRY, flag architecture concerns, produce file:line specific findings"
+      "expected_behavior": "Run Auditor in gauntlet mode: simplify → full review → verify. Check KISS/DRY, flag architecture concerns, produce file:line specific findings"
     },
     {
       "id": 12,
       "skill": "phantom:review",
       "prompt": "run the tests and check if the build passes",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:verify — user wants correctness checks (tests/build), not a quality/architecture review from Gaze"
+      "expected_behavior": "Should route to phantom:verify — user wants correctness checks (tests/build), not a quality/architecture review from Auditor"
     },
 
     {
       "id": 13,
-      "skill": "phantom:hound",
+      "skill": "phantom:detective",
       "prompt": "users are reporting that invoice totals are wrong for EUR customers — started happening after Tuesday's deploy, no error in logs",
       "should_trigger": true,
       "expected_behavior": "Run 7-step investigation: collect symptoms, build timeline (check Tuesday deploy via git log), trace code path through currency/invoice logic, form hypothesis, gather evidence, confirm root cause, produce HTML report"
     },
     {
       "id": 14,
-      "skill": "phantom:hound",
+      "skill": "phantom:detective",
       "prompt": "investigate why the CurrencyFormatter class is producing NaN for certain JPY amounts — I suspect it's something in the rounding logic but I'm not sure",
       "should_trigger": true,
       "expected_behavior": "Start with symptoms (NaN for JPY), check git blame on CurrencyFormatter, trace through rounding logic, form and test hypothesis, write HTML investigation report"
     },
     {
       "id": 15,
-      "skill": "phantom:hound",
+      "skill": "phantom:detective",
       "prompt": "fix the NaN bug in CurrencyFormatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:fix — user already knows the issue and wants it fixed. Hound is for unknown failures requiring forensic investigation."
+      "expected_behavior": "Should route to phantom:fix — user already knows the issue and wants it fixed. Detective is for unknown failures requiring forensic investigation."
     },
 
     {
@@ -162,21 +162,21 @@
       "skill": "phantom:recruit",
       "prompt": "I need an accessibility specialist to audit the new currency picker — focus on keyboard nav and screen reader support",
       "should_trigger": true,
-      "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Blade with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
+      "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Engineer with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
     },
     {
       "id": 23,
       "skill": "phantom:recruit",
       "prompt": "get me a performance expert to look at why the billing dashboard is loading slowly — I want someone focused on bundle size and render cost",
       "should_trigger": true,
-      "expected_behavior": "Parse role focus as 'performance specialist', spawn Blade to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
+      "expected_behavior": "Parse role focus as 'performance specialist', spawn Engineer to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
     },
     {
       "id": 24,
       "skill": "phantom:recruit",
       "prompt": "do a code review of the currency formatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:review — a general code review is Gaze's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."
+      "expected_behavior": "Should route to phantom:review — a general code review is Auditor's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."
     },
 
     {
@@ -229,7 +229,7 @@
       "skill": "phantom:start",
       "prompt": "ENG-123: there's a typo in the empty state on the settings page — 'Recieve notifications' should be 'Receive notifications', it's in EmptyState.tsx",
       "expected_route": "DIRECT",
-      "expected_behavior": "Parse ENG-123 as the ticket via the generic [A-Z][A-Z0-9]+-\\d+ match (no hardcoded project prefix), classify DIRECT (single known file, known pattern, confidence >=0.9), report '[DIRECT] {rationale}' with zero human gates, spawn a Blade immediately"
+      "expected_behavior": "Parse ENG-123 as the ticket via the generic [A-Z][A-Z0-9]+-\\d+ match (no hardcoded project prefix), classify DIRECT (single known file, known pattern, confidence >=0.9), report '[DIRECT] {rationale}' with zero human gates, spawn an Engineer immediately"
     },
     {
       "id": 32,
@@ -237,7 +237,7 @@
       "skill": "phantom:start",
       "prompt": "rename the formatTotal helper to formatInvoiceTotal in src/utils/invoice.ts — all call sites are in that same file",
       "expected_route": "DIRECT",
-      "expected_behavior": "Single-file mechanical rename with clear scope and a known pattern → DIRECT. Transcript shows the '[DIRECT] {rationale}' route report and a Blade spawn with no plan-approval gate"
+      "expected_behavior": "Single-file mechanical rename with clear scope and a known pattern → DIRECT. Transcript shows the '[DIRECT] {rationale}' route report and an Engineer spawn with no plan-approval gate"
     },
     {
       "id": 33,
@@ -277,24 +277,24 @@
       "kind": "convention",
       "skill": "phantom:start",
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
-      "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  sage: opus\nThe Blade hits a hard decision (2+ viable approaches) mid-task and escalates to Sage.",
+      "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  advisor: opus\nThe Engineer hits a hard decision (2+ viable approaches) mid-task and escalates to Advisor.",
       "expected_check": {
         "type": "regex",
-        "pattern": "subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?model[\"':\\s]*\"?opus\"?"
+        "pattern": "subagent_type[\"':\\s]*\"?advisor\"?[\\s\\S]{0,300}?model[\"':\\s]*\"?opus\"?"
       },
-      "expected_behavior": "Blade reads config.yaml before spawning Sage; the Agent-tool spawn params in the transcript show subagent_type sage WITH model opus passed as the override"
+      "expected_behavior": "Engineer reads config.yaml before spawning Advisor; the Agent-tool spawn params in the transcript show subagent_type advisor WITH model opus passed as the override"
     },
     {
       "id": 38,
       "kind": "convention",
       "skill": "phantom:start",
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
-      "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Blade escalates to Sage mid-task.",
+      "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Engineer escalates to Advisor mid-task.",
       "expected_check": {
         "type": "regex",
-        "pattern": "^(?![\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?[\\s\\S]{0,300}?\"?\\bmodel\\b\"?\\s*:)[\\s\\S]*subagent_type[\"':\\s]*\"?sage\"?"
+        "pattern": "^(?![\\s\\S]*subagent_type[\"':\\s]*\"?advisor\"?[\\s\\S]{0,300}?\"?\\bmodel\\b\"?\\s*:)[\\s\\S]*subagent_type[\"':\\s]*\"?advisor\"?"
       },
-      "expected_behavior": "The Sage spawn in the transcript omits the model param entirely, so sage.md's front-matter pin applies — no model: line appears in the spawn params"
+      "expected_behavior": "The Advisor spawn in the transcript omits the model param entirely, so advisor.md's front-matter pin applies — no model: line appears in the spawn params"
     },
     {
       "id": 39,
@@ -312,13 +312,13 @@
       "id": 40,
       "kind": "convention",
       "skill": "phantom:visual",
-      "prompt": "use Phantom Lens to visual check the new pricing card across viewports",
+      "prompt": "use Phantom Surveyor to visual check the new pricing card across viewports",
       "setup": "The canonical worktree is /workspace/pricing-card on branch feature/pricing-card. The workspace manager at localhost:3333 has one exact-path matching running card whose displayed Dev link is http://localhost:4312. vite.config.ts mentions port 5173 for another checkout.",
       "expected_check": {
         "type": "regex",
         "pattern": "^(?![\\s\\S]*localhost:5173)[\\s\\S]*localhost:3333[\\s\\S]*localhost:4312"
       },
-      "expected_behavior": "The optional Lens flow opens localhost:3333, matches the current workspace by exact canonical path before branch, and follows only that card's displayed localhost:4312 Dev link; it never uses the unrelated Vite port"
+      "expected_behavior": "The optional Surveyor flow opens localhost:3333, matches the current workspace by exact canonical path before branch, and follows only that card's displayed localhost:4312 Dev link; it never uses the unrelated Vite port"
     },
     {
       "id": 42,
@@ -378,7 +378,7 @@
         "type": "llm-judge",
         "criteria": "The review result leads with an approval question, recommendation, evidence-backed rationale, scope, architecture, alternatives, risks, and validation. Tasks/files/waves appear only after those decision sections, as an execution appendix."
       },
-      "expected_behavior": "Apex produces a standard/deep v3 decision-first plan and renders the self-contained HTML review surface before implementation."
+      "expected_behavior": "Chief produces a standard/deep v3 decision-first plan and renders the self-contained HTML review surface before implementation."
     },
     {
       "id": 47,
@@ -402,7 +402,7 @@
         "type": "llm-judge",
         "criteria": "The plan selects quick depth, remains concise, and does not invent architecture, fake alternatives, a council, or unnecessary research. It still states the recommendation, evidence, scope, validation, and concrete task."
       },
-      "expected_behavior": "Apex uses the frontier profile for the compact plan and routes any mechanical execution/checking to economy or balanced, with no needless fan-out."
+      "expected_behavior": "Chief uses the frontier profile for the compact plan and routes any mechanical execution/checking to economy or balanced, with no needless fan-out."
     },
     {
       "id": 49,

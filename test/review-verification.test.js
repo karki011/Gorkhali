@@ -45,7 +45,7 @@ function run(bin, args) {
 
 function validate(artifact) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-verify-'));
-  const file = path.join(dir, 'gaze.json');
+  const file = path.join(dir, 'auditor.json');
   fs.writeFileSync(file, JSON.stringify(artifact, null, 2));
   try {
     return run(VALIDATOR, ['review', file]);
@@ -55,7 +55,7 @@ function validate(artifact) {
 }
 
 const artifact = (overrides = {}) => ({
-  role: 'gaze',
+  role: 'auditor',
   verdict: 'fail',
   findings: [],
   observationGaps: [],
@@ -100,17 +100,17 @@ test('an unconfirmable finding is DISCARDED with a reason, never downgraded', ()
   assert.match(steps, /never silently deleted and never quietly re-scored into an advisory/);
 });
 
-test('agents/gaze.md carries the verification pass and puts it BEFORE the artifact write', () => {
-  const gaze = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'gaze.md'), 'utf8');
-  assert.match(gaze, /## Verification pass/);
-  assert.match(gaze, /RE-OPEN the file at the cited line/);
+test('agents/auditor.md carries the verification pass and puts it BEFORE the artifact write', () => {
+  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
+  assert.match(auditor, /## Verification pass/);
+  assert.match(auditor, /RE-OPEN the file at the cited line/);
   // The pass has to precede "Artifact First", or a finding lands before it is
   // checked and the whole step is decoration.
   assert.ok(
-    gaze.indexOf('RE-OPEN the file at the cited line') < gaze.indexOf('### Artifact First'),
+    auditor.indexOf('RE-OPEN the file at the cited line') < auditor.indexOf('### Artifact First'),
     'the verification pass must come before the artifact-write instruction'
   );
-  assert.match(gaze, /which ends with the verification pass above, not before it/);
+  assert.match(auditor, /which ends with the verification pass above, not before it/);
 });
 
 test('a discarded finding needs a reason - a discard with none is rejected by name', () => {
@@ -202,7 +202,7 @@ test('an unknown confidence is rejected and the error names the three legal valu
 test('an artifact with NO confidence still validates - nothing on disk starts failing', () => {
   assert.equal(validate(artifact({ findings: [finding()] })).code, 0);
   const legacy = validate({
-    role: 'gaze',
+    role: 'auditor',
     verdict: 'fail',
     findings: [{ temperature: 'P0', component: 'src/a.ts', line: 7, issue: 'the claim', fix: 'the fix' }],
     observation_gaps: [],

@@ -138,7 +138,7 @@ On exit, **release the wrap gate** (see "Release the gate" below) by writing `gr
 For each unresolved comment — inline and outside-diff — (skip this whole step under `--no-fix`):
 1. Read the file and understand the comment in context (read the full file, not just the diff).
 2. Decide: actionable (code change) vs informational / false-positive.
-3. If actionable, make the fix. For a substantial multi-file change, prefer spawning a `blade` (`subagent_type: "blade"`, `name: "blade-vint"` per `reference/roster.md`, `mode: "bypassPermissions"`) rather than editing inline.
+3. If actionable, make the fix. For a substantial multi-file change, prefer spawning an `engineer` (`subagent_type: "engineer"`, `name: "engineer-vosler"` per `reference/roster.md`, `mode: "bypassPermissions"`) rather than editing inline.
 
 ### F. Commit + push (push BEFORE replying)
 

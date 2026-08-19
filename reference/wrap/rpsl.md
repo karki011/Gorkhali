@@ -1,14 +1,14 @@
 # RPSL Optional Deep-Review Preset
 
 RPSL is an explicit deep-review preset for unusually risky or broad changes. It
-is not part of normal verify or wrap, and it never replaces Ward plus Gaze.
+is not part of normal verify or wrap, and it never replaces Inspector plus Auditor.
 Invoke it only when the user explicitly requests deep review.
 
 ## Preconditions
 
-- Current portable Ward verification is passed and bound to the current
+- Current portable Inspector verification is passed and bound to the current
   worktree fingerprint.
-- Current portable Gaze review is passed and newer than that verification.
+- Current portable Auditor review is passed and newer than that verification.
 - The preset's questions and selected perspectives are recorded before spawn.
 
 If either normal gate is missing or stale, stop and rerun verification. RPSL

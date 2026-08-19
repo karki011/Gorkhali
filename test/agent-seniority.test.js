@@ -23,27 +23,32 @@ const ROLES_DOC = path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'roles
 const REGISTRY_DOC = path.join(REPO_ROOT, 'reference', 'agents.md');
 
 // The one place the ladder is defined. Everything else derives from it.
+// deep/balanced read "Principal-level"/"Staff-level", not "Principal
+// engineer"/"Staff engineer" - post-rename, "engineer" is the Engineer
+// agent's proper name (the economy rung below), so a job-title "engineer"
+// suffix on any other rung collides with it. economy's bare "Engineer" is
+// the rung name itself, not a collision.
 const RUNG_BY_PROFILE = {
   frontier: 'Engineering lead',
-  deep: 'Principal engineer',
-  balanced: 'Staff engineer',
+  deep: 'Principal-level',
+  balanced: 'Staff-level',
   economy: 'Engineer',
 };
 
 // Specialty suffix per role, or null when the rung alone names the job. These
 // are editorial; the rung in front of them is not.
 const SPECIALTY = {
-  apex: null,
-  blade: null,
-  sage: 'consulting',
-  gaze: 'code review',
-  archer: 'systems and integration',
-  hound: 'forensics',
-  rival: 'design review',
-  sweep: 'code health',
-  lens: 'visual QA',
-  ward: 'verification',
-  warden: 'release',
+  chief: null,
+  engineer: null,
+  advisor: 'consulting',
+  auditor: 'code review',
+  justice: 'systems and integration',
+  detective: 'forensics',
+  opposition: 'design review',
+  steward: 'code health',
+  surveyor: 'visual QA',
+  inspector: 'verification',
+  clerk: 'release',
 };
 
 // Short rung as it appears in the two human-facing tables.

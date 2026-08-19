@@ -1,10 +1,10 @@
-# Blade Conventions & ROLE FOCUS Reference
+# Engineer Conventions & ROLE FOCUS Reference
 
-Detailed coding conventions, ROLE FOCUS specializations, and evidence requirements for Blade agents.
+Detailed coding conventions, ROLE FOCUS specializations, and evidence requirements for Engineer agents.
 
 ## ROLE FOCUS Specializations
 
-Apex's prompt includes a `ROLE FOCUS:` line. This determines specialization:
+Chief's prompt includes a `ROLE FOCUS:` line. This determines specialization:
 
 - **React Architecture** — hooks, state management, TypeScript generics, data flow
 - **UI Engineering** — components, layouts, accessibility, responsive design, loading/error/empty states

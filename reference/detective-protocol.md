@@ -2,7 +2,7 @@
 
 Author: Subash Karki
 
-Hound's forensic investigation framework. Sub-files contain the full protocols.
+Detective's forensic investigation framework. Sub-files contain the full protocols.
 
 - [protocol.md](detective/protocol.md) — Core 7-step investigation flow + bug detection heuristics
 - [depth-levels.md](detective/depth-levels.md) — SHALLOW/MEDIUM/DEEP tiers, confidence thresholds

@@ -9,13 +9,13 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const HOOK = path.join(ROOT, 'hooks', 'blade-marker-state.js');
-const LAW = path.join(ROOT, 'hooks', 'apex-subagent-driven-law.sh');
-const MODEL_GATE = path.join(ROOT, 'hooks', 'blade-model-gate.js');
+const HOOK = path.join(ROOT, 'hooks', 'engineer-marker-state.js');
+const LAW = path.join(ROOT, 'hooks', 'chief-subagent-driven-law.sh');
+const MODEL_GATE = path.join(ROOT, 'hooks', 'engineer-model-gate.js');
 const HOOKS = path.join(ROOT, 'hooks', 'hooks.json');
 
 function sandbox() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blade-marker-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'engineer-marker-'));
   const repo = path.join(dir, 'repo');
   const data = path.join(dir, 'data');
   fs.mkdirSync(repo, { recursive: true });
@@ -32,7 +32,7 @@ function runHook(mode, payload, fixture, extraEnv = {}) {
 }
 
 function markerDir(fixture, repo = 'repo-a') {
-  return path.join(fixture.data, '.blade-editing.d', repo);
+  return path.join(fixture.data, '.engineer-editing.d', repo);
 }
 
 function markerNames(fixture, repo) {
@@ -41,7 +41,7 @@ function markerNames(fixture, repo) {
 
 function activateLaw(fixture) {
   fs.mkdirSync(fixture.data, { recursive: true });
-  fs.writeFileSync(path.join(fixture.data, '.apex-active'), '');
+  fs.writeFileSync(path.join(fixture.data, '.chief-active'), '');
 }
 
 function runLaw(fixture, payload, extraEnv = {}) {
@@ -55,26 +55,26 @@ function runLaw(fixture, payload, extraEnv = {}) {
 
 test('hooks register marker lifecycle on SubagentStart and SubagentStop', () => {
   const hooks = JSON.parse(fs.readFileSync(HOOKS, 'utf8')).hooks;
-  assert.match(JSON.stringify(hooks.SubagentStart), /blade-marker-state\.js start/);
-  assert.match(JSON.stringify(hooks.SubagentStop), /blade-marker-state\.js stop/);
+  assert.match(JSON.stringify(hooks.SubagentStart), /engineer-marker-state\.js start/);
+  assert.match(JSON.stringify(hooks.SubagentStop), /engineer-marker-state\.js stop/);
 });
 
-test('concurrent Blade and Sweep starts get independent markers', () => {
+test('concurrent Engineer and Steward starts get independent markers', () => {
   const f = sandbox();
   try {
-    runHook('start', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('start', { agent_id: 'a2', agent_type: 'sweep-nix', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a2', agent_type: 'steward-ordwin', session_id: 's1' }, f);
     assert.deepEqual(markerNames(f), ['a1', 'a2']);
     const marker = JSON.parse(fs.readFileSync(path.join(markerDir(f), 'a1'), 'utf8'));
-    assert.equal(marker.name, 'blade-kaze');
+    assert.equal(marker.name, 'engineer-varek');
     assert.equal(marker.sessionId, 's1');
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
 
-test('read-only Blade-typed scout and other agents never create markers', () => {
+test('read-only Engineer-typed scout and other agents never create markers', () => {
   const f = sandbox();
   try {
-    for (const agent_type of ['scout-quorra', 'ward-brann', 'gaze-elden', 'warden-gorath']) {
+    for (const agent_type of ['scout-wrennick', 'inspector-yarnell', 'auditor-ledgard', 'clerk-ledgett']) {
       runHook('start', { agent_id: agent_type, agent_type, session_id: 's1' }, f);
     }
     assert.deepEqual(markerNames(f), []);
@@ -86,8 +86,8 @@ test('all reasoning-only Council names create no edit marker', () => {
   try {
     const names = [
       'council-mvp', 'council-risk', 'council-user', 'council-reuse', 'council-simple',
-      'council-kirran', 'council-mossa', 'council-ellow', 'council-tavric',
-      'council-sorne', 'council-chairman',
+      'council-ostrem', 'council-pellam', 'council-rendal', 'council-senwick',
+      'council-tarvel', 'council-chairman',
     ];
     names.forEach((agent_type, index) => {
       runHook('start', { agent_id: `council-${index}`, agent_type, session_id: 's1' }, f);
@@ -104,7 +104,7 @@ test('a spawn denied before SubagentStart never creates a marker', () => {
       input: JSON.stringify({
         cwd: f.repo,
         tool_name: 'Agent',
-        tool_input: { subagent_type: 'blade', name: 'blade-kaze' },
+        tool_input: { subagent_type: 'engineer', name: 'engineer-varek' },
       }),
       encoding: 'utf8',
       env: { ...process.env, PHANTOM_DATA: f.data, PHANTOM_REPO: 'repo-a' },
@@ -117,9 +117,9 @@ test('a spawn denied before SubagentStart never creates a marker', () => {
 test('exact id cleanup leaves concurrent sibling marker active', () => {
   const f = sandbox();
   try {
-    runHook('start', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('start', { agent_id: 'a2', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('stop', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a2', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('stop', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.deepEqual(markerNames(f), ['a2']);
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
@@ -127,14 +127,14 @@ test('exact id cleanup leaves concurrent sibling marker active', () => {
 test('ID-less and unknown-ID stops are no-ops', () => {
   const f = sandbox();
   try {
-    runHook('start', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('stop', { agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('stop', { agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.deepEqual(markerNames(f), ['a1']);
-    runHook('stop', { agent_id: 'unknown', agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('stop', { agent_id: 'unknown', agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.deepEqual(markerNames(f), ['a1']);
     const malformed = path.join(markerDir(f), 'bad-id');
     fs.writeFileSync(malformed, '{not-json');
-    runHook('stop', { agent_id: 'bad-id', agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('stop', { agent_id: 'bad-id', agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.equal(fs.existsSync(malformed), true, 'invalid exact-ID marker must not be deleted');
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
@@ -142,10 +142,10 @@ test('ID-less and unknown-ID stops are no-ops', () => {
 test('delayed ID-less old stop cannot clear a same-named replacement marker', () => {
   const f = sandbox();
   try {
-    runHook('start', { agent_id: 'old-id', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('stop', { agent_id: 'old-id', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('start', { agent_id: 'replacement-id', agent_type: 'blade-kaze', session_id: 's1' }, f);
-    runHook('stop', { agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'old-id', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('stop', { agent_id: 'old-id', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'replacement-id', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    runHook('stop', { agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.deepEqual(markerNames(f), ['replacement-id']);
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
@@ -154,7 +154,7 @@ test('law requires fresh marker for the same repo and session', () => {
   const f = sandbox();
   try {
     activateLaw(f);
-    runHook('start', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f);
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.equal(runLaw(f, { session_id: 's1' }).status, 0);
     assert.equal(runLaw(f, { session_id: 's2' }).status, 2);
     assert.equal(runLaw(f, { session_id: 's1' }, { PHANTOM_REPO: 'repo-b' }).status, 2);
@@ -165,7 +165,7 @@ test('stale markers fail closed without being deleted', () => {
   const f = sandbox();
   try {
     activateLaw(f);
-    runHook('start', { agent_id: 'a1', agent_type: 'blade-kaze', session_id: 's1' }, f, { PHANTOM_MARKER_FRESHNESS_MS: '10' });
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f, { PHANTOM_MARKER_FRESHNESS_MS: '10' });
     const file = path.join(markerDir(f), 'a1');
     fs.utimesSync(file, new Date(0), new Date(0));
     assert.equal(runLaw(f, { session_id: 's1' }, { PHANTOM_MARKER_FRESHNESS_MS: '10' }).status, 2);
@@ -173,7 +173,7 @@ test('stale markers fail closed without being deleted', () => {
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
 
-test('malformed marker state cannot open the Apex edit gate', () => {
+test('malformed marker state cannot open the Chief edit gate', () => {
   const f = sandbox();
   try {
     activateLaw(f);
@@ -183,14 +183,66 @@ test('malformed marker state cannot open the Apex edit gate', () => {
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
 
+test('legacy .apex-active sentinel (pre-rename filename) activates the law like .chief-active', () => {
+  // .apex-active is the marker's filename before the apex->chief rename; a
+  // not-yet-upgraded install may still write it. The law must treat it as
+  // equivalent to .chief-active, not just skip enforcement entirely.
+  const f = sandbox();
+  try {
+    fs.mkdirSync(f.data, { recursive: true });
+    fs.writeFileSync(path.join(f.data, '.apex-active'), '');
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 0, 'fresh engineer marker allows the edit');
+    assert.equal(runLaw(f, { session_id: 's2' }).status, 2, 'a different session is still blocked');
+  } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
+});
+
 test('legacy global marker is honored only while fresh', () => {
+  const f = sandbox();
+  try {
+    activateLaw(f);
+    const legacy = path.join(f.data, '.engineer-editing');
+    fs.writeFileSync(legacy, '');
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 0);
+    fs.utimesSync(legacy, new Date(0), new Date(0));
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 2);
+  } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
+});
+
+test('pre-rename .blade-editing global marker is honored only while fresh', () => {
+  // .blade-editing is this marker's filename before the blade->engineer
+  // rename; a not-yet-upgraded install may still write it. legacyActive()
+  // must treat it as equivalent to .engineer-editing, not just skip
+  // enforcement entirely.
   const f = sandbox();
   try {
     activateLaw(f);
     const legacy = path.join(f.data, '.blade-editing');
     fs.writeFileSync(legacy, '');
-    assert.equal(runLaw(f, { session_id: 's1' }).status, 0);
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 0, 'fresh pre-rename marker allows the edit');
     fs.utimesSync(legacy, new Date(0), new Date(0));
-    assert.equal(runLaw(f, { session_id: 's1' }).status, 2);
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 2, 'stale pre-rename marker fails closed');
+  } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
+});
+
+test('pre-rename .blade-editing.d per-agent marker is visible to a fresh preflight-style check', () => {
+  // .blade-editing.d/<repo> is the per-agent marker dir before the rename
+  // (mirrors .blade-editing above). A still-running old Blade must be
+  // visible to freshMarkers()/the law, not silently invisible because only
+  // the new .engineer-editing.d namespace was read.
+  const f = sandbox();
+  try {
+    activateLaw(f);
+    const legacyDir = path.join(f.data, '.blade-editing.d', 'repo-a');
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(path.join(legacyDir, 'old-a1'), JSON.stringify({
+      id: 'old-a1',
+      name: 'engineer-varek',
+      sessionId: 's1',
+      repo: 'repo-a',
+      startedAt: new Date().toISOString(),
+    }) + '\n');
+    assert.equal(runLaw(f, { session_id: 's1' }).status, 0, 'fresh pre-rename per-agent marker allows the same session');
+    assert.equal(runLaw(f, { session_id: 's2' }).status, 2, 'a different session is still blocked');
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });

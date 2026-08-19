@@ -32,19 +32,19 @@ Every planning action produces a `specDelta` entry in `intent.json`:
 
 Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 
-## Rival (mandatory, every plan)
+## Opposition (mandatory, every plan)
 
-Spawn the Rival agent, blocking (`subagent_type: "rival"`, `name: "rival-veyra"` per `reference/roster.md`):
+Spawn the Opposition agent, blocking (`subagent_type: "opposition"`, `name: "opposition-parlow"` per `reference/roster.md`):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict, plus `plan-check.json` in the session directory
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.
 - Max 2 iterations. Still RETHINK -> escalate to user.
 
-One gate, both jobs: Rival is the single plan critic, so this spawn satisfies the deliberation challenge (`reference/router/deliberation.md`) and decomposition validation (learnings collisions, blast radius, coverage, scope, dependency order) at once. There is no separate plan-check pass.
+One gate, both jobs: Opposition is the single plan critic, so this spawn satisfies the deliberation challenge (`reference/router/deliberation.md`) and decomposition validation (learnings collisions, blast radius, coverage, scope, dependency order) at once. There is no separate plan-check pass.
 
 ## Codebase Research
 
-Spawn Explore (session model, `name: "explore-fenn"`) + Plan (session model, `name: "planner-rooke"`; `subagent_type` passed to `Agent` is still `Plan` — see `reference/roster.md`'s Explore / Planner note) agents for:
+Spawn Explore (session model, `name: "explore-farwick"`) + Plan (session model, `name: "planner-drafton"`; `subagent_type` passed to `Agent` is still `Plan` — see `reference/roster.md`'s Explore / Planner note) agents for:
 - File structure and patterns
 - Existing similar implementations
 - Import/dependency chains
@@ -62,7 +62,7 @@ See `reference/agents.md` for routing table.
 
 ## Task Structure
 
-See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`). Research-Free Tasking is canonical in the portable reference; `hooks/blade-model-gate.js` is its native enforcement, and `fable` is never a legal implementer model.
+See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`). Research-Free Tasking is canonical in the portable reference; `hooks/engineer-model-gate.js` is its native enforcement, and `fable` is never a legal implementer model.
 
 ## Plan Artifacts
 
@@ -71,13 +71,13 @@ Native session-file layout for the canonical decision-first plan:
 - **`plan.json`** — the machine source of truth. `phantom:execute`, `phantom:wire`, and `phantom:resume` all read this file, never `plan.html`. Every new plan sets `_meta.version: 3` and `depth` to `quick`, `standard`, or `deep`.
 - **`plan.candidate.html`** — a disposable, self-contained review candidate authored by the active AI from `plan.json` and, when present, `plan-check.json`. It is never canonical and is never parsed back into anything.
 - **`plan.html`** — the accepted human gate surface. The review HTML validator promotes a valid `plan.candidate.html` to this file; see `commands/start.md` PLAN route, HUMAN GATE step.
-- **`plan-check.json`** (optional) — Rival's verdict, written to the session directory by the Rival agent (`agents/rival.md`). When present, the active AI receives it with `plan.json` and includes its verdict in the review provenance. Absent means Rival did not run, or was not required for this route.
+- **`plan-check.json`** (optional) — Opposition's verdict, written to the session directory by the Opposition agent (`agents/opposition.md`). When present, the active AI receives it with `plan.json` and includes its verdict in the review provenance. Absent means Opposition did not run, or was not required for this route.
 
 If `plan.json` changes after the initial review — during deliberation, a fix-loop revision, or a resumed session — have the active AI generate a fresh candidate, validate/promote it, and use that accepted `plan.html` before the next requested human review.
 
 ### Gate-loop revisions
 
-During plan-gate chat feedback, apply material feedback to `plan.json`; presentation-only feedback leaves JSON unchanged. Neither HTML file is a source of truth. Re-run Rival for a material change, then generate a fresh candidate from the applicable source plus feedback and validate/promote it before a requested re-review. Record each material revision in `{SESSION_DIR}/decisions.json`, including the feedback, plan changes, and recheck result. Chat approval remains the only gate exit.
+During plan-gate chat feedback, apply material feedback to `plan.json`; presentation-only feedback leaves JSON unchanged. Neither HTML file is a source of truth. Re-run Opposition for a material change, then generate a fresh candidate from the applicable source plus feedback and validate/promote it before a requested re-review. Record each material revision in `{SESSION_DIR}/decisions.json`, including the feedback, plan changes, and recheck result. Chat approval remains the only gate exit.
 
 ### AI-authored review HTML
 

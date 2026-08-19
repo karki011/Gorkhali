@@ -96,7 +96,7 @@ Order of precedence (first match wins):
 3. Stack defaults (see `skills/phantom/references/verification.md` for full table)
 4. Monorepo: Nx `affected`, Turborepo `--filter`
 
-Ward verification protocol: see `skills/phantom/references/verification.md`.
+Inspector verification protocol: see `skills/phantom/references/verification.md`.
 
 ---
 

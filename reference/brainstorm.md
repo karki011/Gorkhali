@@ -2,7 +2,7 @@
 
 Canonical: `skills/phantom/references/brainstorming.md`
 
-Loaded by Apex when the router classifies a task as `BRAINSTORM_PLAN` or `FULL`.
+Loaded by Chief when the router classifies a task as `BRAINSTORM_PLAN` or `FULL`.
 The portable reference owns the shared contract: when to activate, the
 question-asking rules, the exploration protocol, divergence and convergence, the
 artifact field shapes, the review order, and the anti-patterns table. This file
@@ -44,15 +44,15 @@ fixed function-name per `reference/roster.md` Rule 2, spawn only the subset actu
 
 Generators are reasoning-heavy → session model. Inject `[failed]` / `[validated:5+]` learnings into each prompt.
 
-**Step 2 — Anonymized peer-ranking.** Apex relabels the candidates `Approach A / B / C`, stripping lens
-and author identity. Spawn one ranker per candidate (fresh spawns, `subagent_type: "blade"`, `name:` the
-next dedicated ranker slot per `reference/roster.md` — `council-kirran`, `council-mossa`, `council-ellow`,
-`council-tavric`, `council-sorne` for up to 5 candidates) given the FULL anonymized set; each
+**Step 2 — Anonymized peer-ranking.** Chief relabels the candidates `Approach A / B / C`, stripping lens
+and author identity. Spawn one ranker per candidate (fresh spawns, `subagent_type: "engineer"`, `name:` the
+next dedicated ranker slot per `reference/roster.md` — `council-ostrem`, `council-pellam`, `council-rendal`,
+`council-senwick`, `council-tarvel` for up to 5 candidates) given the FULL anonymized set; each
 ranks ALL candidates on **Fit / Risk / Simplicity** with a one-line justification each. No agent may
-identify or favor "its own" — the anonymization is the point. Apex aggregates (average rank; ties broken
-by lower Risk). Ranking is rubric-scoped → Apex may route rankers to Sonnet; default = inherit (session model).
+identify or favor "its own" — the anonymization is the point. Chief aggregates (average rank; ties broken
+by lower Risk). Ranking is rubric-scoped → Chief may route rankers to Sonnet; default = inherit (session model).
 
-**Step 3 — Chairman synthesis.** Spawn ONE Chairman (session model, `subagent_type: "blade"`,
+**Step 3 — Chairman synthesis.** Spawn ONE Chairman (session model, `subagent_type: "engineer"`,
 `name: "council-chairman"` per `reference/roster.md` Rule 2) with the anonymized approaches + the aggregate
 ranking. It produces: the **recommended** approach (may graft the winner's spine + the runners-up's best
 ideas), the ranked alternatives, and a rationale citing the rankings. **The Chairman does NOT decide** —
@@ -60,11 +60,11 @@ its output feeds the human gate below.
 
 ---
 
-## Rival Pass
+## Opposition Pass
 
 Once ALL approaches exist (either path) and before Convergence, run one lightweight adversarial pass
-(`subagent_type: "rival"`, `name: "rival-dask"` per `reference/roster.md`) —
-borrows `agents/rival.md`'s stance, scoped to the approaches themselves rather than a full plan:
+(`subagent_type: "opposition"`, `name: "opposition-contrell"` per `reference/roster.md`) —
+borrows `agents/opposition.md`'s stance, scoped to the approaches themselves rather than a full plan:
 
 - One question per approach: "what's the strongest reason this approach is *wrong*, not just imperfect?"
 - Target the spine, not implementation detail — attack `thesis`, `whatBreaks`, `whenToPick`, and any
@@ -74,7 +74,7 @@ borrows `agents/rival.md`'s stance, scoped to the approaches themselves rather t
 - Skip only when there is no live alternative to compare against (e.g. a single `[validated:5+]`
   approach with nothing else proposed).
 - Chat-only: this pass writes no `plan-check.json`. That artifact belongs to the plan gate
-  (`reference/planning.md` → Rival), where the same agent runs its full eight checks.
+  (`reference/planning.md` → Opposition), where the same agent runs its full eight checks.
 
 This is what catches a flawed approach before it reaches the human looking polished — pushback belongs
 at brainstorm time, not one step later at the plan gate.

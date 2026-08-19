@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // ceiling-prose.test.js — pins two invariants:
 // NEGATIVE: no file in commands/ reference/ agents/ templates/ contains a
-//   "max 3 fix attempts"-class phrase for the verify/fix loop (oracle/sage
+//   "max 3 fix attempts"-class phrase for the verify/fix loop (oracle/advisor
 //   budget mentions excluded by context).
 // POSITIVE: scripts/lib/constants.js FIX_LOOP_CEILING default is 2, and
 //   reference/fix-loop.md contains the canonical
@@ -40,7 +40,7 @@ function gitGrep(pattern, dirs) {
   }
 }
 
-test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (oracle/sage context excluded)', () => {
+test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (oracle/advisor context excluded)', () => {
   // Pattern: max/maximum followed by optional gap then 3/three then fix/attempt(s)
   // OR: fix then 3/three then attempt(s)
   const raw = gitGrep(
@@ -48,11 +48,11 @@ test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (oracle/sage conte
     SCAN_DIRS
   );
 
-  // Allowed exclusions: sage/oracle budget lines use a distinct counter.
+  // Allowed exclusions: advisor/oracle budget lines use a distinct counter.
   const stragglers = raw.filter(line => {
     const lower = line.toLowerCase();
-    // Exclude sage/oracle budget context
-    if (lower.includes('oracle') || lower.includes('sage')) return false;
+    // Exclude advisor/oracle budget context
+    if (lower.includes('oracle') || lower.includes('advisor')) return false;
     return true;
   });
 

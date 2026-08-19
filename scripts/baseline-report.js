@@ -134,8 +134,8 @@ function resolveRepoId(dataRoot, repoDir) {
 //
 // The three documented reviewer artifact locations under a session dir
 // (reference/schemas/review.md):
-//   reviews/*.json             the one default reviewer writes reviews/gaze.json
-//   reviews/specialists/*.json risk-triggered specialists (archer today)
+//   reviews/*.json             the one default reviewer writes reviews/auditor.json
+//   reviews/specialists/*.json risk-triggered specialists (justice today)
 //   reviews/deep/*.json        explicitly selected RPSL perspectives
 // review-panel.json is a CONTAINER, not a review - its perspectives write the
 // deep/*.json files read here - so it is filtered out by the shape check below
@@ -707,7 +707,7 @@ function reviewFindingRows(records) {
           // loop, so the loop's outcome is not an outcome FOR it. Carried here
           // so precision can exclude it rather than silently absorb it.
           preExisting: f.preExisting === true,
-          // No finding SCHEMA field carries a dimension today - archer.md names
+          // No finding SCHEMA field carries a dimension today - justice.md names
           // five in its chat format only. Read when present, absent otherwise;
           // never inferred from the claim text.
           dimension: nonEmpty(f.dimension) || nonEmpty(f.category) || null,
@@ -1051,7 +1051,7 @@ function runBaseline(opts) {
       reason:
         'the B11 precision gate is CONFOUNDED by the reviewer model and produces no verdict: ' +
         gate.reason +
-        '. This is not adjusted for or estimated around - the underlying drift (gaze pinned `opus` ' +
+        '. This is not adjusted for or estimated around - the underlying drift (auditor pinned `opus` ' +
         'but observed opus:18 sonnet:7) is B1\'s scope, and until `model` is recorded on both sides ' +
         'the gate refuses rather than compares two reviewers',
     });
@@ -1116,7 +1116,7 @@ function runBaseline(opts) {
       field: 'review_dimension',
       reason:
         'no finding on disk carries a `dimension` (or `category`) key - the review finding ' +
-        'schema has no such field today, and agents/archer.md names its five dimensions only in ' +
+        'schema has no such field today, and agents/justice.md names its five dimensions only in ' +
         'its chat format. Per-dimension precision is unmeasurable until a dimension is recorded (B10)',
     });
   }
@@ -1413,7 +1413,7 @@ function printReviewFindings(w, rf) {
     rf.byDimension,
     'dimension recorded on ' + rf.dimensionRecorded +
       ' measurable findings - B10 added the optional `findings[].dimension` field, so' +
-      ' this fills in as Archer writes post-B10 findings; Gaze has no dimension' +
+      ' this fills in as Justice writes post-B10 findings; Auditor has no dimension' +
       ' vocabulary and omits the key by design'
   );
 }

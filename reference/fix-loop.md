@@ -3,7 +3,7 @@
 The canonical home of `FIX_LOOP_CEILING` and the verify/fix/re-review loop it
 bounds. Split out of `reference/temperature-review.md` by B10: that file carried
 two unrelated jobs — this live protocol, and a severity table that four other
-files disagreed with. The ceiling is live and referenced from `agents/apex.md`,
+files disagreed with. The ceiling is live and referenced from `agents/chief.md`,
 `commands/fix.md`, `reference/contracts.md` and `reference/schemas/verification.md`,
 so it gets its own file rather than living inside a document about scoring.
 
@@ -12,7 +12,7 @@ so it gets its own file rather than living inside a document about scoring.
 **The fix-loop ceiling is owned by `scripts/lib/constants.js`** (`FIX_LOOP_CEILING`,
 default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by
 `hooks/loop-controller.js`. This document is the PROTOCOL reference for every
-verify/fix/re-review loop across Phantom — verify.md, fix.md, apex.md, start.md,
+verify/fix/re-review loop across Phantom — verify.md, fix.md, chief.md, start.md,
 contracts.md, and reference/agent-protocols defer to constants.js for the number (so it can't
 drift). Rationale for the default: the user's CLAUDE.md rule — *"if a fix attempt
 fails twice with the same error class, STOP patching; the approach is wrong."*

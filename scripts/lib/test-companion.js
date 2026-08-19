@@ -2,7 +2,7 @@
 // test-companion.js — B10(f). "Which source files did this diff change without
 // changing their tests?", answered from the changed-file LIST alone.
 //
-// WHY MECHANICAL: `agents/gaze.md` already asks for "missing focused tests for
+// WHY MECHANICAL: `agents/auditor.md` already asks for "missing focused tests for
 // non-trivial logic". That is the right intent stated unfalsifiably — "non-
 // trivial" is a judgement, so the instruction is un-auditable and a reviewer can
 // satisfy or ignore it at will and nobody can tell which happened. This module

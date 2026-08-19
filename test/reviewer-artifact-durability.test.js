@@ -9,17 +9,17 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const SPECIALIST_PATHS = [
-  'reviews/specialists/archer.json',
+  'reviews/specialists/justice.json',
 ];
 
 const FILES = {
-  archer: 'agents/archer.md',
-  gaze: 'agents/gaze.md',
+  justice: 'agents/justice.md',
+  auditor: 'agents/auditor.md',
   review: 'commands/review.md',
   rpsl: 'reference/wrap/rpsl.md',
   verify: 'commands/verify.md',
   verificationReference: 'skills/phantom/references/verification.md',
-  ward: 'agents/ward.md',
+  inspector: 'agents/inspector.md',
   wrap: 'commands/wrap.md',
 };
 
@@ -37,32 +37,32 @@ function assertOrdered(content, patterns) {
   }
 }
 
-test('Ward is a read-only verifier and verify never auto-fixes failures', () => {
-  const ward = read('ward');
+test('Inspector is a read-only verifier and verify never auto-fixes failures', () => {
+  const inspector = read('inspector');
   const verify = read('verify');
 
-  assert.match(ward, /read-only verifier/i);
-  assert.match(ward, /do not implement fixes|do not modify/i);
-  assert.match(ward, /worktree (?:status is )?unchanged|worktree_unchanged/i);
+  assert.match(inspector, /read-only verifier/i);
+  assert.match(inspector, /do not implement fixes|do not modify/i);
+  assert.match(inspector, /worktree (?:status is )?unchanged|worktree_unchanged/i);
   assert.match(verify, /never auto-fix|does not auto-fix|never edits code/i);
 });
 
-test('verify orders Ward, Sweep, affected Ward rerun, then Gaze', () => {
+test('verify orders Inspector, Steward, affected Inspector rerun, then Auditor', () => {
   assertOrdered(read('verify'), [
-    /Ward[^\n]*deterministic correctness/i,
-    /Sweep[^\n]*minimum-sufficient simplification/i,
-    /Affected Ward rerun/i,
-    /Gaze[^\n]*default independent reviewer/i,
+    /Inspector[^\n]*deterministic correctness/i,
+    /Steward[^\n]*minimum-sufficient simplification/i,
+    /Affected Inspector rerun/i,
+    /Auditor[^\n]*default independent reviewer/i,
   ]);
 });
 
-test('missing required Ward or Gaze evidence blocks the pipeline', () => {
+test('missing required Inspector or Auditor evidence blocks the pipeline', () => {
   const verify = read('verify');
   const review = read('review');
   const wrap = read('wrap');
 
-  assert.match(verify, /missing Ward result blocks verification/i);
-  assert.match(review, /Gaze[\s\S]{0,300}remains absent[\s\S]{0,120}blocked/i);
+  assert.match(verify, /missing Inspector result blocks verification/i);
+  assert.match(review, /Auditor[\s\S]{0,300}remains absent[\s\S]{0,120}blocked/i);
   assert.match(wrap, /triggered specialist is missing, failed, blocked, or stale/i);
   assert.match(wrap, /cross-gate contract: stop/i);
 });
@@ -78,30 +78,30 @@ test('verification and review share the portable lifecycle fingerprint', () => {
   assert.match(wrap, /portable lifecycle state, worktree fingerprint,[\s\S]{0,100}authority/i);
 });
 
-test('one Gaze is the default and specialists require explicit risk triggers', () => {
+test('one Auditor is the default and specialists require explicit risk triggers', () => {
   const verify = read('verify');
   const review = read('review');
   const verificationReference = read('verificationReference');
 
-  assert.match(verify, /one fresh, read-only Gaze pass/i);
-  assert.match(review, /Run one fresh, read-only Gaze pass/i);
+  assert.match(verify, /one fresh, read-only Auditor pass/i);
+  assert.match(review, /Run one fresh, read-only Auditor pass/i);
   assert.match(verificationReference, /User-visible UI\/visual behavior[\s\S]{0,100}user verification/i);
-  assert.match(verificationReference, /Auth, authorization, permissions[\s\S]{0,40}Archer/i);
+  assert.match(verificationReference, /Auth, authorization, permissions[\s\S]{0,40}Justice/i);
   assert.match(review, /Run exactly the roles named by verification's `requiredSpecialists`/i);
   assert.match(review, /only for explicit risk triggers/i);
 });
 
 test('triggered specialist artifacts have fixed paths, shape, and blocking semantics', () => {
-  const archer = read('archer');
+  const justice = read('justice');
   const verify = read('verify');
   const review = read('review');
   const rpsl = read('rpsl');
 
-  assert.match(archer, /reviews\/specialists\/archer\.json/i);
-  assert.match(archer, /"verdict": "pass\|fail\|blocked"/i);
-  assert.match(archer, /"findings": \[\]/i);
-  assert.match(archer, /"observationGaps": \[\]/i);
-  assert.match(archer, /chat-only verdict never counts/i);
+  assert.match(justice, /reviews\/specialists\/justice\.json/i);
+  assert.match(justice, /"verdict": "pass\|fail\|blocked"/i);
+  assert.match(justice, /"findings": \[\]/i);
+  assert.match(justice, /"observationGaps": \[\]/i);
+  assert.match(justice, /chat-only verdict never counts/i);
 
   for (const [name, content] of [['verify', verify], ['review', review]]) {
     for (const specialistPath of SPECIALIST_PATHS) {
@@ -139,12 +139,12 @@ test('RPSL is optional and its selected perspectives are non-overlapping', () =>
   assert.ok(rows.every((row) => row[2]), 'each perspective must state what is out of scope');
 });
 
-test('Archer is risk-selected and shipping rejects unobserved required review', () => {
-  const archer = read('archer');
+test('Justice is risk-selected and shipping rejects unobserved required review', () => {
+  const justice = read('justice');
   const wrap = read('wrap');
 
-  assert.match(archer, /risk-triggered specialist/i);
-  assert.doesNotMatch(archer, /panel's four|all four panel|mandatory RPSL/i);
+  assert.match(justice, /risk-triggered specialist/i);
+  assert.doesNotMatch(justice, /panel's four|all four panel|mandatory RPSL/i);
   assert.match(wrap, /triggered specialist is missing, failed, blocked, or stale/i);
   assert.match(wrap, /cross-gate contract: stop/i);
   assert.doesNotMatch(wrap, /unobserved perspective does|not_observed[\s\S]{0,160}ship/i);

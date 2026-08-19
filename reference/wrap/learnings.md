@@ -32,7 +32,7 @@ Update `learnings/INDEX.md` quick reference with one-liners for any new entries 
 
 ## 6. Validation Counters
 
-**Increment validation counters** — for each pattern in INDEX.md that was successfully used during this session (Apex explicitly relied on it, or Blade followed it without issues), increment `[validated:N]` -> `[validated:N+1]`. This builds confidence signal over time.
+**Increment validation counters** — for each pattern in INDEX.md that was successfully used during this session (Chief explicitly relied on it, or Engineer followed it without issues), increment `[validated:N]` -> `[validated:N+1]`. This builds confidence signal over time.
 
 ## 7. Promotion Check
 

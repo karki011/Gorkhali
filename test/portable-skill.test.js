@@ -237,7 +237,7 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
       '_shared-shadows.md',
       '_shared-discipline.md',
       '_shared-contracts.md',
-      '_shared-hound.md',
+      '_shared-detective.md',
     ],
   };
 
@@ -247,8 +247,8 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
     assert.equal(runtime.plugin_root, realPlugin);
     assert.equal(runtime.command_file, path.join(realPlugin, 'commands', `${command}.md`));
     assert.match(runtime.preamble_tier, /^T[1-4]$/);
-    const expected = command === 'hound'
-      ? [...expectedPreambles[runtime.preamble_tier], '_shared-hound.md']
+    const expected = command === 'detective'
+      ? [...expectedPreambles[runtime.preamble_tier], '_shared-detective.md']
       : expectedPreambles[runtime.preamble_tier];
     assert.deepEqual(runtime.preamble_files.map((file) => path.basename(file)), expected);
     assert.ok(!runtime.preamble_files.some((file) => file.endsWith('_shared-brain.md')));
@@ -258,8 +258,8 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
       assert.ok(file.startsWith(path.join(realPlugin, 'commands')));
       assert.ok(fs.existsSync(file), `${command} preamble is missing: ${file}`);
     }
-    if (['verify', 'fix', 'hound'].includes(command)) {
-      assert.ok(runtime.conditional_preamble_files.some((entry) => entry.file.endsWith('_shared-hound.md')));
+    if (['verify', 'fix', 'detective'].includes(command)) {
+      assert.ok(runtime.conditional_preamble_files.some((entry) => entry.file.endsWith('_shared-detective.md')));
     }
   }
 });
@@ -293,7 +293,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.4.0',
+    bundle_version: '2.4.1',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -447,19 +447,19 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.4.0');
+    assert.equal(result.bundle_version, '2.4.1');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
     assert.equal(result.resolution, 'inherit-active-model');
   }
-  assert.equal(policy.roles.apex, 'frontier');
-  assert.equal(policy.roles.rival, 'balanced');
-  assert.equal(policy.roles.lens, 'balanced');
+  assert.equal(policy.roles.chief, 'frontier');
+  assert.equal(policy.roles.opposition, 'balanced');
+  assert.equal(policy.roles.surveyor, 'balanced');
 });
 
 test('critical risk elevates eligible roles before preset lookup and preserves exemptions', () => {
-  for (const role of ['blade', 'gaze', 'sage', 'lens', 'archer', 'rival', 'hound']) {
+  for (const role of ['engineer', 'auditor', 'advisor', 'surveyor', 'justice', 'opposition', 'detective']) {
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical', '--host', 'claude-code']);
     assert.equal(result.risk, 'critical');
     assert.equal(result.requested_profile, 'deep');
@@ -469,10 +469,10 @@ test('critical risk elevates eligible roles before preset lookup and preserves e
   }
 
   for (const [role, profile] of [
-    ['apex', 'frontier'],
-    ['ward', 'economy'],
-    ['sweep', 'balanced'],
-    ['warden', 'economy'],
+    ['chief', 'frontier'],
+    ['inspector', 'economy'],
+    ['steward', 'balanced'],
+    ['clerk', 'economy'],
   ]) {
     const result = runJson(RESOLVER, ['--role', role, '--risk', 'critical']);
     assert.equal(result.requested_profile, profile);
@@ -480,21 +480,21 @@ test('critical risk elevates eligible roles before preset lookup and preserves e
 
   for (const profile of ['deep', 'frontier']) {
     const result = runJson(RESOLVER, [
-      '--role', 'blade', '--profile', profile, '--risk', 'critical',
+      '--role', 'engineer', '--profile', profile, '--risk', 'critical',
     ]);
     assert.equal(result.requested_profile, profile);
   }
 
-  const semanticOnly = runJson(RESOLVER, ['--role', 'rival', '--risk', 'critical']);
+  const semanticOnly = runJson(RESOLVER, ['--role', 'opposition', '--risk', 'critical']);
   assert.equal(semanticOnly.requested_profile, 'deep');
   assert.equal(semanticOnly.model, null);
   const explicit = runJson(RESOLVER, [
-    '--role', 'rival', '--risk', 'critical', '--model', 'user-selected',
+    '--role', 'opposition', '--risk', 'critical', '--model', 'user-selected',
   ]);
   assert.equal(explicit.model, 'user-selected');
   assert.equal(explicit.resolution, 'explicit-user-choice');
 
-  const invalid = spawnSync(process.execPath, [RESOLVER, '--role', 'blade', '--risk', 'urgent'], {
+  const invalid = spawnSync(process.execPath, [RESOLVER, '--role', 'engineer', '--risk', 'urgent'], {
     encoding: 'utf8',
   });
   assert.notEqual(invalid.status, 0);
@@ -507,8 +507,8 @@ test('portable validator pins the delegation-v2 critical-risk model policy', () 
     ['risk-levels', (policy) => { policy.risk_levels = ['critical']; }, /risk_levels must be/],
     ['eligible', (policy) => { policy.critical_elevation.eligible_roles.pop(); }, /eligible_roles is invalid/],
     ['exempt', (policy) => { policy.critical_elevation.exempt_roles = []; }, /exempt_roles is invalid/],
-    ['missing-lens', (policy) => { delete policy.roles.lens; }, /exactly the active portable roles/],
-    ['rival', (policy) => { policy.roles.rival = 'deep'; }, /ordinary rival must use balanced/],
+    ['missing-surveyor', (policy) => { delete policy.roles.surveyor; }, /exactly the active portable roles/],
+    ['opposition', (policy) => { policy.roles.opposition = 'deep'; }, /ordinary opposition must use balanced/],
   ]) {
     const target = copySkill(`invalid-model-policy-${label}`);
     const file = path.join(target, 'references', 'model-policy.json');
@@ -541,7 +541,7 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       frontier: ['gpt-5.6-sol', 'max'],
     },
   };
-  const roleForProfile = { economy: 'ward', balanced: 'blade', deep: 'gaze', frontier: 'apex' };
+  const roleForProfile = { economy: 'inspector', balanced: 'engineer', deep: 'auditor', frontier: 'chief' };
 
   for (const [host, profiles] of Object.entries(expected)) {
     assert.deepEqual(Object.keys(presets.hosts[host].profiles).sort(), Object.keys(profiles).sort());
@@ -565,20 +565,20 @@ test('model resolution honors user choice, external map, bundled preset, then in
     profiles: { balanced: { model: 'runtime-balanced', effort: 'custom' } },
   }));
 
-  const mapped = runJson(RESOLVER, ['--role', 'blade', '--host', 'codex', '--map', mapFile]);
+  const mapped = runJson(RESOLVER, ['--role', 'engineer', '--host', 'codex', '--map', mapFile]);
   assert.equal(mapped.requested_profile, 'balanced');
   assert.equal(mapped.model, 'runtime-balanced');
   assert.equal(mapped.effort, 'custom');
   assert.equal(mapped.resolution, 'external-profile-map');
 
   fs.writeFileSync(mapFile, JSON.stringify({ profiles: { balanced: 'legacy-balanced' } }));
-  const legacy = runJson(RESOLVER, ['--role', 'blade', '--host', 'codex', '--map', mapFile]);
+  const legacy = runJson(RESOLVER, ['--role', 'engineer', '--host', 'codex', '--map', mapFile]);
   assert.equal(legacy.model, 'legacy-balanced');
   assert.equal(legacy.effort, null);
   assert.equal(legacy.resolution, 'external-profile-map');
 
   const explicit = runJson(RESOLVER, [
-    '--role', 'blade',
+    '--role', 'engineer',
     '--host', 'codex',
     '--map', mapFile,
     '--model', 'user-selected',
@@ -588,8 +588,8 @@ test('model resolution honors user choice, external map, bundled preset, then in
   assert.equal(explicit.resolution, 'explicit-user-choice');
 
   for (const args of [
-    ['--role', 'apex'],
-    ['--role', 'apex', '--host', 'future-host'],
+    ['--role', 'chief'],
+    ['--role', 'chief', '--host', 'future-host'],
   ]) {
     const inherited = runJson(RESOLVER, args);
     assert.equal(inherited.requested_profile, 'frontier');
@@ -605,11 +605,11 @@ test('model resolution honors user choice, external map, bundled preset, then in
 // move the model on a host whose presets are not flat. Asserting only the
 // claude-code side would let a future edit collapse the profiles themselves
 // without failing anything.
-test('delegated profiles downshift semantically while Apex stays frontier', () => {
+test('delegated profiles downshift semantically while Chief stays frontier', () => {
   const claudeCode = {};
   for (const profile of ['economy', 'balanced', 'deep']) {
     const result = runJson(RESOLVER, [
-      '--role', 'blade', '--profile', profile, '--host', 'claude-code',
+      '--role', 'engineer', '--profile', profile, '--host', 'claude-code',
     ]);
     assert.equal(result.requested_profile, profile, `${profile} must survive resolution`);
     assert.equal(result.model, 'sonnet', `${profile} resolves to sonnet on claude-code`);
@@ -619,15 +619,15 @@ test('delegated profiles downshift semantically while Apex stays frontier', () =
 
   // Same three requests on a host whose ladder is not flat still spread.
   const codex = ['economy', 'balanced', 'deep'].map((profile) => runJson(RESOLVER, [
-    '--role', 'blade', '--profile', profile, '--host', 'codex',
+    '--role', 'engineer', '--profile', profile, '--host', 'codex',
   ]).model);
   assert.equal(new Set(codex).size, 3, 'a non-flat host must still spread the profiles');
 
-  const apex = runJson(RESOLVER, [
-    '--role', 'apex', '--profile', 'economy', '--host', 'claude-code',
+  const chief = runJson(RESOLVER, [
+    '--role', 'chief', '--profile', 'economy', '--host', 'claude-code',
   ]);
-  assert.equal(apex.requested_profile, 'frontier', 'Apex ignores a downshift request');
-  assert.equal(apex.model, 'sonnet');
+  assert.equal(chief.requested_profile, 'frontier', 'Chief ignores a downshift request');
+  assert.equal(chief.model, 'sonnet');
 });
 
 test('portable CLI entrypoints execute through a symlinked skill installation', () => {
@@ -636,9 +636,9 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   fs.symlinkSync(SKILL_ROOT, linkedSkill, process.platform === 'win32' ? 'junction' : 'dir');
 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
-    '--role', 'apex', '--host', 'claude-code',
+    '--role', 'chief', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.4.0');
+  assert.equal(resolver.bundle_version, '2.4.1');
   assert.equal(resolver.model, 'sonnet');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -743,7 +743,7 @@ test('capability contract preserves all required degradation paths', () => {
   assert.match(capabilities, /Never silently convert an unavailable check into a pass/i);
 });
 
-test('portable workflow makes delegation an automatic, native Apex decision', () => {
+test('portable workflow makes delegation an automatic, native Chief decision', () => {
   const read = (file) => fs.readFileSync(path.join(SKILL_ROOT, file), 'utf8').replace(/\s+/g, ' ');
   const skill = read('SKILL.md');
   const execution = read('references/execution.md');
@@ -762,7 +762,7 @@ test('portable workflow makes delegation an automatic, native Apex decision', ()
   assert.match(roles, /explicit user instruction to require, limit, or disable delegation within repository safety/i);
   assert.match(roles, /runtime requires approval, request it before spawning/i);
   assert.match(roles, /without shared writes or unresolved producer-consumer edges/i);
-  assert.match(roles, /\| Lens \|.*explicit user request.*advisory evidence.*never.*lifecycle gate/is);
+  assert.match(roles, /\| Surveyor \|.*explicit user request.*advisory evidence.*never.*lifecycle gate/is);
   assert.match(capabilities, /dedicated native mechanism for bounded worker contexts or sessions/i);
   assert.match(capabilities, /Never recursively launch another copy of the current runtime/i);
   assert.match(capabilities, /unknown optional capability behaves as unavailable/i);

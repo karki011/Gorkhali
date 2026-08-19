@@ -48,15 +48,17 @@ function runGate(envOverrides, stdinObj, cwd) {
   }
 }
 
-// Fresh PHANTOM_DATA + a fake worktree cwd. Writes the .apex-active marker, the
+// Fresh PHANTOM_DATA + a fake worktree cwd. Writes the .chief-active marker, the
 // current-session/<repo>.json pointer (so ticket resolution succeeds), and the
 // session wrap.json at the SAME path the gate resolves. `wrap` is written
 // verbatim when a string (malformed case), else JSON.stringified. Pass
-// active:false to skip .apex-active; resolvable:false to omit the
-// current-session pointer AND use a detached cwd (→ fail-open).
-function setup({ wrap, active = true, repo = 'myrepo', ticket = 'PROJ-1', resolvable = true } = {}) {
+// active:false to skip .chief-active; resolvable:false to omit the
+// current-session pointer AND use a detached cwd (→ fail-open). markerName
+// overrides the marker filename (default '.chief-active') to exercise the
+// .apex-active upgrade-shim fallback.
+function setup({ wrap, active = true, repo = 'myrepo', ticket = 'PROJ-1', resolvable = true, markerName = '.chief-active' } = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'gg-data-'));
-  if (active) fs.writeFileSync(path.join(data, '.apex-active'), '');
+  if (active) fs.writeFileSync(path.join(data, markerName), '');
 
   // cwd under <data>/worktrees/<repo>/<ticket> → detectRepo returns <repo>
   // (not <ticket>), exercising the worktree-aware path.
@@ -126,9 +128,20 @@ test('6. pr null / absent → ALLOW (no real PR)', () => {
   assertAllow(runGate(env, {}, cwd));
 });
 
-test('7. no .apex-active marker (inactive session) → ALLOW even with draft+pending', () => {
+test('7. no .chief-active marker (inactive session) → ALLOW even with draft+pending', () => {
   const { env, cwd } = setup({ active: false, wrap: { pr: { number: 42, status: 'draft' }, greptile: { status: 'pending' } } });
   assertAllow(runGate(env, {}, cwd), 'gate only fires inside a live session');
+});
+
+test('7b. legacy .apex-active marker alone (upgrade shim) → BLOCK same as .chief-active', () => {
+  // .apex-active is the pre-rename marker filename; a not-yet-upgraded install
+  // may still be writing it. The gate must recognize it exactly like
+  // .chief-active until it naturally ages out.
+  const { env, cwd } = setup({
+    markerName: '.apex-active',
+    wrap: { pr: { number: 42, status: 'draft' }, greptile: { status: 'pending' } },
+  });
+  assertBlock(runGate(env, {}, cwd), 42);
 });
 
 test('8. malformed wrap.json → ALLOW (fail-open)', () => {

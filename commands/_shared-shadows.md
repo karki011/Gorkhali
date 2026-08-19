@@ -12,19 +12,19 @@ not restated here. This file carries only the agent → default-model lookup tha
 
 | Agent | default model | role |
 |-------|---------------|------|
-| apex | inherits session model (effort high) | orchestrator |
-| blade | sonnet (frontmatter pin) | implementation |
-| hound | sonnet (frontmatter pin) | forensics |
-| sage | sonnet (frontmatter pin; override via config `models.sage`) | deepest advisory |
-| gaze | sonnet (frontmatter pin) | quality gate |
-| archer | sonnet (frontmatter pin) | cross-file review |
-| rival | sonnet (frontmatter pin) | the one plan critic: adversarial review + plan validation |
-| ward | sonnet (frontmatter pin) | build/test QA |
-| lens | sonnet (frontmatter pin; explicit user opt-in only) | advisory visual inspection |
-| sweep | sonnet (frontmatter pin) | simplification |
+| chief | inherits session model (effort high) | orchestrator |
+| engineer | sonnet (frontmatter pin) | implementation |
+| detective | sonnet (frontmatter pin) | forensics |
+| advisor | sonnet (frontmatter pin; override via config `models.advisor`) | deepest advisory |
+| auditor | sonnet (frontmatter pin) | quality gate |
+| justice | sonnet (frontmatter pin) | cross-file review |
+| opposition | sonnet (frontmatter pin) | the one plan critic: adversarial review + plan validation |
+| inspector | sonnet (frontmatter pin) | build/test QA |
+| surveyor | sonnet (frontmatter pin; explicit user opt-in only) | advisory visual inspection |
+| steward | sonnet (frontmatter pin) | simplification |
 
 - Every delegated role is `sonnet` on this host - the seniority differences in the table above are
-  about how tightly Apex briefs each role, not about what each one costs. Opus is orchestration-only.
+  about how tightly Chief briefs each role, not about what each one costs. Opus is orchestration-only.
 - `sonnet` resolves to `claude-sonnet-5`; `opus` to `claude-opus-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
 - Check MODEL_OVERRIDE at session start.
 
@@ -34,19 +34,19 @@ Agent registry, spawning rules, SOLO/SHADOWS routing, role focus directives, and
 
 ## Lean Context Loading
 
-Agents load ONLY what they need — Apex holds the full picture.
+Agents load ONLY what they need — Chief holds the full picture.
 
 | Codename | Gets | Does NOT Get |
 |----------|------|-------------|
-| **Apex** | All shared tiers + all learnings + decisions.ndjson (last 50) | — |
-| **Blade** | Persona + ROLE FOCUS + contract + CLAUDE.md + domain learnings + Anti-Repetition Block | _shared-shadows, _shared-contracts |
-| **Ward** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | discipline tiers |
-| **Gaze** | Persona + full diff + `coding-principles.md` | discipline/planning tiers |
-| **Sage** | Decision context passed by Blade only | Everything — never loads files |
-| **Lens** | Explicit routes, expected behavior, worktree path/branch, and resolved URL when known | All shared context; loaded only after opt-in |
+| **Chief** | All shared tiers + all learnings + decisions.ndjson (last 50) | — |
+| **Engineer** | Persona + ROLE FOCUS + contract + CLAUDE.md + domain learnings + Anti-Repetition Block | _shared-shadows, _shared-contracts |
+| **Inspector** | Persona + locked contracts + `learnings/testing.md` + `_shared-repo-detection.md` | discipline tiers |
+| **Auditor** | Persona + full diff + `coding-principles.md` | discipline/planning tiers |
+| **Advisor** | Decision context passed by Engineer only | Everything — never loads files |
+| **Surveyor** | Explicit routes, expected behavior, worktree path/branch, and resolved URL when known | All shared context; loaded only after opt-in |
 
 ---
 
 ## Handoff Pipeline
 
-Blade → Ward → Gaze → Apex (only failures route back). See `reference/agents.md` for details.
+Engineer → Inspector → Auditor → Chief (only failures route back). See `reference/agents.md` for details.

@@ -98,8 +98,8 @@ fully formed.
 
 Normalize each candidate into thesis, evidence, effort, risk, reversibility,
 failure cost, tradeoffs, and deciding condition. Compare candidates blindly
-against the evaluation criteria. Run one advisory Rival pass - it tightens the
-cards and writes no plan-check verdict - then have Apex recommend
+against the evaluation criteria. Run one advisory Opposition pass - it tightens the
+cards and writes no plan-check verdict - then have Chief recommend
 one practical direction while preserving a higher-upside or minority option.
 
 For a decision-grade review, each approach must describe distinct benefits,

@@ -44,7 +44,7 @@ export function resolveCodexRuntime(environment = process.env, workflow = null) 
       condition: match[2] || 'when activated',
     };
   });
-  const explicitPreambles = workflow === 'hound'
+  const explicitPreambles = workflow === 'detective'
     ? conditionalPreambles.map((entry) => entry.file)
     : [];
   return {

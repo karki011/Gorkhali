@@ -9,7 +9,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # /phantom:pr-review
 
 Reviews someone else's pull request. `/phantom:review` reviews YOUR verified diff
-and gates on a Ward artifact bound to your worktree fingerprint; that gate cannot
+and gates on an Inspector artifact bound to your worktree fingerprint; that gate cannot
 be satisfied for a branch you did not build, and `worktreeFingerprint(repo.root)`
 would describe your checkout rather than the PR head. So this command is
 **advisory only**: it never calls `phantom-state.mjs record`, never writes a
@@ -108,9 +108,9 @@ A change that cannot execute in production fails its stated intent, and is
 
 ## 4. Correctness
 
-Spawn Gaze against the PR branch using `agents/gaze.md`, writing
-`{REVIEW_DIR}/gaze.json`. Add Archer (`agents/archer.md`) writing
-`{REVIEW_DIR}/specialists/archer.json` only on explicit risk triggers, exactly as
+Spawn Auditor against the PR branch using `agents/auditor.md`, writing
+`{REVIEW_DIR}/auditor.json`. Add Justice (`agents/justice.md`) writing
+`{REVIEW_DIR}/specialists/justice.json` only on explicit risk triggers, exactly as
 `commands/review.md` treats specialists - a second reviewer is not free and
 agreement between two models drawn from a similar distribution is not independent
 evidence.
@@ -127,8 +127,8 @@ Three constraints on how reviewers are prompted:
 - **`confidence` is mandatory on every finding**, not optional as the schema
   permits. `confirmed` requires that the cited line was re-read; anything unread
   is `needs-verification` with a matching `observationGaps` entry.
-- **A second reviewer refutes; it does not confirm.** When Archer runs, its task
-  is to attack Gaze's findings, not to re-derive them.
+- **A second reviewer refutes; it does not confirm.** When Justice runs, its task
+  is to attack Auditor's findings, not to re-derive them.
 
 Run `scripts/review-gaps.js --files <changed files> --json` for the
 mechanically-derivable half - changed source files with no corresponding changed

@@ -1,7 +1,7 @@
 # PR Body
 
-> **Context:** Apex renders `{TEAM_DIR}/sessions/{TICKET}/pr-body.md` at `/phantom:wrap` Step 3, before the ship gate.
-> Warden passes that file to `gh pr create --body-file` verbatim — see `reference/wrap/ship-ceremony.md` §4.
+> **Context:** Chief renders `{TEAM_DIR}/sessions/{TICKET}/pr-body.md` at `/phantom:wrap` Step 3, before the ship gate.
+> Clerk passes that file to `gh pr create --body-file` verbatim — see `reference/wrap/ship-ceremony.md` §4.
 > **This file is the single copy of the contract.** `commands/wrap.md` and `ship-ceremony.md` point here; they never restate it.
 
 A reviewer reads the body in under a minute, so it is short by contract, not by taste.
@@ -10,8 +10,8 @@ Anything that does not change what the reviewer does next is cut.
 
 ## Ownership
 
-- **Apex resolves and renders.** Every value comes from an artifact this session already wrote.
-- **Warden substitutes only.** Its whole body operation is `--body-file {SESSION_DIR}/pr-body.md`. Warden never authors a section, never fills a blank, never summarizes, never re-orders. On a failed preflight it reports `checked:fail` and does not create the PR — repair is Apex re-rendering.
+- **Chief resolves and renders.** Every value comes from an artifact this session already wrote.
+- **Clerk substitutes only.** Its whole body operation is `--body-file {SESSION_DIR}/pr-body.md`. Clerk never authors a section, never fills a blank, never summarizes, never re-orders. On a failed preflight it reports `checked:fail` and does not create the PR — repair is Chief re-rendering.
 
 Same split as the Defense Brief (`reference/wrap/defense-brief.md`): release-context judgment on the session model, execution on the cheap tier.
 
@@ -33,10 +33,10 @@ This is the contract the reviewer checks the diff against, not a narration of th
 
 ### 2. `## Verification`
 
-One bullet per verification `checks[]` entry as `name — result`; then `userVerification` (`required: false`, or its `status` and `routes[]`); then the review artifact — Gaze `verdict` with its findings count, and one line per `specialists[]` entry as `role — verdict — N findings`.
+One bullet per verification `checks[]` entry as `name — result`; then `userVerification` (`required: false`, or its `status` and `routes[]`); then the review artifact — Auditor `verdict` with its findings count, and one line per `specialists[]` entry as `role — verdict — N findings`.
 Include the RPSL outcome only when `--deep-review` was explicitly selected; omit it silently otherwise.
 
-**This section does not degrade.** It has no stated-gap line because it cannot legitimately be empty: missing, failed, blocked, or stale Ward, Gaze, or triggered-specialist evidence is a blocked ship gate (`commands/wrap.md` §1), so there is no PR to caveat.
+**This section does not degrade.** It has no stated-gap line because it cannot legitimately be empty: missing, failed, blocked, or stale Inspector, Auditor, or triggered-specialist evidence is a blocked ship gate (`commands/wrap.md` §1), so there is no PR to caveat.
 Never omit required validation and never invent content to fill it — a gap here is a stop, not a caveat.
 
 ### 3. `## Review focus`
@@ -54,7 +54,7 @@ When a degradable section's source artifact is absent, its entire body is that s
 
 - A gap line is the only permitted substitute. `N/A`, `None`, an empty section, or a plausible guess are failures.
 - A gap is real signal — it tells the reviewer this PR shipped without a captured goal or plan — so it belongs in the body rather than hidden.
-- Warden never writes a gap line. If Apex left a section empty, the preflight blocks and Apex re-renders.
+- Clerk never writes a gap line. If Chief left a section empty, the preflight blocks and Chief re-renders.
 
 ## Repo PR template
 
@@ -68,12 +68,12 @@ ls .github/pull_request_template.md \
    pull_request_template.md 2>/dev/null | head -1
 ```
 
-Warden may run that `ls` and report the path; the mapping itself is Apex's.
+Clerk may run that `ls` and report the path; the mapping itself is Chief's.
 
 - **No template found** — use the three canonical headings verbatim. This repository has no PR template (`.github/` holds `workflows/ci.yml` only), so the canonical headings apply here.
 - **Template found** — keep the repo's heading text and order. A repo heading with no source value gets the stated-gap line; a resolved value with no matching repo heading is appended under its canonical heading rather than dropped, because evidence is never lost to a template mismatch.
 
-## Warden preflight
+## Clerk preflight
 
 Run before any git operation, alongside the Defense Brief preflight in `commands/wrap.md` Step 2. A pure text check: three headings present, no section empty.
 
@@ -102,8 +102,8 @@ Fixed the shared `useUsageRange` reducer instead of the Explorer component — t
 - focused tests — passed
 - lint — passed
 - userVerification — required: false
-- gaze — pass — 0 findings
-- archer — pass — 0 findings
+- auditor — pass — 0 findings
+- justice — pass — 0 findings
 
 ## Review focus
 - `src/hooks/useUsageRange.ts:47` — plan risk: the return shape gains `rangeVersion` and every caller is bumped here

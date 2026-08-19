@@ -75,9 +75,9 @@ async function recordGazeDelegation(ctx, runId) {
   const { delegationTaskDigest } = await import(pathToFileURL(DECISION_CONTRACTS).href);
   const task = {
     contract_version: 2,
-    task_id: `gaze-${runId}`,
-    delegation_id: `gaze-${runId}-attempt-1`,
-    role: 'gaze',
+    task_id: `auditor-${runId}`,
+    delegation_id: `auditor-${runId}-attempt-1`,
+    role: 'auditor',
     profile: 'deep',
     risk: 'moderate',
     requires_judgment: true,
@@ -87,7 +87,7 @@ async function recordGazeDelegation(ctx, runId) {
     acceptance_criteria: ['Review completes'],
     write_scope: [], context_refs: [],
   };
-  const taskInput = path.join(ctx.root, `${runId}-gaze-task.json`);
+  const taskInput = path.join(ctx.root, `${runId}-auditor-task.json`);
   fs.writeFileSync(taskInput, JSON.stringify(task));
   ok(await runState([
     'record', '--workspace', ctx.workspace, '--type', 'delegation-task',
@@ -109,7 +109,7 @@ async function recordGazeDelegation(ctx, runId) {
     },
     error: null,
   };
-  const resultInput = path.join(ctx.root, `${runId}-gaze-result.json`);
+  const resultInput = path.join(ctx.root, `${runId}-auditor-result.json`);
   fs.writeFileSync(resultInput, JSON.stringify(result));
   ok(await runState([
     'record', '--workspace', ctx.workspace, '--type', 'delegation-result',
@@ -124,7 +124,7 @@ async function recordArtifact(ctx, type, payload, { status = 'passed', run } = {
   fs.writeFileSync(input, JSON.stringify(payload));
   const args = ['record', '--workspace', ctx.workspace, '--type', type, '--status', status, '--input', input];
   if (run) args.push('--run', run);
-  if (type === 'review') args.push('--role', 'gaze');
+  if (type === 'review') args.push('--role', 'auditor');
   return ok(await runState(args, ctx.env));
 }
 

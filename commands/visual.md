@@ -1,7 +1,7 @@
 ---
 name: visual
-description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Phantom Lens inspection only when explicitly requested."
-argument-hint: "[/route1 /route2 ...] [--lens]"
+description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Phantom Surveyor inspection only when explicitly requested."
+argument-hint: "[/route1 /route2 ...] [--surveyor]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
@@ -12,31 +12,31 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 Prepare a human visual-verification handoff. Phantom does not inspect the UI or
 claim a visual pass on the user's behalf by default.
 
-## Optional Lens mode
+## Optional Surveyor mode
 
-Activate Lens only when `$ARGUMENTS` contains `--lens` or the user affirmatively
-asks to run, use, or invoke Phantom Lens in the current request. Merely naming,
-asking about, or negating Lens (for example, "do not use Phantom Lens") does not
+Activate Surveyor only when `$ARGUMENTS` contains `--surveyor` or the user affirmatively
+asks to run, use, or invoke Phantom Surveyor in the current request. Merely naming,
+asking about, or negating Surveyor (for example, "do not use Phantom Surveyor") does not
 activate it. A UI diff, Figma link, screenshot, or required user verification
-never triggers Lens automatically.
+never triggers Surveyor automatically.
 
-In optional Lens mode:
+In optional Surveyor mode:
 
 1. Resolve the routes, expectations, states, and viewports, plus the canonical
    current worktree path and exact Git branch.
 2. Apply the URL-resolution contract in
    `reference/agent-protocols/visual-protocol.md`. If it requires user input, ask with
-   the manager link, worktree, and branch, then keep this Lens request pending
+   the manager link, worktree, and branch, then keep this Surveyor request pending
    until the user supplies the exact Dev URL.
-3. Record a bounded delegation-v2 task with `role: "lens"` when a Phantom
-   session is active, then spawn exactly one read-only Lens named `lens-yara`.
-4. Lens loads `agents/lens.md` and its references only inside that worker. It
+3. Record a bounded delegation-v2 task with `role: "surveyor"` when a Phantom
+   session is active, then spawn exactly one read-only Surveyor named `surveyor-meridan`.
+4. Surveyor loads `agents/surveyor.md` and its references only inside that worker. It
    inspects and returns advisory screenshots, findings, and observation gaps.
 5. Record the matching delegation result when state is active. Do not create a
-   review specialist artifact or add Lens to `requiredSpecialists`.
+   review specialist artifact or add Surveyor to `requiredSpecialists`.
 6. Present the evidence to the user, then continue with the normal checklist.
 
-A missing, failed, or blocked Lens result never blocks ordinary verification,
+A missing, failed, or blocked Surveyor result never blocks ordinary verification,
 review, shipping, or completion. It also never replaces explicit user
 confirmation. There is no autonomous mode, code modification, or visual fix
 loop.
@@ -45,7 +45,7 @@ loop.
 
 1. Determine the affected routes from arguments, the approved plan, or changed
    files. If they cannot be determined, ask the user for the routes.
-2. For optional Lens, use the worktree-manager resolution above. For the
+2. For optional Surveyor, use the worktree-manager resolution above. For the
    ordinary human checklist, use an explicit user URL or observed startup
    output. Never assume a fixed application port.
 3. Present a short checklist containing:

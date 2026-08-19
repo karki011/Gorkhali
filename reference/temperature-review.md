@@ -122,7 +122,7 @@ Use this prompt when spawning the review agent:
        account for the new element's width
     This is NOT optional. Missing state coverage is a blocking finding.
 
-    Write the review to {SESSION_DIR}/reviews/gaze.json BEFORE you
+    Write the review to {SESSION_DIR}/reviews/auditor.json BEFORE you
     summarise anything in chat. That file is the deliverable; your final
     message is commentary on it. It carries the gate results, dimension
     scores, observation gaps, the VERDICT, and the findings as a JSON
@@ -141,7 +141,7 @@ Use this prompt when spawning the review agent:
 <!-- BEGIN GENERATED review-standard:finding-shape - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 ```json
 {
-  "role": "gaze",
+  "role": "auditor",
   "model": "the model this review RAN on - omit unless the host told you",
   "verdict": "pass|fail|blocked",
   "findings": [

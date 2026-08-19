@@ -47,7 +47,7 @@ function run(bin, args) {
 
 function validate(artifact) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-standard-'));
-  const file = path.join(dir, 'gaze.json');
+  const file = path.join(dir, 'auditor.json');
   fs.writeFileSync(file, JSON.stringify(artifact, null, 2));
   try {
     return run(VALIDATOR, ['review', file]);
@@ -56,7 +56,7 @@ function validate(artifact) {
   }
 }
 
-const artifact = (findings) => ({ role: 'gaze', verdict: 'fail', findings, observationGaps: [] });
+const artifact = (findings) => ({ role: 'auditor', verdict: 'fail', findings, observationGaps: [] });
 const finding = (overrides = {}) => ({
   severity: 'blocking',
   file: 'src/pay/refund.ts',
@@ -75,9 +75,9 @@ test('the scale has exactly two values, and both are the ones the corpus already
 
 test('every value of all four F9 vocabularies resolves onto the one scale', () => {
   const expected = {
-    // gaze (already canonical)
+    // auditor (already canonical)
     blocking: 'blocking', advisory: 'advisory',
-    // archer P0-P2 and temperature-review P0-P3
+    // justice P0-P2 and temperature-review P0-P3
     P0: 'blocking', P1: 'blocking', P2: 'advisory', P3: 'advisory',
     // the verification schema's fifth spelling
     warn: 'advisory',
@@ -103,14 +103,14 @@ test('a legacy P0 artifact still validates - nothing on disk starts failing', ()
 // --- (e) ONE SHAPE -----------------------------------------------------------
 
 test('all three F9 finding shapes normalize to the same canonical object', () => {
-  const gaze = { severity: 'blocking', file: 'src/a.ts', line: 7, evidence: 'the claim', remediation: 'the fix' };
+  const auditor = { severity: 'blocking', file: 'src/a.ts', line: 7, evidence: 'the claim', remediation: 'the fix' };
   const temperature = { temperature: 'P0', file: 'src/a.ts', line: 7, issue: 'the claim', fix: 'the fix' };
   const verification = { severity: 'P0', component: 'src/a.ts', line: 7, message: 'the claim', remediation: 'the fix' };
 
   for (const legacy of [temperature, verification]) {
     assert.deepEqual(
       std.normalizeFinding(legacy),
-      std.normalizeFinding(gaze),
+      std.normalizeFinding(auditor),
       'three shapes, one canonical result'
     );
   }
@@ -132,8 +132,8 @@ test('normalizing a finding NEVER moves its B9 id (the corpus is not re-id-ed)',
 
 test('observationGaps is the one spelling, and the legacy one is read, not rejected', () => {
   assert.equal(std.GAPS_KEY, 'observationGaps');
-  assert.equal(validate({ role: 'gaze', verdict: 'pass', findings: [], observation_gaps: [] }).code, 0);
-  const normalized = std.normalizeReview({ role: 'gaze', findings: [], observation_gaps: ['x'] });
+  assert.equal(validate({ role: 'auditor', verdict: 'pass', findings: [], observation_gaps: [] }).code, 0);
+  const normalized = std.normalizeReview({ role: 'auditor', findings: [], observation_gaps: ['x'] });
   assert.deepEqual(normalized.observationGaps, ['x']);
   assert.equal('observation_gaps' in normalized, false, 'the legacy key does not survive normalization');
 });
@@ -194,9 +194,9 @@ test('the fix loop may act only on blocking, non-preExisting findings', () => {
   assert.deepEqual(selected, ['blocking, introduced here', 'legacy vocabulary, still blocking']);
 });
 
-// --- Archer's dimension becomes a FIELD, not just chat output ---------------
+// --- Justice's dimension becomes a FIELD, not just chat output ---------------
 
-test("a finding may carry one of Archer's five dimensions, and nothing else", () => {
+test("a finding may carry one of Justice's five dimensions, and nothing else", () => {
   assert.deepEqual(std.DIMENSIONS, [
     'cross-file-coherence', 'regression', 'semantic-accuracy', 'dead-code', 'convention-deviation',
   ]);
@@ -206,13 +206,13 @@ test("a finding may carry one of Archer's five dimensions, and nothing else", ()
   const res = validate(artifact([finding({ dimension: 'vibes' })]));
   assert.equal(res.code, 1);
   assert.match(res.stderr, /findings\[0\]\.dimension: must be one of cross-file-coherence\|regression/);
-  assert.equal(validate(artifact([finding()])).code, 0, 'the key stays optional - Gaze has no dimension vocabulary');
+  assert.equal(validate(artifact([finding()])).code, 0, 'the key stays optional - Auditor has no dimension vocabulary');
 });
 
-test('agents/archer.md tells Archer to carry the dimension into the artifact', () => {
-  const archer = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'archer.md'), 'utf8');
-  for (const dimension of std.DIMENSIONS) assert.ok(archer.includes(dimension), `archer.md must name ${dimension}`);
-  assert.match(archer, /Carry\s+the dimension from your output format INTO the artifact/);
+test('agents/justice.md tells Justice to carry the dimension into the artifact', () => {
+  const justice = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'justice.md'), 'utf8');
+  for (const dimension of std.DIMENSIONS) assert.ok(justice.includes(dimension), `justice.md must name ${dimension}`);
+  assert.match(justice, /Carry\s+the dimension from your output format INTO the artifact/);
 });
 
 // --- (c) THE BLOCKING BAR ---------------------------------------------------
@@ -226,7 +226,7 @@ test('the blocking bar is stated once, in data, and says "worse than before"', (
 
 // --- (d) NAMED SECURITY CATEGORIES ------------------------------------------
 
-test('the six OWASP-anchored categories are named, and reach agents/gaze.md verbatim', () => {
+test('the six OWASP-anchored categories are named, and reach agents/auditor.md verbatim', () => {
   const names = std.SECURITY_CATEGORIES.map((c) => c.name);
   assert.deepEqual(names, [
     'Broken access control (including SSRF)',
@@ -236,8 +236,8 @@ test('the six OWASP-anchored categories are named, and reach agents/gaze.md verb
     'Unsafe defaults',
     'Data exposure',
   ]);
-  const gaze = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'gaze.md'), 'utf8');
-  for (const name of names) assert.ok(gaze.includes(name), `agents/gaze.md must name "${name}"`);
+  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
+  for (const name of names) assert.ok(auditor.includes(name), `agents/auditor.md must name "${name}"`);
 });
 
 // --- (e) DRIFT-PROOFING: the prose is generated, and CI checks it ------------
@@ -258,20 +258,20 @@ test('hand-editing a generated severity table fails --check with exit 2 and name
     filter: (src) => !/(^|\/)(\.git|node_modules)(\/|$)/.test(src.slice(REPO_ROOT.length)),
   });
   try {
-    const gaze = path.join(dir, 'agents', 'gaze.md');
+    const auditor = path.join(dir, 'agents', 'auditor.md');
     fs.writeFileSync(
-      gaze,
-      fs.readFileSync(gaze, 'utf8').replace('| `advisory` |', '| `P2` |')
+      auditor,
+      fs.readFileSync(auditor, 'utf8').replace('| `advisory` |', '| `P2` |')
     );
     const res = run(GENERATOR, ['--check', '--dir', dir]);
     assert.equal(res.code, 2, 'doc drift is VALIDATION_ERROR -> exit 2');
-    assert.match(res.stderr, /Review-standard prose is out of date: agents\/gaze\.md/);
+    assert.match(res.stderr, /Review-standard prose is out of date: agents\/auditor\.md/);
 
     // ...and regenerating puts it back, byte for byte.
     assert.equal(run(GENERATOR, ['--dir', dir]).code, 0);
     assert.equal(
-      fs.readFileSync(gaze, 'utf8'),
-      fs.readFileSync(path.join(REPO_ROOT, 'agents', 'gaze.md'), 'utf8')
+      fs.readFileSync(auditor, 'utf8'),
+      fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8')
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -334,9 +334,9 @@ test('the drift check has teeth: a re-introduced P0 instruction is caught', () =
   // Same predicate the test above applies, against a line of the kind that
   // caused F9 in the first place. Without this, "0 hits" could mean the filter
   // swallows everything.
-  const reintroduced = 'agents/gaze.md:59:  SEVERITY: P0 (critical), P1 (bugs), P2 (quality)';
+  const reintroduced = 'agents/auditor.md:59:  SEVERITY: P0 (critical), P1 (bugs), P2 (quality)';
   assert.ok(!RETIRED_VOCABULARY_CONTEXT.test(reintroduced), 'a live P0 instruction must NOT be excused');
-  const excused = 'agents/gaze.md:84:Legacy spellings still on disk are read as `P0`->`blocking`; never write them.';
+  const excused = 'agents/auditor.md:84:Legacy spellings still on disk are read as `P0`->`blocking`; never write them.';
   assert.ok(RETIRED_VOCABULARY_CONTEXT.test(excused), 'a legacy-mapping line IS excused');
 });
 
@@ -354,9 +354,9 @@ test('the ceiling doc and the severity doc are two files with two jobs', () => {
 
 test('the migrator rewrites a legacy artifact into the canonical shape, id unchanged', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-migrate-'));
-  const file = path.join(dir, 'gaze.json');
+  const file = path.join(dir, 'auditor.json');
   const legacy = {
-    role: 'gaze',
+    role: 'auditor',
     verdict: 'fail',
     findings: [{ temperature: 'P0', component: 'src/a.ts', line: 7, issue: 'the claim', fix: 'the fix' }],
     observation_gaps: ['dependency graph unavailable'],

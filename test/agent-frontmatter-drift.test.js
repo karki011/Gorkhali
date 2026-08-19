@@ -2,7 +2,7 @@
 // agent-frontmatter-drift.test.js — locks agents/*.md `model:` pins to
 // skills/phantom/references/model-policy.json. Hand-editing a pin (or editing
 // policy without regenerating) fails here, so the policy file stays the single
-// source of truth. apex.md is exempt: it inherits the session model and carries
+// source of truth. chief.md is exempt: it inherits the session model and carries
 // no pin by design.
 //
 // Read-only: every assertion runs the generator in --check mode, which mutates
@@ -33,11 +33,11 @@ test('every agents/*.md model pin equals the policy-resolved value', () => {
   );
 });
 
-test('apex.md is exempt and carries no model pin', () => {
-  const apex = generate({ check: true }).files.find((f) => path.basename(f.file) === 'apex.md');
-  assert.equal(apex.status, 'exempt', 'apex must be exempt from generation');
-  const frontmatter = fs.readFileSync(path.join(AGENTS_DIR, 'apex.md'), 'utf8').split('---')[1];
-  assert.doesNotMatch(frontmatter, /^model:/m, 'apex must inherit the session model — no pin');
+test('chief.md is exempt and carries no model pin', () => {
+  const chief = generate({ check: true }).files.find((f) => path.basename(f.file) === 'chief.md');
+  assert.equal(chief.status, 'exempt', 'chief must be exempt from generation');
+  const frontmatter = fs.readFileSync(path.join(AGENTS_DIR, 'chief.md'), 'utf8').split('---')[1];
+  assert.doesNotMatch(frontmatter, /^model:/m, 'chief must inherit the session model — no pin');
 });
 
 test('every non-exempt agent carries the generated-provenance marker', () => {
@@ -65,7 +65,7 @@ test('--check exits 0 in sync and mutates nothing', () => {
 test('a hand-edited pin makes --check fail with exit 1', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-frontmatter-'));
   fs.cpSync(AGENTS_DIR, dir, { recursive: true });
-  const bladePath = path.join(dir, 'blade.md');
+  const bladePath = path.join(dir, 'engineer.md');
   fs.writeFileSync(
     bladePath,
     fs.readFileSync(bladePath, 'utf8').replace(/^model: .*$/m, 'model: haiku')
@@ -79,7 +79,7 @@ test('a hand-edited pin makes --check fail with exit 1', () => {
   assert.equal(status, 1, 'a hand-edited pin must fail --check');
   const drift = generate({ check: true, dir }).files.filter((f) => f.status === 'drift');
   assert.equal(drift.length, 1, 'exactly the hand-edited file drifts');
-  assert.equal(path.basename(drift[0].file), 'blade.md');
+  assert.equal(path.basename(drift[0].file), 'engineer.md');
 });
 
 test('generation is idempotent — a second run writes nothing', () => {

@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/apex-subagent-driven-law.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/chief-subagent-driven-law.sh",
             "timeout": 3
           }
         ]
@@ -50,7 +50,7 @@
           },
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/blade-model-gate.js",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/engineer-model-gate.js",
             "timeout": 5
           }
         ]
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/blade-marker-state.js start",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js start",
             "timeout": 5
           }
         ]
@@ -99,7 +99,7 @@
           },
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/blade-marker-state.js stop",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js stop",
             "timeout": 5
           },
           {

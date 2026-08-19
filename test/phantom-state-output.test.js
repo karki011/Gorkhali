@@ -81,9 +81,9 @@ function sortJson(value) {
 function gazeTask(runId) {
   return {
     contract_version: 2,
-    task_id: `gaze-${runId}`,
-    delegation_id: `gaze-${runId}-attempt-1`,
-    role: 'gaze',
+    task_id: `auditor-${runId}`,
+    delegation_id: `auditor-${runId}-attempt-1`,
+    role: 'auditor',
     profile: 'deep',
     risk: 'moderate',
     requires_judgment: true,
@@ -288,7 +288,7 @@ test('record contains --run to one portable session-local path segment without m
   assert.deepEqual(fs.readdirSync(outside), []);
 });
 
-test('review recording requires explicit gaze provenance and never nudges shipping implicitly', () => {
+test('review recording requires explicit auditor provenance and never nudges shipping implicitly', () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
   compact(run([
@@ -313,23 +313,23 @@ test('review recording requires explicit gaze provenance and never nudges shippi
 
   const preVerification = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'pre-verification-review', '--role', 'gaze', '--input', review,
+    '--run', 'pre-verification-review', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(preVerification.status, 1);
-  assert.match(preVerification.stderr, /Gaze delegation task must be recorded after authoritative verification/);
+  assert.match(preVerification.stderr, /Auditor delegation task must be recorded after authoritative verification/);
 
-  for (const roleArgs of [[], ['--role', 'blade'], ['--role', 'apex']]) {
+  for (const roleArgs of [[], ['--role', 'engineer'], ['--role', 'chief']]) {
     const rejected = run([
       'record', ...common, '--type', 'review', '--status', 'passed',
       '--run', `rejected-${roleArgs[1] || 'omitted'}`, ...roleArgs, '--input', review,
     ], context);
     assert.equal(rejected.status, 1);
-    assert.match(rejected.stderr, /explicit independent role provenance via --role gaze/);
+    assert.match(rejected.stderr, /explicit independent role provenance via --role auditor/);
   }
 
   const missingRun = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--role', 'gaze', '--input', review,
+    '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(missingRun.status, 1);
   assert.match(missingRun.stderr, /requires explicit --run/);
@@ -338,7 +338,7 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   assert.ok(missingResultTask);
   const missingResult = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'missing-result', '--role', 'gaze', '--input', review,
+    '--run', 'missing-result', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(missingResult.status, 1);
   assert.match(missingResult.stderr, /same-run delegation-result\.json is missing/);
@@ -347,12 +347,12 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   recordGazeResult(context, common, 'failed-result', failedTask, { failed: true });
   const failedResult = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'failed-result', '--role', 'gaze', '--input', review,
+    '--run', 'failed-result', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(failedResult.status, 1);
   assert.match(failedResult.stderr, /result envelope status must be passed|result evidence status must be ok/);
 
-  const wrongRoleTask = { ...gazeTask('wrong-delegation-role'), role: 'blade' };
+  const wrongRoleTask = { ...gazeTask('wrong-delegation-role'), role: 'engineer' };
   const wrongRoleTaskInput = writeInput(context, 'wrong-role-task.json', wrongRoleTask);
   compact(run([
     'record', ...common, '--type', 'delegation-task', '--status', 'pending',
@@ -361,10 +361,10 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   recordGazeResult(context, common, 'wrong-delegation-role', wrongRoleTask);
   const wrongDelegationRole = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'wrong-delegation-role', '--role', 'gaze', '--input', review,
+    '--run', 'wrong-delegation-role', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(wrongDelegationRole.status, 1);
-  assert.match(wrongDelegationRole.stderr, /task evidence role must be gaze|result producer role must be gaze/);
+  assert.match(wrongDelegationRole.stderr, /task evidence role must be auditor|result producer role must be auditor/);
 
   const tamperedTask = recordGazeTask(context, common, 'tampered-result');
   recordGazeResult(context, common, 'tampered-result', tamperedTask);
@@ -378,21 +378,21 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   fs.writeFileSync(tamperedResultFile, JSON.stringify(tamperedResult));
   const mismatched = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'tampered-result', '--role', 'gaze', '--input', review,
+    '--run', 'tampered-result', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(mismatched.status, 1);
   assert.match(mismatched.stderr, /delegation_id must match the task/);
 
-  const blockedTask = recordGazeTask(context, common, 'blocked-gaze-review');
-  recordGazeResult(context, common, 'blocked-gaze-review', blockedTask, {
+  const blockedTask = recordGazeTask(context, common, 'blocked-auditor-review');
+  recordGazeResult(context, common, 'blocked-auditor-review', blockedTask, {
     findings: ['P0 destructive defect'], blocker: 'P0 data loss',
   });
   const contradictory = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'blocked-gaze-review', '--role', 'gaze', '--input', review,
+    '--run', 'blocked-auditor-review', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(contradictory.status, 1);
-  assert.match(contradictory.stderr, /cannot accept a Gaze result with a blocker/);
+  assert.match(contradictory.stderr, /cannot accept an Auditor result with a blocker/);
 
   const mismatchTask = recordGazeTask(context, common, 'finding-mismatch-review');
   recordGazeResult(context, common, 'finding-mismatch-review', mismatchTask, {
@@ -400,7 +400,7 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   });
   const omittedFinding = run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'finding-mismatch-review', '--role', 'gaze', '--input', review,
+    '--run', 'finding-mismatch-review', '--role', 'auditor', '--input', review,
   ], context);
   assert.equal(omittedFinding.status, 1);
   assert.match(omittedFinding.stderr, /findings must exactly match/);
@@ -409,17 +409,17 @@ test('review recording requires explicit gaze provenance and never nudges shippi
   const acceptedReview = writeInput(context, 'matching-review.json', {
     verdict: 'pass', findings: acceptedFindings, specialists: [],
   });
-  const matchingTask = recordGazeTask(context, common, 'gaze-review');
-  recordGazeResult(context, common, 'gaze-review', matchingTask, { findings: acceptedFindings });
+  const matchingTask = recordGazeTask(context, common, 'auditor-review');
+  recordGazeResult(context, common, 'auditor-review', matchingTask, { findings: acceptedFindings });
   const accepted = compact(run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'gaze-review', '--role', 'gaze', '--input', acceptedReview,
+    '--run', 'auditor-review', '--role', 'auditor', '--input', acceptedReview,
   ], context), MUTATION_RECEIPT_BYTES);
   assert.equal(accepted.next, 'complete-or-request-shipping');
 
   const gazeResultFile = path.join(
     context.data, 'repos', full.repo_id, 'sessions', 'OUTPUT-REVIEW',
-    'runs', 'gaze-review', 'delegation-result.json',
+    'runs', 'auditor-review', 'delegation-result.json',
   );
   const gazeResult = JSON.parse(fs.readFileSync(gazeResultFile, 'utf8'));
   const reviewFile = path.join(path.dirname(gazeResultFile), 'review.json');
@@ -487,7 +487,7 @@ test('compact status derives the authoritative verification and review next acti
   recordGazeDelegation(context, common, 'first-review');
   compact(run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'first-review', '--role', 'gaze', '--input', review,
+    '--run', 'first-review', '--role', 'auditor', '--input', review,
   ], context), MUTATION_RECEIPT_BYTES);
   assert.equal(
     compact(run(['status', ...common], context), STATUS_PROJECTION_BYTES).next,
@@ -503,7 +503,7 @@ test('compact status derives the authoritative verification and review next acti
   recordGazeDelegation(context, common, 'fresh-review');
   compact(run([
     'record', ...common, '--type', 'review', '--status', 'passed',
-    '--run', 'fresh-review', '--role', 'gaze', '--input', review,
+    '--run', 'fresh-review', '--role', 'auditor', '--input', review,
   ], context), MUTATION_RECEIPT_BYTES);
   assert.equal(
     compact(run(['status', ...common], context), STATUS_PROJECTION_BYTES).next,

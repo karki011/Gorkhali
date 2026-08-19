@@ -96,7 +96,7 @@ have registered these four Phantom hooks in `~/.claude/settings.json`; remove
 only those entries because `hooks/hooks.json` now owns them:
 
 - `memory-writer.js`
-- `apex-subagent-driven-law.sh`
+- `chief-subagent-driven-law.sh`
 - `memory-reader.js`
 - `memory-consolidator.js`
 

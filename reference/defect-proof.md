@@ -73,7 +73,7 @@ the proof and returns it to `waiting_for_evidence`.
 
 ## DiagnosticGrant
 
-While the state is `waiting_for_evidence`, Apex may record a
+While the state is `waiting_for_evidence`, Chief may record a
 `diagnosticGrant` containing an explicit objective, allowed actions, allowed
 paths, expiry condition, and cleanup requirement. The grant is evidence-only:
 
@@ -117,18 +117,18 @@ paths, expiry condition, and cleanup requirement. The grant is evidence-only:
 The grant is valid only while its timestamps are valid, `revokedAt` is null,
 and every instrumentation action/path is within `allowedActions` and
 `allowedPaths`. `cleanupStatus` is `not_required`, `pending`, `cleaned`, or
-`approved_in_scope`. Hound may set `cleaned` only with cleanup evidence and may
+`approved_in_scope`. Detective may set `cleaned` only with cleanup evidence and may
 set `approved_in_scope` only with `cleanupApprovedBy` and
 `cleanupApprovedAt` from explicit user approval.
 
-A DiagnosticGrant never changes the verdict and never authorizes Blade
+A DiagnosticGrant never changes the verdict and never authorizes Engineer
 implementation. If the grant does not produce sufficient evidence, preserve
 `waiting_for_evidence` / `unconfirmed_defect`, record the missing evidence and
 next observation needed, then stop.
 
 ## Mutation gate
 
-Before activating the Blade marker or dispatching any implementation scope,
+Before activating the Engineer marker or dispatching any implementation scope,
 read `defect-proof.json`. For `workKind: "investigation"`, mutation is allowed
 only when all of these are true:
 
@@ -151,20 +151,20 @@ Missing, malformed, contradictory, or stale proof fails closed to
 Every implementation scope, including non-defect work and a one-file direct
 fix, requires its own
 `{SESSION_DIR}/scope-verifications/{task-id}.json`. The verifier must be
-read-only and different from the implementing Blade. A minimum record is:
+read-only and different from the implementing Engineer. A minimum record is:
 
 ```json
 {
   "taskId": "t1",
-  "implementer": "blade-kaze",
-  "verifier": "ward-torvan",
+  "implementer": "engineer-varek",
+  "verifier": "inspector-halden",
   "status": "passed",
   "checkedPaths": ["src/hooks/usePagination.ts"],
   "checks": [
     {
       "kind": "acceptance",
       "commandOrScenario": "npm test -- pagination",
-      "evidenceRefs": ["logs/t1-ward.txt"]
+      "evidenceRefs": ["logs/t1-inspector.txt"]
     }
   ]
 }

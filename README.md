@@ -1,7 +1,7 @@
-# PHANTOM - Your Shadow Army of AI Agents
+# PHANTOM - A Shadow Cabinet for Your Codebase
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-0.4.1-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-0.8.0-blue)](.claude-plugin/plugin.json)
 [![tests](https://img.shields.io/badge/tests-689-brightgreen)](test/)
 [![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI-8A2BE2)](project-docs/install.md)
 
@@ -9,12 +9,15 @@
 
 Phantom is a multi-agent development harness for Claude Code and Codex CLI that plans, implements, verifies, and ships work through specialized agents behind mechanically enforced gates.
 
-> Inspired by Solo Leveling: you're the Monarch, your AI agents are the shadow army.
-> Say `/phantom:recruit` - "Arise!" - and they answer.
+> A shadow cabinet is the opposition's mirror government: ministers-in-waiting who shadow every office and are ready to govern the moment they're called.
+> Phantom is that mirror government for your codebase.
+> It runs the whole apparatus so you can govern: the Chief orchestrates and never implements, Engineers build, Inspectors verify with evidence, the Auditor reviews independently, and the Opposition challenges every plan before it executes.
+> Say `/phantom:recruit` and the right minister takes the brief.
 
 ## What It Does
 
-Every task is a Gate. Phantom reads the difficulty, assembles the right shadows, and clears it. After every run, the system gains EXP - learning what works, remembering what doesn't.
+Phantom reads a task's difficulty, assembles the right Shadows for it, and carries it through.
+Every run adds to what the system already knows - what worked, what didn't - so the next session starts smarter than the last.
 
 Trivial tasks skip planning entirely. Ambiguous tasks brainstorm first. Complex tasks get full dependency wiring. Shadows deliberate among themselves; humans approve consensus or break ties.
 
@@ -27,7 +30,7 @@ See `ROADMAP.md` for the durable backlog, decisions, and measured baseline.
 The usual way to constrain an agent is prose in a prompt, which the model is free to ignore.
 Phantom's gates are code that returns a decision before the tool call runs.
 
-- `hooks/blade-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` in exactly two cases: an implementer role (`blade`, `sweep`, `ward`, `warden`) pinned to the retired Fable tier, or a `blade` spawn that set no explicit `model`.
+- `hooks/engineer-model-gate.js` inspects every `Agent`/`Task` spawn and returns `permissionDecision: "deny"` in exactly two cases: an implementer role (`engineer`, `steward`, `inspector`, `clerk`) pinned to the retired Fable tier, or an `engineer` spawn that set no explicit `model`.
   The spawn does not happen. There is no ceiling check here - the gate reads `skills/phantom/references/model-policy.json` only to word the deny reason, never to make the decision.
 - `hooks/greploop-gate.js` is a `Stop` hook that returns `decision: "block"` when an active session's live PR has not been through the review loop, so a session cannot quietly end unreviewed.
   It is bounded to 3 blocks per PR, and any ambiguity allows the stop.
@@ -60,15 +63,15 @@ The full table, and the beliefs that measurement disproved, are in `ROADMAP.md` 
 
 ```text
 /phantom:start CP-41606
-  |- router classifies    -> PLAN route (3+ files, clear scope)
-  |- Apex + Rival         -> plan, reviewed by the one plan critic; you approve or break the tie
-  |- Blade x2 (parallel)  -> implementation in isolated worktrees
-  |- Ward                 -> lint, build, test -> verification.json
-  |- Gaze + Archer        -> scored review; P0/P1 auto-fixed, P2/P3 dropped
-  `- /phantom:wrap        -> ready-for-review PR + ticket cost total
+  |- router classifies       -> PLAN route (3+ files, clear scope)
+  |- Chief + Opposition      -> plan, reviewed by the one plan critic; you approve or break the tie
+  |- Engineer x2 (parallel)  -> implementation in isolated worktrees
+  |- Inspector               -> lint, build, test -> verification.json
+  |- Auditor + Justice       -> scored review; P0/P1 auto-fixed, P2/P3 dropped
+  `- /phantom:wrap           -> ready-for-review PR + ticket cost total
 ```
 
-The PR body is a fixed three-section template — What & why, Verification, Review focus — assembled from those artifacts rather than written as free prose, under hard caps of 40 lines and 2500 characters.
+The PR body is a fixed three-section template - What & why, Verification, Review focus - assembled from those artifacts rather than written as free prose, under hard caps of 40 lines and 2500 characters.
 A missing artifact means an explicit stated gap naming the artifact, never invented text.
 The PR opens **ready for review**, because the evidence it ships with is what a reviewer would otherwise wait for.
 

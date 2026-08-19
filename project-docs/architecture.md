@@ -48,7 +48,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 **Adaptive Routing** - AI reads the task and picks the route. Signals: scope clarity, file count, uncertainty level, risk, learnings history. See `reference/router.md`.
 
-**Deliberative Planning** - Planner produces plan, Challenger (Rival) both challenges and validates it, leaving a `plan-check.json` verdict. If consensus → human gets a quick OK. If disagreement → human breaks the tie. Max 2 rounds.
+**Deliberative Planning** - Planner produces plan, Challenger (Opposition) both challenges and validates it, leaving a `plan-check.json` verdict. If consensus → human gets a quick OK. If disagreement → human breaks the tie. Max 2 rounds.
 
 **Brainstorm Mode** - Diverge/converge for ambiguous scope. Proposes 2-3 approaches with tradeoffs. Asks only what it can't infer from codebase context. See `reference/brainstorm.md`.
 

@@ -13,13 +13,13 @@ Evaluate shadows performance using the rubric from `.claude/evals/evaluation.md`
 
 Score each active agent 1-5 with confidence (high/medium/low):
 
-- **Apex**: plan clarity, shadows selection, decomposition quality, contract completeness
-- **Blade (React Arch focus)**: architecture clarity, pattern reuse, type safety, separation of concerns
-- **Blade (UI focus)**: accessibility, responsive behavior, state completeness, design consistency
-- **Blade (API focus)**: API contract fidelity, error handling, hook consistency, request/response typing
-- **Ward (test)**: contract coverage, state coverage, interaction coverage, a11y checks
-- **Ward (build)**: verification completeness, integration wiring, no business-logic drift, signal quality
-- **Blade (Documentation focus)**: documentation usefulness, ADR clarity, Storybook coverage, example accuracy
-- **Gaze**: KISS/DRY enforcement, TypeScript strictness, pattern compliance, risk call accuracy
+- **Chief**: plan clarity, shadows selection, decomposition quality, contract completeness
+- **Engineer (React Arch focus)**: architecture clarity, pattern reuse, type safety, separation of concerns
+- **Engineer (UI focus)**: accessibility, responsive behavior, state completeness, design consistency
+- **Engineer (API focus)**: API contract fidelity, error handling, hook consistency, request/response typing
+- **Inspector (test)**: contract coverage, state coverage, interaction coverage, a11y checks
+- **Inspector (build)**: verification completeness, integration wiring, no business-logic drift, signal quality
+- **Engineer (Documentation focus)**: documentation usefulness, ADR clarity, Storybook coverage, example accuracy
+- **Auditor**: KISS/DRY enforcement, TypeScript strictness, pattern compliance, risk call accuracy
 
 Record in session file. Write the human-facing deliverable to `sessions/{TICKET}/eval.html`, authored from `reference/eval/eval-template.md` — this is the eval's actual output, not the session-file record. Use to improve shadows assignment in future sessions.

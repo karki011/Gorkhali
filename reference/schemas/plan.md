@@ -1,6 +1,6 @@
 # `plan.json` Schema
 
-Written by Phase B after the Rival plan gate (challenge + plan-check). Schema v3 is a
+Written by Phase B after the Opposition plan gate (challenge + plan-check). Schema v3 is a
 decision-first review contract; its task list drives Phase C execution only
 after the human or delegated approval is recorded separately.
 
@@ -29,8 +29,8 @@ after the human or delegated approval is recorded separately.
 | tasks[].id | string | yes | Unique task ID |
 | tasks[].description | string | yes | What this task does |
 | tasks[].files | string[] | yes | Files expected to be touched |
-| tasks[].acceptance_criteria | string[] | _meta.version >= 2: yes; v1: no | Shell commands or observable facts Ward checks; each item a command/fact, never prose |
-| tasks[].verify | string | _meta.version >= 2: yes; v1: no | Single command that exits 0 on success; must be runnable by Ward |
+| tasks[].acceptance_criteria | string[] | _meta.version >= 2: yes; v1: no | Shell commands or observable facts Inspector checks; each item a command/fact, never prose |
+| tasks[].verify | string | _meta.version >= 2: yes; v1: no | Single command that exits 0 on success; must be runnable by Inspector |
 | tasks[].dependsOn | string[] | no | Task IDs this task must wait for |
 | tasks[].agent | string | no | Agent role for shadows route |
 | tasks[].read_first | string[] | _meta.version >= 3: yes; older: no | Files and references to inspect before editing |
@@ -130,11 +130,11 @@ Each entry in `plan.json -> tasks[]` must follow this shape:
 | `read_first` | Files the agent reads BEFORE writing. Prevents blind edits. |
 | `acceptance_criteria` | Each item is a shell command or observable fact. Never prose. |
 | `action` | One sentence. Subject = what file. Verb = what operation. No "etc." |
-| `verify` | Single command that exits 0 on success. Must be runnable by Ward. |
+| `verify` | Single command that exits 0 on success. Must be runnable by Inspector. |
 | `files` | Non-empty. Files agent is expected to create or modify. |
 
 `read_first`, `action`, non-empty `files`, `risk`, `recovery`, and `profile` are
-enforced for v3 plans. Ward reads `acceptance_criteria` and `verify` to validate
+enforced for v3 plans. Inspector reads `acceptance_criteria` and `verify` to validate
 task completion.
 
 ---

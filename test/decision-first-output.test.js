@@ -411,7 +411,7 @@ test('portable delegation contracts validate typed tasks and consistent results'
     contract_version: 2,
     task_id: 'T1',
     delegation_id: 'delegation-T1-attempt-1',
-    role: 'Blade',
+    role: 'Engineer',
     profile: 'balanced',
     risk: 'moderate',
     objective: 'Implement one bounded validator change',

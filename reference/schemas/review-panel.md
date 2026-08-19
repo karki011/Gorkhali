@@ -1,7 +1,7 @@
 # `review-panel.json` Schema
 
 Optional output of the explicitly invoked RPSL deep-review preset. Normal
-shipping requires current portable Ward and Gaze artifacts, not this panel.
+shipping requires current portable Inspector and Auditor artifacts, not this panel.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

@@ -43,14 +43,26 @@ try {
 const TICKET_RE = /[A-Z][A-Z0-9]+-\d+/;
 
 // SHARED SEMANTICS — same rule as routing-gate.js: a phantom session is active
-// when <PHANTOM_DATA>/.apex-active exists AND its mtime is younger than 24h.
-const APEX_MARKER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// when <PHANTOM_DATA>/.chief-active exists AND its mtime is younger than 24h.
+const CHIEF_MARKER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+// One-release upgrade shim: .apex-active was this marker's filename before the
+// apex->chief rename. New sessions only ever write .chief-active; this dual
+// read keeps a session started by a not-yet-upgraded install recognized until
+// the marker naturally expires. Remove the .apex-active fallback once no
+// install can still be carrying a marker from before the rename.
+const MARKER_NAMES = ['.chief-active', '.apex-active'];
 
 function sessionActive() {
   try {
-    const marker = path.join(phantomData(), '.apex-active');
-    if (!fs.existsSync(marker)) return false;
-    return Date.now() - fs.statSync(marker).mtimeMs < APEX_MARKER_MAX_AGE_MS;
+    const dataDir = phantomData();
+    for (const name of MARKER_NAMES) {
+      const marker = path.join(dataDir, name);
+      if (fs.existsSync(marker)) {
+        return Date.now() - fs.statSync(marker).mtimeMs < CHIEF_MARKER_MAX_AGE_MS;
+      }
+    }
+    return false;
   } catch (_) {
     return false;
   }

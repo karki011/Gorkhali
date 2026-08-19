@@ -8,7 +8,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 # /phantom:evolve
 
-Run the 3-tier evolution pipeline on the learnings system via a Ward sidecar agent.
+Run the 3-tier evolution pipeline on the learnings system via an Inspector sidecar agent.
 
 <evolution_coordination>
 
@@ -23,15 +23,15 @@ Check if evolution is warranted:
 - Check `{TEAM_DIR}/evolution-log.json` for last evolution date
 - If recent (< 3 sessions ago) and no bloat, inform user and skip
 
-### Step 2: Spawn Ward Sidecar
+### Step 2: Spawn Inspector Sidecar
 
-Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
+Spawn a **Inspector** agent to handle Tier 1 and Tier 2 processing:
 
-- subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
-- name: `ward-corben`
+- subagent_type: `inspector` (effort = session `high`; model per `reference/agents.md` → Model Routing)
+- name: `inspector-tindal`
 - mode: `bypassPermissions`
 
-**Ward prompt must include:**
+**Inspector prompt must include:**
 - Script path: `$PR/scripts/evolution-runner.js`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; evolution skipped"; exit 0; }` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
 - Flag: `--dry-run` if user requested preview, otherwise no flag
 - Instructions to run the script and capture full output
@@ -47,7 +47,7 @@ Spawn a **Ward** agent to handle Tier 1 and Tier 2 processing:
 
 ### Step 3: Process Results
 
-After Ward returns:
+After Inspector returns:
 - Present Tier 1 and Tier 2 results as summary
 - If Tier 3 domains exist, handle them in main context (requires judgment):
   - Merge entries that say the same thing differently
@@ -67,13 +67,13 @@ After Ward returns:
 | `--scout` | Run Tier 0 instead of the learnings pipeline: spawn a read-only scout for external-framework absorption (`reference/evolution.md` → Tier 0), produce a ranked backlog under `research/`, propose nothing without approval. |
 | `--backfill` | Seed the Repo Brain from EXISTING session artifacts (`scripts/brain-backfill.js`). Runs the learnings pipeline's sibling, NOT the pipeline itself. |
 
-When `--scout` is passed, skip the Ward learnings sidecar (Steps 2–3 above) and run the Tier 0 recipe instead — it scans outward, not the inward learnings layer.
+When `--scout` is passed, skip the Inspector learnings sidecar (Steps 2–3 above) and run the Tier 0 recipe instead — it scans outward, not the inward learnings layer.
 
 <backfill_coordination>
 
 ## Backfill Mode (`--backfill`)
 
-Seeds `{TEAM_DIR}/brain/cards` from the artifacts already on disk. Skip the Ward
+Seeds `{TEAM_DIR}/brain/cards` from the artifacts already on disk. Skip the Inspector
 learnings sidecar (Steps 2–3) and run this instead. Cards are written only via
 `scripts/lib/brain-card.js` (makeCardId dedup = re-run safe); trace pointers use
 the T2 resolver signals in `scripts/lib/session-trace.js`. Schema: `reference/brain.md`.
@@ -103,13 +103,13 @@ source is skipped and counted, never fatal (per `[guards]`).
 Distillation of those transcripts into cards is a separate, coordinator-driven
 pass — the manifest is the work-list:
 
-1. Read the manifest; partition `tickets[]` into batches of **≤ 5 tickets per Blade**
-   (`[parallel-partition]` — each Blade owns the output cards for its DISJOINT ticket
+1. Read the manifest; partition `tickets[]` into batches of **≤ 5 tickets per Engineer**
+   (`[parallel-partition]` — each Engineer owns the output cards for its DISJOINT ticket
    set, so no two Blades write the same `makeCardId`).
-2. Spawn the batch of Blades in parallel (`subagent_type: "blade"`, `bypassPermissions`,
-   `name: "blade-backfill-{batchIndex}-{slotInBatch}"` per `reference/roster.md`'s
+2. Spawn the batch of Blades in parallel (`subagent_type: "engineer"`, `bypassPermissions`,
+   `name: "engineer-backfill-{batchIndex}-{slotInBatch}"` per `reference/roster.md`'s
    Backfill Fan-Out rule - both indices read directly off `backfill-manifest.json`'s
-   partition order, never counted at runtime). Each Blade:
+   partition order, never counted at runtime). Each Engineer:
    - reads only its assigned transcript JSONLs,
    - distills 1–N cards per ticket via `scripts/lib/brain-card.js writeCard`
      (type `episode`/`decision`; trace.transcript = the JSONL it read,

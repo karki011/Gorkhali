@@ -7,7 +7,7 @@
 | 1 | Feature branch | Enforced by convention and checked at wrap — no hook blocks the Edit; there is no `feature-branch-gate.sh` |
 | 2 | Verify before ship | wrap reads verification.json |
 | 3 | Anti-repetition | Search INDEX.md before planning |
-| 4 | Rival | plan.json requires verdict field; Rival writes plan-check.json |
+| 4 | Opposition | plan.json requires verdict field; Opposition writes plan-check.json |
 | 5 | Simplify always | verification.json requires simplifyRan |
 | 6 | Intent check | Power Leveler compares to intent.json |
 | 7 | Smart PR | wrap step 5 creates a ready-for-review PR |

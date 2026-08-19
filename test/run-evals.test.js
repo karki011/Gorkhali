@@ -351,7 +351,7 @@ test('--keep-transcripts: flag parses and saveTranscript writes case-<id>.jsonl'
   assert.equal(fs.readFileSync(file, 'utf8'), PLAIN_TURN);
 });
 
-// --- report-line route anchoring (gaze P1) ---
+// --- report-line route anchoring (auditor P1) ---
 
 const ROUTE_PROSE = '{"type":"assistant","message":{"content":[{"type":"text","text":"this is not a [DIRECT] one-file change, leaning [PLAN]"}]}}';
 const ROUTE_REPORT = '{"type":"assistant","message":{"content":[{"type":"text","text":"[PLAN] blast radius 6 files; this is not a [DIRECT] change"}]}}';

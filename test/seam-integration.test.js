@@ -189,7 +189,7 @@ test('evolution-runner: non-existent PHANTOM_DATA -> exit 0, no throw', () => {
   assert.equal(code, 0, `evolution-runner must fail open (exit 0). stderr: ${stderr}`);
 });
 
-test('native plugin is zero-setup and command prose does not own Blade marker lifecycle', () => {
+test('native plugin is zero-setup and command prose does not own Engineer marker lifecycle', () => {
   for (const retiredPath of ['commands/setup.md', 'setup.sh', 'install.sh']) {
     assert.equal(
       fs.existsSync(path.join(REPO_ROOT, retiredPath)),
@@ -202,8 +202,8 @@ test('native plugin is zero-setup and command prose does not own Blade marker li
     const content = fs.readFileSync(path.join(REPO_ROOT, 'commands', command), 'utf8');
     assert.doesNotMatch(
       content,
-      /\.blade-editing/,
-      `${command} must leave Blade marker lifecycle to validated hooks`,
+      /\.engineer-editing/,
+      `${command} must leave Engineer marker lifecycle to validated hooks`,
     );
   }
 });

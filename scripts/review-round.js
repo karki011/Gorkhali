@@ -4,7 +4,7 @@
 // `{SESSION_DIR}/reviews/rounds.json` and applies the round rule to a review.
 //
 // THE PROBLEM THIS SOLVES, and the constraint it had to solve it under:
-// `commands/review.md` step 4 DELETES `{SESSION_DIR}/reviews/gaze.json` before
+// `commands/review.md` step 4 DELETES `{SESSION_DIR}/reviews/auditor.json` before
 // every pass, so a failed or truncated run can never reuse an older verdict.
 // That deletion is deliberate and stays. But round 2 has to know which findings
 // round 1 raised, or a carried-over advisory and a freshly invented one are
@@ -83,7 +83,7 @@ try {
   loopController = require('../hooks/loop-controller');
 } catch (_) { /* fail open: no controller → no loop annotation */ }
 
-const DEFAULT_REVIEW_FILE = 'gaze.json';
+const DEFAULT_REVIEW_FILE = 'auditor.json';
 
 /**
  * The operator override for this session, or null. It lives on
@@ -391,7 +391,7 @@ function main(argv) {
   }
   if (!args.reviews) {
     throw new PhantomError('ERROR: --reviews <dir> is required', 'USAGE', [
-      'Point it at {SESSION_DIR}/reviews - the directory holding gaze.json and the round ledger',
+      'Point it at {SESSION_DIR}/reviews - the directory holding auditor.json and the round ledger',
     ]);
   }
   let result;

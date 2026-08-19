@@ -8,7 +8,7 @@
 //
 // Appends one NDJSON line per event to <data>/timing/<repo>.jsonl. The companion
 // scripts/timing-report.js pairs spawn->stop and aggregates per model so you can
-// see whether Apex's model routing fires and whether it cuts wall-clock.
+// see whether Chief's model routing fires and whether it cuts wall-clock.
 //
 // Silent + never throws — must never break the workflow. SubagentStop is the end
 // signal (not PostToolUse) because background agents return from the Agent tool at

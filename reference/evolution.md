@@ -6,7 +6,7 @@ Tiers 1–3 are **inward-facing**: they recycle learnings phantom already genera
 
 Periodic scan of notable open-source agent/skill/prompt frameworks for mechanisms phantom **lacks**. Produces a ranked backlog, never edits agents directly.
 
-1. Spawn a read-only scout agent (`subagent_type: "blade"`, `name: "scout-silven"` per `reference/roster.md`, `bypassPermissions`, background) with: phantom's current agents/commands as context, a "find what we lack" brief, and a skeptic mandate (most candidates should be **rejected** as already-covered).
+1. Spawn a read-only scout agent (`subagent_type: "engineer"`, `name: "scout-crandal"` per `reference/roster.md`, `bypassPermissions`, background) with: phantom's current agents/commands as context, a "find what we lack" brief, and a skeptic mandate (most candidates should be **rejected** as already-covered).
 2. Scout writes a ranked HTML backlog to `research/absorption-backlog-<date>.html`: ABSORB table (idea | source+link | value | effort | plug-in point | rationale) + REJECTED table (idea | source | why) + top recommendation.
 3. Each ABSORB row, once user-approved, routes to Tier 2 (directive edit) or Tier 3 (new skill) — same approval + git-prefix + log discipline as below.
 4. Always credit the source license in the absorbing commit/diff (ponytail is MIT).

@@ -9,7 +9,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # /phantom:wrap
 
 Wrap is a thin shipping adapter. Portable lifecycle state, worktree fingerprint,
-verification, and review artifacts are the authority. Do not run a second Apex
+verification, and review artifacts are the authority. Do not run a second Chief
 review or mandatory RPSL panel.
 
 ## 1. Validate the current release candidate
@@ -26,7 +26,7 @@ review or mandatory RPSL panel.
    `verification` and `review` artifacts to:
    - be `passed`;
    - bind the complete current worktree fingerprint;
-   - contain at least one named passed Ward check and a Gaze `verdict: pass`
+   - contain at least one named passed Inspector check and an Auditor `verdict: pass`
      with a findings array; and
    - preserve ordering: review is newer than verification.
 4. Rely on the portable helper's cross-gate validation that every role persisted
@@ -34,7 +34,7 @@ review or mandatory RPSL panel.
    merged review's `specialists` array. Do not inspect the diff to select roles
    again during wrap.
 
-If Ward, Gaze, or a triggered specialist is missing, failed, blocked, or stale,
+If Inspector, Auditor, or a triggered specialist is missing, failed, blocked, or stale,
 the helper rejects the cross-gate contract: stop with the exact gap and run
 `/phantom:verify`. A mismatched required/result role set is the same blocking
 case. Never infer approval from a legacy `verification.json`, chat message, old
@@ -46,10 +46,10 @@ blocks this wrap. Without that flag, do not create or require a review panel.
 
 ## Step 2: Defense Brief (auto, always)
 
-On every wrap, regardless of file count, Apex prepares
+On every wrap, regardless of file count, Chief prepares
 `{SESSION_DIR}/defense-brief.md` using
 `reference/wrap/defense-brief.md`. This is release-context judgment work and is
-never warden work. It contains exactly these headings:
+never clerk work. It contains exactly these headings:
 
 - `## What we did`
 - `## Why we did it`
@@ -74,7 +74,7 @@ The optional `--grill` flag may invoke `phantom:grill`; it is never automatic.
 Inspect `main...HEAD` (or the repository's resolved base branch) once for release
 facts, not as another quality gate. Prepare a concise title, then render the PR
 body into `{SESSION_DIR}/pr-body.md` using `reference/wrap/pr-body.md`. This is
-release-context judgment work and is never warden work — warden only passes the
+release-context judgment work and is never clerk work — clerk only passes the
 finished file to `gh pr create --body-file`.
 
 `reference/wrap/pr-body.md` is the single copy of that contract — three sections
@@ -82,7 +82,7 @@ finished file to `gh pr create --body-file`.
 session artifact rather than free prose, under hard caps of 40 lines and 2500
 characters. Do not restate the section spec here; follow it there.
 
-For a UI-facing change you MAY attach a Phantom Lens screenshot under
+For a UI-facing change you MAY attach a Phantom Surveyor screenshot under
 `## Verification` as optional supporting evidence (test credentials are already
 in the user's shell env); its absence never blocks the wrap.
 
@@ -123,7 +123,7 @@ Use the existing ship-ceremony mechanics for mechanical git operations only:
 3. commit with an accurate conventional message and requested author credit;
 4. push the current branch; and
 5. create a **ready-for-review** PR whose title is the release summary and whose
-   body is `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Warden
+   body is `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Clerk
    does not author, fill, or re-order any section of that body.
 
 Do not merge the PR, transition unrelated tickets, or start an automatic

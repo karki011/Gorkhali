@@ -1,6 +1,6 @@
 # Ship Ceremony
 
-> **Context:** Called during `/phantom:wrap` only after the portable ship gate confirms current passed Ward verification and Gaze review, plus every risk-triggered specialist. Missing, failed, blocked, or stale required evidence stops before this ceremony. No git operations happened before this point — all prior work was local-only.
+> **Context:** Called during `/phantom:wrap` only after the portable ship gate confirms current passed Inspector verification and Auditor review, plus every risk-triggered specialist. Missing, failed, blocked, or stale required evidence stops before this ceremony. No git operations happened before this point — all prior work was local-only.
 
 ## 1. Stage Changed Files
 
@@ -41,22 +41,22 @@ Create the PR **autonomously** — do NOT ask the user to confirm before creatin
 
 ### PR body
 
-The body is neither written nor specified here. Apex rendered
+The body is neither written nor specified here. Chief rendered
 `{SESSION_DIR}/pr-body.md` at `/phantom:wrap` Step 3 from session artifacts;
 `reference/wrap/pr-body.md` is the single copy of that three-section contract.
-Warden's entire body operation is passing the file through:
+Clerk's entire body operation is passing the file through:
 
 ```
 gh pr create --title "{TICKET}: {summary}" --body-file "{SESSION_DIR}/pr-body.md"
 ```
 
-Warden never authors, fills, summarizes, or re-orders a section. Missing required
-Ward, Gaze, or triggered-specialist evidence is a blocked ship gate, not a PR
+Clerk never authors, fills, summarizes, or re-orders a section. Missing required
+Inspector, Auditor, or triggered-specialist evidence is a blocked ship gate, not a PR
 caveat.
 
 **Preflight (mechanical, before any git operation).** Three headings present, no
 section empty. On failure report `checked:fail` and do NOT create the PR — do not
-repair the file, that is Apex's to re-render:
+repair the file, that is Chief's to re-render:
 
 ```bash
 BODY="{SESSION_DIR}/pr-body.md"
@@ -67,8 +67,8 @@ awk '/^## /{if (h) exit 1; h=1; next} NF {h=0} END {exit h}' "$BODY" || exit 1
 ```
 
 **Repo PR template.** If the repository ships its own template, its headings win;
-see `reference/wrap/pr-body.md`. Warden may run the detection `ls` and report the
-path — the mapping is Apex's.
+see `reference/wrap/pr-body.md`. Clerk may run the detection `ls` and report the
+path — the mapping is Chief's.
 
 If `gh` not available: print branch name + "run `gh pr create` when ready"
 

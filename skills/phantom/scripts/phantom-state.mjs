@@ -47,8 +47,8 @@ import {
 } from './lib/defect-proof.mjs';
 
 const REQUIRED_GATES = ['verification', 'review'];
-const SPECIALIST_ROLES = new Set(['archer']);
-const LEGACY_LENS_GATE_RECOVERY = 'Legacy Lens gate requirements are unsupported because optional Lens is advisory only. '
+const SPECIALIST_ROLES = new Set(['justice']);
+const LEGACY_SURVEYOR_GATE_RECOVERY = 'Legacy Surveyor gate requirements are unsupported because optional Surveyor is advisory only. '
   + 'Record fresh verification with explicit userVerification evidence.';
 const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
@@ -76,10 +76,10 @@ const ARTIFACTS = {
   decisions: {},
   'delegation-task': { run: true },
   'delegation-result': { run: true },
-  execution: { run: true, role: 'blade' },
-  verification: { run: true, role: 'ward' },
-  review: { run: true, role: 'gaze' },
-  wrap: { run: true, role: 'warden' },
+  execution: { run: true, role: 'engineer' },
+  verification: { run: true, role: 'inspector' },
+  review: { run: true, role: 'auditor' },
+  wrap: { run: true, role: 'clerk' },
 };
 const MODEL_PROFILES = new Set(['inherit', 'economy', 'balanced', 'deep', 'frontier']);
 const LOCK_WAIT_MS = 2_000;
@@ -644,7 +644,7 @@ function statusNext(result, lifecycle, workspace) {
     'verification', verification, current, fingerprint,
   );
   if (verificationErrors.length > 0) {
-    if (verification?.evidence?.requiredSpecialists?.includes('lens')) {
+    if (verification?.evidence?.requiredSpecialists?.includes('surveyor')) {
       return 'record:verification-with-user-verification';
     }
     if (verification?.status === 'passed'
@@ -1053,7 +1053,7 @@ function prepareExecute(current) {
       throw new Error(
         'Cannot execute investigation: defect proof is not ready. '
         + `${errors.join('; ')}. Preserve waiting_for_evidence/unconfirmed_defect `
-        + 'and run Hound again with the missing evidence.',
+        + 'and run Detective again with the missing evidence.',
       );
     }
   }
@@ -1137,8 +1137,8 @@ function gateEvidenceErrors(type, evidence) {
     } else {
       const seen = new Set();
       for (const role of evidence.requiredSpecialists) {
-        if (role === 'lens') {
-          errors.push(LEGACY_LENS_GATE_RECOVERY);
+        if (role === 'surveyor') {
+          errors.push(LEGACY_SURVEYOR_GATE_RECOVERY);
         } else if (!SPECIALIST_ROLES.has(role)) {
           errors.push(`Unsupported required specialist role: ${String(role)}.`);
         } else if (seen.has(role)) {
@@ -1256,8 +1256,8 @@ function requiredSpecialistEvidenceErrors(verificationEvidence, reviewEvidence) 
   const observed = new Map(reviewEvidence.specialists.map((specialist) => [specialist?.role, specialist]));
   const errors = [];
   for (const role of required) {
-    if (role === 'lens') {
-      errors.push(LEGACY_LENS_GATE_RECOVERY);
+    if (role === 'surveyor') {
+      errors.push(LEGACY_SURVEYOR_GATE_RECOVERY);
       continue;
     }
     const specialist = observed.get(role);
@@ -1297,10 +1297,10 @@ function reviewDelegationProvenance(current, runId, verificationSequence) {
 
   errors.push(...validateDelegationTaskContract(task.evidence));
   errors.push(...validateDelegationResultContract(result.evidence));
-  if (task.evidence?.role !== 'gaze') errors.push('delegation task evidence role must be gaze');
+  if (task.evidence?.role !== 'auditor') errors.push('delegation task evidence role must be auditor');
   if (result.status !== 'passed') errors.push('delegation result envelope status must be passed');
   if (result.evidence?.status !== 'ok') errors.push('delegation result evidence status must be ok');
-  if (result.producer?.role !== 'gaze') errors.push('delegation result producer role must be gaze');
+  if (result.producer?.role !== 'auditor') errors.push('delegation result producer role must be auditor');
   if (task.evidence?.task_id !== result.evidence?.task_id) {
     errors.push('delegation result task_id must match the task');
   }
@@ -1321,16 +1321,16 @@ function reviewDelegationProvenance(current, runId, verificationSequence) {
     errors.push('authoritative verification has no stable record sequence');
   } else {
     if (task.record_sequence <= verificationSequence) {
-      errors.push('Gaze delegation task must be recorded after authoritative verification');
+      errors.push('Auditor delegation task must be recorded after authoritative verification');
     }
     if (result.record_sequence <= verificationSequence) {
-      errors.push('Gaze delegation result must be recorded after authoritative verification');
+      errors.push('Auditor delegation result must be recorded after authoritative verification');
     }
   }
   if (Number.isInteger(task.record_sequence)
     && Number.isInteger(result.record_sequence)
     && result.record_sequence <= task.record_sequence) {
-    errors.push('Gaze delegation result must be recorded after its task');
+    errors.push('Auditor delegation result must be recorded after its task');
   }
   if (errors.length > 0) throw new Error(errors.join('; '));
   return {
@@ -1348,19 +1348,19 @@ function reviewDelegationProvenance(current, runId, verificationSequence) {
 function reviewResultEvidenceErrors(reviewEvidence, resultEvidence) {
   const errors = [];
   if (resultEvidence?.output?.blocker !== null) {
-    errors.push('passed review cannot accept a Gaze result with a blocker');
+    errors.push('passed review cannot accept an Auditor result with a blocker');
   }
   const classificationChecks = resultEvidence?.output?.checks?.filter(
     (check) => check?.name === 'user-verification-classification',
   ) || [];
   if (classificationChecks.length !== 1 || classificationChecks[0].status !== 'passed') {
     errors.push(
-      'passed review requires exactly one passed Gaze user-verification-classification check',
+      'passed review requires exactly one passed Auditor user-verification-classification check',
     );
   }
   if (canonicalDelegationJson(reviewEvidence?.findings)
     !== canonicalDelegationJson(resultEvidence?.output?.findings)) {
-    errors.push('passed review findings must exactly match the accepted Gaze result findings');
+    errors.push('passed review findings must exactly match the accepted Auditor result findings');
   }
   return errors;
 }
@@ -1519,14 +1519,14 @@ function record(workspace, args) {
   if (!Object.hasOwn(ARTIFACTS, args.type)) throw new Error(`Unsupported artifact type: ${args.type}`);
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
   const current = requireCurrent(workspace);
-  if (args.type === 'review' && args.role !== 'gaze') {
+  if (args.type === 'review' && args.role !== 'auditor') {
     const received = args.role === undefined ? 'no explicit role' : args.role;
     throw new Error(
-      `Review evidence requires explicit independent role provenance via --role gaze; received ${received}.`,
+      `Review evidence requires explicit independent role provenance via --role auditor; received ${received}.`,
     );
   }
   if (args.type === 'review' && !args.run) {
-    throw new Error('Review evidence requires explicit --run with same-run Gaze delegation evidence.');
+    throw new Error('Review evidence requires explicit --run with same-run Auditor delegation evidence.');
   }
   const runId = args.run || `run-${Date.now()}`;
   const directory = ARTIFACTS[args.type].run ? runDirectory(current, runId) : null;
@@ -1637,7 +1637,7 @@ function record(workspace, args) {
   const role = args.role
     || (args.type === 'delegation-task' ? payload.role : delegatedTask?.producer?.role)
     || ARTIFACTS[args.type].role
-    || 'apex';
+    || 'chief';
   const profileOverride = args.profile
     || (args.type === 'delegation-task'
       ? payload.profile

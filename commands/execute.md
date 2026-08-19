@@ -36,11 +36,11 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
    Gate per `reference/defect-proof.md`: only
    `ready_for_fix` / `confirmed_defect` may proceed; missing, stale, malformed,
    contradictory, or incomplete proof sets or preserves
-   `waiting_for_evidence` / `unconfirmed_defect` and BLOCKS before Blade
+   `waiting_for_evidence` / `unconfirmed_defect` and BLOCKS before Engineer
    dispatch. Diagnostic instrumentation requires a recorded, unexpired
    `DiagnosticGrant`, which never authorizes this implementation step.
 
-5. **Per-spawn lifecycle**: validated hooks own Blade lifecycle state.
+5. **Per-spawn lifecycle**: validated hooks own Engineer lifecycle state.
 
 6. **Dispatch per plan**:
    - **Budget pre-flight** (BIG fan-out only): before a wide wave, check remaining usage budget per `reference/usage-budget.md` — near the limit (~95%), pause cleanly and emit a resume plan instead of starting work that will get cut off.
@@ -48,39 +48,39 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
    - **Dispatch table (mandatory, before each wave's spawns):** render the pre-dispatch routing
      table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
      from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
-     `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `blade-kaze`).
-   - All implementation tasks spawn `subagent_type: blade` with `model: "sonnet"` passed explicitly
+     `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `engineer-varek`).
+   - All implementation tasks spawn `subagent_type: engineer` with `model: "sonnet"` passed explicitly
      per `reference/agents.md` → Model Routing; effort is the session's `high`, never a
      per-spawn param.
    - **A subtask too big for sonnet is a decomposition failure, not a routing one:** split it and
      re-dispatch, since no delegated role runs above sonnet.
    - All agents: `mode: "bypassPermissions"`.
-   - SOLO route: spawn 1 `subagent_type: blade` with full task scope
-   - SHADOWS route: spawn parallel `subagent_type: blade` agents with `isolation: "worktree"`
+   - SOLO route: spawn 1 `subagent_type: engineer` with full task scope
+   - SHADOWS route: spawn parallel `subagent_type: engineer` agents with `isolation: "worktree"`
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - **Context discipline at spawn** (`reference/agents.md` → Context Discipline):
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies
-     in. After an agent returns, Apex verifies via fs/git spot-check (file exists, ≥1 commit, no
+     in. After an agent returns, Chief verifies via fs/git spot-check (file exists, ≥1 commit, no
      `Self-Check: FAILED`/verdict-failure line), NOT by re-reading the file or pulling its full output back.
    - **Wake bookkeeping**: before spawning each wave, write each agent's expected record stub to `{TEAM_DIR}/sessions/{TICKET}/agent-records/{name}.json` (`status: "spawned"`, `wave: { index, isLastInWave }` set) so the SubagentStop classifier can resolve it; after reading an agent's result, update its stub with the real typed record. Every Agent spawn MUST pass that identical `{name}` as `name: "{name}"` — the stub filename and the spawn's `name:` param are the SAME string, never independently derived. Native SubagentStop surfaces it as `payload.agent_type`, which is how the classifier keys back to the stub; a name-less spawn cannot be resolved.
    - Agent results → `{TEAM_DIR}/sessions/{TICKET}/agent-outputs/{task-id}.md`
    - Summary of each agent result enters conversation (full output stays in file)
    - **Independent verification assignment**: every implementation task in the
-     plan MUST name a Ward or other read-only verifier that is independent of
-     its implementing Blade. The verifier's name derives from the same task
-     index as the task's Blade per `reference/roster.md`'s Execute-Wave
-     Reservation (ward derivation + overflow rule; e.g. task 1 → `ward-torvan`).
-     After that Blade returns, the verifier reruns the task's acceptance checks and writes
+     plan MUST name an Inspector or other read-only verifier that is independent of
+     its implementing Engineer. The verifier's name derives from the same task
+     index as the task's Engineer per `reference/roster.md`'s Execute-Wave
+     Reservation (inspector derivation + overflow rule; e.g. task 1 → `inspector-halden`).
+     After that Engineer returns, the verifier reruns the task's acceptance checks and writes
      `{SESSION_DIR}/scope-verifications/{task-id}.json` per
      `reference/defect-proof.md`; for confirmed defects it also reruns the
      reproduction and focused regression check recorded in
-     `defect-proof.json`. Do not count Blade self-review, Blade-run tests, or
+     `defect-proof.json`. Do not count Engineer self-review, Engineer-run tests, or
      only a later aggregate suite as the per-scope independent result. A scope
      without its own `status: "passed"` record cannot be marked `done`.
 
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
-7. **Complete the wave**: wait for every dispatched Blade and verifier result.
+7. **Complete the wave**: wait for every dispatched Engineer and verifier result.
 
 <output_format>
 
@@ -99,14 +99,14 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
        {
          "id": "t1",
          "status": "done",
-         "agent": "blade-kaze",
+         "agent": "engineer-varek",
          "filesChanged": ["src/hooks/usePagination.ts"],
          "filesRead": ["src/api/client.ts"],
          "selfReviewScore": 8,
          "testResult": { "passed": true, "summary": "5 tests green" },
          "independentVerification": {
            "record": "scope-verifications/t1.json",
-           "verifier": "ward-torvan",
+           "verifier": "inspector-halden",
            "status": "passed",
            "summary": "Reproduction and focused regression check pass"
          },
@@ -118,7 +118,7 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
    }
    ```
 
-   Populate each task from the Blade's typed completion record and the
+   Populate each task from the Engineer's typed completion record and the
    independent verifier record: `filesChanged`, `filesRead`,
    `selfReviewScore`, `testResult`, `independentVerification`, `blocker`,
    `outputSummary`. Read these fields directly; do NOT re-parse the free-text

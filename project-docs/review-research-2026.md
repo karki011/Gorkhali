@@ -1,6 +1,6 @@
 # Code Review Research — 2026 State of Practice
 
-Research notes comparing Phantom's review stack (`agents/gaze.md`, `agents/archer.md`,
+Research notes comparing Phantom's review stack (`agents/auditor.md`, `agents/justice.md`,
 `commands/review.md`, `reference/temperature-review.md`, `reference/wrap/rpsl.md`)
 against current industry practice and empirical literature.
 
@@ -165,7 +165,7 @@ Still the largest study of its kind: 10 months, 2,500 reviews, 3.2M lines of cod
 The rate limits are about human attention and don't transfer directly to an agent. The
 *size* finding largely does: signal degrades as a single reviewing pass covers more
 unrelated surface, and that degradation is a context and attention-budget problem for
-Gaze too. Google's guidance points the same way — small CLs (~100 lines reference,
+Auditor too. Google's guidance points the same way — small CLs (~100 lines reference,
 1,000 ceiling) are described as the single highest-ROI process change available.
 
 ### 1.9 Google on review speed and the "good enough" bar
@@ -179,7 +179,7 @@ Two norms worth naming because they're culturally load-bearing:
 - **"LGTM with comments"** — approve while leaving unresolved non-blocking comments when
   the reviewer is reasonably confident the author will handle them.
 
-The second point is a standard Phantom doesn't currently encode: Gaze reviews the diff
+The second point is a standard Phantom doesn't currently encode: Auditor reviews the diff
 against intent, but never against *the state of the code before the diff*. A change that
 improves a bad file but doesn't reach the repo's ideal has no defined verdict today.
 
@@ -197,7 +197,7 @@ Comparative benchmarks across the current field:
 In a head-to-head on 50 open-source PRs, **Greptile caught over 50% more bugs than
 CodeRabbit** — the difference attributed to full-codebase context vs. diff-level analysis.
 
-That is a direct argument about Archer. Cross-file coherence is where the bug density is,
+That is a direct argument about Justice. Cross-file coherence is where the bug density is,
 and in Phantom that capability is currently opt-in behind a risk trigger.
 
 ### 1.11 Benchmark methodology — a usable definition of "true positive"
@@ -239,17 +239,17 @@ Worth stating plainly, because it bounds how much should change.
 
 | Practice | Phantom | Notes |
 |---|---|---|
-| Three-layer separation | ✅ | Ward = mechanical gates, Gaze/Archer = AI, user verification = human. `agents/gaze.md` explicitly forbids repeating mechanically-enforced lint/style. |
+| Three-layer separation | ✅ | Inspector = mechanical gates, Auditor/Justice = AI, user verification = human. `agents/auditor.md` explicitly forbids repeating mechanically-enforced lint/style. |
 | Risk-based reviewer routing | ✅ Leading | `requiredSpecialists` persisted at verification, consumed by `commands/review.md`. Same shape as RADAR, decided earlier in the lifecycle. |
 | Structured output contract | ✅ Leading | JSON artifacts with an enforced schema beat "ask for a nice format" prompting. Artifact-first ordering (write before summarizing) is a genuinely good idea most tools lack. |
 | Evidence-over-vibes | ✅ | Every finding requires file/component, evidence, impact, smallest remediation. |
-| Anti-over-engineering | ✅ | Gaze priority 5 and `agents/rival.md` both target speculative abstraction — matches Google's "be especially vigilant about over-engineering." |
+| Anti-over-engineering | ✅ | Auditor priority 5 and `agents/opposition.md` both target speculative abstraction — matches Google's "be especially vigilant about over-engineering." |
 | Noise suppression | ✅ Aggressive | `temperature-review.md` drops P2/P3 outright. Stronger than Anthropic's "cap the nits." |
 | Missing-evidence ≠ pass | ✅ Leading | `observationGaps`, `blocked` verdicts, "a missing artifact is not a clean review." Most tools silently degrade to pass. |
-| Pre-implementation review | ✅ | Rival reviews the *plan*. Cheapest possible place to catch a bad approach; almost nobody does this. |
+| Pre-implementation review | ✅ | Opposition reviews the *plan*. Cheapest possible place to catch a bad approach; almost nobody does this. |
 | Approve-with-comments | ✅ | `advisory` severity is Google's "LGTM with comments" — non-blocking findings don't hold the ship. |
 
-The specialist roster (Gaze / Archer / Sweep / Rival / Lens / RPSL) is already close to
+The specialist roster (Auditor / Justice / Steward / Opposition / Surveyor / RPSL) is already close to
 the "micro-agent architecture" the FP research credits with −51% false positives.
 
 ---
@@ -260,7 +260,7 @@ Ordered by expected value, highest first.
 
 ### Gap 1 — No verification pass. *(highest leverage)*
 
-Gaze writes findings straight to `gaze.json`. Nothing checks a candidate finding against
+Auditor writes findings straight to `auditor.json`. Nothing checks a candidate finding against
 actual code behavior before it lands. Every source above converges on this being the
 single biggest FP lever, and Anthropic's own pipeline has it as a distinct stage.
 
@@ -269,14 +269,14 @@ per §1.5, this must be an **independent check against the code**, not same-cont
 self-critique: re-read the cited `file:line`, confirm the claimed behavior is really
 there, drop anything that can't be confirmed.
 
-Cheapest viable version: fold it into Gaze as a mandatory pre-write step ("for each
+Cheapest viable version: fold it into Auditor as a mandatory pre-write step ("for each
 finding, re-read the cited lines and confirm the behavior; discard what you can't
 confirm"). Stronger version: a separate verifier role. Start with the cheap one — it
 costs no new agent and captures most of the benefit.
 
 ### Gap 2 — Severity and confidence are conflated.
 
-`blocking|advisory` (Gaze) and P0–P3 (`temperature-review.md`) both encode *importance*.
+`blocking|advisory` (Auditor) and P0–P3 (`temperature-review.md`) both encode *importance*.
 Neither encodes *certainty*. An `advisory` finding might be a confident nit or an unsure
 bug, and the author can't tell which — so they treat all of them the same way, which is
 to say they skim them.
@@ -297,7 +297,7 @@ and it never enters a fix loop. Low cost, recovers information we're currently d
 
 ### Gap 4 — No re-review convergence.
 
-`commands/review.md` step 4 deletes `gaze.json` and runs a fresh pass every time. Correct
+`commands/review.md` step 4 deletes `auditor.json` and runs a fresh pass every time. Correct
 for avoiding stale verdicts, but it means round N has no memory of rounds 1..N−1. In a
 fix loop, a one-line fix can attract a fresh batch of advisories forever. Anthropic calls
 this out explicitly as a rule worth writing down.
@@ -308,13 +308,13 @@ suppressed. Keeps the fresh-pass property while bounding churn.
 
 ### Gap 5 — Evidence isn't required to be a citation.
 
-Gaze requires "evidence" but doesn't constrain its form, so an inference from a
+Auditor requires "evidence" but doesn't constrain its form, so an inference from a
 function's *name* satisfies the schema as readily as a line of code does. Anthropic's
 recommended verification bar is specific: "behavior claims need a `file:line` citation in
 the source, not an inference from naming."
 
-**Proposal.** One sentence in `agents/gaze.md` requiring behavioral claims to cite
-source. Nearly free; directly reduces the most annoying class of false positive. Archer
+**Proposal.** One sentence in `agents/auditor.md` requiring behavioral claims to cite
+source. Nearly free; directly reduces the most annoying class of false positive. Justice
 already does this via its `FILE:LINE` output format.
 
 ### Gap 6 — No `REVIEW.md` support.
@@ -324,14 +324,14 @@ Supporting a repo-root `REVIEW.md` would give per-repo review tuning (severity
 calibration, skip paths, always-check rules) and make Phantom interoperate with
 Anthropic's managed Code Review, which reads the same file.
 
-**Proposal.** Have Gaze and Archer read `REVIEW.md` when present, as highest-priority
+**Proposal.** Have Auditor and Justice read `REVIEW.md` when present, as highest-priority
 review-only instruction. Note that the local `/code-review` command deliberately does
 *not* read it — supporting it is a point of differentiation, not just parity.
 
 ### Gap 7 — No low-risk fast path.
 
 RADAR's headline result is that ~60% of diffs can be auto-approved at a relaxed risk
-threshold while *lowering* revert and incident rates. Phantom runs full Gaze on every
+threshold while *lowering* revert and incident rates. Phantom runs full Auditor on every
 diff regardless of risk. We already compute `requiredSpecialists` — the machinery for a
 risk signal exists; we just never use it to make the review *cheaper*, only to make it
 deeper.
@@ -355,7 +355,7 @@ Given the repo already has an evals harness, this is the highest-value cheap ins
 
 ### Gap 9 — PR descriptions aren't structured.
 
-Warden writes PR bodies from values handed to it. The MSR 2026 result says structured
+Clerk writes PR bodies from values handed to it. The MSR 2026 result says structured
 descriptions measurably speed up human review of agent-authored PRs — which is exactly
 what Phantom produces.
 
@@ -365,13 +365,13 @@ rather than machine review.
 
 ### Gap 10 — No diff-size policy. *(promoted after round 2)*
 
-`agents/gaze.md` says "review the whole changed scope once." A 2,000-line diff gets the
+`agents/auditor.md` says "review the whole changed scope once." A 2,000-line diff gets the
 same single pass as a 50-line one, with no adjustment and no signal to the user that
 coverage is now thinner. Meanwhile DORA 2026 has PR size up 51.3% and the SmartBear data
 puts effective single-review coverage at 200–400 LOC.
 
 **Proposal.** A size threshold in `commands/review.md` that changes *behavior* rather
-than just warning. Above the threshold, Gaze first ranks changed files by risk and
+than just warning. Above the threshold, Auditor first ranks changed files by risk and
 reviews in ranked chunks, and records a `coverage` field naming what got full attention
 and what got a lighter pass. The Rephrase article gets to the same place from intuition
 ("if the diff is huge, ask it to identify the riskiest files first"); the SmartBear
@@ -383,44 +383,44 @@ an observation gap, and Phantom already has a place to put it.
 ### Gap 11 — Cross-file context is opt-in.
 
 Greptile's >50% bug-catch advantage over CodeRabbit is attributed to full-codebase
-context vs. diff-level analysis. In Phantom, Gaze is the always-on reviewer and Archer —
+context vs. diff-level analysis. In Phantom, Auditor is the always-on reviewer and Justice —
 the one that actually models the dependency graph — runs only on an explicit risk
 trigger from `requiredSpecialists`.
 
 The current split is a defensible cost decision, but the benchmark evidence says the
 opt-in capability is the one with the higher bug yield.
 
-**Proposal.** Don't add anything; change a threshold. Widen Archer's trigger conditions,
-or give Gaze a cheap cross-file pass (resolve imports/exports touched by the diff and
-check consumers) without spawning Archer. Worth measuring with Gap 8 instrumentation
+**Proposal.** Don't add anything; change a threshold. Widen Justice's trigger conditions,
+or give Auditor a cheap cross-file pass (resolve imports/exports touched by the diff and
+check consumers) without spawning Justice. Worth measuring with Gap 8 instrumentation
 before committing — this is a question data can answer.
 
 > **Unresolved — do not act on this gap yet.** The premise that cross-file review is
-> *rare* has no current evidence behind it. `ROADMAP.md` §3 records archer 464 spawns
-> against gaze 113, which would suggest the opposite, but those counts were measured
+> *rare* has no current evidence behind it. `ROADMAP.md` §3 records justice 464 spawns
+> against auditor 113, which would suggest the opposite, but those counts were measured
 > 2026-07-28 and PR #109 rewrote the whole review pipeline on 2026-08-11 — so they
 > describe an architecture that no longer exists (`ROADMAP.md` F8). Neither reading is
 > supported until B9 re-measures. Note also that Greptile *is* the full-codebase-index
 > architecture from §1.10, Phantom already integrates it, and it ran in 50/191 sessions —
 > so the cheapest version of this gap may be raising that number rather than changing
-> Archer at all.
+> Justice at all.
 
 ### Gap 12 — No "better than current state" standard.
 
-Gaze reviews the diff against intent and against repository patterns, but never against
+Auditor reviews the diff against intent and against repository patterns, but never against
 the *prior state of the code*. Google's rule is explicit: a change that improves things
 without degrading code health should be approved even if imperfect. Without that
 baseline, a reviewer improving a legacy file can be blocked for not reaching the repo's
 ideal — the diff gets held to a standard the surrounding code never met.
 
-**Proposal.** One clause in Gaze's priorities: a finding is only `blocking` if the diff
+**Proposal.** One clause in Auditor's priorities: a finding is only `blocking` if the diff
 makes something *worse* than before, or fails the stated intent. Pre-existing badness the
 diff merely touches is `preExisting` (Gap 3), not a block. This and Gap 3 are the same
 change viewed from two sides.
 
 ### Gap 13 — Security review is generic.
 
-Gaze priority 2 names "security, privacy, data loss, and compatibility" without
+Auditor priority 2 names "security, privacy, data loss, and compatibility" without
 categories. §1.4 found reviewers systematically under-discuss the weakness classes tied
 to real CVEs — generic instruction doesn't correct a systematic blind spot; an explicit
 checklist does.
@@ -444,13 +444,13 @@ the review as a whole.
 
 **Revised proposal.** Add a stable finding ID, then record per-finding disposition at fix
 time: `fixed` / `dismissed` / `deferred`. That yields precision per severity, per
-dimension, and per agent — which is what tells us whether to widen Archer (Gap 11), where
+dimension, and per agent — which is what tells us whether to widen Justice (Gap 11), where
 to set the risk threshold (Gap 7), and whether the verification pass (Gap 1) actually
 moved anything.
 
 ### Gap 14 — Output vocabulary is bespoke. *(low priority)*
 
-Phantom uses `blocking|advisory`, Archer uses P0/P1/P2, `temperature-review.md` uses
+Phantom uses `blocking|advisory`, Justice uses P0/P1/P2, `temperature-review.md` uses
 P0–P3. Three vocabularies for one concept across three files. Conventional Comments is an
 established standard with the label set and a blocking/non-blocking decorator that maps
 cleanly onto Gaps 2 and 3.
@@ -464,7 +464,7 @@ of this.
 ## 4. Recommendation
 
 **Batch 1 — the finding schema.** Gaps 1, 2, 3, 5, and 12 are one coherent change to the
-finding schema plus Gaze's pre-write step: verify before writing, separate severity from
+finding schema plus Auditor's pre-write step: verify before writing, separate severity from
 confidence, add `preExisting`, require citations, and block only on
 *worse-than-before*. They're mutually reinforcing and they target the false-positive
 problem every source converges on.

@@ -8,7 +8,7 @@ Wiring maps the **dependency topology** of a solution: what each task produces, 
 
 FULL route only (multi-component, cross-cutting tasks):
 ```
-plan.json written -> Rival PROCEED (plan-check.json) -> [WIRING] -> Phase C execute
+plan.json written -> Opposition PROCEED (plan-check.json) -> [WIRING] -> Phase C execute
 ```
 Skip wiring if: Solo route, or task count <= 2 with no shared files.
 

@@ -7,27 +7,27 @@
     "risk": "critical",
     "profile": "deep",
     "eligible_roles": [
-      "blade",
-      "gaze",
-      "sage",
-      "lens",
-      "archer",
-      "rival",
-      "hound"
+      "engineer",
+      "auditor",
+      "advisor",
+      "surveyor",
+      "justice",
+      "opposition",
+      "detective"
     ],
-    "exempt_roles": ["apex", "ward", "sweep", "warden"]
+    "exempt_roles": ["chief", "inspector", "steward", "clerk"]
   },
   "roles": {
-    "apex": "frontier",
-    "blade": "balanced",
-    "ward": "economy",
-    "gaze": "deep",
-    "sage": "deep",
-    "lens": "balanced",
-    "archer": "deep",
-    "rival": "balanced",
-    "hound": "deep",
-    "sweep": "balanced",
-    "warden": "economy"
+    "chief": "frontier",
+    "engineer": "balanced",
+    "inspector": "economy",
+    "auditor": "deep",
+    "advisor": "deep",
+    "surveyor": "balanced",
+    "justice": "deep",
+    "opposition": "balanced",
+    "detective": "deep",
+    "steward": "balanced",
+    "clerk": "economy"
   }
 }

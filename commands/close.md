@@ -11,13 +11,13 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 Post-merge terminal closeout. Two hard principles: **(a) IDEMPOTENT** — safe to re-run; if already closed, report and exit cleanly. **(b) GUARDED** — a failure in any step never leaves a half-broken state; report what succeeded/failed and continue.
 
 <execution>
-## Runs on the pinned Warden agent
+## Runs on the pinned Clerk agent
 
-Close is 100% mechanical, so it runs on a delegated agent — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `warden` agent to execute Steps 2–6:
+Close is 100% mechanical, so it runs on a delegated agent — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `clerk` agent to execute Steps 2–6:
 
-`Agent({ subagent_type: "warden", name: "warden-sena", mode: "bypassPermissions", run_in_background: true })` — model + effort come from warden's definition (`sonnet`, like every delegated role; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Warden runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what warden returns.
+`Agent({ subagent_type: "clerk", name: "clerk-scrivet", mode: "bypassPermissions", run_in_background: true })` — model + effort come from clerk's definition (`sonnet`, like every delegated role; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Clerk runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what clerk returns.
 
-If `warden` is unavailable (older install without the agent), fall back to running Steps 2–6 inline.
+If `clerk` is unavailable (older install without the agent), fall back to running Steps 2–6 inline.
 </execution>
 
 ## Step 1: Resolve Ticket + Session

@@ -35,7 +35,7 @@ const DEFAULT_ROOT = path.join(__dirname, '..');
 // Which file carries which blocks. A file not listed here is not generated, so
 // adding a target is a deliberate edit rather than a wildcard surprise.
 const TARGETS = Object.freeze({
-  'agents/gaze.md': [
+  'agents/auditor.md': [
     'severity-table',
     'confidence-table',
     'finding-rules',
@@ -44,8 +44,8 @@ const TARGETS = Object.freeze({
     'security-categories',
     'finding-shape',
   ],
-  'agents/archer.md': ['severity-table', 'confidence-table', 'verification-pass', 'finding-shape'],
-  'reference/agent-protocols/archer-protocol.md': ['severity-table'],
+  'agents/justice.md': ['severity-table', 'confidence-table', 'verification-pass', 'finding-shape'],
+  'reference/agent-protocols/justice-protocol.md': ['severity-table'],
   'reference/temperature-review.md': ['severity-table', 'confidence-table', 'finding-rules', 'verification-pass', 'finding-shape'],
 });
 

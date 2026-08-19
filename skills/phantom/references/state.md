@@ -113,7 +113,7 @@ Every JSON artifact must include:
   "updated_at": "2026-01-01T00:00:00.000Z",
   "bundle_version": "2.2.9",
   "producer": {
-    "role": "apex",
+    "role": "chief",
     "compute_profile": "frontier"
   }
 }
@@ -180,7 +180,7 @@ retained in implementation scope requires explicit approval fields.
 
 `waiting_for_evidence` / `unconfirmed_defect` is a resumable hold, not a
 completed session. Pause and resume preserve the proof artifact, but execute
-continues to fail closed until Hound updates it with complete current evidence.
+continues to fail closed until Detective updates it with complete current evidence.
 
 ## Route-aware lifecycle state
 
@@ -322,8 +322,8 @@ contract in [roles](roles.md) before the result can be synthesized.
   `record:verification-with-user-verification-decision`; they require fresh
   verification and review rather than migration. Completed sessions remain
   read-only and inspectable.
-- Ward classifies rendered behavior from the complete final diff; the state
-  engine does not infer UI semantics from filenames. Gaze independently checks
+- Inspector classifies rendered behavior from the complete final diff; the state
+  engine does not infer UI semantics from filenames. Auditor independently checks
   that classification against the same diff and blocks a false non-UI decision.
 - Never delete a session to complete it; move or copy it to `completed`.
 

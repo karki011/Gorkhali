@@ -2,7 +2,7 @@
 
 Author: Subash Karki
 
-Three depth levels determine how much forensic work Hound does. Deeper levels include all steps from shallower levels.
+Three depth levels determine how much forensic work Detective does. Deeper levels include all steps from shallower levels.
 
 ---
 
@@ -12,7 +12,7 @@ Three depth levels determine how much forensic work Hound does. Deeper levels in
 |-------|-------|-------------|--------|---------|
 | **SHALLOW** (Pre-scan) | 1-2 | 2-3 | Field in context.json | start.md bug detection |
 | **MEDIUM** (Failure scan) | 1-3 | 4-5 | Field in verification.json | verify.md failure |
-| **DEEP** (Full investigation) | All 7 | 8-12 | investigation.html | hound command or fix loop 2+ |
+| **DEEP** (Full investigation) | All 7 | 8-12 | investigation.html | detective command or fix loop 2+ |
 
 ---
 
@@ -23,7 +23,7 @@ Triggered automatically when `start.md` detects a bug report (see [protocol.md](
 **Output schema (field in context.json):**
 ```json
 {
-  "hound": {
+  "detective": {
     "depth": "pre-scan",
     "suspects": [
       {
@@ -49,7 +49,7 @@ Triggered when `verify.md` detects a test/build failure. Runs steps 1-3.
 **Output schema (field in verification.json):**
 ```json
 {
-  "hound": {
+  "detective": {
     "depth": "failure-scan",
     "failingFiles": ["src/foo.ts", "src/bar.ts"],
     "suspects": [
@@ -71,7 +71,7 @@ Triggered when `verify.md` detects a test/build failure. Runs steps 1-3.
 
 ## DEEP — Full Investigation
 
-Triggered by explicit `hound` command or when fix loop reaches 2+ iterations. Runs all 7 steps. Produces `investigation.html` using the [report template](report-template.md).
+Triggered by explicit `detective` command or when fix loop reaches 2+ iterations. Runs all 7 steps. Produces `investigation.html` using the [report template](report-template.md).
 
 ---
 

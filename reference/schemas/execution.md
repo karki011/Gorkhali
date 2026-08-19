@@ -2,7 +2,7 @@
 
 Written by Phase C after agents complete. Summarizes what was actually done.
 
-Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads these fields directly instead of parsing free-text handoff prose.
+Each `tasks[]` entry is the typed Engineer→Chief completion record — Chief reads these fields directly instead of parsing free-text handoff prose.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
@@ -15,7 +15,7 @@ Each `tasks[]` entry is the typed Blade→Apex completion record — Apex reads 
 | tasks[].filesRead | string[] | no | Files read but NOT changed (wave-handoff awareness) |
 | tasks[].selfReviewScore | number | no | Agent's self-review score (0-10) |
 | tasks[].testResult | object \| string | no | `{ passed: bool, summary?: string }` or a short string. The string form is only for a check that ran |
-| tasks[].testResult.observation | `"checked:pass"` \| `"checked:fail"` \| `"not_observed"` | no | Whether the check actually ran - same vocabulary as `agents/ward.md`. A check that has not run is recorded `not_observed`, which is its only legal spelling here |
+| tasks[].testResult.observation | `"checked:pass"` \| `"checked:fail"` \| `"not_observed"` | no | Whether the check actually ran - same vocabulary as `agents/inspector.md`. A check that has not run is recorded `not_observed`, which is its only legal spelling here |
 | tasks[].testResult.passed | boolean | yes, unless `observation` is `not_observed` | Whether the check passed. Must agree with `observation` when both are present (`checked:pass` means true, `checked:fail` means false), and must be omitted when `observation` is `not_observed` - an unrun check has no boolean truth |
 | tasks[].testResult.summary | string | when `observation` is `not_observed`; else no | What ran and the outcome; carries the reason the check did not run when `observation` is `not_observed` |
 | tasks[].blocker | string \| null | no | Blocker description; null/absent when none |

@@ -1,8 +1,8 @@
 // Author: Subash Karki
-// execution-schema.test.js — covers the typed Blade->Apex completion boundary.
+// execution-schema.test.js — covers the typed Engineer->Chief completion boundary.
 //
-// The failure class: Blades returned free-text, Apex parsed it heuristically
-// ("Blade passed but Apex misread output"). The fix typed the per-task completion
+// The failure class: Blades returned free-text, Chief parsed it heuristically
+// ("Engineer passed but Chief misread output"). The fix typed the per-task completion
 // record by EXTENDING execution.json tasks[] with filesRead/testResult/blocker.
 // These tests spawn the REAL hand-rolled validator (scripts/validate-artifact.js)
 // and assert: new fields pass, omitting them still passes (backward compat),

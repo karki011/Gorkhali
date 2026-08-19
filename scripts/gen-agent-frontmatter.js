@@ -12,16 +12,16 @@
 // effort is uniform `high` and session-inherited (reference/agents.md), so it
 // is not part of the policy chain.
 //
-// apex.md is SKIPPED by design - Apex must track whatever model the session
-// runs on, so it carries no pin at all (see agents/apex.md frontmatter).
+// chief.md is SKIPPED by design - Chief must track whatever model the session
+// runs on, so it carries no pin at all (see agents/chief.md frontmatter).
 //
 // RECORDED DECISIONS - do not "fix" these back:
-//   warden -> economy. Warden is a mechanical git/gh/Jira/cost-script executor
+//   clerk -> economy. Clerk is a mechanical git/gh/Jira/cost-script executor
 //     with no design authority, so the cheapest rung is the intent. Policy stays
 //     economy on purpose even though claude-code currently maps every profile
-//     onto the same delegate model: the rung governs how Apex briefs the role,
+//     onto the same delegate model: the rung governs how Chief briefs the role,
 //     and it still separates tiers on hosts whose presets are not flat.
-//   sweep  -> balanced (sonnet). Code simplification is judgment work: a weak
+//   steward  -> balanced (sonnet). Code simplification is judgment work: a weak
 //     model's bad suggestion costs more review time than the tokens it saves.
 //     Here the POLICY was wrong (it said economy) and the sonnet pin was right,
 //     so policy moved up to balanced rather than the pin moving down.
@@ -48,7 +48,7 @@ const AGENTS_DIR = path.join(REPO_ROOT, 'agents');
 const HOST = 'claude-code';
 
 // Roles that intentionally carry no pin. Handled explicitly, never by accident.
-const EXEMPT_ROLES = new Set(['apex']);
+const EXEMPT_ROLES = new Set(['chief']);
 
 const MARKER_PREFIX = '# GENERATED from model-policy.json';
 

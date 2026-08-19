@@ -25,24 +25,24 @@ You are the coordinator. You do NOT run validation scripts directly. Instead:
 
 1. **Parse $ARGUMENTS** to determine which layer(s): `plan`, `output`, `session`, or `all`
 2. **Resolve paths**: session board JSON path (`${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json`), project root
-3. **Spawn a Ward agent** to execute the validation scripts and collect results
+3. **Spawn an Inspector agent** to execute the validation scripts and collect results
 4. **Present findings** to the user with pass/fail summary and actionable items
 
 </validation_coordination>
 
 <ward_agent>
 
-## Ward Agent Dispatch
+## Inspector Agent Dispatch
 
-Spawn a single **Ward** agent for all requested layers. Ward runs scripts sequentially and returns structured findings.
+Spawn a single **Inspector** agent for all requested layers. Inspector runs scripts sequentially and returns structured findings.
 
 **Agent configuration:**
-- subagent_type: `ward` (effort = session `high`; model per `reference/agents.md` → Model Routing)
-- name: `ward-brann`
+- subagent_type: `inspector` (effort = session `high`; model per `reference/agents.md` → Model Routing)
+- name: `inspector-yarnell`
 - mode: `bypassPermissions`
-- If only one layer requested, Ward runs that layer's script. For `all`, Ward runs all three in sequence.
+- If only one layer requested, Inspector runs that layer's script. For `all`, Inspector runs all three in sequence.
 
-**Ward prompt must include:**
+**Inspector prompt must include:**
 - The specific layer(s) to validate
 - Full script paths and arguments (from the table below)
 - The session JSON path and project root
@@ -54,7 +54,7 @@ Spawn a single **Ward** agent for all requested layers. Ward runs scripts sequen
 
 ## Validation Layer Reference
 
-Pass these to Ward's prompt so it knows what to run and what each script checks.
+Pass these to Inspector's prompt so it knows what to run and what each script checks.
 
 ### Layer: `plan`
 
@@ -62,7 +62,7 @@ Pass these to Ward's prompt so it knows what to run and what each script checks.
 $PR/scripts/validate-plan.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
-Checks: phase order (Gaze -> Ward -> Gaze (gauntlet mode) -> User Feedback), user-verification inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
+Checks: phase order (Auditor -> Inspector -> Auditor (gauntlet mode) -> User Feedback), user-verification inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
 
 ### Layer: `output`
 
@@ -82,7 +82,7 @@ Checks: required fields, phase/task status enums, verification block after verif
 
 ### Layer: `all`
 
-Ward runs all three scripts in sequence (`plan` → `output` → `session`). Returns combined findings.
+Inspector runs all three scripts in sequence (`plan` → `output` → `session`). Returns combined findings.
 
 </validation_layers>
 
@@ -90,9 +90,9 @@ Ward runs all three scripts in sequence (`plan` → `output` → `session`). Ret
 
 ## Presenting Results
 
-After Ward returns, the coordinator:
+After Inspector returns, the coordinator:
 
-1. Parse Ward's structured findings
+1. Parse Inspector's structured findings
 2. Show a summary table: layer | status (PASS/FAIL) | finding count
 3. List each finding with severity and suggested fix
 4. If all layers pass: confirm clean validation
@@ -104,7 +104,7 @@ After Ward returns, the coordinator:
 
 ## Automatic Validation (built into execution flow)
 
-- **PreToolUse hook** on Agent calls validates model tier (denies fable on blade/sweep/ward/lens/warden), that blade spawns carry an explicit model, and that the spawn's `name:` matches a roster-defined shape (`reference/roster.md`, `hooks/blade-model-gate.js`) - it does not validate `mode`, `run_in_background`, or prompt content. BLOCKs bad spawns automatically.
-- **Apex** runs `validate-plan.sh` before Phase C execution starts.
-- **Apex** runs `validate-output.sh` after each agent completes (with that agent's owned files).
-- **Apex** runs `validate-session.sh` at phase transitions and after verify/fix loops.
+- **PreToolUse hook** on Agent calls validates model tier (denies fable on engineer/steward/inspector/surveyor/clerk), that engineer spawns carry an explicit model, and that the spawn's `name:` matches a roster-defined shape (`reference/roster.md`, `hooks/engineer-model-gate.js`) - it does not validate `mode`, `run_in_background`, or prompt content. BLOCKs bad spawns automatically.
+- **Chief** runs `validate-plan.sh` before Phase C execution starts.
+- **Chief** runs `validate-output.sh` after each agent completes (with that agent's owned files).
+- **Chief** runs `validate-session.sh` at phase transitions and after verify/fix loops.

@@ -28,7 +28,7 @@ const lc = require(path.join(REPO_ROOT, 'hooks', 'loop-controller.js'));
 
 function runValidator(artifact) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-artifact-'));
-  const file = path.join(dir, 'gaze.json');
+  const file = path.join(dir, 'auditor.json');
   fs.writeFileSync(file, JSON.stringify(artifact));
   try {
     const stdout = execFileSync('node', [VALIDATOR, 'review', file], { encoding: 'utf-8' });
@@ -44,7 +44,7 @@ function runValidator(artifact) {
   }
 }
 
-// The shape agents/gaze.md documents today, verbatim: no _meta, snake-case gaps,
+// The shape agents/auditor.md documents today, verbatim: no _meta, snake-case gaps,
 // no id, no disposition.
 const gazeFinding = (overrides = {}) => ({
   severity: 'blocking',
@@ -57,7 +57,7 @@ const gazeFinding = (overrides = {}) => ({
 });
 
 const gazeArtifact = (findings = [gazeFinding()]) => ({
-  role: 'gaze',
+  role: 'auditor',
   verdict: 'fail',
   findings,
   observation_gaps: [],
@@ -65,18 +65,18 @@ const gazeArtifact = (findings = [gazeFinding()]) => ({
 
 // --- the artifact shape written today keeps validating (backward compatibility) ---
 
-test('review: the gaze artifact as written today (no _meta, no id, no disposition) passes', () => {
+test('review: the auditor artifact as written today (no _meta, no id, no disposition) passes', () => {
   const res = runValidator(gazeArtifact());
   assert.equal(res.code, 0, `existing reviewer artifacts must not start failing, stderr: ${res.stderr}`);
 });
 
 test('review: a clean review is a written empty findings array', () => {
-  const res = runValidator({ role: 'gaze', verdict: 'pass', findings: [], observation_gaps: [] });
+  const res = runValidator({ role: 'auditor', verdict: 'pass', findings: [], observation_gaps: [] });
   assert.equal(res.code, 0, `stderr: ${res.stderr}`);
 });
 
-test('review: the archer specialist artifact (camelCase gaps) passes on the same schema', () => {
-  const res = runValidator({ role: 'archer', verdict: 'pass', findings: [], observationGaps: [] });
+test('review: the justice specialist artifact (camelCase gaps) passes on the same schema', () => {
+  const res = runValidator({ role: 'justice', verdict: 'pass', findings: [], observationGaps: [] });
   assert.equal(res.code, 0, `stderr: ${res.stderr}`);
 });
 
@@ -88,7 +88,7 @@ test('review: the legacy temperature-review finding shape (temperature/issue) pa
 });
 
 test('review: a missing findings array is rejected (absent is not a clean review)', () => {
-  const res = runValidator({ role: 'gaze', verdict: 'pass', observation_gaps: [] });
+  const res = runValidator({ role: 'auditor', verdict: 'pass', observation_gaps: [] });
   assert.equal(res.code, 1);
   assert.match(res.stderr, /findings: required array/);
 });
@@ -116,7 +116,7 @@ test('review: a non-numeric line and a non-string evidence are rejected', () => 
 });
 
 test('review: an unknown verdict is rejected', () => {
-  const res = runValidator({ role: 'gaze', verdict: 'looks-good', findings: [], observation_gaps: [] });
+  const res = runValidator({ role: 'auditor', verdict: 'looks-good', findings: [], observation_gaps: [] });
   assert.equal(res.code, 1);
   assert.match(res.stderr, /verdict: must be one of pass\|fail\|blocked/);
 });
@@ -248,7 +248,7 @@ test('closeFixLoop attributes an outcome per finding, and it round-trips through
   assert.equal(new Set(result.rows.map((r) => r.id)).size, 3, 'ids are distinct per finding');
 
   // Round-trip: serialize as the artifact on disk, and the schema accepts it.
-  const res = runValidator({ role: 'gaze', verdict: 'fail', findings: v.review.findings, observation_gaps: [] });
+  const res = runValidator({ role: 'auditor', verdict: 'fail', findings: v.review.findings, observation_gaps: [] });
   assert.equal(res.code, 0, `dispositioned findings must validate, stderr: ${res.stderr}`);
 
   // And the ids survive the round-trip unchanged.

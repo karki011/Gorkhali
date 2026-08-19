@@ -1,6 +1,6 @@
 # Workflow Delegation Protocol (WDP)
 
-> Phantom does NOT run dynamic workflows — it RECOMMENDS them. Apex CANNOT launch a workflow:
+> Phantom does NOT run dynamic workflows — it RECOMMENDS them. Chief CANNOT launch a workflow:
 > the `workflow` keyword fires only on USER input and there is no programmatic launch (verified
 > 2026-05, Claude Code v2.1.157). Phantom's job: recognize WHEN a Claude Code dynamic workflow
 > beats turn-by-turn shadows, and hand the user the exact command.
@@ -16,10 +16,10 @@ Recommend a workflow for a phase ONLY when ALL hold. Clause 1 is the dominant le
 1. **SCALE (primary)** — fan-out is BIG. Rough, TUNABLE guidance (refine from real sessions):
    - >= ~20 files in blast radius, OR
    - >= ~5 independent sources/angles to cross-check, OR
-   - a deep git-history sweep, OR
+   - a deep git-history steward, OR
    - the ask says "codebase-wide" / "every X" / "all <plural>".
    Small task -> stay turn-by-turn. Workflows cost more tokens. "Use it when we need it."
-2. **GATELESS** — phase needs NO mid-phase human input (a workflow takes none; gates run in Apex
+2. **GATELESS** — phase needs NO mid-phase human input (a workflow takes none; gates run in Chief
    before/after).
 3. **READ-MOSTLY or GENERATIVE** — forensics, search, review, plan-generation. NOT direct code
    edits (deferred to v2).
@@ -31,8 +31,8 @@ Recommend a workflow for a phase ONLY when ALL hold. Clause 1 is the dominant le
 
 If any clause fails -> turn-by-turn shadows (current behavior). **Default is NOT to recommend.**
 
-## How to recommend (Apex output pattern)
-When a phase qualifies, Apex prints a short block like:
+## How to recommend (Chief output pattern)
+When a phase qualifies, Chief prints a short block like:
 
 > This {phase} is big ({N files / N sources}). A dynamic workflow keeps the fan-out out of
 > context and returns one cross-checked report. To run it, type:
@@ -42,15 +42,15 @@ When a phase qualifies, Apex prints a short block like:
 > Then paste the report back (or I'll read it) and I'll continue the phase. Skip it and I'll
 > proceed turn-by-turn.
 
-ALWAYS include **"Audit and REPORT only — do not modify files"** for read-only phases (hound /
+ALWAYS include **"Audit and REPORT only — do not modify files"** for read-only phases (detective /
 review): a workflow's subagents run in `acceptEdits` and could otherwise write.
 
 ## Folding the result back
-The workflow returns ONE report; Apex treats it as the phase output:
-- hound  -> ranked root causes -> hound pre-scan artifact
+The workflow returns ONE report; Chief treats it as the phase output:
+- detective  -> ranked root causes -> detective pre-scan artifact
 - review -> filtered findings  -> review output
 - brainstorm (optional) -> ranked approaches -> GATE 1 options
-Apex still runs any human GATE in-conversation AFTER the report lands.
+Chief still runs any human GATE in-conversation AFTER the report lands.
 
 ## ultracode — DO NOT rely on it for gated phantom work
 `/effort ultracode` makes the runtime auto-wrap tasks in background workflows that take NO mid-run
@@ -61,7 +61,7 @@ ungated single-shot phantom work (e.g. a standalone scout/research). Documented 
 enforced check.
 
 ## Phases wired in v1
-- `hound`  (forensics sweep)  — commands/hound.md
+- `detective`  (forensics steward)  — commands/detective.md
 - `review` (codebase-wide)    — commands/review.md
 (brainstorm multi-angle = optional follow-up; `deliberation` intentionally NOT wired — 2 agents is
 not "scale".)

@@ -164,10 +164,10 @@ test('4. W8: worktree fixture (.git is a FILE) in phantom-known repo → DENY', 
   }
 });
 
-test('5. fresh legacy .apex-active alone → DENY', () => {
+test('5. fresh legacy .chief-active alone → DENY', () => {
   const { data, env, repoRoot, target, cleanup } = setup();
   try {
-    fs.writeFileSync(path.join(data, '.apex-active'), '');
+    fs.writeFileSync(path.join(data, '.chief-active'), '');
     assertDeny(runGate(env, editPayload(target, repoRoot)));
   } finally {
     cleanup();

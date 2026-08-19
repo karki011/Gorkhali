@@ -30,13 +30,13 @@ Matched card `id`s go into each scout's prompt as extra context; cite them in
 
 ## Step 2: Spawn Scout Agents (Parallel)
 
-One agent per area, all in background simultaneously. Each: `subagent_type: "blade"`, `name:` per `reference/roster.md` slot table - consecutive `scout-*` slots in area order (`scout-pike`, `scout-ravel`, `scout-tessa`, `scout-korin`, `scout-nettle` for the 5 default areas: design, api, patterns, deps, tests), `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
+One agent per area, all in background simultaneously. Each: `subagent_type: "engineer"`, `name:` per `reference/roster.md` slot table - consecutive `scout-*` slots in area order (`scout-pember`, `scout-quade`, `scout-ranthe`, `scout-saldur`, `scout-teviss` for the 5 default areas: design, api, patterns, deps, tests), `mode: "bypassPermissions"`, `run_in_background: true`, `description: "Scout {area}: {TICKET}"` (effort = session `high`; model per `reference/agents.md` → Model Routing).
 
 Areas come from `$ARGUMENTS`, so the area count is user-unbounded: a 6th or later area takes bare roster-length overflow (`scout-10`, `scout-11`, ...), never `scout-6`. The derivation and the reason slots 6-9 are off-limits here are `reference/roster.md` Rule 3 (Overflow) plus its `scout.md` row in the Spawn-Site Slot Table.
 
 Prompt template per scout:
 ```
-You are a BLADE with ROLE FOCUS: scout (read-only) — {area} area explorer.
+You are an ENGINEER with ROLE FOCUS: scout (read-only) — {area} area explorer.
 Target: {TICKET or topic from $ARGUMENTS}
 Find and report: {find-list}
 Return structured JSON: {schema}
@@ -81,7 +81,7 @@ After ALL background scouts complete:
 
 - Coordinator does NOT explore — delegates entirely to scout agents.
 - All scouts `run_in_background: true` (parallel).
-- All scouts `subagent_type: "blade"` with read-only ROLE FOCUS: scout directive — named from the `scout` roster row, not `blade` (see `reference/roster.md`); routing per Step 2.
+- All scouts `subagent_type: "engineer"` with read-only ROLE FOCUS: scout directive — named from the `scout` roster row, not `engineer` (see `reference/roster.md`); routing per Step 2.
 - All agents `mode: "bypassPermissions"`.
 - Only 1 area requested → still spawn as background agent (consistent pattern).
 - Scout results feed planning — write `scout-results.json` so `/phantom:start` can consume it.
