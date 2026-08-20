@@ -9,7 +9,7 @@ Each `tasks[]` entry is the typed Engineer→Chief completion record — Chief r
 | --- | --- | --- | --- |
 | tasks | object[] | yes | Per-task execution results |
 | tasks[].id | string | yes | Task ID from plan.json |
-| tasks[].status | `"done"` \| `"failed"` \| `"skipped"` | yes | Final task status |
+| tasks[].status | `"done"` \| `"failed"` \| `"skipped"` \| `"done-with-concerns"` \| `"needs-context"` | yes | Final task status. `done-with-concerns` is done, but carries a concern Chief must read in the handoff note - treated as done for gating. `needs-context` is a resume-with-context case, not a failure: the task cannot proceed without information only Chief has, recorded in `blocker` |
 | tasks[].agent | string | no | Agent that ran this task |
 | tasks[].filesChanged | string[] | yes | Files actually modified |
 | tasks[].filesRead | string[] | no | Files read but NOT changed (wave-handoff awareness) |

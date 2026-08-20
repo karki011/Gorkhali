@@ -54,10 +54,15 @@ When Chief provides subtasks (via TaskCreate entries prefixed with `[Engineer:{n
 
 ### Blocked State
 
-If blocked (missing context, ambiguous requirement, dependency not met):
+If blocked (dependency not met, missing capability or environment):
 1. Do NOT fake completion or work around silently
-2. Report: `BLOCKED on subtask {id} — {specific blocker}`
+2. Report: `BLOCKED on subtask {id} - {specific blocker}`
 3. Stop and wait for Chief intervention
+
+If the only thing missing is information Chief itself holds (an ambiguous
+requirement, a decision only Chief can make), that is `needs-context`, not
+`blocked` - report `NEEDS-CONTEXT on subtask {id} - {exact question}` and use
+the `needs-context` completion status, not `failed` or `blocked`.
 
 ## Self-Review (Mandatory Before Handoff)
 
@@ -77,12 +82,14 @@ Complete the entire contract in a single run: do not end your turn until the ver
 
 Emit a **typed completion record** per task — these are the exact fields Chief writes to `execution.json` `tasks[]` (schema: `reference/schemas/execution.md`). Do NOT bury them in free-text prose; Chief reads the fields, not the narrative:
 
-- `status` — `done` | `failed` | `skipped`
+- `status` - `done` | `failed` | `skipped` | `done-with-concerns` | `needs-context`
+  - `done-with-concerns` - the task is complete, but carries a concern Chief must read before moving on. Not a failure: put the concern in the handoff note, not just the record.
+  - `needs-context` - you cannot proceed without information only Chief has (a decision, a missing credential, an ambiguous requirement only Chief can resolve). Distinct from `blocked`-in-prose and from `failed`: this is a resume-with-context case, not a terminal outcome. Put the exact question in `blocker`.
 - `filesChanged` — files you modified
 - `filesRead` — files you read but did NOT change (for next-wave awareness)
 - `selfReviewScore` — your 0-10 self-review
 - `testResult` — `{ passed, summary }` or a short string; what tests ran and the outcome. For a check you did not run, write `{ observation: "not_observed", summary: "<why it did not run>" }` and omit `passed`: the boolean cannot express "not yet run", and `passed: false` claims a failure nobody observed. Amend the record once the check runs.
-- `blocker` — blocker text if blocked, else null
+- `blocker` - blocker text if blocked or needs-context, else null
 - `outputSummary` — 1-2 sentence summary
 
 Handoff note (free-text, alongside the record): key decisions, what the next agent needs to know, remaining concerns.

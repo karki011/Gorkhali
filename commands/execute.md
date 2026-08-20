@@ -122,8 +122,14 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
    independent verifier record: `filesChanged`, `filesRead`,
    `selfReviewScore`, `testResult`, `independentVerification`, `blocker`,
    `outputSummary`. Read these fields directly; do NOT re-parse the free-text
-   handoff. `status` is one of `done` | `failed` | `skipped`; `done` requires
-   a matching independent-verification record with `status: "passed"`.
+   handoff. `status` is one of `done` | `failed` | `skipped` |
+   `done-with-concerns` | `needs-context`; `done` and `done-with-concerns`
+   both require a matching independent-verification record with
+   `status: "passed"` - `done-with-concerns` is done, read the handoff note
+   for the surfaced concern before moving on. `needs-context` is not a wave
+   failure: do not treat it as `failed` for wave-completion purposes. Read
+   `blocker` for the exact question, answer it, and re-dispatch the same task
+   with the answer included - do not re-plan or drop the task.
 
 </output_format>
 

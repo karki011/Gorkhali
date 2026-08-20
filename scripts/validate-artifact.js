@@ -68,6 +68,13 @@ const {
   CONFIDENCE_VALUES,
   CONFIDENCE_ALIASES,
   normalizeConfidence,
+  EVIDENCE_CLASS_VALUES,
+  normalizeEvidenceClass,
+  INDEPENDENCE_BASIS_VALUES,
+  INDEPENDENCE_EVIDENCE_TIERS,
+  normalizeIndependenceBasis,
+  normalizeIndependenceEvidenceTier,
+  canonicalIndependenceLabel,
   CLAIM_KEYS,
   GAPS_KEY,
   LEGACY_GAPS_KEY,
@@ -77,6 +84,22 @@ const isObject = (value) => value != null && typeof value === 'object' && !Array
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim() !== '';
 const hasUnresolvedPlaceholder = (value) =>
   typeof value === 'string' && /(\{[A-Z][A-Z0-9_]*\}|\bTODO\b|\bTBD\b)/i.test(value);
+
+// A `quoted` citation's `file` is untrusted artifact content that
+// scripts/validate-citations.mjs ultimately resolves against the real
+// filesystem - an absolute path, a `../` traversal, or a backslash (Windows
+// separator smuggled into a path this repo always treats as POSIX-relative)
+// would flow straight into that resolver otherwise. This is the shape-level
+// half of containment; the resolver itself re-checks by CANONICAL path
+// against the workspace root, which also catches a symlink escape this check
+// cannot see. Same rule skills/phantom/scripts/lib/decision-contracts.mjs's
+// `validatePortablePath` already enforces for task paths ("must be a
+// normalized repository-relative path without traversal") - replicated
+// minimally here rather than imported: that module is ESM with no path-only
+// export, and it belongs to the portable skill's own surface, not this
+// validator's.
+const isWorkspaceRelativeCitationPath = (value) =>
+  isNonEmptyString(value) && !value.includes('\\') && !path.isAbsolute(value) && !value.split('/').includes('..');
 
 // One review finding. The element shape `verification.review.findings` had
 // always been declared but never checked - which is exactly how the F9 drift
@@ -132,6 +155,71 @@ function validateFinding(finding, i, errors) {
       );
     }
   }
+  // B13: evidence class + citation (fable-foreman finding contract), superseding
+  // self-rated `confidence` above. Optional and closed so no artifact on disk
+  // before this existed starts failing. `citation` becomes REQUIRED, in the
+  // shape that class demands to be deterministically resolvable
+  // (scripts/validate-citations.mjs), once `evidenceClass` is `quoted` or
+  // `observed` - the two classes a machine can actually check.
+  const evidenceClass = normalizeEvidenceClass(finding.evidenceClass);
+  if (finding.evidenceClass !== undefined && !evidenceClass) {
+    errors.push(
+      `${at}.evidenceClass: must be one of ${EVIDENCE_CLASS_VALUES.join('|')}, ` +
+        `got "${typeof finding.evidenceClass === 'string' ? finding.evidenceClass.trim() : String(finding.evidenceClass)}"`
+    );
+  }
+  if (evidenceClass === 'quoted' || evidenceClass === 'observed') {
+    const citation = finding.citation;
+    if (!isObject(citation)) {
+      errors.push(`${at}.citation: required object when evidenceClass is "${evidenceClass}"`);
+    } else if (evidenceClass === 'quoted') {
+      if (!isNonEmptyString(citation.file)) {
+        errors.push(`${at}.citation.file: required non-empty string when evidenceClass is "quoted"`);
+      } else if (!isWorkspaceRelativeCitationPath(citation.file)) {
+        errors.push(
+          `${at}.citation.file: must be a normalized workspace-relative path without an absolute ` +
+            `path, "../" traversal, or backslash, got "${citation.file.trim()}"`
+        );
+      }
+      if (citation.line !== undefined && citation.line !== null && !Number.isFinite(citation.line)) {
+        errors.push(`${at}.citation.line: must be a number if present`);
+      }
+      // A quoted citation with no quote text is unresolvable-as-quoted, not a
+      // weaker legal one - the shape check must reject what the resolver
+      // (scripts/validate-citations.mjs) cannot resolve, rather than let a
+      // vacuous "quoted" finding validate and only fail later at resolution.
+      if (!isNonEmptyString(citation.quote)) {
+        errors.push(`${at}.citation.quote: required non-empty string when evidenceClass is "quoted"`);
+      }
+    } else {
+      if (!isNonEmptyString(citation.command)) {
+        errors.push(`${at}.citation.command: required non-empty string when evidenceClass is "observed"`);
+      }
+      if (citation.expect !== undefined && typeof citation.expect !== 'string') {
+        errors.push(`${at}.citation.expect: must be a string if present`);
+      }
+    }
+  } else if (evidenceClass === 'derived') {
+    // Unlike quoted/observed (structured citations) or inferred (citation
+    // legitimately absent), `derived` REQUIRES a non-empty free-text locator -
+    // a derived finding must still say where its reasoning came from, even
+    // though that locator is not machine-resolvable.
+    if (!isNonEmptyString(finding.citation)) {
+      errors.push(`${at}.citation: required non-empty string (a free-text locator) when evidenceClass is "derived"`);
+    }
+  } else if (evidenceClass === 'inferred') {
+    // `null` or absent is the norm - the only class where an absent citation is
+    // legal - but a present one is still shape-checked rather than accepted blind.
+    if (
+      finding.citation !== undefined &&
+      finding.citation !== null &&
+      typeof finding.citation !== 'string' &&
+      !isObject(finding.citation)
+    ) {
+      errors.push(`${at}.citation: must be null, a string, or an object if present when evidenceClass is "inferred"`);
+    }
+  }
+
   if (finding.line !== undefined && finding.line !== null && !Number.isFinite(finding.line)) {
     errors.push(`${at}.line: must be a number if present`);
   }
@@ -261,6 +349,12 @@ function validatePlanTaskGraph(tasks, errors) {
 // --- Schema definitions (data) + per-type validators (enforcement) ---
 // `fields` order is the rendered table order. Cells are stored with raw `|`;
 // the doc generator escapes them to `\|`.
+
+// Implementer (Engineer) completion-record status vocabulary - single source of
+// truth, also asserted disjoint from the Inspector verdict and session lifecycle
+// vocabularies by test/status-vocab.test.js. Extend here, not by hand-listing
+// elsewhere.
+const EXECUTION_TASK_STATUSES = ['done', 'failed', 'skipped', 'done-with-concerns', 'needs-context'];
 
 const SCHEMAS = {
   context: {
@@ -664,7 +758,7 @@ const SCHEMAS = {
     fields: [
       { field: 'tasks', type: 'object[]', required: 'yes', description: 'Per-task execution results' },
       { field: 'tasks[].id', type: 'string', required: 'yes', description: 'Task ID from plan.json' },
-      { field: 'tasks[].status', type: '`"done"` | `"failed"` | `"skipped"`', required: 'yes', description: 'Final task status' },
+      { field: 'tasks[].status', type: '`"done"` | `"failed"` | `"skipped"` | `"done-with-concerns"` | `"needs-context"`', required: 'yes', description: 'Final task status. `done-with-concerns` is done, but carries a concern Chief must read in the handoff note - treated as done for gating. `needs-context` is a resume-with-context case, not a failure: the task cannot proceed without information only Chief has, recorded in `blocker`' },
       { field: 'tasks[].agent', type: 'string', required: 'no', description: 'Agent that ran this task' },
       { field: 'tasks[].filesChanged', type: 'string[]', required: 'yes', description: 'Files actually modified' },
       { field: 'tasks[].filesRead', type: 'string[]', required: 'no', description: 'Files read but NOT changed (wave-handoff awareness)' },
@@ -684,10 +778,13 @@ const SCHEMAS = {
       validateMeta(d, errors);
       if (!Array.isArray(d.tasks) || d.tasks.length === 0) errors.push('tasks: required non-empty array');
       if (Array.isArray(d.tasks)) {
-        const validStatuses = ['done', 'failed', 'skipped'];
+        const validStatuses = EXECUTION_TASK_STATUSES;
         d.tasks.forEach((t, i) => {
           if (!t.id || typeof t.id !== 'string') errors.push(`tasks[${i}].id: required string`);
           if (!validStatuses.includes(t.status)) errors.push(`tasks[${i}].status: must be one of ${validStatuses.join('|')}, got "${t.status}"`);
+          if (t.status === 'needs-context' && (!t.blocker || typeof t.blocker !== 'string')) {
+            errors.push(`tasks[${i}].blocker: required string when status is needs-context - record the exact question only Chief can answer`);
+          }
           if (!Array.isArray(t.filesChanged)) errors.push(`tasks[${i}].filesChanged: required array`);
           if (!t.outputSummary || typeof t.outputSummary !== 'string') errors.push(`tasks[${i}].outputSummary: required string`);
           if (t.selfReviewScore !== undefined && (typeof t.selfReviewScore !== 'number' || t.selfReviewScore < 0 || t.selfReviewScore > 10)) {
@@ -830,11 +927,18 @@ const SCHEMAS = {
     fields: [
       { field: 'role', type: 'string', required: 'yes', description: 'Reviewer that wrote the artifact: `"auditor"` for the one default reviewer, `"justice"` for the risk-triggered specialist' },
       { field: 'model', type: 'string', required: 'no', description: 'The model this review RAN on, recorded verbatim (F11). PER ARTIFACT, not per finding: one review run is one reviewer in one spawn, so every finding in the file shares it. Never inferred — a frontmatter pin or a `model-policy.json` profile is what was REQUESTED, and F11 measured `auditor` running `opus:18 sonnet:7` against an `opus` pin, so a copied pin would make a confounded comparison look controlled. Optional and absent on every artifact written before F11; while it is absent the B11 precision gate refuses to produce a verdict rather than compare two possibly-different reviewers' },
+      { field: 'independence', type: 'object', required: 'no', description: 'Honest-degradation disclosure (adopted from the fable-foreman digest), recorded once for the whole artifact same as `model`. Optional for back-compat - absent on every artifact written before this field existed - but a present object is fully validated against the closed vocabularies below' },
+      { field: 'independence.basis', type: '`"same-model-independent-context"` | `"cross-model"` | `"reduced-assurance"`', required: 'yes (if `independence` present)', description: 'Whether this review is a genuine second opinion (`cross-model`), the same model reviewing in its own separate context (`same-model-independent-context` - the honest default while every delegated role shares one model-policy tier), or a required independent check was structurally unavailable (`reduced-assurance`)' },
+      { field: 'independence.evidenceTier', type: '`"requested"` | `"served"`', required: 'yes (if `independence` present)', description: "What the `basis` claim itself rests on, borrowed from project-docs/seat-provenance-design.md's tier model: `requested` (what was asked for) or `served` (post-resolution proof of what actually answered). Every recorded `model` on this artifact is requested-tier today, so `basis` is too, until that design's served-tier probe lands" },
+      { field: 'independence.label', type: 'string', required: 'yes (if `independence` present)', description: 'The human-readable sentence a reader sees without decoding the two tokens above. NOT free text: it is DERIVED, a pure function of `basis` and `evidenceTier` (`canonicalIndependenceLabel` in `scripts/lib/review-standard.js`), and must EXACTLY EQUAL that function\'s output for the recorded tokens - one strict-equality check, no prefix match, no phrase check. A hand-phrased label can always find wording no finite check enumerates, so the claim sentence is no longer something a reviewer writes; only `basis`/`evidenceTier` are choices' },
+      { field: 'independence.reason', type: 'string', required: 'yes (if `basis` is `reduced-assurance`), optional otherwise', description: 'The human explanation the label used to embed as free text - what, specifically, made the independent check unavailable. Bounded free text (a reader\'s context, never a machine-checked claim): at most 500 UTF-8 bytes. Required non-empty when `basis` is `reduced-assurance` - a reduced-assurance acceptance with no stated reason is meaningless - optional for the other two bases' },
       { field: 'verdict', type: '`"pass"` | `"fail"` | `"blocked"`', required: 'yes', description: 'Review result. A missing or unreadable artifact is `blocked`, never a clean review' },
       { field: 'findings', type: 'object[]', required: 'yes', description: 'Findings. A written `[]` is a clean review; an absent key is not the same result and must not report as one' },
       { field: 'findings[].id', type: 'string (`f_<12 hex>`)', required: 'no (required once a disposition is recorded)', description: 'Stable finding id, DERIVED from content: `f_` + first 12 hex of `sha256(file + US + claim)`. Reviewers do not write it — it is stamped mechanically by `scripts/lib/review-finding.js`, which is the derivation authority. When present it must equal the derived value' },
       { field: 'findings[].severity', type: '`"blocking"` | `"advisory"`', required: 'yes', description: 'Importance, on the one scale (`scripts/lib/review-standard.js`). `blocking` = the diff makes something WORSE than before or fails the stated intent; `advisory` = everything else worth saying. There is no third level: a finding clearing neither bar is not reported at all. Legacy spellings are accepted and normalized — `P0`/`P1` to `blocking`, `P2`/`P3`/`warn` to `advisory`, legacy key `temperature` to `severity`' },
-      { field: 'findings[].confidence', type: '`"confirmed"` \\| `"possible"` \\| `"needs-verification"`', required: 'no', description: 'Certainty, on its own axis (B11). `confirmed` = the cited line was re-read and the claimed behaviour is there; `possible` = the line reads as claimed but the impact depends on an unfollowed path; `needs-verification` = the source could not be re-read at all, which requires a matching `observationGaps` entry. ORTHOGONAL to `severity` — severity is importance, confidence is certainty, neither is derived from the other, and all six combinations are legal. Optional: artifacts written before B11 carry no confidence and are read as unverified, never as confirmed' },
+      { field: 'findings[].confidence', type: '`"confirmed"` \\| `"possible"` \\| `"needs-verification"`', required: 'no', description: 'Certainty, on its own axis (B11). `confirmed` = the cited line was re-read and the claimed behaviour is there; `possible` = the line reads as claimed but the impact depends on an unfollowed path; `needs-verification` = the source could not be re-read at all, which requires a matching `observationGaps` entry. ORTHOGONAL to `severity` — severity is importance, confidence is certainty, neither is derived from the other, and all six combinations are legal. Optional: artifacts written before B11 carry no confidence and are read as unverified, never as confirmed. SUPERSEDED (B13) by `evidenceClass` + `citation` for any finding that carries them - a reviewer self-rating, kept only for back-compat' },
+      { field: 'findings[].evidenceClass', type: '`"quoted"` \\| `"observed"` \\| `"derived"` \\| `"inferred"`', required: 'no', description: 'B13, adopted from the fable-foreman digest. How the claim was reached - never self-rated confidence, which it supersedes. `quoted` and `observed` require a matching structured `citation` (below); `derived` requires a non-empty free-text locator; only `inferred` may omit it. Resolved deterministically, never asked of the reviewer as a score, by `scripts/validate-citations.mjs`, which computes calibration = resolved/resolvable across the artifact' },
+      { field: 'findings[].citation', type: 'object | string | `null`', required: "yes when evidenceClass is `quoted`, `observed`, or `derived`; else no", description: 'Shape follows `evidenceClass`: `{ file, line?, quote }` for `quoted` (file must exist; must be a normalized workspace-relative path - no absolute path, `../` traversal, or backslash, since it is untrusted content that `scripts/validate-citations.mjs` resolves against the real filesystem, which re-checks by canonical path against the workspace root for the symlink escapes this shape check cannot see; `quote` is REQUIRED non-empty text - a quoted citation with no quote is unresolvable-as-quoted, not a weaker legal one; it must appear in the file, whitespace-normalized; a given line must be within 5 lines of an occurrence of the quote); `{ command, expect? }` for `observed` (command must be non-empty - resolution is structural, the command is never re-run); a REQUIRED non-empty free-text locator string for `derived`; `null` or omitted for `inferred` - the only class where an absent citation is legal. A resolved citation proves the cited text/command EXISTS, not that it supports the claim; that judgment stays with the reader' },
       { field: 'findings[].preExisting', type: 'boolean', required: 'no', description: 'True for a real defect the diff did NOT introduce. It reports, never blocks, and never enters a fix loop, so `preExisting: true` alongside severity `blocking` is rejected. Omit when false' },
       { field: 'findings[].dimension', type: '`"cross-file-coherence"` | `"regression"` | `"semantic-accuracy"` | `"dead-code"` | `"convention-deviation"`', required: 'no', description: "Justice's review dimension. Optional and closed: before B10 it existed only in Justice's chat output format, so `scripts/baseline-report.js` could report precision per severity and per agent but never per dimension. Auditor has no dimension vocabulary and omits the key" },
       { field: 'findings[].file', type: 'string', required: 'yes', description: 'File the finding is about. Legacy key `component` is accepted and folds onto `file`' },
@@ -868,6 +972,91 @@ const SCHEMAS = {
             'entirely when nothing recorded it'
         );
       }
+
+      // Honest-degradation disclosure, adopted from the fable-foreman digest.
+      // Optional so no artifact on disk before this field existed starts
+      // failing - but a PRESENT object is fully enforced.
+      //
+      // `label` used to be free text checked against a required prefix, then
+      // against a finite blocklist of foreign phrases - both closed one
+      // smuggling shape and left the next one open, because prose is
+      // unbounded and neither a prefix nor a blocklist can enumerate it (a
+      // reduced-assurance suffix reading "independently reviewed by a
+      // different model" names none of the reserved phrases yet still
+      // overstates the acceptance). So `label` is no longer validated as
+      // prose at all: it is DERIVED from `basis`/`evidenceTier`
+      // (`canonicalIndependenceLabel`, scripts/lib/review-standard.js) and
+      // checked with ONE strict-equality comparison against that derivation.
+      // There is nothing left for a writer to phrase, so there is nothing
+      // left to smuggle. The human explanation moves to the separate
+      // `reason` field below, which is bounded free text rather than a
+      // machine-checked claim.
+      if (d.independence !== undefined) {
+        if (!isObject(d.independence)) {
+          errors.push('independence: must be an object if present');
+        } else {
+          const { basis, evidenceTier, label, reason } = d.independence;
+          const normalizedBasis = normalizeIndependenceBasis(basis);
+          if (!isNonEmptyString(basis)) {
+            errors.push('independence.basis: required non-empty string when independence is present');
+          } else if (!normalizedBasis) {
+            errors.push(
+              `independence.basis: must be one of ${INDEPENDENCE_BASIS_VALUES.join('|')}, got "${String(basis).trim()}"`
+            );
+          }
+          const normalizedTier = normalizeIndependenceEvidenceTier(evidenceTier);
+          if (!isNonEmptyString(evidenceTier)) {
+            errors.push('independence.evidenceTier: required non-empty string when independence is present');
+          } else if (!normalizedTier) {
+            errors.push(
+              `independence.evidenceTier: must be one of ${INDEPENDENCE_EVIDENCE_TIERS.join('|')}, got "${String(evidenceTier).trim()}"`
+            );
+          }
+          if (!isNonEmptyString(label)) {
+            errors.push(
+              'independence.label: required non-empty string when independence is present - it must ' +
+                'exactly equal canonicalIndependenceLabel(basis, evidenceTier)'
+            );
+          } else if (normalizedBasis) {
+            // `null` here means either basis/evidenceTier did not themselves
+            // validate (already reported above) or the basis needs a tier to
+            // render one and did not get it - either way there is no
+            // canonical string yet to compare against, so the label is left
+            // unchecked rather than compared to nothing.
+            const expected = canonicalIndependenceLabel(normalizedBasis, normalizedTier);
+            if (expected && label.trim() !== expected) {
+              errors.push(
+                `independence.label: must exactly equal the canonical label derived from basis ` +
+                  `"${normalizedBasis}"${normalizedTier ? ` and evidenceTier "${normalizedTier}"` : ''}: ` +
+                  `"${expected}", got "${label.trim()}"`
+              );
+            }
+          }
+
+          // `reason` carries the human explanation the label used to embed as
+          // free text. It is bounded (never a machine-checked claim, so a
+          // byte cap is enough) and REQUIRED for `reduced-assurance`: an
+          // acceptance labeled reduced with no stated reason is meaningless -
+          // indistinguishable from one that quietly forgot why.
+          if (reason !== undefined && typeof reason !== 'string') {
+            errors.push('independence.reason: must be a string if present');
+          } else {
+            if (typeof reason === 'string') {
+              const reasonBytes = Buffer.byteLength(reason, 'utf8');
+              if (reasonBytes > 500) {
+                errors.push(`independence.reason: must be at most 500 UTF-8 bytes, got ${reasonBytes}`);
+              }
+            }
+            if (normalizedBasis === 'reduced-assurance' && !isNonEmptyString(reason)) {
+              errors.push(
+                'independence.reason: required non-empty string when basis is "reduced-assurance" - a ' +
+                  'reduced-assurance acceptance with no stated reason is meaningless'
+              );
+            }
+          }
+        }
+      }
+
       const validVerdicts = ['pass', 'fail', 'blocked'];
       if (!validVerdicts.includes(d.verdict)) errors.push(`verdict: must be one of ${validVerdicts.join('|')}, got "${d.verdict}"`);
 
@@ -1095,7 +1284,7 @@ function main(argv) {
   process.stdout.write(`OK: ${artifactType} at ${resolvedPath} is valid (schema v${data._meta?.version ?? '?'})\n`);
 }
 
-module.exports = { SCHEMAS, validate, validateMeta, main };
+module.exports = { SCHEMAS, validate, validateMeta, main, EXECUTION_TASK_STATUSES };
 
 if (require.main === module) {
   try {

@@ -266,12 +266,14 @@ function resolveRecord(payload, wakeDir, threshold) {
 /**
  * classify(record, threshold) -> { verdict: 'actionable'|'benign', reason }
  *
- * ACTIONABLE when any of: missing/garbage record; status 'failed'; a status that
- * is not terminal (the agent never reported one); a non-null blocker; a numeric
- * selfReviewScore below threshold; a drift flag; or last-agent-in-wave. Wave
- * membership is derived from record.wave.isLastInWave; when it is not a boolean
- * the position is underivable, so we fail open to actionable. BENIGN only when
- * the record positively proves passed + mid-wave.
+ * ACTIONABLE when any of: missing/garbage record; status 'failed'; status
+ * 'needs-context' (reported, but the agent cannot proceed without Chief); status
+ * 'done-with-concerns' (reported and terminal, but carries a concern Chief must
+ * read); a status that is not terminal (the agent never reported one); a
+ * non-null blocker; a numeric selfReviewScore below threshold; a drift flag; or
+ * last-agent-in-wave. Wave membership is derived from record.wave.isLastInWave;
+ * when it is not a boolean the position is underivable, so we fail open to
+ * actionable. BENIGN only when the record positively proves passed + mid-wave.
  *
  * The non-terminal check is what makes a dead agent visible. Chief writes the
  * stub at spawn with `status: "spawned"` and only overwrites it after reading a
@@ -281,11 +283,13 @@ function resolveRecord(payload, wakeDir, threshold) {
  * `passed-mid-wave`, which is the exact shape of a wave that silently never
  * lands. A stub is proof of a spawn, never proof of a completion.
  */
-const TERMINAL_STATUSES = new Set(['done', 'passed', 'skipped']);
+const TERMINAL_STATUSES = new Set(['done', 'passed', 'skipped', 'done-with-concerns']);
 
 function classify(record, threshold) {
   if (!record || typeof record !== 'object') return { verdict: 'actionable', reason: 'missing-record' };
   if (record.status === 'failed') return { verdict: 'actionable', reason: 'failed' };
+  if (record.status === 'needs-context') return { verdict: 'actionable', reason: 'needs-context' };
+  if (record.status === 'done-with-concerns') return { verdict: 'actionable', reason: 'done-with-concerns' };
   if (!TERMINAL_STATUSES.has(record.status)) return { verdict: 'actionable', reason: 'never-reported' };
   if (record.blocker != null) return { verdict: 'actionable', reason: 'blocker' };
   if (typeof record.selfReviewScore === 'number' && record.selfReviewScore < threshold) {

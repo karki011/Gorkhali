@@ -163,6 +163,78 @@ const REVIEW_AXES = Object.freeze([
 ]);
 
 // ---------------------------------------------------------------------------
+// Evidence class + citation (B13, adopted from the fable-foreman digest's
+// finding contract).
+// ---------------------------------------------------------------------------
+// The digest names a failure this repo had not yet closed: a reviewer asked to
+// self-rate confidence can rate confidently and be wrong, because nothing checks
+// the rating against anything. Its fix is to stop asking for a rating at all -
+// every finding instead carries an EVIDENCE CLASS (how the claim was reached)
+// plus a CITATION a machine can resolve, and calibration is COMPUTED from
+// whether citations resolve (`scripts/validate-citations.mjs`), never self-rated.
+// A resolved citation proves the cited text/command EXISTS, not that it supports
+// the claim - that judgment call stays with whoever reads the review, same as it
+// always has.
+const EVIDENCE_CLASSES = [
+  {
+    value: 'quoted',
+    text:
+      'Verbatim text cited from the source. `citation` is `{ file, line?, quote }`; `quote` is ' +
+      'REQUIRED non-empty text - a quoted citation with no quote text is unresolvable-as-quoted, ' +
+      'not a weaker resolvable claim. `scripts/validate-citations.mjs` resolves it ' +
+      'deterministically: the file must exist, the `quote` must appear in it (whitespace-' +
+      'normalized), and a given `line` must fall within 5 lines of an occurrence of the quote.',
+  },
+  {
+    value: 'observed',
+    text:
+      'A command was run and its output is what the finding cites. `citation` is ' +
+      '`{ command, expect? }`; resolution is structural (the command is non-empty) - the ' +
+      'command is not re-run.',
+  },
+  {
+    value: 'derived',
+    text:
+      'Reasoned from other cited facts rather than a fresh read of source or a fresh command. ' +
+      '`citation` is a REQUIRED free-text locator naming what it was derived from; not machine-' +
+      'resolved, but a derived finding must still say where its reasoning came from.',
+  },
+  {
+    value: 'inferred',
+    text:
+      'A hypothesis with no direct citation. `citation` may be omitted or `null` - the only ' +
+      'evidence class where an absent citation is legal.',
+  },
+];
+
+const EVIDENCE_CLASS_VALUES = EVIDENCE_CLASSES.map((e) => e.value);
+
+/** Canonical evidence class for an exact token, or `null`. Closed vocabulary - no aliases. */
+function normalizeEvidenceClass(value) {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim().toLowerCase();
+  return EVIDENCE_CLASS_VALUES.includes(raw) ? raw : null;
+}
+
+// The confidence axis above (`confirmed`/`possible`/`needs-verification`) is a
+// reviewer SELF-RATING: the reviewer decides how sure it is and writes that down.
+// The digest's hard rule is to never ask for that rating - "calibration is
+// computed by the foreman from whether the citations resolve" - so evidence
+// class + citation SUPERSEDES it for any finding that carries them. `confidence`
+// is kept, unchanged, for back-compat with every artifact already on disk and
+// every consumer that reads it (B11's precision gate among them); a NEW finding
+// should carry `evidenceClass`/`citation` instead of a self-rated `confidence`.
+const CALIBRATION_RULE = {
+  title: 'Confidence is computed, not self-rated',
+  text:
+    'Per-finding `confidence` is a reviewer self-rating. It is superseded by `evidenceClass` + ' +
+    '`citation`: calibration is COMPUTED from whether citations resolve ' +
+    '(`scripts/validate-citations.mjs`), never asked of the reviewer as a confidence score. ' +
+    'Kept on the schema for back-compat with artifacts written before this existed - write ' +
+    '`evidenceClass`/`citation` on every new finding instead of self-rating `confidence`.',
+};
+
+// ---------------------------------------------------------------------------
 // The reviewer model (F11).
 // ---------------------------------------------------------------------------
 // F11: a run on 2026-08-13 shows `auditor` — the one default reviewer, pinned
@@ -211,6 +283,148 @@ function normalizeReviewerModel(value) {
 }
 
 // ---------------------------------------------------------------------------
+// Independence disclosure (honest-degradation labels, adopted from the
+// fable-foreman digest).
+// ---------------------------------------------------------------------------
+// Foreman's rule: when a verifier and the work it checks resolve to the same
+// model, say so plainly - "blind-verified (same model, independent context)"
+// - rather than letting the report imply an independent second opinion nobody
+// obtained; when no legal independent check exists at all, label the
+// acceptance "accepted under reduced assurance", never a silent clean pass.
+//
+// In Phantom this is the NORM, not an edge case: every delegated role
+// (Engineer, Inspector, Auditor, Justice) runs on one model-policy tier today,
+// so same-model review is what happens on every ship. The label exists to
+// state that evidence basis honestly rather than dress it up as more than it
+// is. `evidenceTier` borrows its two values from project-docs/seat-provenance
+// -design.md's REQUESTED/SERVED tier model: everything `hooks/timing-capture.js`
+// resolves today is REQUESTED (what was asked for), never SERVED (post-
+// resolution proof of what actually answered) - so `model` itself, on this
+// same artifact, is requested-tier evidence until that design's v1 lands.
+const INDEPENDENCE_BASIS = [
+  {
+    value: 'same-model-independent-context',
+    text:
+      'The reviewer resolved to the same model as the work under review, in its own separate ' +
+      'context/spawn. The honest default while every delegated role shares one model-policy tier.',
+  },
+  {
+    value: 'cross-model',
+    text:
+      'The reviewer resolved to a model different from the work under review - a genuine second ' +
+      'opinion, not merely a second context.',
+  },
+  {
+    value: 'reduced-assurance',
+    text:
+      'A structurally required independent check was unavailable (no legal cross-model reviewer, a ' +
+      'specialist role that could not be spawned, and so on). The acceptance is labeled reduced, ' +
+      'never silently treated as a clean pass.',
+  },
+];
+
+const INDEPENDENCE_BASIS_VALUES = INDEPENDENCE_BASIS.map((b) => b.value);
+
+// REQUESTED/SERVED, unchanged from project-docs/seat-provenance-design.md §2:
+// REQUESTED is what timing-capture.js resolves today (spawn param, frontmatter
+// pin, or session inheritance); SERVED is post-resolution proof of what
+// actually answered, not yet reachable for an Agent-tool dispatch. This field
+// says which tier the recorded `basis` itself rests on - it is never upgraded
+// to `served` by this file, only by whatever eventually implements that design.
+const INDEPENDENCE_EVIDENCE_TIERS = ['requested', 'served'];
+
+/** Canonical independence basis for an exact token, or `null`. Closed vocabulary - no aliases. */
+function normalizeIndependenceBasis(value) {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim().toLowerCase();
+  return INDEPENDENCE_BASIS_VALUES.includes(raw) ? raw : null;
+}
+
+/** Canonical evidence tier for an exact token, or `null`. Closed vocabulary - no aliases. */
+function normalizeIndependenceEvidenceTier(value) {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim().toLowerCase();
+  return INDEPENDENCE_EVIDENCE_TIERS.includes(raw) ? raw : null;
+}
+
+// Iteration history, kept here because it explains why the label is built
+// the way it is below rather than restated as tribal knowledge:
+//   1. `label` started as pure free text - "independent" could quietly mean
+//      whatever the writer felt like.
+//   2. A REQUIRED PREFIX per basis closed that, until a reviewer noticed the
+//      prefix only constrains the START of the string: a reduced-assurance
+//      label could still append "...but blind-verified (same model,
+//      independent context) anyway" after its own prefix.
+//   3. A FINITE FOREIGN-PHRASE BLOCKLIST closed THAT gap, checking the other
+//      bases' phrases anywhere in the string - until a reviewer pointed out
+//      the obvious next hole: no finite list bounds English. A
+//      reduced-assurance suffix reading "independently reviewed by a
+//      different model" contains none of the three reserved phrases and
+//      would sail through a blocklist forever.
+//
+// There is no fourth patch, because the failure mode is structural, not a
+// missing case: prose is unbounded and a validator cannot enumerate it. The
+// fix is to STOP VALIDATING PROSE. `label` is no longer free text - it is
+// DERIVED, a pure function of `basis` and `evidenceTier`
+// (`canonicalIndependenceLabel` below), and `scripts/validate-artifact.js`
+// checks it with ONE strict-equality comparison against that derivation.
+// There is nothing left for a writer to phrase, so there is nothing left to
+// smuggle. The human explanation that used to live inside the label - what,
+// specifically, was unavailable - moves to a separate `independence.reason`
+// field, which is validated as bounded free text (a reader's context, never
+// a machine-checked claim) and REQUIRED when `basis` is `reduced-assurance`.
+
+/**
+ * The independence label, DERIVED from `basis` and `evidenceTier` - never
+ * hand-written, never free text. `null` when either input does not resolve
+ * to a closed-vocabulary token, or (for `same-model-independent-context` /
+ * `cross-model`) when `evidenceTier` is missing: those two bases render a
+ * tier phrase into the label, so there is nothing correct to derive without
+ * one. `reduced-assurance` needs no tier to render - it makes no
+ * independence claim for a tier phrase to attach to, which is also why its
+ * label is the same constant regardless of `evidenceTier`.
+ */
+function canonicalIndependenceLabel(basis, evidenceTier) {
+  const b = normalizeIndependenceBasis(basis);
+  if (!b) return null;
+  if (b === 'reduced-assurance') return 'accepted under reduced assurance';
+  const t = normalizeIndependenceEvidenceTier(evidenceTier);
+  if (!t) return null;
+  if (b === 'same-model-independent-context') {
+    return `blind-verified (same model, independent context; model identity is ${t}-tier evidence)`;
+  }
+  // b === 'cross-model'
+  return `cross-model review (${t}-tier evidence)`;
+}
+
+// Today's truthful default, everywhere: same-model review is the norm (every
+// delegated role shares one model-policy tier), and model identity itself is
+// only requested-tier evidence until seat-provenance-design.md's v1 lands.
+// `label` is DERIVED, not typed by hand, so it cannot drift from what
+// `canonicalIndependenceLabel` itself would produce for these two inputs.
+const DEFAULT_INDEPENDENCE = Object.freeze({
+  basis: 'same-model-independent-context',
+  evidenceTier: 'requested',
+  label: canonicalIndependenceLabel('same-model-independent-context', 'requested'),
+});
+
+/**
+ * BACK-COMPAT SHIM ONLY. This used to build the `reduced-assurance` label by
+ * embedding a caller-supplied reason as free text after the prefix
+ * (`accepted under reduced assurance: <reason>`) - exactly the shape a
+ * validator can never fully bound (see the iteration history above). The
+ * label is now the canonical CONSTANT alone; the explanation belongs in the
+ * separate `independence.reason` field instead, which `scripts/validate-
+ * artifact.js` requires (non-empty, capped) whenever `basis` is
+ * `reduced-assurance`. The parameter is accepted so existing call sites keep
+ * compiling, but it is IGNORED - pass the same text to `independence.reason`
+ * directly rather than through this function.
+ */
+function reducedAssuranceLabel(_reason) {
+  return canonicalIndependenceLabel('reduced-assurance', 'requested');
+}
+
+// ---------------------------------------------------------------------------
 // The one shape.
 // ---------------------------------------------------------------------------
 // Canonical keys, in the order the schema documents them. `id` and the
@@ -220,6 +434,8 @@ const CANONICAL_FINDING_KEYS = Object.freeze([
   'id',
   'severity',
   'confidence',
+  'evidenceClass',
+  'citation',
   'preExisting',
   'dimension',
   'file',
@@ -791,6 +1007,8 @@ function renderConfidenceTable() {
     '',
     `**${CONFIDENCE_RULE.title}.** ${CONFIDENCE_RULE.text}`,
     '',
+    `**${CALIBRATION_RULE.title}.** ${CALIBRATION_RULE.text}`,
+    '',
     'Three axes, three questions, none of them derived from another:',
     '',
     '| Axis | Field | Kind | Question | Values |',
@@ -850,11 +1068,19 @@ function renderFindingShape() {
     '{',
     '  "role": "auditor",',
     '  "model": "the model this review RAN on - omit unless the host told you",',
+    '  "independence": {',
+    `    "basis": "${INDEPENDENCE_BASIS_VALUES.join('|')}",`,
+    `    "evidenceTier": "${INDEPENDENCE_EVIDENCE_TIERS.join('|')}",`,
+    '    "label": "DERIVED - must exactly equal canonicalIndependenceLabel(basis, evidenceTier)",',
+    '    "reason": "free text; required when basis is reduced-assurance, optional otherwise"',
+    '  },',
     '  "verdict": "pass|fail|blocked",',
     '  "findings": [',
     '    {',
     `      "severity": "${SEVERITY_VALUES.join('|')}",`,
     `      "confidence": "${CONFIDENCE_VALUES.join('|')}",`,
+    `      "evidenceClass": "${EVIDENCE_CLASS_VALUES.join('|')}",`,
+    '      "citation": { "file": "src/example.ts", "line": 42, "quote": "what you read, verbatim" },',
     '      "preExisting": false,',
     '      "file": "src/example.ts",',
     '      "line": 42,',
@@ -882,7 +1108,45 @@ function renderFindingShape() {
     '`convergence` are stamped mechanically after you report (`scripts/lib/review-finding.js`,',
     '`hooks/loop-controller.js`, `scripts/review-round.js`) — never write them yourself.',
     '',
+    ...wrap(
+      `\`evidenceClass\` is OPTIONAL (back-compat) and closed: ${EVIDENCE_CLASS_VALUES.join('/')}. ` +
+        'It supersedes self-rated `confidence` (see the confidence section above) - write it on ' +
+        'every new finding instead. `citation` is REQUIRED once `evidenceClass` is `quoted`, ' +
+        '`observed`, or `derived`, and its shape follows the class: `{ file, line?, quote }` for ' +
+        '`quoted` (quote text is required - a quoted citation with no quote is unresolvable-as-' +
+        'quoted, not a weaker legal one), `{ command, expect? }` for `observed`, a non-empty ' +
+        'free-text locator string for `derived`, and `null` (or omitted) for `inferred` - the ' +
+        'only class where an absent citation is legal. Run `node scripts/validate-citations.mjs ' +
+        '<artifact> --root <workspace-root>` to resolve every citation deterministically and ' +
+        'compute calibration; `--root` is REQUIRED because an artifact lives in a session ' +
+        'directory while citation file paths are workspace-relative. It never asks you, or ' +
+        'anyone, to self-rate.'
+    ),
+    '',
     ...wrap(`\`${REVIEWER_MODEL.field}\` is ${REVIEWER_MODEL.text} ${REVIEWER_MODEL.whyItMatters}`),
+    '',
+    ...wrap(
+      '`independence` is OPTIONAL (back-compat: absent on every artifact written before this field ' +
+        'existed) but STRONGLY EXPECTED going forward, and recorded once for the whole artifact, same ' +
+        'as `model`. `basis` names whether this review is a genuine second opinion ' +
+        `(\`${INDEPENDENCE_BASIS_VALUES[1]}\`) or the same model reviewing in its own separate context ` +
+        `(\`${INDEPENDENCE_BASIS_VALUES[0]}\`, the honest default while every delegated role shares one ` +
+        `model-policy tier), or that a required independent check was structurally unavailable ` +
+        `(\`${INDEPENDENCE_BASIS_VALUES[2]}\`). \`evidenceTier\` states what that claim itself rests on: ` +
+        '`requested` (what was asked for) or `served` (post-resolution proof of what actually answered) ' +
+        '- today every recorded `model` is requested-tier, so `basis` is too, until seat-provenance-' +
+        'design.md\'s served-tier probe lands. `label` is NOT free text: it is DERIVED, a pure ' +
+        'function of `basis` and `evidenceTier` (`canonicalIndependenceLabel` in review-standard.js), ' +
+        'and must EXACTLY EQUAL that function\'s output for the two tokens you recorded - no prefix ' +
+        'match, no phrase check, one strict-equality comparison. A hand-phrased label can always find ' +
+        'wording no finite check enumerates ("independently reviewed by a different model" names no ' +
+        'reserved phrase yet still overstates a reduced-assurance acceptance), so the claim sentence ' +
+        'is no longer something you write at all - only `basis` and `evidenceTier` are choices; the ' +
+        'label follows mechanically. The human explanation - what, specifically, made the check ' +
+        'unavailable - goes in the separate `reason` field instead: free text, capped at 500 UTF-8 ' +
+        'bytes, REQUIRED (non-empty) when `basis` is `reduced-assurance` because a reduced-assurance ' +
+        'acceptance with no stated reason is meaningless, optional for the other two bases.'
+    ),
     '',
     'A clean review is `"verdict": "pass"` with a written `"findings": []`. An absent key is a',
     'DIFFERENT result — it means no review landed — and must never report as a clean one.',
@@ -916,8 +1180,20 @@ module.exports = {
   CONFIDENCE_VALUES,
   CONFIDENCE_ALIASES,
   normalizeConfidence,
+  EVIDENCE_CLASSES,
+  EVIDENCE_CLASS_VALUES,
+  normalizeEvidenceClass,
+  CALIBRATION_RULE,
   REVIEWER_MODEL,
   normalizeReviewerModel,
+  INDEPENDENCE_BASIS,
+  INDEPENDENCE_BASIS_VALUES,
+  INDEPENDENCE_EVIDENCE_TIERS,
+  normalizeIndependenceBasis,
+  normalizeIndependenceEvidenceTier,
+  canonicalIndependenceLabel,
+  DEFAULT_INDEPENDENCE,
+  reducedAssuranceLabel,
   REVIEW_AXES,
   PRECISION_GATE,
   precisionGate,

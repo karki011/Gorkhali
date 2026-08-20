@@ -256,6 +256,8 @@ NOT fixed, and not this item's job:
 - Nothing WRITES `model` yet. The honest source is the instrumentation that already knows the effective model (`hooks/timing-capture.js` resolves param > frontmatter pin > session-inherited), not the reviewer's self-report, which would just restate the pin. Until a writer lands, every corpus reads `model` unrecorded and the gate refuses — which is the intended state, not a regression.
 - The frontmatter-vs-policy drift row still prints `match` for auditor. It compares the pin against the policy, and neither one is what ran; the OBSERVED column beside it is the real signal (B1).
 
+See `project-docs/seat-provenance-design.md` for the v1 capture/tier design implementing this item, including a correction to the OBSERVED-column claim above: that column is REQUESTED-tier data from `hooks/timing-capture.js`, not served-model proof.
+
 **F12. Merge rate counts a still-open PR as not-merged.**
 `scripts/baseline-report.js:1068` computes `mergeRate = merged / ghResolved`, and `ghResolved` includes open PRs.
 The 2026-08-13 run reports merged 9, open 2, closed 0 over 11 resolved — printed as 81.8%.

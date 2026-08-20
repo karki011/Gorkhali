@@ -103,6 +103,8 @@ cannot tell a confident nit from an unsure bug skims both.
 
 **Confidence is not severity.** Severity is importance, confidence is certainty, and neither is computed from the other. All six combinations are legal: an unsure bug is `blocking` and `possible`, a certain nit is `advisory` and `confirmed`.
 
+**Confidence is computed, not self-rated.** Per-finding `confidence` is a reviewer self-rating. It is superseded by `evidenceClass` + `citation`: calibration is COMPUTED from whether citations resolve (`scripts/validate-citations.mjs`), never asked of the reviewer as a confidence score. Kept on the schema for back-compat with artifacts written before this existed - write `evidenceClass`/`citation` on every new finding instead of self-rating `confidence`.
+
 Three axes, three questions, none of them derived from another:
 
 | Axis | Field | Kind | Question | Values |
@@ -183,11 +185,19 @@ verdict; a finding added later goes through the same verification pass first:
 {
   "role": "auditor",
   "model": "the model this review RAN on - omit unless the host told you",
+  "independence": {
+    "basis": "same-model-independent-context|cross-model|reduced-assurance",
+    "evidenceTier": "requested|served",
+    "label": "DERIVED - must exactly equal canonicalIndependenceLabel(basis, evidenceTier)",
+    "reason": "free text; required when basis is reduced-assurance, optional otherwise"
+  },
   "verdict": "pass|fail|blocked",
   "findings": [
     {
       "severity": "blocking|advisory",
       "confidence": "confirmed|possible|needs-verification",
+      "evidenceClass": "quoted|observed|derived|inferred",
+      "citation": { "file": "src/example.ts", "line": 42, "quote": "what you read, verbatim" },
       "preExisting": false,
       "file": "src/example.ts",
       "line": 42,
@@ -215,6 +225,18 @@ empty array both mean "nothing discarded". `id`, `disposition`, `dispositionReas
 `convergence` are stamped mechanically after you report (`scripts/lib/review-finding.js`,
 `hooks/loop-controller.js`, `scripts/review-round.js`) — never write them yourself.
 
+`evidenceClass` is OPTIONAL (back-compat) and closed: quoted/observed/derived/inferred. It
+supersedes self-rated `confidence` (see the confidence section above) - write it on every new
+finding instead. `citation` is REQUIRED once `evidenceClass` is `quoted`, `observed`, or
+`derived`, and its shape follows the class: `{ file, line?, quote }` for `quoted` (quote text
+is required - a quoted citation with no quote is unresolvable-as-quoted, not a weaker legal
+one), `{ command, expect? }` for `observed`, a non-empty free-text locator string for
+`derived`, and `null` (or omitted) for `inferred` - the only class where an absent citation is
+legal. Run `node scripts/validate-citations.mjs <artifact> --root <workspace-root>` to resolve
+every citation deterministically and compute calibration; `--root` is REQUIRED because an
+artifact lives in a session directory while citation file paths are workspace-relative. It
+never asks you, or anyone, to self-rate.
+
 `model` is OPTIONAL, and recorded once for the whole artifact: the model this review actually
 RAN on. Write it only from what the host reports about the running model. NEVER copy it from a
 frontmatter pin or from model-policy.json — a pin is what was requested, and F11 measured the
@@ -223,6 +245,27 @@ Omit the key when nothing told you; an absent model is honest, a guessed one is 
 precision gate compares findings that carry a `confidence` against findings that do not. If
 those two populations ran on different models the gate measures the MODEL, not the verification
 pass, so it REFUSES to produce a verdict unless both sides share one recorded model.
+
+`independence` is OPTIONAL (back-compat: absent on every artifact written before this field
+existed) but STRONGLY EXPECTED going forward, and recorded once for the whole artifact, same as
+`model`. `basis` names whether this review is a genuine second opinion (`cross-model`) or the
+same model reviewing in its own separate context (`same-model-independent-context`, the honest
+default while every delegated role shares one model-policy tier), or that a required
+independent check was structurally unavailable (`reduced-assurance`). `evidenceTier` states
+what that claim itself rests on: `requested` (what was asked for) or `served` (post-resolution
+proof of what actually answered) - today every recorded `model` is requested-tier, so `basis`
+is too, until seat-provenance-design.md's served-tier probe lands. `label` is NOT free text: it
+is DERIVED, a pure function of `basis` and `evidenceTier` (`canonicalIndependenceLabel` in
+review-standard.js), and must EXACTLY EQUAL that function's output for the two tokens you
+recorded - no prefix match, no phrase check, one strict-equality comparison. A hand-phrased
+label can always find wording no finite check enumerates ("independently reviewed by a
+different model" names no reserved phrase yet still overstates a reduced-assurance acceptance),
+so the claim sentence is no longer something you write at all - only `basis` and `evidenceTier`
+are choices; the label follows mechanically. The human explanation - what, specifically, made
+the check unavailable - goes in the separate `reason` field instead: free text, capped at 500
+UTF-8 bytes, REQUIRED (non-empty) when `basis` is `reduced-assurance` because a
+reduced-assurance acceptance with no stated reason is meaningless, optional for the other two
+bases.
 
 A clean review is `"verdict": "pass"` with a written `"findings": []`. An absent key is a
 DIFFERENT result — it means no review landed — and must never report as a clean one.

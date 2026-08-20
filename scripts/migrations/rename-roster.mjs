@@ -98,7 +98,15 @@ export const NOT_RENAMED = ['scout', 'council', 'explore', 'planner', 'hunter'];
 // `.apex-active`) sentinel as an in-code upgrade-shim comparison, and both
 // files ARE scanned (`.js` extension) - so `blade` needs the same
 // AMBIGUOUS_TOKENS/FILE_EXEMPT treatment `apex` gets, see FILE_EXEMPT.blade.
-export const AMBIGUOUS_TOKENS = ['lens', 'sweep', 'ward', 'hound', 'apex', 'blade'];
+//
+// `pravo` (a CHARACTER_MAP token, not a role token) needs the same mechanism
+// for a different reason: it survives a real \b boundary (unlike
+// orin/sena/oda's substring-pollution problem) because
+// project-docs/seat-provenance-design.md quotes, verbatim, the real on-disk
+// filename `agent-records/blade-pravo.json` as an evidence sample - rewriting
+// the character name there would misrepresent the file that was actually
+// observed, not just restate old vocabulary in prose. See FILE_EXEMPT.pravo.
+export const AMBIGUOUS_TOKENS = ['lens', 'sweep', 'ward', 'hound', 'apex', 'blade', 'pravo'];
 
 // ---------------------------------------------------------------------------
 // SPECIAL PHRASES - applied before the generic map, whole-content, so a
@@ -165,6 +173,10 @@ export const EXCEPTIONS = {
   // literal .blade-editing sentinel filename or a comment describing it, and
   // FILE_EXEMPT.blade covers both files that reference it.
   blade: [],
+  // No regex pattern needed: the one pravo occurrence left in the tree is the
+  // real on-disk filename in a verbatim-quoted evidence sample, and
+  // FILE_EXEMPT.pravo covers the single file that quotes it.
+  pravo: [],
 };
 
 // Whole-file exemptions: every "sweep" occurrence in these files is the
@@ -211,6 +223,12 @@ export const FILE_EXEMPT = {
     // sentinel reasoning as the two files above.
     'hooks/engineer-marker-state.js',
     'test/engineer-marker-mutex.test.js',
+    // verbatim pre-0.8.0 telemetry samples quoted as evidence (timing-capture
+    // spawn record, an agent-records/blade-*.json filename) - rewriting the
+    // quoted `"agent":"blade"` field value or the real on-disk filename would
+    // falsify the sample being cited, so this file is exempted rather than
+    // patterned around line-by-line.
+    'project-docs/seat-provenance-design.md',
   ],
   // Every "lens" occurrence in this file is the ideas[] approach-lens schema
   // field name (brainstorm contract v3: `{ id, title, summary, lens,
@@ -226,6 +244,11 @@ export const FILE_EXEMPT = {
     'test/portable-lifecycle.test.js',
     'test/state-interoperability.test.js',
   ],
+  // The real on-disk filename `agent-records/blade-pravo.json` is quoted
+  // verbatim in this one file as an observed evidence sample (section 1d) -
+  // same reasoning as the blade entry immediately above, for the character
+  // half of that same filename.
+  pravo: ['project-docs/seat-provenance-design.md'],
 };
 
 // ---------------------------------------------------------------------------

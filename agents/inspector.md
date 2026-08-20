@@ -38,6 +38,10 @@ Complete the entire contract in a single run: do not end your turn until the dis
 Use only:
 
 - `passed` — ran and exited successfully;
+- `passed-with-notes` - ran and exited successfully, but you have a non-blocking
+  observation worth surfacing (record it in `evidence`, not as a separate
+  field). Never use this to soften a real failure - if the check's own contract
+  was not met, that is `failed`, not `passed-with-notes`;
 - `failed` — ran and failed its contract;
 - `blocked` — could not run because a required capability or environment was
   unavailable;
