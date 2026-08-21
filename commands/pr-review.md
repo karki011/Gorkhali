@@ -161,9 +161,25 @@ Draft one comment. Do NOT post it, and never submit a formal GitHub review
 (Approve / Request changes) - blocking another author's branch is a human
 decision.
 
-Structure the draft so a reader can act without expanding anything: verdict,
-each blocking finding's claim, and the remediation list. Put evidence tables,
-advisory findings and review limits behind `<details>`.
+The reader deciding whether to act sees only decisions; everything that
+justifies a decision is one click deep. So above the fold, and only this: the
+verdict line; each blocking finding's claim as a single bold sentence (the
+file:line citation stays in the collapsed evidence, not the claim); and that
+finding's remediation list, numbered when there are alternative paths that
+each close the finding.
+
+Everything else goes behind `<details>`, each with a `<summary>` that names
+what it holds without being opened, so the reader can skip it with confidence
+rather than open it to find out:
+
+- Each blocking finding's evidence - the quotes, the corroborating lines, the
+  reasoning - in its OWN `<details>` block, not merged with the claim above it.
+- All advisory findings in one block, its `<summary>` carrying the count and
+  the gate status, e.g. "Advisory findings (6 - none gate)".
+- The acceptance-criteria scorecard, as a table with one row per AC (status
+  plus one-line evidence). This block earns its place only when
+  `intentSource` is `"ticket"` - an inferred intent has no criteria to score.
+- The verification-performed-and-limits section (see below).
 
 Now derive remediation for findings that survived step 4, and only those.
 
