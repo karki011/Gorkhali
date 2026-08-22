@@ -1,6 +1,6 @@
 # Agents
 
-Multi-agent shadows for this repository. Compatible with Claude Code, Cursor, Windsurf.
+Multi-agent shadows for this repository. Compatible with Claude Code, Codex, Kimi Code, Cursor, Windsurf.
 
 ## Shadows
 

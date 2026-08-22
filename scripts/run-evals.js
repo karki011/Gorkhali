@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// run-evals.js — Runs evals/evals.json against the claude CLI.
+// run-evals.js — Runs evals/evals.json against a host CLI (claude or kimi).
 // Kinds: trigger (default when absent) | route | convention. See evals/README.md.
 // Usage: run-evals.js [--filter <skill|kind|id[,..]>] [--model <alias>]
-//        [--dry-run] [--baseline] [--gate] [--date <YYYY-MM-DD>] [--concurrency N]
-//        [--keep-transcripts <dir>]
+//        [--host <claude-code|kimi>] [--dry-run] [--baseline] [--gate]
+//        [--date <YYYY-MM-DD>] [--concurrency N] [--keep-transcripts <dir>]
 // Env: PHANTOM_EVAL_TIMEOUT_S (per-case cap, default 60)
-//      PHANTOM_EVAL_JUDGE_MODEL (llm-judge model, default haiku)
+//      PHANTOM_EVAL_JUDGE_MODEL (llm-judge model, default haiku / k3 on host kimi)
 //      PHANTOM_EVAL_CLAUDE_BIN  (claude binary override)
+//      PHANTOM_EVAL_KIMI_BIN    (kimi binary override, default `kimi`)
 //      PHANTOM_EVAL_DATE        (baseline date fallback for --baseline)
+// --host kimi drives the kimi CLI only — the claude binary is never spawned on
+// that host, so no eval request can reach Anthropic or OpenAI through this runner.
 // Live runs spend tokens — `npm run evals` stays --dry-run by default.
 // Exit 0 = all pass (or clean dry run), 1 = any failure.
 //
@@ -28,16 +31,24 @@ const BASELINES_DIR = path.join(ROOT, 'evals', 'baselines');
 
 const KINDS = ['trigger', 'route', 'convention'];
 const ROUTES = ['DIRECT', 'PLAN', 'BRAINSTORM', 'FULL'];
+const HOSTS = ['claude-code', 'kimi'];
+// Model alias assumed when --model is absent, per host. claude-code leaves the
+// CLI's own default in place (null = no --model flag, baseline key "default");
+// kimi pins k3 (the Kimi Code CLI model ID, not the platform's kimi-k3) so a
+// host=kimi run can never drift onto a user-configured default pointing at
+// another provider.
+const DEFAULT_HOST_MODEL = { 'claude-code': null, kimi: 'k3' };
+const DEFAULT_JUDGE_MODEL = { 'claude-code': 'haiku', kimi: 'k3' };
 const JUDGE_TRANSCRIPT_CAP = 20000;
 const JUDGE_OMISSION = '\n... [middle omitted for judge] ...\n';
 const STREAM_EVENT_TYPES = new Set(['assistant', 'result', 'system', 'user']);
 
 const USAGE = `Usage: node scripts/run-evals.js [--filter <skill|kind|id[,..]>] [--model <alias>]
-       [--dry-run] [--baseline] [--gate] [--date <YYYY-MM-DD>] [--concurrency N]
-       [--keep-transcripts <dir>]`;
+       [--host <claude-code|kimi>] [--dry-run] [--baseline] [--gate] [--date <YYYY-MM-DD>]
+       [--concurrency N] [--keep-transcripts <dir>]`;
 
 function parseArgs(argv) {
-  const opts = { filter: null, model: null, dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null };
+  const opts = { filter: null, model: null, host: 'claude-code', dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null };
   // A silently-missing value (e.g. a bare --filter on a live run) would
   // execute ALL cases — a token hazard. Fail loud instead.
   const takeValue = (flag, i) => {
@@ -52,6 +63,7 @@ function parseArgs(argv) {
     else if (a === '--gate') opts.gate = true;
     else if (a === '--filter') opts.filter = takeValue(a, ++i);
     else if (a === '--model') opts.model = takeValue(a, ++i);
+    else if (a === '--host') opts.host = takeValue(a, ++i);
     else if (a === '--date') opts.date = takeValue(a, ++i);
     else if (a === '--concurrency') opts.concurrency = parseInt(takeValue(a, ++i), 10);
     else if (a === '--keep-transcripts') opts.keepTranscripts = takeValue(a, ++i);
@@ -59,6 +71,9 @@ function parseArgs(argv) {
   }
   if (!Number.isInteger(opts.concurrency) || opts.concurrency < 1) {
     throw new Error('--concurrency must be a positive integer');
+  }
+  if (!HOSTS.includes(opts.host)) {
+    throw new Error(`--host must be one of ${HOSTS.join('|')} (got "${opts.host}")`);
   }
   // --baseline WRITES the record --gate reads. Doing both in one run would
   // compare a run to itself and pass unconditionally.
@@ -82,6 +97,14 @@ function validateCase(c) {
   if (!KINDS.includes(kind)) {
     errs.push(`unknown kind "${c.kind}" (expected ${KINDS.join('|')})`);
     return errs;
+  }
+  // Optional host scope: cases that hard-assert one provider's identity (e.g. a
+  // claude-code model pin) declare `hosts` so other hosts skip them instead of
+  // failing on an assertion that does not apply to their rendering.
+  if (c.hosts !== undefined) {
+    if (!Array.isArray(c.hosts) || !c.hosts.length || c.hosts.some((h) => !HOSTS.includes(h))) {
+      errs.push(`hosts must be a non-empty array drawn from ${HOSTS.join('|')}`);
+    }
   }
   if (kind === 'trigger') {
     if (typeof c.should_trigger !== 'boolean') errs.push('trigger case needs boolean should_trigger');
@@ -128,6 +151,11 @@ function validateEvals(doc) {
 function matchesFilter(c, filter) {
   if (!filter) return true;
   return filter.split(',').some((f) => f === String(c.id) || f === kindOf(c) || c.skill.includes(f));
+}
+
+// A case without `hosts` runs on every host; a scoped case runs only where listed.
+function hostMatches(c, host) {
+  return !c.hosts || c.hosts.includes(host);
 }
 
 // `setup` is a fixture DESCRIPTION (lockfile / env vars / file contents),
@@ -308,20 +336,26 @@ function passRateOf(cases) {
 //
 // `baseline.passRate` is display-only; the rate is recomputed from
 // `baseline.cases` so a hand-edited number cannot move the decision.
-function evaluateGate({ baseline, results, model }) {
+function evaluateGate({ baseline, results, model, host }) {
   const reasons = [];
   const requested = model || 'default';
 
   if (!baseline) {
     return {
       passed: false,
-      reasons: [`No baseline for model "${requested}": nothing to gate against. Write one with --baseline first.`],
+      reasons: [`No baseline recorded yet for model "${requested}": nothing to gate against. Write one with --baseline first.`],
     };
   }
 
   const baselineModel = baseline.model || 'default';
   if (baselineModel !== requested) {
     reasons.push(`Baseline is for model "${baselineModel}" but the run used "${requested}": cross-model comparison is a confound.`);
+  }
+
+  // Baselines recorded before the host field existed are claude-code runs.
+  const baselineHost = baseline.host || 'claude-code';
+  if (host && baselineHost !== host) {
+    reasons.push(`Baseline is for host "${baselineHost}" but the run used "${host}": cross-host comparison is a confound.`);
   }
 
   // A baseline is data the gate trusts to lower or raise its own bar, so its
@@ -422,9 +456,18 @@ function finalizeVerdict(c, verdict, run, timeoutMs) {
   return { id: c.id, status: 'FAIL', reason: `no evidence before timeout (${sec}s): ${verdict.reason}` };
 }
 
-function runClaude(args, timeoutMs, earlyExit) {
+// The binary is chosen by host and ONLY by host: host=kimi spawns the kimi
+// binary, full stop. There is no fallback to claude, so an eval run on the
+// kimi host cannot send a request to Anthropic or OpenAI through this runner.
+function hostBin(host) {
+  return host === 'kimi'
+    ? (process.env.PHANTOM_EVAL_KIMI_BIN || 'kimi')
+    : (process.env.PHANTOM_EVAL_CLAUDE_BIN || 'claude');
+}
+
+function runClaude(args, timeoutMs, earlyExit, host) {
   return new Promise((resolve) => {
-    const bin = process.env.PHANTOM_EVAL_CLAUDE_BIN || 'claude';
+    const bin = hostBin(host || 'claude-code');
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
@@ -444,8 +487,29 @@ function runClaude(args, timeoutMs, earlyExit) {
   });
 }
 
-async function runLlmJudge(transcript, c, timeoutMs, partial) {
-  const judgeModel = process.env.PHANTOM_EVAL_JUDGE_MODEL || 'haiku';
+// Headless invocation shape per host. claude-code: -p / --permission-mode plan
+// / --output-format stream-json / --verbose (unchanged from the pre-kimi
+// runner, byte-for-byte). kimi (kimi-code CLI): `-p <prompt>` print mode,
+// `--plan` for plan mode, `--output-format stream-json`, `-m|--model`; there is
+// no --verbose or --permission-mode flag. The kimi mapping is verified against
+// `kimi --help` (kimi-code 0.38.0); its stream-json event schema is assumed
+// claude-compatible — the judges scan raw transcript text, so schema drift
+// degrades a case to FAIL, never to a silent pass.
+function headlessArgs(host, prompt, model, streamJson) {
+  if (host === 'kimi') {
+    const args = ['-p', prompt, '--plan'];
+    if (streamJson) args.push('--output-format', 'stream-json');
+    args.push('--model', model || DEFAULT_HOST_MODEL.kimi);
+    return args;
+  }
+  const args = ['-p', prompt, '--permission-mode', 'plan'];
+  if (streamJson) args.push('--output-format', 'stream-json', '--verbose');
+  if (model) args.push('--model', model);
+  return args;
+}
+
+async function runLlmJudge(transcript, c, timeoutMs, partial, host) {
+  const judgeModel = process.env.PHANTOM_EVAL_JUDGE_MODEL || DEFAULT_JUDGE_MODEL[host] || 'haiku';
   const prompt = [
     'You are a strict eval judge. Decide if the transcript satisfies the criteria.',
     `Criteria: ${c.expected_check.criteria}`,
@@ -456,7 +520,7 @@ async function runLlmJudge(transcript, c, timeoutMs, partial) {
     '--- TRANSCRIPT END ---',
     'Respond with ONLY strict JSON: {"pass": true|false, "reason": "<short>"}',
   ].filter(Boolean).join('\n');
-  const res = await runClaude(['-p', prompt, '--permission-mode', 'plan', '--model', judgeModel], timeoutMs);
+  const res = await runClaude(headlessArgs(host, prompt, judgeModel, false), timeoutMs, null, host);
   const parsed = parseJudgeResponse(res.out);
   if (!parsed) return { pass: false, reason: `judge output unparseable${res.timedOut ? ' (timeout)' : ''}` };
   return { pass: parsed.pass, reason: `judge: ${parsed.reason || (parsed.pass ? 'criteria met' : 'criteria not met')}` };
@@ -473,9 +537,8 @@ function saveTranscript(dir, id, out) {
 // stream-json keeps tool_use blocks in the transcript, which the trigger judge needs.
 // Note: the installed claude CLI has no --max-turns; plan mode + the per-case timeout bound each run.
 async function runCase(c, opts, timeoutMs) {
-  const args = ['-p', casePrompt(c), '--permission-mode', 'plan', '--output-format', 'stream-json', '--verbose'];
-  if (opts.model) args.push('--model', opts.model);
-  const res = await runClaude(args, timeoutMs, evidencePredicate(c));
+  const args = headlessArgs(opts.host, casePrompt(c), opts.model, true);
+  const res = await runClaude(args, timeoutMs, evidencePredicate(c), opts.host);
   if (opts.keepTranscripts && res.out) saveTranscript(opts.keepTranscripts, c.id, res.out);
   if (!res.out) {
     const why = res.timedOut ? `no transcript before timeout (${timeoutMs / 1000}s)` : `no transcript: ${(res.err || 'empty stdout').slice(0, 120).trim()}`;
@@ -486,7 +549,7 @@ async function runCase(c, opts, timeoutMs) {
   if (kind === 'trigger') verdict = judgeTrigger(res.out, c);
   else if (kind === 'route') verdict = judgeRoute(res.out, c);
   else if (c.expected_check.type === 'regex') verdict = judgeConventionRegex(res.out, c);
-  else verdict = await runLlmJudge(res.out, c, timeoutMs, res.timedOut);
+  else verdict = await runLlmJudge(res.out, c, timeoutMs, res.timedOut, opts.host);
   return finalizeVerdict(c, verdict, res, timeoutMs);
 }
 
@@ -531,24 +594,32 @@ async function main() {
     process.exit(1);
   }
 
-  const selected = cases.filter((c) => matchesFilter(c, opts.filter));
+  const selected = cases.filter((c) => matchesFilter(c, opts.filter) && hostMatches(c, opts.host));
+
+  // Baselines key off the model alias (evals/baselines/<model>.json). On host
+  // kimi an absent --model means k3, so its records never collide with
+  // claude's "default" — and a missing k3 baseline blocks the gate with a
+  // clear "no baseline recorded yet" reason rather than comparing cross-host.
+  const modelAlias = opts.model || DEFAULT_HOST_MODEL[opts.host];
+  const hostCli = opts.host === 'kimi' ? 'kimi' : 'claude';
 
   if (opts.dryRun) {
     console.log(`Run plan: ${selected.length} of ${cases.length} case(s)`
+      + (opts.host !== 'claude-code' ? `, host: ${opts.host}` : '')
       + (opts.filter ? ` (filter: ${opts.filter})` : '')
       + (opts.model ? `, model: ${opts.model}` : ''));
     printTable(cases.map((c) => ({
       id: c.id,
       kind: kindOf(c),
       skill: c.skill,
-      status: matchesFilter(c, opts.filter) ? 'RUN' : 'SKIP',
-      detail: judgeLabel(c),
+      status: matchesFilter(c, opts.filter) && hostMatches(c, opts.host) ? 'RUN' : 'SKIP',
+      detail: hostMatches(c, opts.host) ? judgeLabel(c) : `host-scoped to ${c.hosts.join(', ')}`,
     })));
-    console.log('\nDry run — no claude invocations. Drop --dry-run for a live (token-spending) run.');
+    console.log(`\nDry run — no ${hostCli} invocations. Drop --dry-run for a live (token-spending) run.`);
     if (opts.gate) {
       // Say so rather than letting the flag look honoured: a gate needs real
       // results, so --dry-run --gate decides nothing.
-      const bp = baselinePath(opts.model);
+      const bp = baselinePath(modelAlias);
       console.log(`--gate is inert in a dry run: it needs live results to compare against ${path.relative(ROOT, bp)}.`);
     }
     process.exit(0);
@@ -556,7 +627,7 @@ async function main() {
 
   const timeoutMs = (parseInt(process.env.PHANTOM_EVAL_TIMEOUT_S, 10) || 60) * 1000;
   console.error('='.repeat(72));
-  console.error(`WARNING: live eval run — ${selected.length} case(s) will invoke the claude CLI and SPEND TOKENS.`);
+  console.error(`WARNING: live eval run — ${selected.length} case(s) will invoke the ${hostCli} CLI and SPEND TOKENS.`);
   console.error(`Per-case timeout ${timeoutMs / 1000}s, concurrency ${opts.concurrency}. Use --filter to narrow, --dry-run to preview.`);
   console.error('='.repeat(72));
 
@@ -564,7 +635,13 @@ async function main() {
   const byId = new Map(results.map((r) => [r.id, r]));
   printTable(cases.map((c) => {
     const r = byId.get(c.id);
-    return { id: c.id, kind: kindOf(c), skill: c.skill, status: r ? r.status : 'SKIP', detail: r ? r.reason : 'filtered out' };
+    return {
+      id: c.id,
+      kind: kindOf(c),
+      skill: c.skill,
+      status: r ? r.status : 'SKIP',
+      detail: r ? r.reason : (hostMatches(c, opts.host) ? 'filtered out' : `host-scoped to ${c.hosts.join(', ')}`),
+    };
   }));
 
   const passes = results.filter((r) => r.status === 'PASS').length;
@@ -576,10 +653,10 @@ async function main() {
   const resultMap = {};
   for (const r of results) resultMap[r.id] = r.status === 'PASS' ? 'pass' : 'fail';
 
-  const bp = baselinePath(opts.model);
+  const bp = baselinePath(modelAlias);
   if (opts.gate) {
     const baseline = fs.existsSync(bp) ? JSON.parse(fs.readFileSync(bp, 'utf8')) : null;
-    const gate = evaluateGate({ baseline, results: resultMap, model: opts.model });
+    const gate = evaluateGate({ baseline, results: resultMap, model: modelAlias, host: opts.host });
     console.log(`\nRelease gate vs ${path.relative(ROOT, bp)}${baseline ? ` (${baseline.date})` : ''}:`);
     if (gate.passed) {
       console.log(`  PASS — paired on ${Object.keys(resultMap).length} case(s), `
@@ -591,9 +668,21 @@ async function main() {
   }
 
   if (opts.baseline) {
+    // Baselines are keyed by model alias alone, so the recorded host is the
+    // only thing stopping a kimi run from overwriting a claude-code baseline
+    // (or vice versa) when both share a --model value. Refuse the overwrite.
+    if (fs.existsSync(bp)) {
+      const existing = JSON.parse(fs.readFileSync(bp, 'utf8'));
+      const existingHost = existing.host || 'claude-code';
+      if (existingHost !== opts.host) {
+        console.error(`Refusing to write baseline: ${path.relative(ROOT, bp)} was recorded on host "${existingHost}"`
+          + ` (${existing.date}), this run is host "${opts.host}". Pick a distinct --model alias per host.`);
+        process.exit(1);
+      }
+    }
     fs.mkdirSync(BASELINES_DIR, { recursive: true });
     const date = opts.date || process.env.PHANTOM_EVAL_DATE || new Date().toISOString().slice(0, 10);
-    const baseline = { model: opts.model || 'default', date, cases: resultMap, passRate: Number(passRate.toFixed(3)) };
+    const baseline = { model: modelAlias || 'default', host: opts.host, date, cases: resultMap, passRate: Number(passRate.toFixed(3)) };
     fs.writeFileSync(bp, JSON.stringify(baseline, null, 2) + '\n');
     console.log(`Baseline written: ${path.relative(ROOT, bp)}`);
   } else if (fs.existsSync(bp)) {
@@ -623,6 +712,9 @@ module.exports = {
   validateCase,
   validateEvals,
   matchesFilter,
+  hostMatches,
+  headlessArgs,
+  hostBin,
   casePrompt,
   skillInvoked,
   judgeTrigger,

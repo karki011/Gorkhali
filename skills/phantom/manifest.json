@@ -1,6 +1,6 @@
 {
   "name": "phantom",
-  "bundle_version": "2.4.1",
+  "bundle_version": "2.5.0",
   "contract_resource_digest": "sha256:4556a4ab9005fb5eb8cff4f06b58721bccc0ee4e60f17ad9a578c112844d435b",
   "contract_versions": {
     "capability_ledger": 1,

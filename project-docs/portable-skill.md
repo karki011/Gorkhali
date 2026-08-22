@@ -37,9 +37,13 @@ Steward. This policy is adapted from the ideas in
 Ponytail's hooks, modes, adapters, or runtime dependency.
 
 Phantom asks for semantic profiles - `inherit`, `economy`, `balanced`, `deep`,
-or `frontier` - and ships maintained defaults for Claude Code and Codex. Users
-do not need a `models.json`. An explicit user choice or optional external map
-can override the defaults; unknown hosts inherit the active model. See
+or `frontier` - and ships maintained defaults for Claude Code, Codex, and Kimi
+Code. The Kimi preset spreads across Kimi's own tiers (`kimi-for-coding`,
+`k3-256k`, `k3`) and maps K3's `reasoning_effort` onto the profile effort
+field, so a Kimi-routed session never requests compute from another provider;
+only an explicit user choice can do that. Users do not need a `models.json`.
+An explicit user choice or optional external map can override the defaults;
+unknown hosts inherit the active model. See
 `skills/phantom/references/models.md`.
 
 ## Independence

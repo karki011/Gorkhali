@@ -40,5 +40,7 @@ user-relevant ones:
 | `PHANTOM_SPEND_CEILING_USD` | `5` | Unattended-run spend ceiling in USD (`scripts/run-guard.js`); binds only unattended runs - an interactive session is never capped because the watching human is the ceiling |
 | `PHANTOM_STUCK_REPEAT_LIMIT` | `2` | Unattended-run stuck detection: same-failure-class repeats that halt the run |
 | `PHANTOM_FIX_LOOP_CEILING` / `PHANTOM_GREPLOOP_GATE_MAX` | - | Loop ceilings for fix and greploop workflows |
+| `PHANTOM_COMPRESS_PROVIDER` | `claude` | Memory-compression backend (`scripts/compress/compress.py`); set `kimi` to route compression to the Kimi API (`MOONSHOT_API_KEY`/`KIMI_API_KEY`, model `kimi-k3`) and make the Anthropic path unreachable |
+| `PHANTOM_EVAL_KIMI_BIN` | `kimi` | Kimi Code binary used by `scripts/run-evals.js --host kimi` (judge defaults to `k3`, overridable via `PHANTOM_EVAL_JUDGE_MODEL`) |
 
 Many more internal vars exist (eval, migration, learning-decay tuning) - grep `PHANTOM_` across `hooks/` and `reference/` for the full set.

@@ -17,6 +17,9 @@ const {
   validateCase,
   validateEvals,
   matchesFilter,
+  hostMatches,
+  headlessArgs,
+  hostBin,
   casePrompt,
   skillInvoked,
   judgeTrigger,
@@ -237,7 +240,7 @@ test('diffBaseline reports flips, added, and removed cases', () => {
 });
 
 test('parseArgs: defaults, flags, and rejection of junk', () => {
-  assert.deepEqual(parseArgs([]), { filter: null, model: null, dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null });
+  assert.deepEqual(parseArgs([]), { filter: null, model: null, host: 'claude-code', dryRun: false, baseline: false, gate: false, date: null, concurrency: 2, keepTranscripts: null });
   const opts = parseArgs(['--dry-run', '--filter', 'route', '--model', 'sonnet', '--concurrency', '4', '--baseline', '--date', '2026-06-10']);
   assert.equal(opts.dryRun, true);
   assert.equal(opts.filter, 'route');
@@ -251,7 +254,7 @@ test('parseArgs: defaults, flags, and rejection of junk', () => {
 });
 
 test('parseArgs: value-taking flags error when the value is missing', () => {
-  for (const flag of ['--filter', '--model', '--date', '--keep-transcripts', '--concurrency']) {
+  for (const flag of ['--filter', '--model', '--host', '--date', '--keep-transcripts', '--concurrency']) {
     assert.throws(() => parseArgs([flag]), new RegExp(`${flag} requires a value`), `${flag} at end of argv`);
     assert.throws(() => parseArgs([flag, '--dry-run']), new RegExp(`${flag} requires a value`), `${flag} followed by another flag`);
   }
@@ -504,20 +507,26 @@ test('evaluateGate caps the id list so a reason stays readable in a CI log', () 
   assert.ok(unpaired.includes('29 baseline case(s)'), 'the full count is still stated');
 });
 
-test('every committed baseline covers exactly the cases in evals.json', () => {
+test('every committed baseline covers exactly the cases its host runs', () => {
   // A stale baseline makes the gate unpassable rather than lenient: case 41 was
   // deleted from evals.json in #116 and its verdict outlived it, so every full
   // --gate run blocked on a case that could not be run. Pin the pairing here so
-  // the next deletion cannot ship the same way.
+  // the next deletion cannot ship the same way. Host-scoped cases (e.g. the
+  // claude-code-only ones) are excluded from other hosts' baselines, so the
+  // expected ID set is derived per baseline host, not from the raw case list.
   const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
-  const caseIds = doc.evals.map((c) => String(c.id)).sort();
   const dir = path.join(__dirname, '..', 'evals', 'baselines');
   const baselines = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
   assert.ok(baselines.length, 'at least one baseline is committed');
   for (const file of baselines) {
     const baseline = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    const baselineHost = baseline.host || 'claude-code';
+    const caseIds = doc.evals
+      .filter((c) => hostMatches(c, baselineHost))
+      .map((c) => String(c.id))
+      .sort();
     const ids = Object.keys(baseline.cases).sort();
-    assert.deepEqual(ids, caseIds, `${file} case ids drifted from evals.json`);
+    assert.deepEqual(ids, caseIds, `${file} case ids drifted from evals.json (host: ${baselineHost})`);
     const rate = ids.filter((id) => baseline.cases[id] === 'pass').length / ids.length;
     assert.equal(Number(rate.toFixed(3)), baseline.passRate, `${file} passRate does not match its own verdicts`);
   }
@@ -551,4 +560,106 @@ test('evaluateGate rejects verdicts outside the pass|fail enum', () => {
   });
   assert.equal(gate.passed, false);
   assert.ok(gate.reasons.some((r) => /outside pass\|fail \(2, 3\)/.test(r)), gate.reasons.join(' | '));
+});
+
+// ---------------------------------------------------------------------------
+// --host: kimi runs drive the kimi CLI only. The claude-code path must stay
+// byte-for-byte identical; these tests pin both sides.
+// ---------------------------------------------------------------------------
+
+test('parseArgs: --host parses, defaults to claude-code, rejects unknown hosts', () => {
+  assert.equal(parseArgs([]).host, 'claude-code');
+  assert.equal(parseArgs(['--host', 'kimi']).host, 'kimi');
+  assert.equal(parseArgs(['--host', 'claude-code']).host, 'claude-code');
+  assert.throws(() => parseArgs(['--host', 'openai']), /--host must be one of/);
+});
+
+test('validateCase: hosts must be a non-empty array of known hosts', () => {
+  assert.deepEqual(validateCase({ ...TRIGGER_CASE, hosts: ['claude-code'] }), []);
+  assert.deepEqual(validateCase({ ...TRIGGER_CASE, hosts: ['claude-code', 'kimi'] }), []);
+  assert.ok(validateCase({ ...TRIGGER_CASE, hosts: [] }).some((e) => e.includes('hosts')));
+  assert.ok(validateCase({ ...TRIGGER_CASE, hosts: 'kimi' }).some((e) => e.includes('hosts')));
+  assert.ok(validateCase({ ...TRIGGER_CASE, hosts: ['openai'] }).some((e) => e.includes('hosts')));
+});
+
+test('hostMatches: absent hosts runs everywhere, scoped cases only where listed', () => {
+  assert.equal(hostMatches(TRIGGER_CASE, 'claude-code'), true);
+  assert.equal(hostMatches(TRIGGER_CASE, 'kimi'), true);
+  const scoped = { ...TRIGGER_CASE, hosts: ['claude-code'] };
+  assert.equal(hostMatches(scoped, 'claude-code'), true);
+  assert.equal(hostMatches(scoped, 'kimi'), false);
+});
+
+test('shipped evals.json scopes its claude-identity cases to claude-code', () => {
+  const doc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'evals', 'evals.json'), 'utf8'));
+  const { errors } = validateEvals(doc);
+  assert.deepEqual(errors, []);
+  for (const id of [10, 37, 38]) {
+    const c = doc.evals.find((x) => x.id === id);
+    assert.deepEqual(c.hosts, ['claude-code'], `case ${id} hard-asserts a claude-code model pin`);
+    assert.equal(hostMatches(c, 'kimi'), false);
+  }
+});
+
+test('headlessArgs: claude-code invocation is byte-for-byte the pre-kimi shape', () => {
+  assert.deepEqual(headlessArgs('claude-code', 'PROMPT', null, true),
+    ['-p', 'PROMPT', '--permission-mode', 'plan', '--output-format', 'stream-json', '--verbose']);
+  assert.deepEqual(headlessArgs('claude-code', 'PROMPT', 'sonnet', true),
+    ['-p', 'PROMPT', '--permission-mode', 'plan', '--output-format', 'stream-json', '--verbose', '--model', 'sonnet']);
+  assert.deepEqual(headlessArgs('claude-code', 'PROMPT', 'haiku', false),
+    ['-p', 'PROMPT', '--permission-mode', 'plan', '--model', 'haiku']);
+});
+
+test('headlessArgs: kimi maps to kimi -p/--plan/--output-format and pins k3', () => {
+  assert.deepEqual(headlessArgs('kimi', 'PROMPT', null, true),
+    ['-p', 'PROMPT', '--plan', '--output-format', 'stream-json', '--model', 'k3']);
+  assert.deepEqual(headlessArgs('kimi', 'PROMPT', 'k3-256k', false),
+    ['-p', 'PROMPT', '--plan', '--model', 'k3-256k']);
+});
+
+test('hostBin: kimi never resolves to the claude binary', () => {
+  const savedClaude = process.env.PHANTOM_EVAL_CLAUDE_BIN;
+  const savedKimi = process.env.PHANTOM_EVAL_KIMI_BIN;
+  try {
+    delete process.env.PHANTOM_EVAL_CLAUDE_BIN;
+    delete process.env.PHANTOM_EVAL_KIMI_BIN;
+    assert.equal(hostBin('claude-code'), 'claude');
+    assert.equal(hostBin('kimi'), 'kimi');
+    process.env.PHANTOM_EVAL_CLAUDE_BIN = '/custom/claude';
+    process.env.PHANTOM_EVAL_KIMI_BIN = '/custom/kimi';
+    assert.equal(hostBin('claude-code'), '/custom/claude');
+    assert.equal(hostBin('kimi'), '/custom/kimi');
+  } finally {
+    if (savedClaude === undefined) delete process.env.PHANTOM_EVAL_CLAUDE_BIN;
+    else process.env.PHANTOM_EVAL_CLAUDE_BIN = savedClaude;
+    if (savedKimi === undefined) delete process.env.PHANTOM_EVAL_KIMI_BIN;
+    else process.env.PHANTOM_EVAL_KIMI_BIN = savedKimi;
+  }
+});
+
+test('evaluateGate: a missing baseline says "no baseline recorded yet" for any model', () => {
+  const gate = evaluateGate({ baseline: null, results: { 1: 'pass' }, model: 'k3' });
+  assert.equal(gate.passed, false);
+  assert.ok(gate.reasons[0].includes('No baseline recorded yet for model "k3"'), gate.reasons[0]);
+  assert.ok(gate.reasons[0].includes('nothing to gate against'), gate.reasons[0]);
+});
+
+test('evaluateGate: cross-host comparison is a confound, and legacy baselines are claude-code', () => {
+  const baseline = { model: 'k3', host: 'kimi', cases: { 1: 'pass' } };
+  const crossHost = evaluateGate({ baseline, results: { 1: 'pass' }, model: 'k3', host: 'claude-code' });
+  assert.equal(crossHost.passed, false);
+  assert.ok(crossHost.reasons.some((r) => r.includes('cross-host comparison is a confound')), crossHost.reasons);
+
+  const sameHost = evaluateGate({ baseline, results: { 1: 'pass' }, model: 'k3', host: 'kimi' });
+  assert.equal(sameHost.passed, true, sameHost.reasons);
+
+  // Baselines recorded before the host field existed belong to claude-code.
+  const legacy = { model: 'sonnet', cases: { 1: 'pass' } };
+  const legacyOnKimi = evaluateGate({ baseline: legacy, results: { 1: 'pass' }, model: 'sonnet', host: 'kimi' });
+  assert.equal(legacyOnKimi.passed, false);
+  assert.ok(legacyOnKimi.reasons.some((r) => r.includes('host "claude-code"')), legacyOnKimi.reasons);
+
+  // No host argument (unit-test/back-compat path) skips the check entirely.
+  const unchecked = evaluateGate({ baseline, results: { 1: 'pass' }, model: 'k3' });
+  assert.equal(unchecked.passed, true, unchecked.reasons);
 });

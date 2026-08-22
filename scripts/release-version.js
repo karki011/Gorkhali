@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// release-version.js - keeps the version in sync across the three plugin
+// release-version.js - keeps the version in sync across the four plugin
 // manifests, which have never had anything enforcing agreement between them:
 //
 //   .claude-plugin/plugin.json        top-level  "version"
 //   .claude-plugin/marketplace.json   NESTED     metadata.version
 //   .codex-plugin/plugin.json         top-level  "version"
+//   .kimi-plugin/plugin.json          top-level  "version"
 //
 // Commit 7a88e0c bumped only the first and left the other two behind; the
 // portable-skill validator caught it and the branch sat red until it was
@@ -22,7 +23,7 @@
 //                                                        version + verdict
 //   node scripts/release-version.js --check             same, exit 1 on drift
 //   node scripts/release-version.js --set <semver>      write <semver> to all
-//                                                        three manifests
+//                                                        four manifests
 //   node scripts/release-version.js [--json] [--root <dir>]
 //
 // Exit codes: 0 = in sync / write succeeded; 1 = drift under --check (or an
@@ -66,13 +67,14 @@ function validateSemver(version) {
   return version;
 }
 
-// The three manifests and how each nests its "version" key. `within: null`
+// The four manifests and how each nests its "version" key. `within: null`
 // means top-level; `within: 'metadata'` means one level down, under that key.
 function manifestsFor(root) {
   return [
     { label: '.claude-plugin/plugin.json', file: path.join(root, '.claude-plugin', 'plugin.json'), within: null },
     { label: '.claude-plugin/marketplace.json', file: path.join(root, '.claude-plugin', 'marketplace.json'), within: 'metadata' },
     { label: '.codex-plugin/plugin.json', file: path.join(root, '.codex-plugin', 'plugin.json'), within: null },
+    { label: '.kimi-plugin/plugin.json', file: path.join(root, '.kimi-plugin', 'plugin.json'), within: null },
   ];
 }
 

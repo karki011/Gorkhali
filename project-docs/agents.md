@@ -40,17 +40,31 @@ Every resolution diagnostic includes the canonical bundle version from
 `skills/phantom/manifest.json`. This attributes routing results to the exact
 portable bundle without changing existing resolver fields or precedence.
 
-| Profile | Claude Code | Codex |
-|---|---|---|
-| `economy` | `sonnet` | `gpt-5.6-luna` |
-| `balanced` | `sonnet` at high effort | `gpt-5.6-terra` at high effort |
-| `deep` | `sonnet` at high effort | `gpt-5.6-sol` at high effort |
-| `frontier` | `sonnet` at high effort | `gpt-5.6-sol` at max effort |
+| Profile | Claude Code | Codex | Kimi Code |
+|---|---|---|---|
+| `economy` | `sonnet` | `gpt-5.6-luna` | `kimi-for-coding` (K2.7 Code tier) |
+| `balanced` | `sonnet` at high effort | `gpt-5.6-terra` at high effort | `k3-256k` at high effort |
+| `deep` | `sonnet` at high effort | `gpt-5.6-sol` at high effort | `k3` at high effort |
+| `frontier` | `sonnet` at high effort | `gpt-5.6-sol` at max effort | `k3` at max effort |
 
 On Claude Code every profile resolves to the same model on purpose: Opus is
 reserved for the orchestrating session, and everything Phantom delegates runs
-Sonnet. Codex is untouched — its preset ladder still spreads across three
-models, which is why the profiles stay semantic rather than collapsing into one.
+Sonnet. Kimi Code spreads instead: routine mechanical work lands on the K2.7
+Code tier, ordinary delegation on the half-quota 256k K3, and only deep or
+frontier work on the full 1M `k3` — with K3's `reasoning_effort` mapping
+directly onto Phantom's effort field (`high`/`max`). All four model IDs are
+Kimi's own, so a Kimi-routed session cannot silently request Anthropic or
+OpenAI compute. Codex is untouched — its preset ladder still spreads across
+three models, which is why the profiles stay semantic rather than collapsing
+into one.
+
+Kimi caveat: the CLI's agent-file format has no per-agent `model` field
+(foreign `model:` pins are ignored), and no per-spawn model selector is
+documented for its Agent tool. Until one exists, the tiered Kimi preset records
+routing intent in the delegation diagnostics while sub-agents inherit the
+session model — `delegation.model_select` is `unavailable` on Kimi per the
+capability ledger, and the engineer model gate is therefore not wired into the
+Kimi plugin manifest (its no-model deny rule would fire on every spawn).
 
 The profiles therefore keep doing the job that survives a flat mapping: Chief
 still requests `frontier` for planning, decomposition, and synthesis, and

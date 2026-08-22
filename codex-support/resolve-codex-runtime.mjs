@@ -1,66 +1,24 @@
 #!/usr/bin/env node
 // Author: Subash Karki
+// Backward-compatible shim: the canonical resolver moved to
+// host-support/resolve-runtime.mjs. This keeps the Codex-era path and the
+// resolveCodexRuntime export working for installed Codex adapters.
 
-import { dirname, join, resolve } from 'node:path';
-import { createRequire } from 'node:module';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { existsSync, realpathSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-
-// Route the data root through the shared codec so Codex resolves the same
-// neutral root as every other layer. The codec ships inside the portable skill.
-const require = createRequire(import.meta.url);
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-
-function commandName(argv) {
-  const index = argv.indexOf('--command');
-  if (index < 0) return null;
-  const name = argv[index + 1];
-  if (!name || !/^[a-z0-9-]+$/.test(name)) throw new Error('--command requires a workflow slug.');
-  return name;
-}
+import { resolveRuntime } from '../host-support/resolve-runtime.mjs';
 
 export function resolveCodexRuntime(environment = process.env, workflow = null) {
-  const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const runtime = {
-    schema_version: 1,
-    plugin_root: pluginRoot,
-    portable_skill_root: join(pluginRoot, 'skills', 'phantom'),
-    compatibility_scripts_root: join(pluginRoot, 'scripts'),
-    data_root: codec.resolveDataRoot(process.cwd(), environment),
-  };
-  if (!workflow) return runtime;
-
-  const commandFile = join(pluginRoot, 'commands', `${workflow}.md`);
-  if (!existsSync(commandFile)) throw new Error(`Unknown Phantom workflow: ${workflow}`);
-  const tierResolver = join(pluginRoot, 'scripts', 'preamble-tier.js');
-  const tier = JSON.parse(execFileSync(process.execPath, [tierResolver, workflow, '--json'], {
-    encoding: 'utf8',
-  }));
-  const conditionalPreambles = tier.conditionalContexts.map((entry) => {
-    const match = entry.match(/^([^ ]+)(?: \((.+)\))?$/);
-    return {
-      file: join(pluginRoot, 'commands', match[1]),
-      condition: match[2] || 'when activated',
-    };
-  });
-  const explicitPreambles = workflow === 'detective'
-    ? conditionalPreambles.map((entry) => entry.file)
-    : [];
-  return {
-    ...runtime,
-    workflow,
-    command_file: commandFile,
-    preamble_tier: tier.tier,
-    preamble_files: [
-      ...tier.sharedContexts.map((file) => join(pluginRoot, 'commands', file)),
-      ...explicitPreambles,
-    ],
-    conditional_preamble_files: conditionalPreambles,
-  };
+  return resolveRuntime(environment, workflow, 'codex');
 }
 
 if (process.argv[1]
   && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  process.stdout.write(`${JSON.stringify(resolveCodexRuntime(process.env, commandName(process.argv.slice(2))), null, 2)}\n`);
+  const argv = process.argv.slice(2);
+  const index = argv.indexOf('--command');
+  const workflow = index < 0 ? null : argv[index + 1];
+  if (workflow !== null && !/^[a-z0-9-]+$/.test(workflow || '')) {
+    throw new Error('--command requires a workflow slug.');
+  }
+  process.stdout.write(`${JSON.stringify(resolveCodexRuntime(process.env, workflow), null, 2)}\n`);
 }

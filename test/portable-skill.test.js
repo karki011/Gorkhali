@@ -14,7 +14,9 @@ const REPO_ROOT = path.join(__dirname, '..');
 const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'phantom');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-portable-skill.mjs');
 const CODEX_MANIFEST = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
+const KIMI_MANIFEST = path.join(REPO_ROOT, '.kimi-plugin', 'plugin.json');
 const CODEX_RUNTIME_RESOLVER = path.join(REPO_ROOT, 'codex-support', 'resolve-codex-runtime.mjs');
+const HOST_RUNTIME_RESOLVER = path.join(REPO_ROOT, 'host-support', 'resolve-runtime.mjs');
 const MANIFEST = path.join(SKILL_ROOT, 'manifest.json');
 const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
@@ -107,18 +109,80 @@ test('command adapter validation rejects blank descriptions and orphaned adapter
   assert.ok(errors.some((error) => error.includes('compatibility contract is missing')));
 });
 
-test('Codex manifest discovers every public workflow skill', () => {
-  const manifest = JSON.parse(fs.readFileSync(CODEX_MANIFEST, 'utf8'));
-  const skillRoot = path.resolve(REPO_ROOT, manifest.skills);
+test('skill-plugin manifests discover every public workflow skill', () => {
   const commands = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
     .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
     .map((entry) => entry.slice(0, -3))
     .sort();
-  const discovered = fs.readdirSync(skillRoot)
-    .filter((entry) => fs.existsSync(path.join(skillRoot, entry, 'SKILL.md')))
-    .sort();
+  const expected = [...commands, 'phantom'].sort();
 
-  assert.deepEqual(discovered, [...commands, 'phantom'].sort());
+  for (const manifestFile of [CODEX_MANIFEST, KIMI_MANIFEST]) {
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    const skillRoot = path.resolve(REPO_ROOT, manifest.skills);
+    const discovered = fs.readdirSync(skillRoot)
+      .filter((entry) => fs.existsSync(path.join(skillRoot, entry, 'SKILL.md')))
+      .sort();
+    assert.deepEqual(discovered, expected, `${path.relative(REPO_ROOT, manifestFile)} skill discovery`);
+  }
+});
+
+test('kimi manifest ships the roster and the model-agnostic gates', () => {
+  const manifest = JSON.parse(fs.readFileSync(KIMI_MANIFEST, 'utf8'));
+
+  // The 11-role roster is discovered as Kimi plugin agents; Claude `model:`
+  // pins in those files are documented as ignored by Kimi Code.
+  assert.equal(manifest.agents, './agents/');
+  for (const agent of fs.readdirSync(path.join(REPO_ROOT, 'agents')).filter((f) => f.endsWith('.md'))) {
+    const content = fs.readFileSync(path.join(REPO_ROOT, 'agents', agent), 'utf8');
+    assert.match(content, /^name: /m, `${agent} needs a name for Kimi discovery`);
+    assert.match(content, /^description: /m, `${agent} needs a description for Kimi discovery`);
+  }
+
+  // Only gates whose semantics survive Kimi's spawn model are wired:
+  // routing-gate (file edits) and greploop-gate (session stop). The
+  // engineer-model-gate is deliberately absent — Kimi has no per-spawn model
+  // selector, so its no-model deny rule would fire on every engineer spawn.
+  assert.ok(Array.isArray(manifest.hooks));
+  const commands = manifest.hooks.map((hook) => hook.command);
+  assert.ok(commands.some((command) => command.includes('routing-gate.js')), 'routing gate must be wired');
+  assert.ok(commands.some((command) => command.includes('greploop-gate.js')), 'greploop gate must be wired');
+  assert.ok(!commands.some((command) => command.includes('engineer-model-gate.js')),
+    'engineer-model-gate must not be wired on a host without per-spawn model selection');
+  for (const hook of manifest.hooks) {
+    const script = hook.command.split(' ').find((part) => part.startsWith('./'));
+    assert.ok(fs.existsSync(path.join(REPO_ROOT, script)), `${hook.command} must exist`);
+  }
+});
+
+test('kimi manifest validation rejects a broken hook wiring', async () => {
+  const validator = await import(pathToFileURL(VALIDATOR).href);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-kimi-manifest-'));
+  for (const directory of ['.claude-plugin', '.codex-plugin', '.kimi-plugin']) {
+    fs.mkdirSync(path.join(root, directory), { recursive: true });
+    for (const file of fs.readdirSync(path.join(REPO_ROOT, directory))) {
+      fs.copyFileSync(path.join(REPO_ROOT, directory, file), path.join(root, directory, file));
+    }
+  }
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, '.kimi-plugin', 'plugin.json'), 'utf8'));
+
+  manifest.hooks[0].command = 'node ./hooks/does-not-exist.js';
+  fs.writeFileSync(
+    path.join(root, '.kimi-plugin', 'plugin.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  const errors = validator.validatePluginManifests(root);
+  assert.ok(errors.some((error) => error.includes('command path must resolve to a file inside the plugin')),
+    `expected a hook path error, got: ${errors.join(' | ')}`);
+
+  manifest.hooks[0].command = 'node ./hooks/routing-gate.js';
+  manifest.hooks[0].event = 'NotAnEvent';
+  fs.writeFileSync(
+    path.join(root, '.kimi-plugin', 'plugin.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  const eventErrors = validator.validatePluginManifests(root);
+  assert.ok(eventErrors.some((error) => error.includes('must be a known Kimi Code hook event')),
+    `expected a hook event error, got: ${eventErrors.join(' | ')}`);
 });
 
 test('every public workflow adapter is tracked by git', () => {
@@ -195,7 +259,7 @@ test('documented checkpoint writes provide JSON stdin and fail open', () => {
   }
 });
 
-test('Codex runtime resolver returns package-relative roots and neutral state', () => {
+test('Codex runtime shim still resolves package-relative roots and neutral state', () => {
   const dataRoot = path.join(os.tmpdir(), 'phantom-codex-state');
   const output = execFileSync(process.execPath, [CODEX_RUNTIME_RESOLVER], {
     encoding: 'utf8',
@@ -203,19 +267,29 @@ test('Codex runtime resolver returns package-relative roots and neutral state', 
   });
   const runtime = JSON.parse(output);
 
+  assert.equal(runtime.host, 'codex');
   assert.equal(runtime.plugin_root, REPO_ROOT);
   assert.equal(runtime.portable_skill_root, path.join(REPO_ROOT, 'skills', 'phantom'));
   assert.equal(runtime.compatibility_scripts_root, path.join(REPO_ROOT, 'scripts'));
   assert.equal(runtime.data_root, dataRoot);
 });
 
+test('host runtime resolver accepts an explicit host key', () => {
+  const output = execFileSync(process.execPath, [HOST_RUNTIME_RESOLVER, '--host', 'kimi'], {
+    encoding: 'utf8',
+  });
+  const runtime = JSON.parse(output);
+  assert.equal(runtime.host, 'kimi');
+  assert.equal(runtime.plugin_root, REPO_ROOT);
+});
+
 test('installed-cache resolver loads deterministic preambles for every workflow', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-cache-'));
   const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
-  for (const directory of ['.codex-plugin', 'codex-support', 'commands', 'scripts', 'skills']) {
+  for (const directory of ['.codex-plugin', 'host-support', 'codex-support', 'commands', 'scripts', 'skills']) {
     fs.cpSync(path.join(REPO_ROOT, directory), path.join(cachedPlugin, directory), { recursive: true });
   }
-  const resolver = path.join(cachedPlugin, 'codex-support', 'resolve-codex-runtime.mjs');
+  const resolver = path.join(cachedPlugin, 'host-support', 'resolve-runtime.mjs');
   const commands = fs.readdirSync(path.join(cachedPlugin, 'commands'))
     .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
     .map((entry) => entry.slice(0, -3));
@@ -242,7 +316,7 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
   };
 
   for (const command of commands) {
-    const runtime = JSON.parse(execFileSync(process.execPath, [resolver, '--command', command], { encoding: 'utf8' }));
+    const runtime = JSON.parse(execFileSync(process.execPath, [resolver, '--host', 'codex', '--command', command], { encoding: 'utf8' }));
     const realPlugin = fs.realpathSync(cachedPlugin);
     assert.equal(runtime.plugin_root, realPlugin);
     assert.equal(runtime.command_file, path.join(realPlugin, 'commands', `${command}.md`));
@@ -293,7 +367,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'phantom',
-    bundle_version: '2.4.1',
+    bundle_version: '2.5.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -447,7 +521,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.4.1');
+    assert.equal(result.bundle_version, '2.5.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -539,6 +613,16 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       balanced: ['gpt-5.6-terra', 'high'],
       deep: ['gpt-5.6-sol', 'high'],
       frontier: ['gpt-5.6-sol', 'max'],
+    },
+    kimi: {
+      inherit: [null, null],
+      // Kimi Code model IDs: routine work goes to the K2.7 Code tier, ordinary
+      // delegation to the half-quota 256k K3, and only deep/frontier work to the
+      // full 1M flagship - the ladder spreads by both model and reasoning effort.
+      economy: ['kimi-for-coding', null],
+      balanced: ['k3-256k', 'high'],
+      deep: ['k3', 'high'],
+      frontier: ['k3', 'max'],
     },
   };
   const roleForProfile = { economy: 'inspector', balanced: 'engineer', deep: 'auditor', frontier: 'chief' };
@@ -638,7 +722,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'chief', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.4.1');
+  assert.equal(resolver.bundle_version, '2.5.0');
   assert.equal(resolver.model, 'sonnet');
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
@@ -801,7 +885,7 @@ test('minimum-sufficient solution policy is ordered, automatic, inherited, and s
 
 test('portable lifecycle authority is explicit, validated, and provider mechanics cannot override it', () => {
   const compatibility = fs.readFileSync(
-    path.join(REPO_ROOT, 'codex-support', 'codex-compatibility.md'),
+    path.join(REPO_ROOT, 'host-support', 'compatibility.md'),
     'utf8',
   );
   const start = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'start', 'SKILL.md'), 'utf8');

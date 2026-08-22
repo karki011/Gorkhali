@@ -1,13 +1,13 @@
 # PHANTOM - A Shadow Cabinet for Your Codebase
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-0.8.1-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-0.9.0-blue)](.claude-plugin/plugin.json)
 [![tests](https://img.shields.io/badge/tests-1212-brightgreen)](test/)
-[![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI-8A2BE2)](project-docs/install.md)
+[![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI%20%2B%20Kimi%20Code-8A2BE2)](project-docs/install.md)
 
 **Author: Subash Karki**
 
-Phantom is a multi-agent development harness for Claude Code and Codex CLI that plans, implements, verifies, and ships work through specialized agents behind mechanically enforced gates.
+Phantom is a multi-agent development harness for Claude Code, Codex CLI, and Kimi Code that plans, implements, verifies, and ships work through specialized agents behind mechanically enforced gates.
 
 > A shadow cabinet is the opposition's mirror government: ministers-in-waiting who shadow every office and are ready to govern the moment they're called.
 > Phantom is that mirror government for your codebase.
@@ -85,7 +85,7 @@ The work is classified `investigation`, and no fix route can be selected until t
 - **Model routing generated from one policy file.** `skills/phantom/references/model-policy.json` holds semantic role policy, `skills/phantom/references/model-presets.json` holds per-host models, and `scripts/gen-agent-frontmatter.js` generates every agent pin from them. No value is hand-maintained twice.
 - **Outcome records with closed enums.** `scripts/outcome-write.js` writes a per-ticket outcome whose `pr_state` is one of `draft | open | merged | closed | absent`, derived from `gh` alone. Anything unmappable is recorded as unresolved instead of guessed. This is what made the measurement above possible at all.
 - **A config layer with provenance.** `scripts/phantom-config.js get|set|list`, per-repo winning over global, created lazily. Every resolved value reports which layer it came from, and an unset key reports unset rather than a fabricated default.
-- **Portable across runtimes.** One provider-neutral Agent Skill at `skills/phantom/` runs on Claude Code and Codex CLI alongside a native plugin distribution. Optional host capabilities degrade to explicit fallbacks instead of breaking the workflow.
+- **Portable across runtimes.** One provider-neutral Agent Skill at `skills/phantom/` runs on Claude Code, Codex CLI, and Kimi Code alongside a native plugin distribution. Optional host capabilities degrade to explicit fallbacks instead of breaking the workflow. The Kimi preset routes only across Kimi's own tiers (`kimi-for-coding`, `k3-256k`, `k3`), so a Kimi-routed session never requests compute from another provider.
 
 ## Quick Start
 
@@ -113,6 +113,10 @@ In Codex, type `$` or open `/skills`, then select the namespaced skill such as
 `phantom:greploop`. Codex can also choose these skills implicitly from their
 descriptions. Start a new task or CLI session after installing or updating the
 plugin so the complete skill inventory is reloaded.
+
+In Kimi Code the same `skills/` bundle is discovered through the Agent Skills
+convention; select a `phantom:*` skill or ask for it naturally. Kimi resolves
+every delegated role across Kimi's own model tiers via the bundled `kimi` host preset.
 
 Full installation instructions, including the native plugin and upgrade paths,
 are in [Install](project-docs/install.md).

@@ -11,15 +11,16 @@ const defaultSkillDirectory = join(repositoryRoot, 'skills', 'phantom');
 const commandsDirectory = join(repositoryRoot, 'commands');
 const skillsDirectory = join(repositoryRoot, 'skills');
 const codexManifestFile = join(repositoryRoot, '.codex-plugin', 'plugin.json');
+const kimiManifestFile = join(repositoryRoot, '.kimi-plugin', 'plugin.json');
 const claudeManifestFile = join(repositoryRoot, '.claude-plugin', 'plugin.json');
 const marketplaceFile = join(repositoryRoot, '.claude-plugin', 'marketplace.json');
-const codexCompatibilityReference = '../../codex-support/codex-compatibility.md';
+const hostCompatibilityReference = '../../host-support/compatibility.md';
 
 const forbiddenPatterns = [
-  ['provider directory', /\.(?:claude|codex|gemini)(?:\/|\\)/i],
-  ['provider environment', /\b(?:CLAUDE|CODEX|GEMINI|ANTHROPIC|OPENAI)_[A-Z0-9_]+\b/],
-  ['provider name', /\b(?:Claude|Codex|Gemini|Anthropic|OpenAI)\b/i],
-  ['provider model alias', /\b(?:opus|sonnet|haiku|fable|gpt-[A-Za-z0-9.-]+)\b/i],
+  ['provider directory', /\.(?:claude|codex|gemini|kimi)(?:\/|\\)/i],
+  ['provider environment', /\b(?:CLAUDE|CODEX|GEMINI|ANTHROPIC|OPENAI|KIMI|MOONSHOT)_[A-Z0-9_]+\b/],
+  ['provider name', /\b(?:Claude|Codex|Gemini|Anthropic|OpenAI|Kimi|Moonshot)\b/i],
+  ['provider model alias', /\b(?:opus|sonnet|haiku|fable|gpt-[A-Za-z0-9.-]+|kimi-[A-Za-z0-9.-]+)\b/i],
   ['private tool syntax', /\bmcp__|\b(?:Agent|Task|Skill)\s*\(/],
   ['host command syntax', /\/phantom:|\$ARGUMENTS\b/],
   ['host frontmatter', /\b(?:allowed-tools|disable-model-invocation|user-invocable)\s*:/],
@@ -105,7 +106,7 @@ function validatePresets(presets, policy, errors) {
   if (!isObject(hosts) || Object.keys(hosts).length === 0) {
     errors.push('Model presets hosts must be a non-empty object.');
   } else {
-    for (const requiredHost of ['claude-code', 'codex']) {
+    for (const requiredHost of ['claude-code', 'codex', 'kimi']) {
       if (!hosts[requiredHost]) errors.push(`Model presets are missing required host ${requiredHost}.`);
     }
     for (const [host, hostPolicy] of Object.entries(hosts)) {
@@ -261,19 +262,29 @@ function parseFrontmatter(content) {
 
 export function validateCommandAdapters(commandRoot = commandsDirectory, skillRoot = skillsDirectory) {
   const errors = [];
-  const supportRoot = join(resolve(skillRoot, '..'), 'codex-support');
-  const compatibilityFile = join(supportRoot, 'codex-compatibility.md');
-  const resolverFile = join(supportRoot, 'resolve-codex-runtime.mjs');
+  const supportRoot = join(resolve(skillRoot, '..'), 'host-support');
+  const compatibilityFile = join(supportRoot, 'compatibility.md');
+  const resolverFile = join(supportRoot, 'resolve-runtime.mjs');
   if (!existsSync(compatibilityFile)) {
-    errors.push('Codex compatibility contract is missing at codex-support/codex-compatibility.md.');
+    errors.push('Host compatibility contract is missing at host-support/compatibility.md.');
   }
   if (!existsSync(resolverFile)) {
-    errors.push('Codex runtime resolver is missing at codex-support/resolve-codex-runtime.mjs.');
+    errors.push('Host runtime resolver is missing at host-support/resolve-runtime.mjs.');
+  }
+  const legacySupportRoot = join(resolve(skillRoot, '..'), 'codex-support');
+  for (const [shim, label] of [
+    [join(legacySupportRoot, 'codex-compatibility.md'), 'Codex compatibility shim'],
+    [join(legacySupportRoot, 'resolve-codex-runtime.mjs'), 'Codex resolver shim'],
+  ]) {
+    if (!existsSync(shim)) {
+      errors.push(`${label} is missing at ${relative(resolve(skillRoot, '..'), shim)}.`);
+    }
   }
   if (existsSync(compatibilityFile)) {
     const compatibility = readFileSync(compatibilityFile, 'utf8');
     for (const requirement of [
-      'resolve-codex-runtime.mjs',
+      'resolve-runtime.mjs',
+      '--host <host-key>',
       '--command <workflow-name>',
       '<preamble_files>',
       '<conditional_preamble_files>',
@@ -281,7 +292,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       '<compatibility_scripts_root>',
       'PHANTOM_DATA=<data_root>',
       '~/.phantom',
-      'never write Codex workflow state under `.claude`',
+      'never write workflow state under `.claude`',
       'User instructions, repository instructions, and runtime safety',
       'The portable skill and its references',
       'Compatible legacy command intent',
@@ -290,7 +301,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       'phase, state-path, or lifecycle authority',
     ]) {
       if (!compatibility.includes(requirement)) {
-        errors.push(`Codex compatibility contract must define ${requirement}.`);
+        errors.push(`Host compatibility contract must define ${requirement}.`);
       }
     }
   }
@@ -302,7 +313,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
   for (const command of commands) {
     const skillFile = join(skillRoot, command, 'SKILL.md');
     if (!existsSync(skillFile)) {
-      errors.push(`Codex adapter is missing for commands/${command}.md.`);
+      errors.push(`Host adapter is missing for commands/${command}.md.`);
       continue;
     }
 
@@ -331,7 +342,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       for (const reference of ['../phantom/SKILL.md', '../phantom/references/planning.md']) {
         if (!content.includes(reference)) errors.push(`skills/start/SKILL.md must directly load ${reference}.`);
       }
-      for (const legacyReference of [codexCompatibilityReference, '../../commands/start.md', '_shared']) {
+      for (const legacyReference of [hostCompatibilityReference, '../../commands/start.md', '_shared']) {
         if (content.includes(legacyReference)) {
           errors.push(`skills/start/SKILL.md normal activation must not load ${legacyReference}.`);
         }
@@ -348,11 +359,11 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       if (!content.includes(`../../commands/${command}.md`)) {
         errors.push(`skills/${command}/SKILL.md must reference ../../commands/${command}.md.`);
       }
-      if (!content.includes(codexCompatibilityReference)) {
-        errors.push(`skills/${command}/SKILL.md must apply ${codexCompatibilityReference}.`);
+      if (!content.includes(hostCompatibilityReference)) {
+        errors.push(`skills/${command}/SKILL.md must apply ${hostCompatibilityReference}.`);
       }
-      if (content.indexOf(codexCompatibilityReference) > content.indexOf(`../../commands/${command}.md`)) {
-        errors.push(`skills/${command}/SKILL.md must apply Codex compatibility before reading its command.`);
+      if (content.indexOf(hostCompatibilityReference) > content.indexOf(`../../commands/${command}.md`)) {
+        errors.push(`skills/${command}/SKILL.md must apply host compatibility before reading its command.`);
       }
       if (!content.includes(`workflow \`${command}\``)) {
         errors.push(`skills/${command}/SKILL.md must identify workflow \`${command}\`.`);
@@ -366,7 +377,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
     .filter((entry) => !commandSet.has(entry))
     .sort();
   for (const adapter of orphanedAdapters) {
-    errors.push(`Codex adapter skills/${adapter}/SKILL.md has no matching public command.`);
+    errors.push(`Host adapter skills/${adapter}/SKILL.md has no matching public command.`);
   }
 
   return errors;
@@ -377,16 +388,14 @@ export function validatePluginManifests(root = repositoryRoot) {
   const codexFile = root === repositoryRoot ? codexManifestFile : join(root, '.codex-plugin', 'plugin.json');
   const claudeFile = root === repositoryRoot ? claudeManifestFile : join(root, '.claude-plugin', 'plugin.json');
   const marketFile = root === repositoryRoot ? marketplaceFile : join(root, '.claude-plugin', 'marketplace.json');
-  for (const file of [codexFile, claudeFile, marketFile]) {
+  const kimiFile = root === repositoryRoot ? kimiManifestFile : join(root, '.kimi-plugin', 'plugin.json');
+  for (const file of [codexFile, claudeFile, marketFile, kimiFile]) {
     if (!existsSync(file)) errors.push(`${relative(root, file)} is missing.`);
   }
   if (errors.length) return errors;
 
-  const codex = JSON.parse(readFileSync(codexFile, 'utf8'));
   const claude = JSON.parse(readFileSync(claudeFile, 'utf8'));
   const marketplace = JSON.parse(readFileSync(marketFile, 'utf8'));
-  if (codex.name !== 'phantom') errors.push('.codex-plugin/plugin.json name must be phantom.');
-  if (codex.skills !== './skills/') errors.push('.codex-plugin/plugin.json must expose ./skills/.');
   const interfaceFields = [
     'displayName',
     'shortDescription',
@@ -394,41 +403,105 @@ export function validatePluginManifests(root = repositoryRoot) {
     'developerName',
     'category',
   ];
-  if (!isObject(codex.interface)) {
-    errors.push('.codex-plugin/plugin.json interface must be an object.');
-  } else {
-    for (const field of interfaceFields) {
-      if (typeof codex.interface[field] !== 'string' || !codex.interface[field].trim()) {
-        errors.push(`.codex-plugin/plugin.json interface.${field} must be a non-empty string.`);
+  const skillManifests = [
+    ['.codex-plugin/plugin.json', codexFile],
+    ['.kimi-plugin/plugin.json', kimiFile],
+  ];
+  const versions = [];
+  for (const [label, file] of skillManifests) {
+    const plugin = JSON.parse(readFileSync(file, 'utf8'));
+    versions.push(plugin.version);    if (plugin.name !== 'phantom') errors.push(`${label} name must be phantom.`);
+    if (plugin.skills !== './skills/') errors.push(`${label} must expose ./skills/.`);
+    if (!isObject(plugin.interface)) {
+      errors.push(`${label} interface must be an object.`);
+    } else {
+      for (const field of interfaceFields) {
+        if (typeof plugin.interface[field] !== 'string' || !plugin.interface[field].trim()) {
+          errors.push(`${label} interface.${field} must be a non-empty string.`);
+        }
+      }
+      if (!Array.isArray(plugin.interface.capabilities)
+        || !plugin.interface.capabilities.every((value) => typeof value === 'string' && value.trim())) {
+        errors.push(`${label} interface.capabilities must be an array of strings.`);
+      }
+      if (!Array.isArray(plugin.interface.defaultPrompt)
+        || plugin.interface.defaultPrompt.length === 0
+        || plugin.interface.defaultPrompt.length > 3
+        || !plugin.interface.defaultPrompt.every((value) => typeof value === 'string'
+          && value.trim() && value.length <= 128)) {
+        errors.push(`${label} interface.defaultPrompt must contain 1-3 strings of at most 128 characters.`);
       }
     }
-    if (!Array.isArray(codex.interface.capabilities)
-      || !codex.interface.capabilities.every((value) => typeof value === 'string' && value.trim())) {
-      errors.push('.codex-plugin/plugin.json interface.capabilities must be an array of strings.');
-    }
-    if (!Array.isArray(codex.interface.defaultPrompt)
-      || codex.interface.defaultPrompt.length === 0
-      || codex.interface.defaultPrompt.length > 3
-      || !codex.interface.defaultPrompt.every((value) => typeof value === 'string'
-        && value.trim() && value.length <= 128)) {
-      errors.push('.codex-plugin/plugin.json interface.defaultPrompt must contain 1-3 strings of at most 128 characters.');
-    }
-  }
-  const discoveredSkillRoot = resolve(root, codex.skills || '');
-  const relativeSkillRoot = relative(root, discoveredSkillRoot);
-  if (relativeSkillRoot.startsWith('..') || !existsSync(discoveredSkillRoot)) {
-    errors.push('.codex-plugin/plugin.json skills must resolve to a directory inside the plugin.');
-  } else {
-    for (const entry of readdirSync(discoveredSkillRoot)) {
-      const child = join(discoveredSkillRoot, entry);
-      if (entry.startsWith('.') || !statSync(child).isDirectory()) continue;
-      if (!existsSync(join(child, 'SKILL.md'))) {
-        errors.push(`Codex skill directory ${entry} is missing SKILL.md.`);
+    const discoveredSkillRoot = resolve(root, plugin.skills || '');
+    const relativeSkillRoot = relative(root, discoveredSkillRoot);
+    if (relativeSkillRoot.startsWith('..') || !existsSync(discoveredSkillRoot)) {
+      errors.push(`${label} skills must resolve to a directory inside the plugin.`);
+    } else {
+      for (const entry of readdirSync(discoveredSkillRoot)) {
+        const child = join(discoveredSkillRoot, entry);
+        if (entry.startsWith('.') || !statSync(child).isDirectory()) continue;
+        if (!existsSync(join(child, 'SKILL.md'))) {
+          errors.push(`${label} skill directory ${entry} is missing SKILL.md.`);
+        }
       }
     }
   }
-  if (codex.version !== claude.version || codex.version !== marketplace.metadata?.version) {
-    errors.push('Codex, Claude, and marketplace plugin versions must match.');
+
+  // Kimi Code manifest extras: plugin-shipped agents and hook gates. Hook
+  // commands run with cwd = plugin root and receive KIMI_PLUGIN_ROOT, so only
+  // './' paths inside the plugin are allowed.
+  const kimiPlugin = JSON.parse(readFileSync(kimiFile, 'utf8'));
+  const kimiLabel = '.kimi-plugin/plugin.json';
+  if (kimiPlugin.agents !== undefined) {
+    const agentsRoot = resolve(root, kimiPlugin.agents || '');
+    if (typeof kimiPlugin.agents !== 'string' || !kimiPlugin.agents.startsWith('./')
+      || relative(root, agentsRoot).startsWith('..') || !existsSync(agentsRoot)) {
+      errors.push(`${kimiLabel} agents must be a './' path to a directory inside the plugin.`);
+    } else if (!readdirSync(agentsRoot).some((entry) => entry.endsWith('.md'))) {
+      errors.push(`${kimiLabel} agents directory must contain at least one agent file.`);
+    }
+  }
+  const kimiHookEvents = new Set([
+    'UserPromptSubmit', 'UserPromptQueued', 'PreToolUse', 'Stop', 'TurnStarted',
+    'PostToolUse', 'PostToolUseFailure', 'PermissionRequest', 'PermissionResult',
+    'SessionStart', 'SessionEnd', 'SessionHeartbeat', 'SubagentStart', 'SubagentStop',
+    'TaskStarted', 'StopFailure', 'Interrupt', 'PreCompact', 'PostCompact', 'Notification',
+  ]);
+  if (kimiPlugin.hooks !== undefined) {
+    if (!Array.isArray(kimiPlugin.hooks)) {
+      errors.push(`${kimiLabel} hooks must be an array.`);
+    } else {
+      kimiPlugin.hooks.forEach((hook, index) => {
+        const hookLabel = `${kimiLabel} hooks[${index}]`;
+        if (!isObject(hook)) {
+          errors.push(`${hookLabel} must be an object.`);
+          return;
+        }
+        if (!kimiHookEvents.has(hook.event)) {
+          errors.push(`${hookLabel} event must be a known Kimi Code hook event.`);
+        }
+        if (hook.matcher !== undefined && typeof hook.matcher !== 'string') {
+          errors.push(`${hookLabel} matcher must be a string when present.`);
+        }
+        if (typeof hook.command !== 'string' || !hook.command.includes('./')) {
+          errors.push(`${hookLabel} command must reference a './' path inside the plugin.`);
+          return;
+        }
+        const commandPath = hook.command.split(' ').find((part) => part.startsWith('./'));
+        const resolvedCommand = resolve(root, commandPath || '');
+        if (!commandPath || relative(root, resolvedCommand).startsWith('..') || !existsSync(resolvedCommand)) {
+          errors.push(`${hookLabel} command path must resolve to a file inside the plugin.`);
+        }
+        if (hook.timeout !== undefined
+          && (!Number.isInteger(hook.timeout) || hook.timeout < 1 || hook.timeout > 600)) {
+          errors.push(`${hookLabel} timeout must be an integer between 1 and 600.`);
+        }
+      });
+    }
+  }
+
+  if (new Set([...versions, claude.version, marketplace.metadata?.version]).size !== 1) {
+    errors.push('Codex, Claude, Kimi, and marketplace plugin versions must match.');
   }
   return errors;
 }

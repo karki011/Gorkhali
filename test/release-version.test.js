@@ -1,8 +1,8 @@
 // Author: Subash Karki
 // release-version.test.js - locks scripts/release-version.js, which keeps
 // the version in sync across .claude-plugin/plugin.json,
-// .claude-plugin/marketplace.json (nested under metadata), and
-// .codex-plugin/plugin.json.
+// .claude-plugin/marketplace.json (nested under metadata),
+// .codex-plugin/plugin.json, and .kimi-plugin/plugin.json.
 //
 // Every test runs against a throwaway --root fixture copied from the real
 // manifests, never against the live repo files - this suite must stay green
@@ -24,6 +24,7 @@ const MANIFEST_PATHS = [
   ['.claude-plugin', 'plugin.json'],
   ['.claude-plugin', 'marketplace.json'],
   ['.codex-plugin', 'plugin.json'],
+  ['.kimi-plugin', 'plugin.json'],
 ];
 
 // Copies the repo's real manifests into a fresh tmp dir so tests exercise
@@ -54,7 +55,7 @@ function otherVersion(dir) {
   return [major, minor, patch + 1].join('.');
 }
 
-test('--check passes and exits 0 when all three manifests agree', () => {
+test('--check passes and exits 0 when all four manifests agree', () => {
   const dir = makeFixture();
   assert.equal(status({ root: dir }).inSync, true);
   execFileSync(process.execPath, [SCRIPT, '--check', '--root', dir], { encoding: 'utf8' });
@@ -78,11 +79,11 @@ test('--check fails and exits 1 when a manifest is hand-skewed', () => {
   assert.equal(exitStatus, 1, 'a hand-skewed manifest must fail --check');
 });
 
-test('--set updates all three manifests to the requested version', () => {
+test('--set updates all four manifests to the requested version', () => {
   const dir = makeFixture();
   const target = otherVersion(dir);
   const result = setVersion(target, { root: dir });
-  assert.equal(result.written, 3);
+  assert.equal(result.written, 4);
   for (const f of result.files) assert.equal(f.after, target);
   assert.deepEqual(status({ root: dir }).versions, [target]);
 });
@@ -130,7 +131,7 @@ test('--set to the current version is idempotent - no diff', () => {
   assert.deepEqual(readManifests(dir), snapshot);
 });
 
-test('CLI --set writes all three and CLI --check confirms sync afterward', () => {
+test('CLI --set writes all four and CLI --check confirms sync afterward', () => {
   const dir = makeFixture();
   const target = otherVersion(dir);
   execFileSync(process.execPath, [SCRIPT, '--set', target, '--root', dir], { encoding: 'utf8' });

@@ -1,6 +1,6 @@
 # Install
 
-Installing Phantom as a portable Agent Skill or as a native plugin on Claude Code and Codex, plus upgrade paths.
+Installing Phantom as a portable Agent Skill or as a native plugin on Claude Code, Codex, and Kimi Code, plus upgrade paths.
 
 Install the same canonical directory without modifying it. Project-scoped
 examples:
@@ -17,6 +17,7 @@ Common project discovery locations are:
 |---|---|
 | Claude Code | `.claude/skills/phantom/` |
 | Codex | `.agents/skills/phantom/` |
+| Kimi Code | `.agents/skills/phantom/` |
 | Gemini CLI | `.agents/skills/phantom/` |
 
 The copied `phantom` directory and every file inside it, including the canonical
@@ -39,9 +40,10 @@ locally; the runner may supply an optional external override when needed.
 
 ## Native compatibility plugin
 
-The native plugin ships both `.codex-plugin/plugin.json` and the legacy-compatible
-`.claude-plugin` marketplace. It exposes every public workflow under `skills/`
-for Codex while retaining Claude Code command, agent, and hook integrations.
+The native plugin ships `.codex-plugin/plugin.json`, `.kimi-plugin/plugin.json`,
+and the legacy-compatible `.claude-plugin` marketplace. It exposes every public
+workflow under `skills/` for Codex and Kimi Code while retaining Claude Code
+command, agent, and hook integrations.
 
 In Codex, open the plugin browser and install Phantom from the repository
 marketplace:
@@ -58,6 +60,26 @@ Select the repository marketplace, open `phantom`, and choose **Install**. Codex
 recognizes the repository's legacy-compatible `.claude-plugin/marketplace.json`
 and installs the native `.codex-plugin/plugin.json` bundle from the repository
 root.
+
+For Kimi Code, install from GitHub in any session:
+
+```
+/plugins install https://github.com/Cloudzero/research-phantom-skills
+/reload
+```
+
+Kimi Code reads `.kimi-plugin/plugin.json` from the repository root. The bundle
+exposes `./skills/` (every `phantom:*` workflow), ships the 11-role roster under
+`./agents/` as delegatable plugin agents (the Claude `model:` pins in those
+files are ignored by Kimi, by design), and wires the two model-agnostic
+mechanical gates as plugin hooks: the routing gate on `PreToolUse` edits and
+the greploop gate on `Stop`. The engineer model gate is not wired on Kimi — the
+CLI has no per-spawn model selector, so Phantom's profile resolution is
+recorded as routing diagnostics and delegates inherit the session model; run
+sessions on `k3` for the full-fidelity path. On Kimi Code versions without a
+plugin manager, copy `skills/phantom` into `.agents/skills/phantom/` as shown
+above. Authenticate API-backed features such as memory compression with
+`MOONSHOT_API_KEY` (or `KIMI_API_KEY`).
 
 For Claude Code, install it from the self-hosted marketplace in this repo:
 
@@ -84,8 +106,9 @@ git pull --ff-only
 Claude Code users can run `/plugin update phantom`.
 
 Prerequisites: Codex CLI or the Codex desktop app for Codex installation;
-Claude Code CLI for Claude installation; and git for either flow. Recommended:
-gh CLI and Atlassian MCP. Optional: Slack MCP and code-review-graph MCP.
+Claude Code CLI for Claude installation; Kimi Code CLI for Kimi installation;
+and git for any flow. Recommended: gh CLI and Atlassian MCP. Optional: Slack
+MCP and code-review-graph MCP.
 
 ## Upgrading from a pre-plugin install
 

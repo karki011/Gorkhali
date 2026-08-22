@@ -2,7 +2,7 @@
 
 Per-model snapshots written by `node scripts/run-evals.js --baseline --model <alias>` (live run — spends tokens).
 
-- One file per model: `<model>.json` — `{ model, date, cases: { "<id>": "pass" | "fail" }, passRate }`. No `--model` writes `default.json`.
+- One file per model: `<model>.json` — `{ model, host, date, cases: { "<id>": "pass" | "fail" }, passRate }`. No `--model` writes `default.json`. `host` records which runtime produced the verdicts (`claude-code` or `kimi`); files written before the field existed are `claude-code` runs. Host-scoped cases (e.g. the claude-code-only ones) are excluded from other hosts' baselines, so a `kimi` baseline legitimately holds fewer case IDs.
 - Live runs WITHOUT `--baseline` diff against the matching file and print a DRIFT section (cases that flipped since the baseline).
 - Re-baseline after a model upgrade or a deliberate skill/router change, and commit the new file with that change.
 
@@ -16,6 +16,7 @@ Per-model snapshots written by `node scripts/run-evals.js --baseline --model <al
 | Baseline records no case verdicts | An unusable record, not a bar of zero. |
 | A verdict outside `pass`\|`fail` | `"passed"` is not `"pass"`: it would read as a non-pass, depressing the baseline rate while never arming the regression rule. Regenerate with `--baseline`. |
 | `baseline.model` ≠ `--model` | Cross-model comparison is a confound. |
+| `baseline.host` ≠ `--host` | Cross-host comparison is a confound; verdicts are only comparable within one runtime. Writing a baseline over another host's file is refused outright. |
 | Baseline case did not run, or a case ran that the baseline does not cover | Unequal case sets are not comparable. This is the rule that closes the filtered-run hole: three green cases against a 55-case baseline used to print "no flips, 100% pass" and read as a clean release. |
 | A case flipped `pass` → `fail` | Regression. |
 | Pass rate below baseline | Catches a net loss that no single flip explains. |

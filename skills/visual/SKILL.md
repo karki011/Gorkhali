@@ -6,7 +6,7 @@ description: Prepare a human UI-verification checklist for UI changes; optionall
 
 Prepare a human UI-verification checklist, or run optional read-only Phantom Surveyor inspection when the user explicitly requests Surveyor; user confirmation remains authoritative.
 
-Apply `../../codex-support/codex-compatibility.md` for workflow `visual` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/visual.md`.
+Apply `../../host-support/compatibility.md` for workflow `visual` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/visual.md`.
 
 Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
 

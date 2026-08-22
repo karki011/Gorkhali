@@ -21,6 +21,7 @@ Each eval entry:
 | `prompt` | Realistic user message |
 | `should_trigger` | `true` = skill should activate, `false` = near-miss |
 | `expected_behavior` | What the skill should do when triggered |
+| `hosts` | Optional list of hosts the case runs on (e.g. `["claude-code"]`); absent means every host. Cases asserting Claude-specific identity are scoped to `claude-code` and skip under `--host kimi` |
 
 ## Coverage
 
@@ -49,10 +50,11 @@ Send each prompt to Claude Code and verify:
 ### Release gate
 
 ```bash
-node scripts/run-evals.js --gate --model sonnet   # live run; exits 1 with named reasons if it may not ship
+node scripts/run-evals.js --gate --model sonnet          # claude-code live run; exits 1 with named reasons if it may not ship
+node scripts/run-evals.js --gate --host kimi             # Kimi Code live run (kimi CLI, k3 model + judge)
 ```
 
-Compares the run to `evals/baselines/<model>.json` mechanically instead of printing a drift report to read. It blocks on a missing baseline, a cross-model comparison, an unpaired case set, any `pass` → `fail` flip, or a pass rate below baseline. Rules and caveats: [baselines/README.md](baselines/README.md).
+Compares the run to `evals/baselines/<model>.json` mechanically instead of printing a drift report to read. It blocks on a missing baseline, a cross-model comparison, an unpaired case set, any `pass` → `fail` flip, or a pass rate below baseline. On `--host kimi` the model defaults to `k3` and the judge to `k3` (override with `PHANTOM_EVAL_KIMI_BIN` / `PHANTOM_EVAL_JUDGE_MODEL`); a first run records the baseline, and the gate refuses to pass without one. Rules and caveats: [baselines/README.md](baselines/README.md).
 
 ### Automated eval script (future)
 

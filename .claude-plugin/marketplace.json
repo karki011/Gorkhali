@@ -4,14 +4,14 @@
     "name": "Subash Karki"
   },
   "metadata": {
-    "description": "Phantom — provider-adaptive multi-agent development for Claude Code and Codex.",
-    "version": "0.8.1"
+    "description": "Phantom — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code.",
+    "version": "0.9.0"
   },
   "plugins": [
     {
       "name": "phantom",
       "source": "./",
-      "description": "Provider-adaptive multi-agent development for Claude Code and Codex. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer."
+      "description": "Provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer."
     }
   ]
 }

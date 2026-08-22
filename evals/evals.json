@@ -72,6 +72,7 @@
     {
       "id": 10,
       "skill": "phantom:review",
+      "hosts": ["claude-code"],
       "prompt": "review this before I ship it — I want a second opinion on the approach",
       "should_trigger": true,
       "expected_behavior": "Load session contracts, spawn Auditor agent (opus) with touched files, produce CRITICAL/WARNING/INFO findings, return APPROVED or NEEDS WORK verdict"
@@ -276,6 +277,7 @@
       "id": 37,
       "kind": "convention",
       "skill": "phantom:start",
+      "hosts": ["claude-code"],
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
       "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  advisor: opus\nThe Engineer hits a hard decision (2+ viable approaches) mid-task and escalates to Advisor.",
       "expected_check": {
@@ -288,6 +290,7 @@
       "id": 38,
       "kind": "convention",
       "skill": "phantom:start",
+      "hosts": ["claude-code"],
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
       "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Engineer escalates to Advisor mid-task.",
       "expected_check": {

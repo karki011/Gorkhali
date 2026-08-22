@@ -52,3 +52,24 @@ test('mixed-case ineligible role does not elevate under critical risk', () => {
   assert.equal(result.role, 'inspector');
   assert.equal(result.requested_profile, 'economy');
 });
+
+test('kimi host spreads the ladder across Kimi Code tiers only', () => {
+  const expected = {
+    inspector: ['economy', 'kimi-for-coding', null],
+    engineer: ['balanced', 'k3-256k', 'high'],
+    auditor: ['deep', 'k3', 'high'],
+    chief: ['frontier', 'k3', 'max'],
+  };
+  for (const [role, [profile, model, effort]] of Object.entries(expected)) {
+    const result = runJson(['--role', role, '--host', 'kimi']);
+    assert.equal(result.host, 'kimi');
+    assert.equal(result.requested_profile, profile);
+    assert.equal(result.model, model, `${role} on kimi must resolve to ${model}`);
+    assert.equal(result.effort, effort);
+    assert.equal(result.resolution, 'bundled-host-preset');
+  }
+
+  const elevated = runJson(['--role', 'engineer', '--risk', 'critical', '--host', 'kimi']);
+  assert.equal(elevated.requested_profile, 'deep');
+  assert.equal(elevated.model, 'k3');
+});

@@ -19,6 +19,10 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace
 │   ├── plugin.json        # Native Claude Code plugin manifest
 │   └── marketplace.json   # Marketplace entry (install source)
+├── .codex-plugin/     # Codex plugin manifest (exposes ./skills/)
+├── .kimi-plugin/      # Kimi Code plugin manifest (skills + agents + hook gates)
+├── host-support/      # host-neutral compatibility contract + --host resolver
+├── codex-support/     # backward-compat shims pointing at host-support/
 ├── commands/          # 28 command directives (+ 10 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
@@ -42,7 +46,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── route-report.js        # read-only route-effectiveness miner: per-session-route outcome aggregates with attribution caveats
 │   ├── run-guard.js           # unattended-run guard: spend ceiling + stuck detection
 │   ├── gen-agent-frontmatter.js  # regenerates agents/*.md model pins from model-policy.json; --check is the CI drift gate
-│   └── release-version.js     # keeps the three plugin manifests' versions in sync; --check / --set <semver>
+│   └── release-version.js     # keeps the four plugin manifests' versions in sync; --check / --set <semver>
 ├── evals/             # 55 test cases for skill triggering verification
 ├── hooks/             # Structural enforcement
 │   ├── hooks.json         # Plugin-owned hook registrations

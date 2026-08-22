@@ -45,6 +45,7 @@ const AGENTS_DIR = path.join(REPO_ROOT, 'agents');
 
 // The host whose presets the checked-in frontmatter represents. Other hosts
 // resolve the same profiles at spawn time via resolve-profile.mjs --host.
+// agents/*.md pins are the claude-code rendering, consumed only by that host.
 const HOST = 'claude-code';
 
 // Roles that intentionally carry no pin. Handled explicitly, never by accident.

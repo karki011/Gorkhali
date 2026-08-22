@@ -1,7 +1,7 @@
 {
   "name": "phantom",
   "version": "0.9.0",
-  "description": "Provider-adaptive multi-agent development workflows for Codex, Claude Code, and Kimi Code.",
+  "description": "Provider-adaptive multi-agent development workflows for Kimi Code.",
   "author": {
     "name": "Subash Karki"
   },
@@ -15,6 +15,20 @@
     "learning"
   ],
   "skills": "./skills/",
+  "agents": "./agents/",
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "command": "node ./hooks/routing-gate.js",
+      "timeout": 10
+    },
+    {
+      "event": "Stop",
+      "command": "node ./hooks/greploop-gate.js",
+      "timeout": 15
+    }
+  ],
   "interface": {
     "displayName": "Phantom",
     "shortDescription": "Provider-adaptive software delivery workflows",

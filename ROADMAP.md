@@ -60,10 +60,15 @@ Same rule as above: this document does not restate those findings.
 | B9b | Per-finding table in the baseline miner | DONE | 0.5d | completes B9's stated test; corpus is 0/0 measurable until the first post-B9 fix loop closes |
 | B13 | Structured PR body | DONE | 0.5d | - |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
-| E2 | Release script for the three plugin manifests | PENDING | 1d | - |
+| E2 | Release script for the four plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
 | E4 | Roster-degradation drill | PENDING | 2d | - |
 | E5 | Verifier-first escalation for direct routes | PENDING | 2d | needs the outcome `route` field |
+| K1 | Kimi Code host (preset, host-support generalization, `.kimi-plugin` manifest) | DONE | - | shipped; version-synced fourth manifest |
+| K2 | Kimi hook adapter | DONE | - | landed via the `.kimi-plugin/plugin.json` `hooks` field (routing-gate on PreToolUse, greploop-gate on Stop); engineer-model-gate deliberately not wired |
+| K3 | Kimi eval baseline (`evals/baselines/k3.json`) | PENDING | 0.5d | needs a real `--host kimi` run; do not fabricate |
+| K4 | Kimi cost attribution in `scripts/cost-report.js` | PENDING | 1d | needs Kimi Code transcript format access (session `wire.jsonl` files are the likely source) |
+| K5 | Verify per-spawn model selection on Kimi | PENDING | 0.5d | if the Agent tool gains a model param, apply the tiered preset at spawn and wire engineer-model-gate; until then `delegation.model_select` stays `unavailable` |
 
 C1 and B2 landed after this table was first written; the status column above is authoritative.
 
@@ -76,6 +81,22 @@ Not N-runtime.
 The evidence is Roo Code: the strongest per-mode-model story of 2025 shut down on 2026-05-15 and its repo is archived.
 The tail of this market churns faster than adapter maintenance can be amortized.
 Codex CLI is a RUNTIME target (it needs a hook adapter, B4), not merely Codex models as a provider.
+
+**D1a. Kimi Code is admitted as a third runtime target (supersedes D1's "only").**
+Kimi Code consumes the Agent Skills spec natively, so the marginal adapter cost
+D1 was protecting against is near zero: the host-support layer was generalized
+(`codex-support/` became `host-support/` with a `--host`-parameterized resolver
+and thin backward-compat shims) rather than duplicated. The Kimi preset spreads
+across Kimi's own tiers only - `kimi-for-coding` (K2.7 Code) for economy,
+`k3-256k` for balanced, `k3` for deep/frontier, with K3's `reasoning_effort`
+mapping onto the profile effort field - so a Kimi-routed session can never
+silently request Anthropic or OpenAI compute. (Note the two identifier spaces:
+Kimi Code CLI uses `k3`-style IDs; the pay-per-token platform API uses
+`kimi-k3`. `scripts/compress/compress.py` targets the latter.) The
+`.kimi-plugin/plugin.json` manifest is version-synced with the other three by
+`scripts/release-version.js` and the portable validator.
+D1's N-runtime caution still stands: a fourth host needs the same evidence bar
+(native skills consumption plus a maintained preset), not enthusiasm.
 
 **D2. Agentic development stays bounded at a ready-for-review PR.**
 `/phantom:loop` already terminates at a ready-for-review PR and never opens a PR for a weak-AC ticket.

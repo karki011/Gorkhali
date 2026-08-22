@@ -2,6 +2,12 @@
 // Author: Subash Karki
 // cost-report.js — AI cost summary for a ticket from Claude Code transcripts.
 //
+// Claude-transcript-only: every number below comes from ~/.claude/projects
+// JSONL written by the claude-code host. Kimi sessions write no such
+// transcripts, so host=kimi spend is simply invisible here (pricedSessions 0,
+// usd null) — the kimi-k3 row in the price table is a stub for the day a kimi
+// transcript reader exists, not a live data path.
+//
 // Usage: node cost-report.js <TICKET> [--repo <name>] [--fields a,b,c] [--full] [--help]
 //
 // Reads the interval ledger written by cost-link.js
@@ -58,6 +64,11 @@ const PRICES = [
   { prefix: 'claude-sonnet', in: 3.0, out: 15.0, cacheRead: 0.3, cacheWrite: 3.75 },
   { prefix: 'claude-haiku-4', in: 1.0, out: 5.0, cacheRead: 0.1, cacheWrite: 1.25 },
   { prefix: 'claude-haiku', in: 0.25, out: 1.25, cacheRead: 0.025, cacheWrite: 0.3125 },
+  // Kimi stub (host=kimi). UNVERIFIED against Moonshot's published table:
+  // kimi-k3 is reported at $3/M input, $0.30/M cached input, $15/M output; no
+  // cache-write rate is published, hence 0. Inert on the claude-code path —
+  // Claude transcripts never carry kimi model ids.
+  { prefix: 'kimi-k3', in: 3.0, out: 15.0, cacheRead: 0.3, cacheWrite: 0 },
 ];
 
 function priceFor(model) {
