@@ -2,6 +2,8 @@
 name: learn
 description: "Use when you discover something worth remembering — record a correction, save a pattern, note a gotcha ('remember this', 'don't do that again'). Captures learnings to the domain knowledge files."
 argument-hint: "<correction>"
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

@@ -2,6 +2,8 @@
 name: greploop
 description: "Use when driving a PR to a perfect Greptile review — trigger Greptile, fix every comment, resolve threads, repeat until 5/5 with zero unresolved. Auto-invoked by gorkhali:wrap after PR creation."
 allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

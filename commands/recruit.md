@@ -3,6 +3,8 @@ name: recruit
 description: "Use when you need a specialist agent for a one-off implementation, research, or audit job. Spawns an Engineer with a ROLE FOCUS directive ('React specialist'). Net-new work → gorkhali:start."
 argument-hint: "<role-focus>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
