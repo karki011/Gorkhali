@@ -57,6 +57,39 @@ Report a bug instead of a feature and the route changes: the work is classified 
 
 One provider-neutral Agent Skill at `skills/gorkhali/` runs natively on **Claude Code**, **Codex CLI**, and **Kimi Code** — zero external plugin dependencies, fully self-contained. Optional host capabilities degrade to explicit fallbacks instead of breaking. The Kimi preset routes only across Kimi's own model tiers, so a Kimi session never requests compute from another provider.
 
+## Install
+
+**Claude Code**
+
+```text
+/plugin marketplace add karki011/Gorkhali
+/plugin install gorkhali@gorkhali
+```
+
+**Codex**
+
+```bash
+git clone https://github.com/karki011/Gorkhali.git
+cd Gorkhali && codex
+# Inside Codex: /plugins → select the repository marketplace → gorkhali → Install
+```
+
+**Kimi Code**
+
+```text
+/plugins install https://github.com/karki011/Gorkhali
+/reload
+```
+
+**Any Agent Skills host** (portable, no plugin manager needed)
+
+```bash
+mkdir -p .agents/skills
+cp -R /path/to/Gorkhali/skills/gorkhali .agents/skills/gorkhali
+```
+
+Prerequisites: git plus your host's CLI. Recommended: `gh` CLI for PR flows, Atlassian MCP if you want Jira sync. Upgrade paths and per-host details: [Install](project-docs/install.md).
+
 ## Quick Start
 
 Ask naturally in any Agent Skills-compatible host:
