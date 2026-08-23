@@ -100,17 +100,22 @@ test('an unconfirmable finding is DISCARDED with a reason, never downgraded', ()
   assert.match(steps, /never silently deleted and never quietly re-scored into an advisory/);
 });
 
-test('agents/auditor.md carries the verification pass and puts it BEFORE the artifact write', () => {
-  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
-  assert.match(auditor, /## Verification pass/);
-  assert.match(auditor, /RE-OPEN the file at the cited line/);
-  // The pass has to precede "Artifact First", or a finding lands before it is
+test('the verification pass lives in the shared standard, and the auditor reads it BEFORE the artifact write', () => {
+  const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
+  assert.match(standard, /## Verification pass/);
+  assert.match(standard, /RE-OPEN the file at the cited line/);
+  // The pass has to precede the finding shape, or a finding lands before it is
   // checked and the whole step is decoration.
   assert.ok(
-    auditor.indexOf('RE-OPEN the file at the cited line') < auditor.indexOf('### Artifact First'),
-    'the verification pass must come before the artifact-write instruction'
+    standard.indexOf('## Verification pass') < standard.indexOf('## Finding shape'),
+    'the verification pass must come before the finding shape in the shared standard'
   );
-  assert.match(auditor, /which ends with the verification pass above, not before it/);
+  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
+  assert.ok(
+    auditor.indexOf('## Review standard') < auditor.indexOf('### Artifact First'),
+    'auditor.md must read the standard before the artifact-write instruction'
+  );
+  assert.match(auditor, /which ends with the verification pass from the review\s+standard, not before it/);
 });
 
 test('a discarded finding needs a reason - a discard with none is rejected by name', () => {

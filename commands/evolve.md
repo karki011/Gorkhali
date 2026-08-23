@@ -1,10 +1,10 @@
 ---
 name: evolve
-description: "Use when learnings files are getting large, patterns should be promoted to global, or the knowledge system needs maintenance. Scans learnings, proposes promotions to global patterns, distills oversized files, and cleans stale entries. Also use when user says 'clean up learnings', 'promote patterns', 'knowledge maintenance', or 'evolve the system'."
+description: "Use when learnings files grow large or knowledge needs maintenance. Scans learnings, promotes patterns to global, distills oversized files, cleans stale entries ('clean up learnings')."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T1** — loads `_shared.md` only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:evolve
 

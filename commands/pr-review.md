@@ -4,7 +4,7 @@ description: "Review an EXTERNAL pull request against its ticket intent. Advisor
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T3** - loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` (authoritative list: `node scripts/preamble-tier.js pr-review --json`)
+> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /phantom:pr-review
 

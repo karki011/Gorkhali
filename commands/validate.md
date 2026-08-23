@@ -1,13 +1,13 @@
 ---
 name: validate
-description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy the contracts/requirements. Also use when user says 'validate the session', 'check outputs against the contract', or 'did we cover all the requirements'. NOT for code quality review (use phantom:review), test/build runs (use phantom:verify), or repairing failures (use phantom:fix)."
+description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy contracts/requirements. Code review → phantom:review; test/build → phantom:verify; repairs → phantom:fix."
 argument-hint: "[layer]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 # Generic affirm-check triggers ('sanity check', 'did we miss anything', 'is this complete') are intentionally muted by user-invocable:false — validate is an internal/orchestration step, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety against verify/review/approve.
 user-invocable: false
 ---
 
-> **Preamble Tier: T2** — loads '_shared.md' + '_shared-repo-detection.md' + '_shared-auto-learning.md'
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:validate $ARGUMENTS
 

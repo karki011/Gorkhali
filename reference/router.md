@@ -9,6 +9,7 @@ Human intervention scales with **uncertainty**, not task size.
 
 | Route | Ceremony | Human Gates | When |
 |-------|----------|-------------|------|
+| **LITE** | Execute + Inspect | 0 | Trivial scope, <=2 files, known pattern, very high confidence |
 | **DIRECT** | Execute + Verify | 0 | Clear scope, <=3 files, known pattern, confidence >=0.9 |
 | **PLAN** | Decompose + Deliberate + Execute + Verify | 1 (approve plan) | Clear scope, 3-10 files, known approach, confidence >=0.7 |
 | **BRAINSTORM** | Diverge + Converge + Plan + Deliberate + Execute + Verify | 2 (approve direction + approve plan) | Ambiguous scope, new domain, competing patterns, confidence <0.7 |
@@ -20,7 +21,7 @@ Human intervention scales with **uncertainty**, not task size.
 |------|----------|
 | [router/signals.md](router/signals.md) | Signal dimensions, weights, extraction cost |
 | [router/algorithm.md](router/algorithm.md) | Classification algorithm, scoring, route selection |
-| [router/routes.md](router/routes.md) | DIRECT / PLAN / BRAINSTORM / FULL route specs |
+| [router/routes.md](router/routes.md) | LITE / DIRECT / PLAN / BRAINSTORM / FULL route specs |
 | [router/deliberation.md](router/deliberation.md) | Planner-Challenger protocol, max rounds |
 | [router/questions.md](router/questions.md) | Question-asking rules, banned patterns |
 

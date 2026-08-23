@@ -1,10 +1,10 @@
 ---
 name: close
-description: "Use when a PR has MERGED and you want to fully close out the ticket — move Jira to Done, finalize & archive the session, clean up the branch/worktree, record final cost. Also use when user says 'close it out', 'ticket merged', 'move to done', 'finish the session', 'close the session', 'clean up the branch', or 'archive the ticket'. NOT for shipping a PR (use phantom:wrap) — close is the post-merge terminal step that runs after merge."
+description: "Use when a PR has MERGED and you want to close out the ticket — Jira to Done, archive the session, clean up branch/worktree, record final cost. Shipping a PR → phantom:wrap; close is post-merge."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + repo-detection + auto-learning
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:close
 
@@ -15,7 +15,7 @@ Post-merge terminal closeout. Two hard principles: **(a) IDEMPOTENT** — safe t
 
 Close is 100% mechanical, so it runs on a delegated agent — not the session model. Resolve the ticket/session (Step 1) inline, then spawn **one** `clerk` agent to execute Steps 2–6:
 
-`Agent({ subagent_type: "clerk", name: "clerk-scrivet", mode: "bypassPermissions", run_in_background: true })` — model + effort come from clerk's definition (`sonnet`, like every delegated role; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Clerk runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what clerk returns.
+`Agent({ subagent_type: "clerk", name: "clerk-scrivet", mode: "bypassPermissions", run_in_background: true })` — model + effort come from clerk's definition (`haiku`, the economy pin; full tier table: `reference/agents.md`). Hand it the resolved `{TICKET}`, `pr.number`, `pr.url`, `jira.ticket`, and the session dir. Clerk runs the merge gate → Jira → git cleanup → cost → artifact and reports per-step results. This skill then renders the SESSION CLOSED box from what clerk returns.
 
 If `clerk` is unavailable (older install without the agent), fall back to running Steps 2–6 inline.
 </execution>

@@ -96,12 +96,16 @@ test('triggered specialist artifacts have fixed paths, shape, and blocking seman
   const verify = read('verify');
   const review = read('review');
   const rpsl = read('rpsl');
+  const standard = fs.readFileSync(path.join(ROOT, 'reference', 'review-standard.md'), 'utf8');
 
   assert.match(justice, /reviews\/specialists\/justice\.json/i);
-  assert.match(justice, /"verdict": "pass\|fail\|blocked"/i);
-  assert.match(justice, /"findings": \[\]/i);
-  assert.match(justice, /"observationGaps": \[\]/i);
   assert.match(justice, /chat-only verdict never counts/i);
+  // The artifact shape literals live in the shared review standard, which
+  // justice.md reads at runtime (kept inline there, generated + drift-checked).
+  assert.match(justice, /review-standard\.md/);
+  assert.match(standard, /"verdict": "pass\|fail\|blocked"/i);
+  assert.match(standard, /"findings": \[\]/i);
+  assert.match(standard, /"observationGaps": \[\]/i);
 
   for (const [name, content] of [['verify', verify], ['review', review]]) {
     for (const specialistPath of SPECIALIST_PATHS) {

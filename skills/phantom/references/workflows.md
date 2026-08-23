@@ -17,8 +17,8 @@ Load only the current phase. Older callers may map their operation to the
 matching phase without changing the session route, state location, approval
 boundary, or evidence contract.
 
-Routes remain `direct`, `plan`, `brainstorm`, and `full`. They differ only in
-the decision artifacts and approvals needed before the separately authorized
+Routes remain `lite`, `direct`, `plan`, `brainstorm`, and `full`. They differ
+only in the decision artifacts and approvals needed before the separately authorized
 execution phase. Worker topology is chosen from proven task independence and
 runtime capability; file count is not a lifecycle rule.
 

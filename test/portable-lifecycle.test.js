@@ -324,10 +324,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.5.0');
+  assert.equal(started.bundle_version, '2.6.0');
   assert.deepEqual(started.producer, { role: 'chief', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.5.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.6.0');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -340,7 +340,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.5.0');
+  assert.equal(resumed.bundle_version, '2.6.0');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -363,7 +363,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.5.0');
+  assert.equal(recorded.artifact.bundle_version, '2.6.0');
   assert.deepEqual(recorded.artifact.producer, { role: 'inspector', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -1182,7 +1182,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.5.0');
+  assert.equal(task.artifact.bundle_version, '2.6.0');
   assert.deepEqual(task.artifact.producer, { role: 'engineer', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -1518,6 +1518,7 @@ test('a newer failed gate overrides an older passed gate', async () => {
 
 test('route-specific execution gates fail actionably and pass after required approvals', async () => {
   for (const scenario of [
+    { route: 'lite', approvals: [], missing: null },
     { route: 'direct', approvals: [], missing: null },
     { route: 'plan', approvals: ['plan'], missing: /plan approval is missing.*approve --gate plan/s },
     {

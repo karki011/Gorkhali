@@ -76,7 +76,7 @@ node gen-review-standard.js --check    # verify no drift; exit 2 on drift
 node gen-review-standard.js --list     # targets and their blocks
 ```
 
-**Targets:** `agents/auditor.md`, `agents/justice.md`, `reference/agent-protocols/justice-protocol.md`, `reference/temperature-review.md`.
+**Targets:** `reference/review-standard.md` (the single generated home — `agents/auditor.md` and `agents/justice.md` point here and read it at runtime), `reference/agent-protocols/justice-protocol.md`, `reference/temperature-review.md` (both read standalone mid-review, so they keep their blocks inline).
 
 Same source-of-truth-plus-generator-plus-`--check` shape as `gen-schema-docs.js` and `gen-agent-frontmatter.js`, for the same reason: one severity concept spelled four ways in four prose files is exactly the drift this pattern exists to stop (ROADMAP F1, F5, F9). Prose outside the markers is hand-written and preserved.
 
@@ -151,7 +151,7 @@ Checks a session directory for expected artifacts and validates their JSON.
 
 ### `preamble-tier.js`
 
-Given a Phantom command name, outputs which preamble tier it belongs to and which shared context files it loads.
+Given a Phantom command name, outputs which preamble tier it belongs to and which shared context files it loads. The tier registry in this file is CANONICAL — the `_shared.md` Preamble Tiers table and every command's blockquote are renderings of it, pinned by `test/preamble-tier.test.js`.
 
 ```bash
 node preamble-tier.js [command] [--json]
@@ -178,6 +178,20 @@ node preamble-tier.js wrap --json
 # Show all tiers
 node preamble-tier.js
 ```
+
+---
+
+### `repo-detect.js`
+
+Emits the per-repo facts that `commands/_shared-repo-detection.md`'s policy consumes — `repo_id` (+ `aliases`), `data_root`, `stack`, `package_manager`, `monorepo`, `has_ui`, discovered `verify_commands` — so command preambles never restate discovery prose. Read-only; facts degrade to null/false instead of throwing.
+
+```bash
+node repo-detect.js [--workspace <path>] [--json]
+```
+
+**Flags:** `--json` machine-readable output; `--workspace` overrides the detected directory (default: cwd).
+
+**Exit:** 0 always (informational), 2 on usage error.
 
 ---
 
@@ -217,7 +231,7 @@ node outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] [--no-gh]
 
 **Checks:**
 - `pr_state` is a closed enum (`draft | open | merged | closed | absent`) mapped only from gh's own answer; an unmappable state is nulled with a reason, never guessed
-- `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`direct | plan | brainstorm | full`) chosen at `start` by `phantom-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
+- `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`lite | direct | plan | brainstorm | full`) chosen at `start` by `phantom-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
 - An out-of-enum `route` or `pr_state` is refused at write time, never persisted verbatim
 - `verified`, `fix_loops`, `wall_time_ms`, `agents` come from `verification.json`, loop-controller (counting `reviews/rounds.json`, the portable review round ledger, and falling back to legacy `verification.json` `review.fixLoops`), the session timestamps, and the timing jsonl respectively
 
@@ -232,7 +246,7 @@ node outcome-write.js --ticket ENG-1234 --dry-run --json
 
 ### `route-report.js`
 
-Scores the router: aggregates every canonical `outcome.json` record per SESSION route (`direct | plan | brainstorm | full`) - record counts, the `route_source` breakdown, and one metric block PER ATTRIBUTION CLASS (`explicit` vs `unattributable`): `pr_state` distribution, merge rate over settled PRs only, `verified` distribution, mean `fix_loops` / `review_comments` over non-null values. READ-ONLY: this script has no side effects.
+Scores the router: aggregates every canonical `outcome.json` record per SESSION route (`lite | direct | plan | brainstorm | full`) - record counts, the `route_source` breakdown, and one metric block PER ATTRIBUTION CLASS (`explicit` vs `unattributable`): `pr_state` distribution, merge rate over settled PRs only, `verified` distribution, mean `fix_loops` / `review_comments` over non-null values, and priced cost (total/mean USD) where the ticket's ledger priced at least one session - the join states its coverage (`n` of records) and an unpriceable ledger is unknown, never $0. READ-ONLY: this script has no side effects.
 
 ```bash
 node route-report.js [--json]
@@ -253,6 +267,21 @@ node route-report.js [--json]
 ```bash
 PHANTOM_DATA=~/.phantom node route-report.js --json
 ```
+
+---
+
+### `route-bias.js`
+
+Closes the router's measurement loop: reads the outcome corpus and proposes the next `correction.bias` for `reference/router/algorithm.md`'s `adjusted_uncertainty = uncertainty * (1 + correction.bias)`. Per SESSION route, over `route_source: explicit` records only: verified pass rate < 0.70 signals +1 (more ceremony), >= 0.90 signals -1 (less ceremony); the delta is 0.10 × the record-weighted mean, clamped with the current bias to ±0.3. Below 10 explicit records it refuses — a small sample must not tune the router.
+
+```bash
+node route-bias.js                    # DRY-RUN (default): current bias, proposed bias, evidence, exact entry
+node route-bias.js --json             # machine-readable proposal
+node route-bias.js --apply            # append the entry to <data>/repos/<repo>/learnings/shadows.md
+node route-bias.js --min-sample 20    # stricter evidence floor
+```
+
+**Exit:** 0 = proposal/refusal printed or applied; 2 = usage error or `--apply` refused (insufficient sample).
 
 ---
 

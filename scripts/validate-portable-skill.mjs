@@ -130,7 +130,9 @@ function validatePresets(presets, policy, errors) {
           || (typeof preset.effort === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(preset.effort));
         if (!validModel) errors.push(`Model preset ${host}.${profile}.model is invalid.`);
         if (!validEffort) errors.push(`Model preset ${host}.${profile}.effort is invalid.`);
-        if (profile !== 'inherit' && preset.model === null) {
+        // `inherit` and `frontier` may both carry a null model: both mean
+        // "keep the active/session model" (orchestration-only compute).
+        if (!['inherit', 'frontier'].includes(profile) && preset.model === null) {
           errors.push(`Model preset ${host}.${profile}.model must be defined.`);
         }
       }
@@ -566,7 +568,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       'The authoritative review must have a later',
     ],
     'scripts/phantom-state.mjs': [
-      "const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full'])",
+      "const ROUTES = new Set(['lite', 'direct', 'plan', 'brainstorm', 'full'])",
       "'ship-pr'",
       "'ship-draft-pr'",
       'worktreeFingerprint',

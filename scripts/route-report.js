@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // route-report.js - score the router: aggregate per-ticket outcome records by the
-// SESSION route (direct | plan | brainstorm | full) so route effectiveness can be
+// SESSION route (lite | direct | plan | brainstorm | full) so route effectiveness can be
 // read from the corpus. The route here is the one phantom-state.mjs records in
 // session.json and outcome-write.js copies into outcome.json - it is NOT the
 // solo|shadows EXECUTION route in wrap.json/plan.json.
@@ -21,6 +21,12 @@
 // explicit-vs-unattributable split per route, and state every sample size before
 // the rate computed over it.
 //
+// COST JOIN: where the record's ticket has a cost ledger priced by
+// cost-report.js, the priced USD total/mean rides alongside the outcome metrics
+// per attribution class. The join states its own coverage (n of records);
+// uncosted records never enter the mean, and an unpriceable ledger is unknown,
+// never $0.
+//
 // Usage: route-report.js [--json]
 //   --json  emit the stable machine shape instead of the human table
 // Data root: ${PHANTOM_DATA:-~/.phantom} via scripts/lib/phantom-paths.js.
@@ -34,6 +40,7 @@ const fs = require('fs');
 const path = require('path');
 const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
 const { phantomData } = require('./lib/phantom-paths');
+const { spendForTicket } = require('./cost-report');
 
 // Label used when a field is absent, so distributions stay countable instead of
 // dropping records with an undefined key.
@@ -153,6 +160,8 @@ function newMetrics() {
     fixLoopsSum: 0,
     reviewCommentsN: 0,
     reviewCommentsSum: 0,
+    costN: 0,
+    costSum: 0,
   };
 }
 
@@ -169,6 +178,13 @@ function accumulate(m, rec) {
   if (rec.review_comments != null) {
     m.reviewCommentsN += 1;
     m.reviewCommentsSum += rec.review_comments;
+  }
+  // Cost joins only where the ticket's ledger priced at least one session; an
+  // uncosted record contributes to `records` but never to the cost mean - the
+  // printed n-vs-records gap IS the coverage statement.
+  if (typeof rec.cost_usd === 'number') {
+    m.costN += 1;
+    m.costSum += rec.cost_usd;
   }
 }
 
@@ -191,6 +207,13 @@ function finalizeMetrics(m) {
     review_comments: {
       n: m.reviewCommentsN,
       mean: m.reviewCommentsN > 0 ? m.reviewCommentsSum / m.reviewCommentsN : null,
+    },
+    // Priced USD over the records whose ticket ledger produced a price. n is the
+    // join coverage: compare it against `records` before trusting the mean.
+    cost: {
+      n: m.costN,
+      total: m.costN > 0 ? m.costSum : null,
+      mean: m.costN > 0 ? m.costSum / m.costN : null,
     },
   };
 }
@@ -300,6 +323,10 @@ function renderHuman(report, dataRoot) {
           + (m.fix_loops.mean === null ? 'n/a' : 'mean ' + m.fix_loops.mean.toFixed(2)),
         `    review_comments  over ${m.review_comments.n} non-null: `
           + (m.review_comments.mean === null ? 'n/a' : 'mean ' + m.review_comments.mean.toFixed(2)),
+        `    cost             over ${m.cost.n} of ${m.records} record(s): `
+          + (m.cost.mean === null
+            ? 'no priced cost data'
+            : `total $${m.cost.total.toFixed(2)}, mean $${m.cost.mean.toFixed(2)}`),
       );
     }
     lines.push('');
@@ -312,7 +339,7 @@ function renderHuman(report, dataRoot) {
 
 const HELP =
   'route-report - score the router by aggregating per-ticket outcome records\n' +
-  'per SESSION route (direct|plan|brainstorm|full - not the solo|shadows\n' +
+  'per SESSION route (lite|direct|plan|brainstorm|full - not the solo|shadows\n' +
   'execution route in wrap.json/plan.json).\n\n' +
   'Usage: node scripts/route-report.js [--json]\n\n' +
   '  --json  emit the stable machine shape instead of the human table\n\n' +
@@ -336,7 +363,7 @@ function parseArgs(argv) {
   return { json };
 }
 
-function main(argv) {
+async function main(argv) {
   const opts = parseArgs(argv);
   if (opts.help) {
     process.stdout.write(HELP);
@@ -346,12 +373,36 @@ function main(argv) {
   const dataRoot = phantomData();
   const dirs = findOutcomeDirs(dataRoot);
 
+  // Cost join: price each record's ticket once (memoized - a ticket can hold
+  // both a sessions/ and a completed/ record) through cost-report's one price
+  // table. usd is a number ONLY when a transcript was actually priced; null
+  // (unknown) never reads as $0.
+  const spendCache = new Map();
+  async function costFor(repo, ticket) {
+    const key = `${repo}\0${ticket}`;
+    if (!spendCache.has(key)) {
+      try {
+        spendCache.set(key, await spendForTicket(ticket, repo));
+      } catch (_) {
+        spendCache.set(key, { usd: null });
+      }
+    }
+    return spendCache.get(key);
+  }
+
   const records = [];
   let skippedUnparseable = 0;
   for (const dir of dirs.canonical) {
     const rec = extractRecord(dir);
-    if (rec === null) skippedUnparseable += 1;
-    else records.push(rec);
+    if (rec === null) {
+      skippedUnparseable += 1;
+      continue;
+    }
+    // dir is <data>/repos/<repo>/{sessions,completed}/<ticket> by construction.
+    const [repo, , ticket] = path.relative(path.join(dataRoot, 'repos'), dir).split(path.sep);
+    const spend = await costFor(repo, ticket);
+    rec.cost_usd = spend && typeof spend.usd === 'number' ? spend.usd : null;
+    records.push(rec);
   }
 
   const report = buildReport(records, {
@@ -368,11 +419,7 @@ function main(argv) {
 }
 
 if (require.main === module) {
-  try {
-    main(process.argv);
-  } catch (err) {
-    reportError(err);
-  }
+  main(process.argv).catch((err) => reportError(err));
 }
 
 module.exports = { findOutcomeDirs, extractRecord, buildReport, renderHuman };

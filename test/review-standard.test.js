@@ -226,7 +226,7 @@ test('the blocking bar is stated once, in data, and says "worse than before"', (
 
 // --- (d) NAMED SECURITY CATEGORIES ------------------------------------------
 
-test('the six OWASP-anchored categories are named, and reach agents/auditor.md verbatim', () => {
+test('the six OWASP-anchored categories are named, and reach the shared review standard verbatim', () => {
   const names = std.SECURITY_CATEGORIES.map((c) => c.name);
   assert.deepEqual(names, [
     'Broken access control (including SSRF)',
@@ -236,8 +236,18 @@ test('the six OWASP-anchored categories are named, and reach agents/auditor.md v
     'Unsafe defaults',
     'Data exposure',
   ]);
-  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
-  for (const name of names) assert.ok(auditor.includes(name), `agents/auditor.md must name "${name}"`);
+  const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
+  for (const name of names) assert.ok(standard.includes(name), `reference/review-standard.md must name "${name}"`);
+  // The reviewer prompts no longer carry the blocks inline - they point at the
+  // shared standard and read it at runtime.
+  for (const agent of ['auditor', 'justice']) {
+    const text = fs.readFileSync(path.join(REPO_ROOT, 'agents', `${agent}.md`), 'utf8');
+    assert.ok(
+      text.includes('cat "$PR/reference/review-standard.md"'),
+      `agents/${agent}.md must read reference/review-standard.md at runtime`,
+    );
+    assert.ok(!text.includes('BEGIN GENERATED'), `agents/${agent}.md must not carry generated blocks inline`);
+  }
 });
 
 // --- (e) DRIFT-PROOFING: the prose is generated, and CI checks it ------------
@@ -258,20 +268,20 @@ test('hand-editing a generated severity table fails --check with exit 2 and name
     filter: (src) => !/(^|\/)(\.git|node_modules)(\/|$)/.test(src.slice(REPO_ROOT.length)),
   });
   try {
-    const auditor = path.join(dir, 'agents', 'auditor.md');
+    const standard = path.join(dir, 'reference', 'review-standard.md');
     fs.writeFileSync(
-      auditor,
-      fs.readFileSync(auditor, 'utf8').replace('| `advisory` |', '| `P2` |')
+      standard,
+      fs.readFileSync(standard, 'utf8').replace('| `advisory` |', '| `P2` |')
     );
     const res = run(GENERATOR, ['--check', '--dir', dir]);
     assert.equal(res.code, 2, 'doc drift is VALIDATION_ERROR -> exit 2');
-    assert.match(res.stderr, /Review-standard prose is out of date: agents\/auditor\.md/);
+    assert.match(res.stderr, /Review-standard prose is out of date: reference\/review-standard\.md/);
 
     // ...and regenerating puts it back, byte for byte.
     assert.equal(run(GENERATOR, ['--dir', dir]).code, 0);
     assert.equal(
-      fs.readFileSync(auditor, 'utf8'),
-      fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8')
+      fs.readFileSync(standard, 'utf8'),
+      fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8')
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

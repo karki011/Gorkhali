@@ -4,7 +4,7 @@ description: "Run the repository's correctness checks, simplify the changed file
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:verify
 
@@ -108,7 +108,7 @@ verify context:
 - **Artifacts** — Delete only `{SESSION_DIR}/reviews/auditor.json` — never `{SESSION_DIR}/reviews/rounds.json` — then run one fresh, read-only Auditor pass against this verification's Inspector evidence and the current diff. Close the round with `review-round.js close` only after a valid artifact was read.
 - **Required check** — Auditor checks this verification's `userVerification` classification against the complete diff; `commands/review.md` steps 5-6 own the pass/duplicate/missing consequences.
 - **Specialists** — run exactly the roles in this verification's `requiredSpecialists`, without reclassifying the diff. For `justice`, create `{SESSION_DIR}/reviews/specialists/`, then delete only `{SESSION_DIR}/reviews/specialists/justice.json` immediately before spawning it, and bind each role's evidence to this verification's Inspector artifact; `commands/review.md` steps 5, 6 and 8 own the verdict shape and the fail/blocked reduction.
-- **Recording** — the merged review records through the portable helper, after this verification artifact. The recorded payload carries the `independence` disclosure (`reference/schemas/review.md`) Auditor wrote onto its own artifact - today's honest default is `basis: "same-model-independent-context"`, `evidenceTier: "requested"`, since every delegated role currently shares one model-policy tier and model identity itself is only requested-tier evidence until `project-docs/seat-provenance-design.md`'s served-tier probe lands. User visual confirmation is bound to verification and is not a review artifact. The optional RPSL preset is not part of normal verify.
+- **Recording** — the merged review records through the portable helper, after this verification artifact. The recorded payload carries the `independence` disclosure (`reference/schemas/review.md`) Auditor wrote onto its own artifact - today's honest default is `basis: "same-model-independent-context"`, `evidenceTier: "requested"`, since balanced and deep resolve to the same delegate model on claude-code and model identity itself is only requested-tier evidence until `project-docs/seat-provenance-design.md`'s served-tier probe lands. User visual confirmation is bound to verification and is not a review artifact. The optional RPSL preset is not part of normal verify.
 
 ## Result
 

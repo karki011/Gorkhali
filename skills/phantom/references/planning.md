@@ -185,7 +185,7 @@ node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --ga
 node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
 ```
 
-`direct` has no decision approval; `plan` requires plan approval;
+`lite` and `direct` have no decision approval; `plan` requires plan approval;
 `brainstorm` requires direction before plan; `full` additionally requires
 wiring. New decision artifacts invalidate dependent approvals through the
 engine. Never carry approval forward manually.

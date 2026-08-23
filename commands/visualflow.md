@@ -1,11 +1,11 @@
 ---
 name: visualflow
-description: "Use when building a NEW screen, feature, or flow — especially with NO Figma or design — and you want to nail down the flow BEFORE writing code. Produces a reviewable HTML flow artifact (screens, states, transitions) gated by a human before implementation. Also use when user says 'visual flow', 'plan the screens', 'flow before we build', or 'wireframe the flow'."
+description: "Use when building a NEW screen, feature, or flow — especially with NO Figma or design — to nail the flow BEFORE writing code. Produces a human-gated HTML flow artifact (screens, states, transitions)."
 argument-hint: "<screen/feature description or ticket>"
 allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T3** — loads `_shared.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md`
+> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /phantom:visualflow $ARGUMENTS
 

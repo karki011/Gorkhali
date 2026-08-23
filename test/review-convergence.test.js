@@ -370,13 +370,13 @@ test('commands/verify.md runs the same pass and spares the same ledger', () => {
   assert.match(verify, /review-round\.js close/);
 });
 
-test('agents/auditor.md carries the round rule and does not claim to count rounds itself', () => {
-  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
-  assert.match(auditor, /## Re-review rounds/);
-  assert.match(auditor, /report `blocking` findings only/);
-  assert.match(auditor, /You are TOLD which round this is; you never count rounds yourself/);
+test('the shared review standard carries the round rule and does not claim to count rounds itself', () => {
+  const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
+  assert.match(standard, /## Re-review rounds/);
+  assert.match(standard, /report `blocking` findings only/);
+  assert.match(standard, /You are TOLD which round this is; you never count rounds yourself/);
   // The artifact stays complete: suppression is about what a round SAYS.
-  assert.match(auditor, /Keep every finding you stand behind in the artifact/);
+  assert.match(standard, /Keep every finding you stand behind in the artifact/);
 });
 
 // --- an invalid review must not consume a round (Greptile, PR #114) -----------

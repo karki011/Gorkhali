@@ -69,6 +69,9 @@ Same rule as above: this document does not restate those findings.
 | K3 | Kimi eval baseline (`evals/baselines/k3.json`) | PENDING | 0.5d | needs a real `--host kimi` run; do not fabricate |
 | K4 | Kimi cost attribution in `scripts/cost-report.js` | PENDING | 1d | needs Kimi Code transcript format access (session `wire.jsonl` files are the likely source) |
 | K5 | Verify per-spawn model selection on Kimi | PENDING | 0.5d | if the Agent tool gains a model param, apply the tiered preset at spawn and wire engineer-model-gate; until then `delegation.model_select` stays `unavailable` |
+| TD1 | Preamble restructure | DONE | 2d | shipped in 0.10.0: `scripts/repo-detect.js` emits repo facts as JSON, `_shared-repo-detection.md` is policy-only, `_shared.md` §Paths collapsed, tier registry unified in `scripts/preamble-tier.js` (blockquote + table drift pinned by `test/preamble-tier.test.js`) |
+| TD2 | Extract auditor/justice GENERATED blocks into `reference/review-standard.md` | DONE | 1d | shipped in 0.10.0: auditor.md 18.7KB→4.3KB, justice.md 14.9KB→5.3KB; agents cat the standard at runtime; temperature-review.md and justice-protocol.md stay generated inline (standalone mid-review reads) |
+| TD3 | Post-merge eval tripwire for the haiku downshift | PENDING | 0.5d | after this PR merges, re-run the review-precision baseline (`node scripts/run-evals.js` compare path) against the clerk/inspector→haiku change; SPENDS TOKENS - needs explicit operator go-ahead; if precision dropped, the revert knob is one line in `skills/phantom/references/model-policy.json` (inspector/clerk back to `balanced`) |
 
 C1 and B2 landed after this table was first written; the status column above is authoritative.
 
@@ -108,6 +111,7 @@ Chief must NOT pick model IDs.
 Doing so creates a third source of truth alongside frontmatter and policy, which is exactly the defect B1 exists to remove.
 The chain is: Chief supplies risk/complexity, `model-policy.json` resolves role plus risk to a profile (`critical_elevation` already exists), `model-presets.json` resolves profile plus host to a concrete model.
 This matches model-right-sizer's rule that a pick is expressed as a delta against a known default, never as an absolute.
+Status: IMPLEMENTED on claude-code (0.10.0) — spawn guidance resolves per role via `resolve-profile.mjs` and the preset ladder is live (`economy`→haiku, `balanced`/`deep`→sonnet-high, `frontier`→session-inherit). Kimi sub-agents still inherit the session model until K5 lands.
 
 **D4. Deletions approved, gated on B2.**
 `grill` becomes a flag on `review`.

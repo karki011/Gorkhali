@@ -1,9 +1,9 @@
 ---
 name: health
-description: "Use when the Phantom SYSTEM ITSELF seems broken — learnings index is stale, sessions are corrupted, or artifacts are missing. Diagnoses the knowledge layer — checks learnings index, session state, edge files, and reports issues with fix suggestions. Also use when user says 'is phantom broken', 'is the phantom broken', 'phantom seems broken', 'check phantom health', or 'diagnose phantom'. NOT for broken user code (use phantom:fix for known failures, phantom:detective to investigate unknown ones)."
+description: "Use when the Phantom SYSTEM ITSELF seems broken — stale learnings, corrupted sessions, missing artifacts. Diagnoses and suggests fixes. Broken user code → phantom:fix or phantom:detective."
 ---
 
-> **Preamble Tier: T1** — loads '_shared.md' only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:health
 

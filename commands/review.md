@@ -4,7 +4,7 @@ description: "Run one independent Auditor review of the current verified diff. A
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T3** — loads `_shared.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md`
+> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /phantom:review
 
@@ -108,8 +108,8 @@ review stage rather than restating it.
 
    The recorded payload carries the `independence` disclosure Auditor wrote onto its own
    artifact (`reference/schemas/review.md`): today's honest default everywhere is
-   `basis: "same-model-independent-context"`, `evidenceTier: "requested"` - every delegated
-   role currently shares one model-policy tier, and model identity itself is only
+   `basis: "same-model-independent-context"`, `evidenceTier: "requested"` - balanced and deep
+   resolve to the same delegate model on claude-code, so same-model review is common, and model identity itself is only
    requested-tier evidence until `project-docs/seat-provenance-design.md`'s served-tier probe
    lands. Copy it through unchanged; do not recompute or soften it here. When a required
    independent check could not be obtained at all, the label instead reads `"accepted under

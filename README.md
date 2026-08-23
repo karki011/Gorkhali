@@ -1,8 +1,8 @@
 # PHANTOM - A Shadow Cabinet for Your Codebase
 
 [![CI](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudzero/research-phantom-skills/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-0.9.0-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-1212-brightgreen)](test/)
+[![version](https://img.shields.io/badge/version-0.10.0-blue)](.claude-plugin/plugin.json)
+[![tests](https://img.shields.io/badge/tests-1253-brightgreen)](test/)
 [![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI%20%2B%20Kimi%20Code-8A2BE2)](project-docs/install.md)
 
 **Author: Subash Karki**

@@ -1,10 +1,10 @@
 ---
 name: grill
-description: "Use when you want a Socratic challenge on your own changes — test your understanding, stress-test your reasoning, or quiz yourself before shipping. Also use when user says 'grill me', 'quiz me', 'test my understanding', 'challenge me on this', or 'play devil's advocate'. NOT for code review — use phantom:review."
+description: "Use when you want a Socratic challenge on your own changes — 'grill me', 'quiz me', 'test my understanding', 'play devil's advocate' — before shipping. NOT for code review (use phantom:review)."
 argument-hint: "[--hard] [--quick]"
 ---
 
-> **Preamble Tier: T1** — loads `_shared.md` only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:grill
 

@@ -2,9 +2,9 @@
 
 > **Context:** Called during `/phantom:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
 
-## Evolution Check (Inspector sidecar, sonnet-pinned)
+## Evolution Check (Inspector sidecar, haiku-pinned)
 
-Spawn the Inspector sidecar (`subagent_type: "inspector"`, `name: "inspector-zelmar"`, `mode: bypassPermissions`, `run_in_background: false`; inspector pins `sonnet` in its agent definition, like every delegated role — this is one site, not a separate cheap-model agent):
+Spawn the Inspector sidecar (`subagent_type: "inspector"`, `name: "inspector-zelmar"`, `mode: bypassPermissions`, `run_in_background: false`; inspector pins `haiku` in its agent definition — the economy rung, generated from model-policy.json):
 
 Prompt: "Scan learnings/INDEX.md. Find:
 1. Entries with [validated:5+] -> Tier 1 (auto-promote to reference/)

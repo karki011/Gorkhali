@@ -1,13 +1,13 @@
 ---
 name: wire
-description: "Map dependency topology from approved plan — wave assignments, integration points, risk detection. Use after plan approval on FULL route or optionally on PLAN route (>5 files). Also use when user says 'wire it', 'show dependencies', 'what order', or 'map the topology'."
+description: "Map dependency topology from an approved plan — wave assignments, integration points, risk detection. Use after plan approval on FULL, optionally PLAN (>5 files) — 'wire it', 'map the topology'."
 argument-hint: "[TICKET]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 # Generic triggers ('what order', 'show dependencies') are intentionally muted by user-invocable:false — wire is dispatched after plan approval, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety.
 user-invocable: false
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:wire "$ARGUMENTS"
 

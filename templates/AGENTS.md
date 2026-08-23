@@ -21,10 +21,11 @@ if a pin is hand-edited out of sync with that policy. Do not hand-edit a pin or
 restate a concrete model name here - change the policy file instead.
 
 Only Chief inherits the session model (Opus 5 recommended); every other role is
-delegated, and on this host every delegated profile resolves to `sonnet`. The
+delegated, and on this host the delegated profiles resolve to `haiku` (`economy`)
+or `sonnet` (`balanced`/`deep`). The
 profile a role pins is still meaningful - it sets the seniority Chief briefs that
 role at, and it still spreads across models on other hosts - so do not "fix" a
-role's profile down (or up) because the resolved pin looks the same either way.
+role's profile down (or up) because two resolved pins look the same on one host.
 One consequence to keep in mind: there is no richer model to escalate a stuck
 assignment into, so re-decompose it instead.
 

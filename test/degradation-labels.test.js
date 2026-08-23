@@ -8,9 +8,10 @@
 // structurally unavailable is labeled "accepted under reduced assurance",
 // never a silent clean pass.
 //
-// In Phantom every delegated role (Engineer, Inspector, Auditor, Justice)
-// currently runs on one model-policy tier, so same-model review is the NORM,
-// not an edge case - `independence` states that evidence basis honestly. The
+// In Phantom the delegated roles span two tiers on claude-code (economy runs
+// haiku; balanced and deep both resolve to sonnet), so same-model review is
+// the NORM, not an edge case - `independence` states that evidence basis
+// honestly. The
 // vocabulary is DATA in scripts/lib/review-standard.js (same pattern as
 // SEVERITIES/CONFIDENCE, B10/B11) and enforced by scripts/validate-artifact.js.
 //

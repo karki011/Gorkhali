@@ -1,11 +1,11 @@
 ---
 name: loop
-description: "Find every Jira ticket assigned to you in 'Ready for Implementation', triage each, then either run the phantom workflow to a PR (acceptance criteria solid) or produce a plan and wait for approval (acceptance criteria weak). One invocation = one pass. Alias: /phantom:q."
+description: "Find your Jira tickets in 'Ready for Implementation', triage each, then run phantom to a PR (solid acceptance criteria) or plan and wait (weak). One pass per invocation. Alias: /phantom:q."
 argument-hint: "[--status]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:loop
 

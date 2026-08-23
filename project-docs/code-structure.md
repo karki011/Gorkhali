@@ -23,7 +23,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 ├── .kimi-plugin/      # Kimi Code plugin manifest (skills + agents + hook gates)
 ├── host-support/      # host-neutral compatibility contract + --host resolver
 ├── codex-support/     # backward-compat shims pointing at host-support/
-├── commands/          # 28 command directives (+ 10 _shared partials)
+├── commands/          # 29 command directives (+ 9 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules
@@ -38,12 +38,14 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── validate-artifact.js   # JSON schema validation
 │   ├── check-learnings-index.js
 │   ├── session-health.sh
-│   ├── preamble-tier.js
+│   ├── preamble-tier.js   # canonical tier registry (command blockquotes + _shared.md table render from it)
+│   ├── repo-detect.js     # repo facts (id, stack, package manager, monorepo, has_ui, verify commands) as JSON
 │   ├── timing-report.js       # per-model agent timing (wall-clock by model)
 │   ├── phantom-config.js      # config CLI: get/set/list (see Configuration)
 │   ├── baseline-report.js     # read-only retrospective miner: PR/merge rates, spawn counts, policy-vs-observed model
 │   ├── outcome-write.js       # writes the per-ticket outcome record (closed pr_state enum); called from wrap and close
-│   ├── route-report.js        # read-only route-effectiveness miner: per-session-route outcome aggregates with attribution caveats
+│   ├── route-report.js        # read-only route-effectiveness miner: per-session-route outcome aggregates with attribution caveats + priced cost join
+│   ├── route-bias.js          # proposes the router correction.bias from measured per-route outcomes (dry-run first, --apply writes learnings)
 │   ├── run-guard.js           # unattended-run guard: spend ceiling + stuck detection
 │   ├── gen-agent-frontmatter.js  # regenerates agents/*.md model pins from model-policy.json; --check is the CI drift gate
 │   └── release-version.js     # keeps the four plugin manifests' versions in sync; --check / --set <semver>

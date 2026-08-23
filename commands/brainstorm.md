@@ -1,13 +1,13 @@
 ---
 name: brainstorm
-description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, domain is new, or multiple valid approaches exist. Also use when user says 'brainstorm', 'explore options', 'what are our approaches', or 'let's think about this'."
+description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, the domain is new, or approaches compete ('brainstorm', 'explore options')."
 argument-hint: "<requirement or problem statement> [--council|--simple]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # Generic triggers ('explore options', 'let's think about this') are intentionally muted by user-invocable:false — brainstorm is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety (it would over-fire on casual "let's think" prose).
 user-invocable: false
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:brainstorm "$ARGUMENTS"
 

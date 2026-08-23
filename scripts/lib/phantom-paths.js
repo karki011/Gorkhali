@@ -200,6 +200,7 @@ module.exports = {
   phantomData,
   detectRepo,
   repoDir,
+  aliasCandidates,
   resolveRepoSubdir,
   eventsDir,
   observationsDir,

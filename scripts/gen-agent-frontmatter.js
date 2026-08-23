@@ -18,9 +18,9 @@
 // RECORDED DECISIONS - do not "fix" these back:
 //   clerk -> economy. Clerk is a mechanical git/gh/Jira/cost-script executor
 //     with no design authority, so the cheapest rung is the intent. Policy stays
-//     economy on purpose even though claude-code currently maps every profile
-//     onto the same delegate model: the rung governs how Chief briefs the role,
-//     and it still separates tiers on hosts whose presets are not flat.
+//     economy on purpose: the rung governs how Chief briefs the role, and on
+//     claude-code economy now resolves to `haiku` (a cheaper delegate), so the
+//     intent is load-bearing on every host.
 //   steward  -> balanced (sonnet). Code simplification is judgment work: a weak
 //     model's bad suggestion costs more review time than the tokens it saves.
 //     Here the POLICY was wrong (it said economy) and the sonnet pin was right,

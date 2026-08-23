@@ -5,7 +5,7 @@ author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: advisor -> profile: deep) - do not hand-edit
 tools: Read
-# top rung — `deep` in model-policy.json. Advisor's value is a fresh, unloaded context and a principal-level brief, not a bigger model: on claude-code every delegated profile resolves to sonnet, so an Advisor consult buys perspective, not compute. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
+# top rung — `deep` in model-policy.json. Advisor's value is a fresh, unloaded context and a principal-level brief, not a bigger model: on claude-code `deep` and `balanced` both resolve to sonnet, so an Advisor consult buys perspective, not compute. Structurally read-only via `tools: Read` - enforces the "no tools, no code" rule below at the config level, not just in prose.
 ---
 
 # Advisor

@@ -1,9 +1,9 @@
 ---
 name: resume
-description: "Use when continuing PREVIOUS work from a paused or prior session — restoring where you left off. Also use when user says 'resume', 'pick up where we left off', 'I'm back', 'continue from where we stopped', 'was in the middle of', 'stopped yesterday', or 'restore context'. NOT if adding new scope (use phantom:start) and NOT to run a fresh approved plan from this session (use phantom:execute). Restores full context and plan."
+description: "Use when continuing PREVIOUS work from a paused or prior session — 'resume', 'pick up where we left off'. Restores context and plan. New scope → phantom:start; approved plan → phantom:execute."
 ---
 
-> **Preamble Tier: T4** — loads all shared contexts through the canonical tier registry
+> **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:resume "$ARGUMENTS"
 

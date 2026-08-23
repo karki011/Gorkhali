@@ -513,7 +513,9 @@ test('two contenders that judge the SAME stale learning lock -> exactly one wins
   try {
     // A dead-pid lock is judged stale immediately. Both contenders read the SAME
     // generation bytes -- the exact precondition the old check-then-unlink mishandled.
-    const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+    // The pid is one no platform can assign, so it stays dead for the whole test
+    // (a just-exited pid can be recycled under load).
+    const deadPid = 0x3fffffff;
     const seed = `${JSON.stringify({ pid: deadPid, token: 'seeded' })}\n`;
     fs.writeFileSync(lock, seed);
 
@@ -538,7 +540,8 @@ test('takeover NEVER clobbers a FRESH live lock recreated after the judgment', a
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lock-'));
   const lock = path.join(dir, '.learning.lock');
   try {
-    const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+    // Never-assignable pid: dead for the whole test, no recycling lottery.
+    const deadPid = 0x3fffffff;
     const seed = `${JSON.stringify({ pid: deadPid, token: 'seeded' })}\n`;
     fs.writeFileSync(lock, seed);
     const judged = _internals.judgeStaleLock(lock);
@@ -573,9 +576,15 @@ test('concurrent writers racing a STALE learning lock do not double-hold (single
   const learnings = path.join(ctx.data, 'repos', 'interop', 'learnings');
   fs.mkdirSync(learnings, { recursive: true });
 
-  // spawnSync returns after the child exits, so its pid is dead: a lock owned by it
-  // is judged stale by pid immediately, so every writer's FIRST acquisition hits the
-  // takeover path at once -- a genuine N-way stale-reclaim stampede over ONE seed.
+  // spawnSync returns after the child exits, so its pid is dead AT SEED TIME — but
+  // a just-exited pid is only PROBABILISTICALLY dead: under load (the full suite
+  // spawning hundreds of processes) the OS can reassign it to a live process before
+  // the stampede reads it, and then the seed is never judged stale, every worker
+  // burns its whole lock budget, and the test fails without anything being wrong
+  // with the lock. The seed owner must be dead FOR THE DURATION, so it is a pid no
+  // platform can assign (macOS max 99999, Linux pid_max <= 2^22): process.kill
+  // probes it ESRCH always, and the stale-by-pid path this test exercises is
+  // identical to a recycled one.
   //
   // The OLD check-then-unlink reclaim let writer B unlink writer A's FRESH lock after
   // A reclaimed, so BOTH entered the critical section and B's read-modify-write
@@ -585,7 +594,7 @@ test('concurrent writers racing a STALE learning lock do not double-hold (single
   // restored) collapses that to at most the ONE irreducible residual pure-POSIX
   // advisory locking cannot close (a third contender claiming the momentarily-empty
   // path during a repair) -- the exact bound atomic.test.js documents and tolerates.
-  const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+  const deadPid = 0x3fffffff;
   fs.writeFileSync(
     path.join(learnings, '.learning.lock'),
     `${JSON.stringify({ pid: deadPid, token: 'seeded', created_at: new Date().toISOString() })}\n`,

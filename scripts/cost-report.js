@@ -40,7 +40,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
-const { sessionsDir, sessionTelemetryFile, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, completedDir, sessionTelemetryFile, detectRepo } = require('./lib/phantom-paths');
 const { render } = require('./lib/render-output');
 const { resolveFields, pickFields } = require('./lib/fields');
 const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
@@ -158,8 +158,14 @@ const HELP =
  */
 async function buildResult(ticket, repo) {
   const now = Date.now();
+  // The ledger lives beside the record: sessions/<ticket> while active,
+  // completed/<ticket> after wrap archives it. An active ticket's ledger wins;
+  // a completed ticket's costs.json travels with its record.
   const ledgerPath = path.join(sessionsDir(repo), ticket, 'costs.json');
-  const ledger = loadJson(ledgerPath);
+  let ledger = loadJson(ledgerPath);
+  if (!ledger) {
+    ledger = loadJson(path.join(completedDir(repo), ticket, 'costs.json'));
+  }
 
   const bySession = new Map();
   let fallbackNote = null;

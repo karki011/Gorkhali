@@ -1,5 +1,26 @@
 # Route Flows
 
+## LITE
+```
+Context -> Router(LITE) -> status report -> Spawn Engineer -> Inspector-only verify -> Done
+```
+- 0 questions. Human sees: `"[LITE] Fix typo in README.md -- executing"`
+- Selected by the router only (never by the user): trivial scope, <=2 files,
+  known pattern, very high confidence (see router/algorithm.md step 5)
+- Opposition plan gate SKIPPED — known pattern = no value, so no plan-check.json
+- ONE Engineer spawn (subagent law still absolute — Chief never edits project files)
+- Inspector-only verification: one Inspector spawn writes verification.json.
+  Does NOT chain into `phantom:verify --chained` (Steward/Justice/Auditor skipped)
+- Records the portable lifecycle transitions it performed (authorize implementation,
+  execute, record --type verification) via phantom-state.mjs CLI writes — status,
+  resume, and wrap must see the LITE pass; see commands/start.md's LITE section
+- If Inspector FAILS -> chain to `phantom:fix` (fix-loop ceiling unchanged)
+- On PASS -> report and stop; no auto-wrap. `/phantom:wrap` still requires the
+  full `/phantom:verify` review pass first (its ship gate needs an Auditor review)
+- Bug/defect keywords route through the defect-proof gate instead — never LITE
+- Artifacts: context.json, route-decision.json (route: "LITE"), verification.json,
+  plus the portable lifecycle record (`runs/<run>/verification.json` via phantom-state.mjs)
+
 ## DIRECT
 ```
 Context -> Router(DIRECT) -> status report -> Spawn Engineer -> Inspector verify -> Done

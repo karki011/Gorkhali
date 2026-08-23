@@ -118,8 +118,9 @@ for (let i = 0; i < iters; i++) {
 test('acquireLock breaks a lock owned by a dead pid (fresh mtime isolates the pid path)', () => {
   const dir = tmpDir();
   const target = path.join(dir, 'f.txt');
-  // spawnSync returns after the child exits, so its pid is guaranteed dead.
-  const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+  // A pid no platform can assign (macOS max 99999, Linux pid_max <= 2^22) is
+  // dead for the whole test - a just-exited pid can be recycled under load.
+  const deadPid = 0x3fffffff;
   fs.writeFileSync(`${target}.lock`, `${deadPid}:nonce:${Date.now()}:1\n`);
 
   let ran = false;
@@ -152,8 +153,9 @@ test('concurrent stale-lock takeover never double-holds (no lost increment)', as
   // The old unlink-by-path takeover let two winners each break a DIFFERENT
   // generation (the second deleting a fresh lock the first just created), a
   // double-hold that loses an increment. Single-winner rename takeover must leave
-  // every increment intact. spawnSync returns after exit, so its pid is dead.
-  const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+  // every increment intact. The seed pid is one no platform can assign, so it
+  // stays dead for the whole race (a just-exited pid can be recycled under load).
+  const deadPid = 0x3fffffff;
   fs.writeFileSync(`${counter}.lock`, `${deadPid}:seeded:${Date.now()}:1\n`);
 
   const worker = path.join(dir, 'worker.js');
@@ -229,8 +231,9 @@ test('judgeStaleGeneration returns the exact stale generation bytes, or null whe
   const dir = tmpDir();
   const lock = path.join(dir, 'f.txt.lock');
 
-  // dead owner → stale, returns its raw bytes
-  const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+  // dead owner → stale, returns its raw bytes (a never-assignable pid is dead
+  // for the whole test; a just-exited one can be recycled under load)
+  const deadPid = 0x3fffffff;
   const deadRaw = `${deadPid}:seeded:${Date.now()}:1\n`;
   fs.writeFileSync(lock, deadRaw);
   assert.equal(judgeStaleGeneration(lock, 30_000), deadRaw, 'dead-owner generation is judged stale by its bytes');

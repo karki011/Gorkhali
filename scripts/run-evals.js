@@ -30,7 +30,7 @@ const EVALS_FILE = path.join(ROOT, 'evals', 'evals.json');
 const BASELINES_DIR = path.join(ROOT, 'evals', 'baselines');
 
 const KINDS = ['trigger', 'route', 'convention'];
-const ROUTES = ['DIRECT', 'PLAN', 'BRAINSTORM', 'FULL'];
+const ROUTES = ['LITE', 'DIRECT', 'PLAN', 'BRAINSTORM', 'FULL'];
 const HOSTS = ['claude-code', 'kimi'];
 // Model alias assumed when --model is absent, per host. claude-code leaves the
 // CLI's own default in place (null = no --model flag, baseline key "default");

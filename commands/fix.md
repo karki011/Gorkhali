@@ -1,10 +1,10 @@
 ---
 name: fix
-description: "Use when verification just failed inside an active phantom session — tests broke, build failed, lint issues, or CI went red and the failing step is known. Repairs a KNOWN failure; it does not start net-new work. Also use when user says 'fix the failing test', 'tests failing', 'build failed', or 'make it pass'. NOT for cold-start 'fix X' requests (those route to phantom:start) and NOT for unknown causes (use phantom:detective to investigate first). Triages failures, assigns scoped repairs, re-verifies. Loop ceiling owned by hooks/loop-controller.js."
+description: "Use when verification failed in a phantom session — broken tests, failed build, lint, red CI — and the failing step is KNOWN. Cold-start fixes → phantom:start; unknown causes → phantom:detective."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:fix
 

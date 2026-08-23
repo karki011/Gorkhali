@@ -1,11 +1,11 @@
 ---
 name: recruit
-description: "Use when you need a specialized agent for a specific task outside the normal flow — a one-off implementation, research, audit, or focused coding job. Spawns an Engineer agent with a ROLE FOCUS directive (e.g., 'React specialist', 'Go backend', 'test writer', 'accessibility expert', 'performance auditor', 'security reviewer'). Also use when user says 'spawn an agent', 'spawn a specialist', 'get a specialist for', 'expert on', or 'audit this with an agent'. NOT for generic 'I need help' — net-new work routes to phantom:start."
+description: "Use when you need a specialist agent for a one-off implementation, research, or audit job. Spawns an Engineer with a ROLE FOCUS directive ('React specialist'). Net-new work → phantom:start."
 argument-hint: "<role-focus>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /phantom:recruit $ARGUMENTS
 

@@ -1,6 +1,6 @@
 {
   "name": "phantom",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Provider-adaptive multi-agent development workflows for Codex, Claude Code, and Kimi Code.",
   "author": {
     "name": "Subash Karki"

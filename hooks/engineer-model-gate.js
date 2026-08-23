@@ -7,9 +7,10 @@
 // none may run on a Fable-tier model (bare alias "fable" or full id like
 // "claude-fable-5"). Fable is retired from Phantom's routing; this rule stays as
 // a defensive guard so a stray fable pin never reaches an implementer. Note the
-// gate does NOT enforce the current "every delegated role runs sonnet" mapping:
-// that lives in model-presets.json, and a user's explicit model choice is still
-// theirs to make (reference/agents.md -> Model Routing, Precedence).
+// gate does NOT enforce the preset mapping itself (economy -> haiku, balanced/
+// deep -> sonnet on claude-code): that lives in model-presets.json, and a user's
+// explicit model choice is still theirs to make (reference/agents.md -> Model
+// Routing, Precedence).
 // Matching on subagent_type is EXACT and case-insensitive after stripping the "phantom:" prefix -
 // never substring - so "phantom:reference:engineer-conventions" does not match
 // "engineer". config.yaml model overrides (see evals/evals.json) surface here as
@@ -214,7 +215,8 @@ function nameIsKnown(role, name, index) {
 }
 
 const RESOLVER_HINT =
-  'node skills/phantom/scripts/resolve-profile.mjs --role <role> --host <host>';
+  'node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role <role> --host <host> '
+  + '($PR per commands/_shared.md §Paths - the session cwd is the consumer repo, never a relative path)';
 
 // Advisory sentence naming the role's policy profile (and whether a critical
 // risk elevates it). Returns '' when policy is missing or unparseable — never

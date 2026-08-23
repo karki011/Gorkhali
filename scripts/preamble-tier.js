@@ -17,11 +17,13 @@ function normalize(cmd) {
   return (cmd || '').replace(/^\//, '').replace(/^phantom:/, '').toLowerCase();
 }
 
-// Tier definitions from _shared.md
+// Tier definitions - THE canonical registry. _shared.md's Preamble Tiers table
+// and every command's blockquote render from this; test/preamble-tier.test.js
+// fails on drift between the three.
 const TIERS = {
   T1: {
     label: 'T1 — Leaf (read-only / single action)',
-    commands: ['status', 'sessions', 'health', 'learn', 'note', 'scout', 'evolve', 'grill'],
+    commands: ['status', 'sessions', 'health', 'learn', 'scout', 'evolve', 'grill'],
     sharedContexts: [
       '_shared.md',
     ],
@@ -112,6 +114,10 @@ function printAll() {
   }
 }
 
+module.exports = { TIERS, CONTEXT_PURPOSES, normalize, findTier };
+
+if (require.main === module) {
+
 if (!commandArg) {
   printAll();
   process.exit(0);
@@ -158,3 +164,5 @@ if (jsonMode) {
 }
 
 process.exit(0);
+
+}

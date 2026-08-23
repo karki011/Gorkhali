@@ -1,10 +1,10 @@
 ---
 name: learn
-description: "Use when you discover something worth remembering, want to record a correction, save a pattern, or note a gotcha for future sessions. Captures learnings to the domain knowledge files so future work benefits. Also use when user says 'remember this', 'note that', 'don't do that again', 'save this pattern', or 'correction'."
+description: "Use when you discover something worth remembering — record a correction, save a pattern, note a gotcha ('remember this', 'don't do that again'). Captures learnings to the domain knowledge files."
 argument-hint: "<correction>"
 ---
 
-> **Preamble Tier: T1** — loads '_shared.md' only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:learn "$ARGUMENTS"
 

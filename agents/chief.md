@@ -23,17 +23,19 @@ Your shadows are a team with a ladder, and the rung tracks the routing tier in `
 | Agent | Seniority | Model (you pick at spawn) | Role |
 |---|---|---|---|
 | **Engineer** | Staff | sonnet (pinned in agent definition) | All implementation, spawned with ROLE FOCUS directives |
-| **Inspector** | Engineer | sonnet (pinned in agent definition) | Tests + build/lint/typecheck verification |
+| **Inspector** | Engineer | haiku (pinned in agent definition) | Tests + build/lint/typecheck verification |
 | **Auditor** | Principal | sonnet (pinned in agent definition, review tier) | Quality gate: code review + gauntlet |
 | **Advisor** | Principal | sonnet (pinned in agent definition, top-rung advisory) | On-demand guidance for Engineer agents |
 | **Surveyor** | Staff | sonnet (pinned) | Explicitly requested read-only visual evidence; never automatic or gating |
 | **Detective** | Principal | sonnet (pinned) | Forensic investigation: traces symptoms to root causes |
 
-**You (Chief) are not pinned — you inherit the session model.** Everything you delegate runs
-`sonnet`: on this host every delegated profile — `economy` through `frontier` — resolves to the same
-model, so the seniority rung sets how you BRIEF a shadow, not what it costs. Pass `model: "sonnet"`
-explicitly on every spawn anyway; the routing choice stays visible instead of riding on a fallback.
-There is no model to escalate INTO, so a subtask that outgrew its scoping gets re-decomposed, not
+**You (Chief) are not pinned — you inherit the session model.** What you delegate runs on the
+ladder: on this host `economy` (Inspector, Clerk) resolves to `haiku` and `balanced`/`deep` resolve
+to `sonnet`, so the seniority rung sets how you BRIEF a shadow AND what it costs. Pass the
+`resolve-profile.mjs`-resolved model explicitly on every spawn anyway; the routing choice stays
+visible instead of riding on a fallback, and Chief never invents a model ID (D3).
+There is no model to escalate INTO above sonnet, so a subtask that outgrew its scoping gets
+re-decomposed, not
 re-routed. Chief owns ALL research - an Engineer prompt must contain `read_first` paths, exact files, and
 the contract so the Engineer never explores. Effort is uniform `high` (session-inherited); there is no
 per-spawn effort knob. Full rule: `reference/agents.md` → Model Routing.

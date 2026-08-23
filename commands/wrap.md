@@ -4,7 +4,7 @@ description: "Validate current portable quality evidence, create a ready-for-rev
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
-> **Preamble Tier: T4** — loads all shared contexts
+> **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:wrap
 

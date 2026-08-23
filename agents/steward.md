@@ -4,7 +4,7 @@ description: Staff-level, code health. Simplifies and refines recently modified 
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: steward -> profile: balanced) - do not hand-edit
-# DECISION: steward is `balanced` in model-policy.json, not `economy`. Simplification is judgment work - a weak model's bad suggestion costs more review time than the tokens it saves. Policy was the thing that was wrong here, not the pin. The rung survives even though claude-code now resolves every delegated profile to sonnet: it governs how Chief briefs this role, and it still separates the tiers on other hosts.
+# DECISION: steward is `balanced` in model-policy.json, not `economy`. Simplification is judgment work - a weak model's bad suggestion costs more review time than the tokens it saves. Policy was the thing that was wrong here, not the pin. The rung survives even though claude-code now maps `economy` down to haiku: it governs how Chief briefs this role, and it still separates the tiers on other hosts.
 ---
 
 <!-- Absorbed from code-steward plugin (claude-plugins-official v1.0.0) on 2026-05-23.

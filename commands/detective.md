@@ -1,11 +1,11 @@
 ---
 name: detective
-description: "Use when investigating an UNKNOWN cause — a bug, regression, or mysterious failure where you don't yet know what's wrong: behaving wrong with no error, wrong output, or it started failing after a deploy. Also use when user says 'investigate why', 'I suspect', 'started happening after', 'no error but it's behaving wrong', or 'something's off, find out why'. NOT for known failures (use phantom:fix) and NOT for the Phantom system itself (use phantom:health). Produces HTML forensic reports."
+description: "Use when investigating an UNKNOWN cause — bug, regression, wrong behavior with no error, failing since a deploy. HTML forensic reports. Known failures → phantom:fix; Phantom itself → phantom:health."
 argument-hint: "<symptoms or file paths>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-detective.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:detective "$ARGUMENTS"
 

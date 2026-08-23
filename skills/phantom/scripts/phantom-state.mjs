@@ -50,8 +50,9 @@ const REQUIRED_GATES = ['verification', 'review'];
 const SPECIALIST_ROLES = new Set(['justice']);
 const LEGACY_SURVEYOR_GATE_RECOVERY = 'Legacy Surveyor gate requirements are unsupported because optional Surveyor is advisory only. '
   + 'Record fresh verification with explicit userVerification evidence.';
-const ROUTES = new Set(['direct', 'plan', 'brainstorm', 'full']);
+const ROUTES = new Set(['lite', 'direct', 'plan', 'brainstorm', 'full']);
 const ROUTE_APPROVALS = {
+  lite: [],
   direct: [],
   plan: ['plan'],
   brainstorm: ['direction', 'plan'],
@@ -1069,7 +1070,7 @@ function prepareExecute(current) {
     throw new Error(
       'Cannot execute: the recovered session has no supported route. '
       + 'Resume it with `phantom-state.mjs start --task <id> --intent <text> '
-      + '--route <direct|plan|brainstorm|full> --workspace <path>`.',
+      + '--route <lite|direct|plan|brainstorm|full> --workspace <path>`.',
     );
   }
   for (const gate of requiredApprovals) {

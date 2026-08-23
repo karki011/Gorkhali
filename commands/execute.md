@@ -1,12 +1,12 @@
 ---
 name: execute
-description: "Use when an APPROVED plan already exists and you want to run it — dispatch the agents the plan defined and execute its waves. Also use when user says 'run the approved plan', 'run the plan', 'dispatch the agents', or 'execute the plan'. NOT for net-new work without a plan (use phantom:start) and NOT to continue a prior session (use phantom:resume)."
+description: "Use when an APPROVED plan already exists and you want to run it — dispatch the plan's agents, execute its waves. Net-new work → phantom:start; continuing a prior session → phantom:resume."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 # Broad/imperative triggers ('go', 'let's do it') are intentionally muted by user-invocable:false — execute is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety: a bare 'go' would auto-dispatch agents.
 user-invocable: false
 ---
 
-> **Preamble Tier: T4**
+> **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:execute "$ARGUMENTS"
 
@@ -49,7 +49,9 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
      table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
      from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
      `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `engineer-varek`).
-   - All implementation tasks spawn `subagent_type: engineer` with `model: "sonnet"` passed explicitly
+   - All implementation tasks spawn `subagent_type: engineer` with the `model:` resolved by
+     `node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role engineer --host claude-code`
+     (`{PR_BOOTSTRAP}` per `_shared.md` §Paths; `sonnet` on this host) passed explicitly
      per `reference/agents.md` → Model Routing; effort is the session's `high`, never a
      per-spawn param.
    - **A subtask too big for sonnet is a decomposition failure, not a routing one:** split it and

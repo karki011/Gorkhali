@@ -2,7 +2,7 @@
 // route-report.test.js - EXECUTED tests for the route effectiveness report.
 //
 // route-report.js scores the router by aggregating outcome.json records per
-// SESSION route (direct|plan|brainstorm|full). What is pinned here, watchable
+// SESSION route (lite|direct|plan|brainstorm|full). What is pinned here, watchable
 // rather than "it passes":
 //
 //   1. per-route aggregation is correct, and the merge-rate denominator is
@@ -217,6 +217,60 @@ test('unparseable outcome.json is counted as skipped; nested and off-bucket copi
     assert.equal(json.perRoute.plan.records, 1);
   } finally {
     fs.rmSync(data, { recursive: true, force: true });
+  }
+});
+
+test('cost join: priced ledgers ride the metrics, uncosted records never enter the mean', () => {
+  const data = mkTmp();
+  const home = mkTmp();
+  try {
+    // A-1: ledger + transcript -> priced. One assistant event: 1M input tokens
+    // on claude-sonnet-4 -> exactly $3.00 by the cost-report price table.
+    const dir = writeRecord(data, 'r1', 'completed', 'A-1', outcome('plan', 'explicit', 'merged', 'pass'));
+    const t0 = Date.parse('2026-08-20T10:00:00Z');
+    const t1 = Date.parse('2026-08-20T11:00:00Z');
+    fs.writeFileSync(path.join(dir, 'costs.json'), JSON.stringify({
+      entries: [{ session_id: 'sid-1', opened_at: t0, closed_at: t1 }],
+    }));
+    const transcriptDir = path.join(home, '.claude', 'projects', 'fake-cwd');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    fs.writeFileSync(path.join(transcriptDir, 'sid-1.jsonl'), `${JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-08-20T10:30:00Z',
+      message: { model: 'claude-sonnet-4-5', usage: { input_tokens: 1_000_000, output_tokens: 0 } },
+    })}\n`);
+    // A-2: same route, no ledger -> uncosted. The mean must cover A-1 alone,
+    // and the coverage (1 of 2) is printed, never blended.
+    writeRecord(data, 'r1', 'completed', 'A-2', outcome('plan', 'explicit', 'merged', 'pass'));
+
+    const env = { ...process.env, PHANTOM_DATA: data, HOME: home };
+    const res = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8', env });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /cost\s+over 1 of 2 record\(s\): total \$3\.00, mean \$3\.00/);
+
+    const json = JSON.parse(spawnSync(process.execPath, [SCRIPT, '--json'], { encoding: 'utf8', env }).stdout);
+    assert.deepEqual(json.perRoute.plan.explicit.cost, { n: 1, total: 3, mean: 3 });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('cost join: an unpriceable corpus says so, and never reads unknown as $0', () => {
+  const data = mkTmp();
+  const home = mkTmp();
+  try {
+    writeRecord(data, 'r1', 'completed', 'N-1', outcome('direct', 'explicit', 'merged', 'pass'));
+    const env = { ...process.env, PHANTOM_DATA: data, HOME: home };
+    const res = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8', env });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /cost\s+over 0 of 1 record\(s\): no priced cost data/);
+
+    const json = JSON.parse(spawnSync(process.execPath, [SCRIPT, '--json'], { encoding: 'utf8', env }).stdout);
+    assert.deepEqual(json.perRoute.direct.explicit.cost, { n: 0, total: null, mean: null });
+  } finally {
+    fs.rmSync(data, { recursive: true, force: true });
+    fs.rmSync(home, { recursive: true, force: true });
   }
 });
 

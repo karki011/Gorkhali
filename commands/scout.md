@@ -1,11 +1,11 @@
 ---
 name: scout
-description: "Use when you need context before planning — explore the codebase, understand how something is implemented, map dependencies, or find patterns. Also use when user says 'how is X implemented', 'before we build', 'what does this do', 'how does this work', 'find related code', 'explore', or 'gather context'. NOT for implementation — use phantom:start."
+description: "Use when you need context before planning — explore the codebase, understand an implementation, map dependencies ('how is X implemented', 'gather context'). Implementation → phantom:start."
 argument-hint: "[area]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---
 
-> **Preamble Tier: T1** — loads '_shared.md' only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:scout $ARGUMENTS
 

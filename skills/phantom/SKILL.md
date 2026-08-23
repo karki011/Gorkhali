@@ -54,6 +54,7 @@ Choose the route from uncertainty, dependency, and risk evidence:
 
 | Route | Use when | Required decision gates |
 |---|---|---|
+| `lite` | A trivial, bounded change on a known pattern with very high confidence (Execute + Inspect) | None; implementation authorization is still required |
 | `direct` | One clear low-risk outcome and no material design choice | None; implementation authorization is still required |
 | `plan` | The outcome is known but execution needs an explicit plan | Approved plan |
 | `brainstorm` | Direction is materially ambiguous | Approved direction, then approved plan |

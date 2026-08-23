@@ -1,10 +1,10 @@
 ---
 name: greploop
-description: "Use when you want to drive a PR to a perfect Greptile review — iteratively trigger Greptile, fix every actionable comment, resolve threads, re-review, and repeat until 5/5 confidence with zero unresolved comments. Also use when user says 'greploop', 'loop greptile', 'get this to 5/5', 'clear all greptile comments', or 'optimize the PR against review'. Auto-invoked by phantom:wrap after the PR is created."
+description: "Use when driving a PR to a perfect Greptile review — trigger Greptile, fix every comment, resolve threads, repeat until 5/5 with zero unresolved. Auto-invoked by phantom:wrap after PR creation."
 allowed-tools: ["Read", "Edit", "Bash", "Grep", "Glob", "LS"]
 ---
 
-> **Preamble Tier: T2** — loads `_shared.md` + `_shared-repo-detection.md`
+> **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
 # /phantom:greploop $ARGUMENTS
 

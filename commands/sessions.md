@@ -1,9 +1,9 @@
 ---
 name: sessions
-description: "Use when you want to see past work, list previous sessions, check session history, or find a specific session to resume. Read-only — just lists sessions with their status (active/paused/completed), dates, and ticket IDs. Also use when user says 'list sessions', 'session history', 'show my sessions', 'what sessions do I have', 'what was I working on', 'what did we do before', 'show history', 'past sessions', or 'find session'. NOT to continue a session — use phantom:resume."
+description: "Use when you want to see past work — list sessions, check history, find one to resume. Read-only: status (active/paused/completed), dates, ticket IDs. Continuing a session → phantom:resume."
 ---
 
-> **Preamble Tier: T1** — loads '_shared.md' only
+> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
 # /phantom:sessions
 

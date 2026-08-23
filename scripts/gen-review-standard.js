@@ -34,17 +34,20 @@ const DEFAULT_ROOT = path.join(__dirname, '..');
 
 // Which file carries which blocks. A file not listed here is not generated, so
 // adding a target is a deliberate edit rather than a wildcard surprise.
+// reference/review-standard.md is the single generated home the reviewer agent
+// prompts (agents/auditor.md, agents/justice.md) point at runtime; the two
+// reference docs below stay generated inline because they are read standalone,
+// mid-review, where a second hop would cost more than the bytes save.
 const TARGETS = Object.freeze({
-  'agents/auditor.md': [
+  'reference/review-standard.md': [
+    'security-categories',
     'severity-table',
     'confidence-table',
     'finding-rules',
     'verification-pass',
     'convergence-rule',
-    'security-categories',
     'finding-shape',
   ],
-  'agents/justice.md': ['severity-table', 'confidence-table', 'verification-pass', 'finding-shape'],
   'reference/agent-protocols/justice-protocol.md': ['severity-table'],
   'reference/temperature-review.md': ['severity-table', 'confidence-table', 'finding-rules', 'verification-pass', 'finding-shape'],
 });

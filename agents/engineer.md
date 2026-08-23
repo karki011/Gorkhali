@@ -4,7 +4,7 @@ description: Staff-level. The one implementer. Turns a scoped assignment into co
 author: Subash Karki
 model: sonnet
 # GENERATED from model-policy.json (role: engineer -> profile: balanced) - do not hand-edit
-# executor — `balanced` in model-policy.json. Sonnet is both the default and the ceiling: on claude-code every delegated profile resolves to sonnet, so there is no model to escalate INTO. Chief specs tightly, re-decomposes when scoping fails, and Engineer consults Advisor for a fresh principal-level read when stuck.
+# executor — `balanced` in model-policy.json. Sonnet is both the default and the ceiling: on claude-code no delegated profile resolves above sonnet, so there is no model to escalate INTO. Chief specs tightly, re-decomposes when scoping fails, and Engineer consults Advisor for a fresh principal-level read when stuck.
 ---
 
 # Engineer

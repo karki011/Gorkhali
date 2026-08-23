@@ -13,7 +13,7 @@ command to run. `test/agent-seniority.test.js` holds title and profile together.
 |-------|-----------|---------------|------|------|
 | Chief | Engineering lead | inherits session model (effort: high) | Orchestrator: plans, decomposes, coordinates, routes models | agents/chief.md |
 | Engineer | Staff | sonnet (frontmatter pin) | Implementation: code, tests, config | agents/engineer.md |
-| Inspector | Engineer | sonnet (frontmatter pin) | QA: runs verify commands, checks contracts | agents/inspector.md |
+| Inspector | Engineer | haiku (frontmatter pin) | QA: runs verify commands, checks contracts | agents/inspector.md |
 | Auditor | Principal | sonnet (frontmatter pin, review tier) | Quality gate: power level, scoring | agents/auditor.md |
 | Advisor | Principal | sonnet (frontmatter pin, top rung) | Advisory: <100 words, no tools, no user output | agents/advisor.md |
 | Surveyor | Staff | sonnet (frontmatter pin) | Explicitly requested read-only visual evidence; advisory only | agents/surveyor.md |
@@ -21,44 +21,52 @@ command to run. `test/agent-seniority.test.js` holds title and profile together.
 | Opposition | Staff | sonnet (frontmatter pin) | Plan critic: 8 challenge/validation checks, chat verdict + `plan-check.json` | agents/opposition.md |
 | Detective | Principal | sonnet (frontmatter pin) | Forensic investigator: root-cause tracing, HTML report | agents/detective.md |
 | Steward | Staff | sonnet (frontmatter pin) | Code clarity: simplify changed files post-verify | agents/steward.md |
-| Clerk | Engineer | sonnet (frontmatter pin) | Lifecycle plumbing: mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/clerk.md |
+| Clerk | Engineer | haiku (frontmatter pin) | Lifecycle plumbing: mechanical ship/close ops (git, PR, Jira, cost, artifacts) for wrap tail + close | agents/clerk.md |
 
 ## Model Routing (Chief decides at spawn)
 
-**Everything Chief delegates runs `sonnet`. Opus is orchestration-only.** On this host
-`model-presets.json` maps every delegated profile — `economy`, `balanced`, `deep`, and `frontier`
-alike — onto `sonnet`, so there is no cheaper tier to fall to and no richer tier to escalate into.
+**Delegated work runs a ladder: `haiku` for the mechanical roles, `sonnet` for everything above them. Opus stays orchestration-only.** On this host
+`model-presets.json` maps `economy` → `haiku`, `balanced` and `deep` → `sonnet` at effort `high`, and `frontier`
+→ inherit (the session model), so the policy ladder now costs what it says. Inspector and Clerk (`economy`) run
+haiku; Engineer, Surveyor, Opposition, and Steward (`balanced`) run sonnet; Auditor, Justice, Detective, and
+Advisor (`deep`) keep sonnet at high effort as the review quality floor.
 The seniority ladder is unchanged and still load-bearing: the rung a role sits at in
 `model-policy.json` decides how Chief BRIEFS it (a principal gets the problem, a staff engineer gets
-a resolved contract, an engineer gets the commands), not what it costs.
+a resolved contract, an engineer gets the commands) — and now, what it costs.
 
-**One consequence worth stating plainly: escalation is no longer a routing move.** When a subtask
-turns out to be too big, too fuzzy, or too cross-cutting for the model, the answer is to
-**re-decompose it** — there is nothing above sonnet to hand it to. Weak scoping used to be
-survivable by throwing a bigger model at it; now it is not.
+**Escalation is still not a routing move.** `deep` resolves to the same sonnet-high as `balanced` on this
+host, so when a subtask turns out to be too big, too fuzzy, or too cross-cutting for the model, the answer is
+to **re-decompose it** — there is nothing above sonnet to hand delegated work to. Weak scoping is fixed by
+splitting the assignment, never by reaching for a bigger model.
 
-**Effort is uniform `high`**, inherited from the session — there is NO per-spawn effort param, so
-never try to set effort at spawn time.
+**Effort is inherited from the session (`high`)** — there is NO per-spawn effort param, so never try to set
+effort at spawn time. The effort values in `model-presets.json` record routing intent for hosts that support
+per-delegate effort; on this host the session's effort applies to every spawn.
 
-Chief still picks the model per spawn via the Agent tool `model:` param, and on this host that value
-is always `sonnet`. Spawn it explicitly rather than leaning on the frontmatter pin: the routing
-choice belongs in Chief's visible output, and `hooks/engineer-model-gate.js` denies any Engineer spawn that
-omits it.
+**Chief never invents a model ID (design principle D3).** Chief supplies the role and a risk signal only; the
+policy files decide the model. Pass the value that
+`node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role <role> --host claude-code [--risk <level>]`
+prints (`$PR` resolved by the canonical plugin-root bootstrap in `commands/_shared.md` §Paths — the session
+cwd is the consumer repo, so never invoke the resolver by relative path) as
+the Agent tool `model:` param, explicitly on every spawn rather than leaning on the frontmatter pin: the
+routing choice belongs in Chief's visible output, and `hooks/engineer-model-gate.js` denies any Engineer spawn
+that omits it.
 
-- **Implementation** (Engineer), **mechanical / tool-driver roles** (Steward, Surveyor, Inspector, Clerk, and
-  search/Explore-style spawns), and **reasoning / review roles** (Auditor, Justice, Detective, Opposition, Advisor)
-  → `sonnet`, every one of them.
+- **Mechanical / tool-driver roles** (Inspector, Clerk) → `haiku`.
+- **Implementation** (Engineer), **judgment tool-drivers** (Steward, Surveyor, Opposition, and
+  search/Explore-style spawns), and **reasoning / review roles** (Auditor, Justice, Detective, Advisor)
+  → `sonnet`.
 - **Orchestration** (Chief) → the session model, which is the only place Opus still belongs.
 
-When decomposing, keep tagging each subtask `mechanical | standard | complex`. The tag no longer
-selects a model — it is the honest scope signal that tells Chief whether the subtask is small enough
-for one Engineer at all. A `complex` tag on a single assignment is now a decomposition smell, not a
-routing instruction.
+When decomposing, keep tagging each subtask `mechanical | standard | complex`. The tag does not select a
+model — the role's policy profile does that — it is the honest scope signal that tells Chief whether the
+subtask is small enough for one Engineer at all. A `complex` tag on a single assignment is a decomposition
+smell, not a routing instruction.
 
 **Precedence (highest wins):** explicit spawn `model:` param > config override (`config.yaml`
-`models:` block, if present) > agent frontmatter pin > this rubric default. Frontmatter pins are
-honored, and any user-supplied config override is honored on top of them — the rubric only fills the
-gap when nothing more specific is set. A user who explicitly asks for a different model gets it;
+`models:` block, if present) > agent frontmatter pin > the preset `resolve-profile.mjs` resolves.
+Frontmatter pins are honored, and any user-supplied config override is honored on top of them — the
+preset only fills the gap when nothing more specific is set. A user who explicitly asks for a different model gets it;
 `hooks/engineer-model-gate.js` denies fable for implementer roles regardless of source.
 Use bare aliases (sonnet/opus/haiku); never pin dated or prior-generation model IDs.
 
@@ -116,7 +124,7 @@ all point here rather than restating the columns.
 ## Spawning Rules
 
 - All agents: `mode: "bypassPermissions"`
-- Model: Chief passes it explicitly per spawn per **Model Routing** above — `sonnet` for every delegated role on this host, never session-inherit. Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (sonnet/opus/haiku); never pin dated or prior-generation model IDs.
+- Model: Chief passes it explicitly per spawn per **Model Routing** above — the value resolved by `resolve-profile.mjs` for the role (`haiku` for economy roles, `sonnet` for the rest), never session-inherit. Honor `MODEL_OVERRIDE` from session context if set. Use bare aliases (sonnet/opus/haiku); never pin dated or prior-generation model IDs.
 - Parallel agents: use `isolation: "worktree"` to prevent file conflicts
 - Advisor: max 3 calls per Engineer. No tools. No user output.
 - Background: use `run_in_background: true` for non-blocking agents
@@ -149,8 +157,9 @@ point here.
 
 ## Route & Model Guidance
 
-Effort is uniform `high` for every agent (session-inherited; Chief pinned). Model is uniform `sonnet`
-for everything delegated, so the only real knobs left are **scope and route**.
+Effort is uniform `high` for every agent (session-inherited; Chief pinned). Model is tiered:
+`haiku` for the mechanical roles (Inspector, Clerk), `sonnet` for everything else delegated, so the
+real knobs are **scope and route**, plus which rung a role sits at.
 
 - Simple fix (1-2 files): SOLO, one Engineer on sonnet, ~5 min
 - Feature (3-5 files): SOLO or SHADOWS, Engineer(s) on sonnet, ~15 min

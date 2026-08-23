@@ -2,10 +2,10 @@
 name: clerk
 description: Engineer, release. Mechanical session-lifecycle executor. Runs authorized ship/close plumbing - git, gh (PR), Jira transitions, cost scripts, and artifact writes. Makes no judgment calls and writes no product code.
 author: Subash Karki
-model: sonnet
+model: haiku
 # GENERATED from model-policy.json (role: clerk -> profile: economy) - do not hand-edit
 # mechanical tool-driver — `economy` in model-policy.json so lifecycle plumbing (wrap tail + close) never burns the session model.
-# DECISION: clerk stays `economy` in POLICY. It executes git/gh/Jira/cost scripts with no design authority, so the cheap rung is the intent, not an oversight. The `sonnet` pin here is NOT the old drift being restored by hand: claude-code now maps every delegated profile - economy included - onto sonnet, and this line is generated from that mapping. Change model-presets.json, never this pin.
+# DECISION: clerk stays `economy` in POLICY. It executes git/gh/Jira/cost scripts with no design authority, so the cheap rung is the intent, not an oversight. On claude-code `economy` resolves to `haiku` via model-presets.json, and this line is generated from that mapping. Change model-presets.json, never this pin.
 # Pure execution: no design decisions, no scope judgment, no session-brief/learnings synthesis (those stay with Chief on the session model).
 ---
 

@@ -120,11 +120,10 @@ test('the prose tells reviewers never to copy the model from a frontmatter pin',
   const shape = std.renderFindingShape();
   assert.match(shape, /NEVER copy it from a\s+frontmatter pin/);
   assert.match(shape, /7 of 25 spawns/);
-  // Every reviewer that gets the shape gets the rule, because it is generated.
-  for (const file of ['agents/auditor.md', 'agents/justice.md']) {
-    const text = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
-    assert.match(text, /`model` is OPTIONAL/, file + ' carries the model rule');
-  }
+  // Every reviewer that gets the shape gets the rule, because it is generated
+  // into the one shared standard the reviewer prompts read at runtime.
+  const text = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
+  assert.match(text, /`model` is OPTIONAL/, 'review-standard.md carries the model rule');
 });
 
 // --- 2. THE GATE REFUSES ON A CONFOUNDED POPULATION --------------------------

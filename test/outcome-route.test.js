@@ -2,7 +2,7 @@
 // outcome-route.test.js - EXECUTED tests for outcome-write.js's route telemetry
 // (and the first coverage of outcome-write.js at all).
 //
-// The router's chosen SESSION route (direct|plan|brainstorm|full, recorded in
+// The router's chosen SESSION route (lite|direct|plan|brainstorm|full, recorded in
 // session.json by phantom-state.mjs) was never copied into the durable
 // outcome.json, so route effectiveness could not be scored. What is pinned here,
 // watchable rather than "it passes":
@@ -195,9 +195,10 @@ test('out-of-enum session route is nulled + unresolved, never written verbatim',
 });
 
 test('the exported enums are closed and validRoute enforces them', () => {
-  assert.deepEqual(ROUTE, ['direct', 'plan', 'brainstorm', 'full']);
+  assert.deepEqual(ROUTE, ['lite', 'direct', 'plan', 'brainstorm', 'full']);
   assert.deepEqual(ROUTE_SOURCE, ['explicit', 'default', 'unknown']);
   assert.equal(validRoute({ route: null }), true);
+  assert.equal(validRoute({ route: 'lite' }), true);
   assert.equal(validRoute({ route: 'plan' }), true);
   assert.equal(validRoute({ route: 'shadows' }), false, 'the execution route is not a session route');
   assert.equal(validRoute({ route: 'solo' }), false);

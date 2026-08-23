@@ -18,7 +18,7 @@
 //
 // ROUTE FIELDS: `route` and `route_source` are copied from session.json so the
 // router's choice survives into the durable record. `route` here is the SESSION
-// route (the closed enum direct | plan | brainstorm | full) chosen at start by
+// route (the closed enum lite | direct | plan | brainstorm | full) chosen at start by
 // phantom-state.mjs - it is NOT the solo | shadows EXECUTION route that lives in
 // plan.json/wrap.json and is validated by validate-artifact.js. `route_source`
 // (closed vocabulary explicit | default | unknown) records whether that route was
@@ -58,7 +58,7 @@ const PR_STATE = ['draft', 'open', 'merged', 'closed', 'absent'];
 // by phantom-state.mjs, distinct from wrap.json/plan.json's solo|shadows EXECUTION
 // route. A session route outside this enum leaves route null plus an unresolved[]
 // entry - never written verbatim.
-const ROUTE = ['direct', 'plan', 'brainstorm', 'full'];
+const ROUTE = ['lite', 'direct', 'plan', 'brainstorm', 'full'];
 
 // The ONLY legal route_source values (who chose the route: the caller, the
 // default, or unattributable on a legacy session).
@@ -304,7 +304,7 @@ function deriveOutcome(opts) {
       : 'session.json absent - no session start/end timestamps');
   }
 
-  // route: the SESSION route from session.json (direct|plan|brainstorm|full), not
+  // route: the SESSION route from session.json (lite|direct|plan|brainstorm|full), not
   // the solo|shadows execution route in wrap.json/plan.json. An out-of-enum value
   // is nulled with a reason naming it, mirroring how ghStateToEnum handles an
   // unmappable gh state.

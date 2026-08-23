@@ -15,7 +15,8 @@
 //     -> scripts/validate-artifact.js   enforces the enum on artifacts
 //        -> reference/schemas/review.md via scripts/gen-schema-docs.js --check
 //     -> scripts/gen-review-standard.js  renders the prose blocks into
-//        agents/auditor.md, agents/justice.md, reference/agent-protocols/justice-protocol.md,
+//        reference/review-standard.md (the single generated home the reviewer
+//        agent prompts read at runtime), reference/agent-protocols/justice-protocol.md,
 //        reference/temperature-review.md — all drift-checked in CI by
 //        test/review-standard.test.js.
 //
@@ -292,9 +293,11 @@ function normalizeReviewerModel(value) {
 // obtained; when no legal independent check exists at all, label the
 // acceptance "accepted under reduced assurance", never a silent clean pass.
 //
-// In Phantom this is the NORM, not an edge case: every delegated role
-// (Engineer, Inspector, Auditor, Justice) runs on one model-policy tier today,
-// so same-model review is what happens on every ship. The label exists to
+// In Phantom this is COMMON, not an edge case: the delegated roles span two
+// model-policy tiers on claude-code (economy -> haiku, balanced/deep ->
+// sonnet), so an Engineer (balanced) verified by an Inspector (economy) is
+// already a cross-tier pair - but same-tier pairs (an Auditor reviewing
+// deep-tier work) remain the norm on every ship. The label exists to
 // state that evidence basis honestly rather than dress it up as more than it
 // is. `evidenceTier` borrows its two values from project-docs/seat-provenance
 // -design.md's REQUESTED/SERVED tier model: everything `hooks/timing-capture.js`
@@ -306,7 +309,8 @@ const INDEPENDENCE_BASIS = [
     value: 'same-model-independent-context',
     text:
       'The reviewer resolved to the same model as the work under review, in its own separate ' +
-      'context/spawn. The honest default while every delegated role shares one model-policy tier.',
+      'context/spawn. A common case: the policy tiers overlap (balanced and deep both resolve to ' +
+      'sonnet on claude-code), so same-model review happens on most ships.',
   },
   {
     value: 'cross-model',
@@ -397,9 +401,10 @@ function canonicalIndependenceLabel(basis, evidenceTier) {
   return `cross-model review (${t}-tier evidence)`;
 }
 
-// Today's truthful default, everywhere: same-model review is the norm (every
-// delegated role shares one model-policy tier), and model identity itself is
-// only requested-tier evidence until seat-provenance-design.md's v1 lands.
+// Today's truthful default, everywhere: same-model review is the common case
+// (balanced and deep resolve to the same delegate model on claude-code), and
+// model identity itself is only requested-tier evidence until
+// seat-provenance-design.md's v1 lands.
 // `label` is DERIVED, not typed by hand, so it cannot drift from what
 // `canonicalIndependenceLabel` itself would produce for these two inputs.
 const DEFAULT_INDEPENDENCE = Object.freeze({
@@ -1130,8 +1135,8 @@ function renderFindingShape() {
         'existed) but STRONGLY EXPECTED going forward, and recorded once for the whole artifact, same ' +
         'as `model`. `basis` names whether this review is a genuine second opinion ' +
         `(\`${INDEPENDENCE_BASIS_VALUES[1]}\`) or the same model reviewing in its own separate context ` +
-        `(\`${INDEPENDENCE_BASIS_VALUES[0]}\`, the honest default while every delegated role shares one ` +
-        `model-policy tier), or that a required independent check was structurally unavailable ` +
+        `(\`${INDEPENDENCE_BASIS_VALUES[0]}\`, the common case while balanced and deep resolve to ` +
+        `the same delegate model), or that a required independent check was structurally unavailable ` +
         `(\`${INDEPENDENCE_BASIS_VALUES[2]}\`). \`evidenceTier\` states what that claim itself rests on: ` +
         '`requested` (what was asked for) or `served` (post-resolution proof of what actually answered) ' +
         '- today every recorded `model` is requested-tier, so `basis` is too, until seat-provenance-' +

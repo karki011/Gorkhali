@@ -1,22 +1,30 @@
-# Review Severity and the Review Prompt
+# Review Standard
 
-> **Filename is historical.** This file was `temperature-review.md` when severity
-> was scored as a "temperature" P0-P3. B10 retired that scale, and the file keeps
-> its name only because live references point at it. Two things used to live
-> here; the fix-loop ceiling moved to [`reference/fix-loop.md`](fix-loop.md), and
-> what remains is severity and the review prompt.
->
-> `review.temperature` in `verification.json` is a DIFFERENT thing and stays: it
-> is a 0-1 knob on how hard the reviewer looks, orthogonal to how a finding is
-> scored once found. Strictness is an input; severity is an output. Do not read
-> one as the other.
+The one shared review standard: the named security categories, the severity
+scale, the confidence axis, the reporting rules, the verification pass, the
+re-review convergence rule, and the finding shape every reviewer writes.
 
-## Severity Scale
+Reviewer agent prompts (`agents/auditor.md`, `agents/justice.md`) point here at
+runtime instead of carrying these blocks inline. Every block below is GENERATED
+from `scripts/lib/review-standard.js` by `scripts/gen-review-standard.js` — do
+not edit between the markers by hand; `node scripts/gen-review-standard.js
+--check` runs in CI. Prose outside the markers is hand-written.
 
-The scale is DATA in `scripts/lib/review-standard.js` and this table is rendered
-from it by `scripts/gen-review-standard.js`. Do not hand-edit it: F9 counted four
-prose severity vocabularies for one concept precisely because prose is what
-drifts.
+## Security categories
+
+<!-- BEGIN GENERATED review-standard:security-categories - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+Check each named category against the diff. Naming them is the point: "check security" does
+not correct a blind spot, a list does.
+
+- **Broken access control (including SSRF)** — missing or wrong authorization on a new route, handler, query or job; an object id taken from the request and trusted; a server-side fetch whose URL the caller controls
+- **Injection** — SQL/NoSQL/shell/template/LDAP built by string concatenation from request, file or environment data instead of parameterized or escaped
+- **Cryptographic failures** — home-rolled crypto, a broken primitive (MD5/SHA-1/ECB), a static IV or salt, a non-constant-time comparison of secrets, TLS verification disabled
+- **Secrets in code, config or logs** — a key, token, password or connection string committed, defaulted in config, echoed into a log line, or attached to an error report
+- **Unsafe defaults** — a new option, flag or config key whose DEFAULT is the permissive value: auth off, verification skipped, debug on, CORS `*`, a wide-open bind address
+- **Data exposure** — a response, log, error message, cache key or analytics event that newly carries PII, credentials or another tenant's data
+<!-- END GENERATED review-standard:security-categories -->
+
+## Severity
 
 <!-- BEGIN GENERATED review-standard:severity-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 | Severity | Bar | Action |
@@ -30,11 +38,11 @@ enforced mechanically elsewhere, and restating them is noise the author pays for
 Legacy spellings still on disk are read as `P0`->`blocking`, `P1`->`blocking`, `P2`->`advisory`, `P3`->`advisory`, `warn`->`advisory`; never write them.
 <!-- END GENERATED review-standard:severity-table -->
 
-## Confidence Scale
+## Confidence
 
-The second axis, added by B11. It answers a different question from severity and
-from `review.temperature`, and the table below names all three side by side so
-the overlap this file's own header warns about cannot be re-derived by guesswork.
+A second, independent axis. Severity says how much a finding matters; confidence
+says how sure you are it is true. Score each on its own axis — an author who
+cannot tell a confident nit from an unsure bug skims both.
 
 <!-- BEGIN GENERATED review-standard:confidence-table - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 | Confidence | Bar | Action |
@@ -59,7 +67,7 @@ The confidence axis is what the verification pass MOVES: an unverified claim is 
 confirmed against the source or discarded. It is not a place to park a guess.
 <!-- END GENERATED review-standard:confidence-table -->
 
-## Reporting Rules
+## Reporting rules
 
 <!-- BEGIN GENERATED review-standard:finding-rules - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 1. **Cite the source, not the name.** A behavioural claim must cite `file:line` in the source you actually read; an inference from a symbol's NAME is not evidence, because `validateInput()` may validate nothing. A `blocking` finding always carries a `line`; the schema rejects one that does not.
@@ -69,7 +77,10 @@ confirmed against the source or discarded. It is not a place to park a guess.
 5. **Verify against the source before the finding lands.** Between finding something and writing the artifact, re-open the cited `file:line` and confirm the claimed behaviour is actually there. Anything you cannot confirm at the source is DISCARDED, not downgraded — record it in `discardedFindings` with the reason. This is a pass over the CODE, never a second look at your own finding list: same-context self-critique produces false negatives on your own output, while re-checking a claim against the source is what cuts false positives.
 <!-- END GENERATED review-standard:finding-rules -->
 
-## Verification Pass
+Every finding includes the file, the cited line, evidence, user impact, and the
+smallest valid remediation.
+
+## Verification pass
 
 <!-- BEGIN GENERATED review-standard:verification-pass - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 Run this once, after investigating and BEFORE writing the artifact. Only findings that survive it are written.
@@ -84,61 +95,26 @@ Run this once, after investigating and BEFORE writing the artifact. Only finding
 **Not this:** If your check did not involve opening a file, it did not happen. Reading the finding list again and agreeing with it is not this pass.
 <!-- END GENERATED review-standard:verification-pass -->
 
-## Review Agent Prompt
+## Re-review rounds
 
-Use this prompt when spawning the review agent:
+<!-- BEGIN GENERATED review-standard:convergence-rule - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
+On the second and later review pass over the same session, report `blocking` findings only. Non-blocking findings are suppressed and reported as a COUNT, split into the ones carried over from an earlier round and the ones first seen this round. A NEW blocking finding is always reported — the fix may have broken something, and that is what a re-review is for.
 
-    Review this diff against the intent. Score each finding on the one scale:
+You are TOLD which round this is; you never count rounds yourself: the caller runs
+`node scripts/review-round.js status --reviews {SESSION_DIR}/reviews` before spawning you and
+passes the round number in. Absent a stated round, this is round 1 and nothing is suppressed.
 
-    blocking:  the diff makes something WORSE than it was before, or fails
-               the stated intent. MUST be resolved before shipping.
-    advisory:  worth the author knowing; does not gate the ship.
+What changes on round 2 and later:
 
-    A finding that clears neither bar is NOT REPORTED. Style, naming, minor
-    refactors and preferences are enforced mechanically elsewhere.
+- **Your attention.** Re-review the FIX diff and the blocking classes, not the whole change.
+- **What you SAY.** Your chat summary itemizes `blocking` findings only; non-blocking ones
+  are given as a single count.
+- **What you WRITE stays complete.** Keep every finding you stand behind in the artifact —
+  `node scripts/review-round.js close` matches its finding ids against the earlier rounds and
+  reports the carried-over and newly-raised counts for you.
+<!-- END GENERATED review-standard:convergence-rule -->
 
-    A behavioural claim must cite file:line in the source you read. An
-    inference from a symbol's NAME is not evidence, and a blocking finding
-    with no line is rejected by the schema.
-
-    A real defect this diff did NOT introduce is preExisting: true and
-    advisory. It reports; it never blocks and never enters a fix loop.
-
-    Before you write anything: re-open each cited file at the cited line and
-    confirm the claimed behaviour is actually there. Re-reading your own
-    finding list is NOT this step. Score what survives on the confidence
-    axis (confirmed / possible), and move what does not into
-    discardedFindings with the reason the source gives. Confidence is not
-    severity: an unsure bug is blocking + possible, never a downgrade.
-
-    STATE MATRIX CHECK (mandatory for UI components):
-    If the diff adds or modifies a component that reacts to enumerated
-    states (sidebar: open/collapsed/pill, drawer: open/closed/expanded,
-    panel: open/closed, etc.):
-    1. List every enumerated state the component reacts to (switch/if)
-    2. For each state, verify positioning doesn't collide with other
-       fixed/absolute elements at those coordinates
-    3. Flag as blocking any state where a new element occludes an existing
-       interactive element (button, link, toggle)
-    4. Flag as blocking any state where content margin/padding math doesn't
-       account for the new element's width
-    This is NOT optional. Missing state coverage is a blocking finding.
-
-    Write the review to {SESSION_DIR}/reviews/auditor.json BEFORE you
-    summarise anything in chat. That file is the deliverable; your final
-    message is commentary on it. It carries the gate results, dimension
-    scores, observation gaps, the VERDICT, and the findings as a JSON
-    array under "findings" (canonical shape below).
-
-    Empty array [] = clean code = SHIP IT. Always write the key, even
-    when empty: a written [] is what tells commands/verify.md that you
-    reviewed and found nothing, as against never having landed a review
-    at all. Those are not the same result and must not report the same.
-    Do NOT invent findings to justify your existence.
-
-    Then restate the same findings array in your final message.
-
-## Finding Shape
+## Finding shape
 
 <!-- BEGIN GENERATED review-standard:finding-shape - regenerate with scripts/gen-review-standard.js; do not edit by hand -->
 ```json
@@ -230,8 +206,3 @@ bases.
 A clean review is `"verdict": "pass"` with a written `"findings": []`. An absent key is a
 DIFFERENT result — it means no review landed — and must never report as a clean one.
 <!-- END GENERATED review-standard:finding-shape -->
-
-## The Loop
-
-Everything about attempt counts, the hard stop, escalation and what users see
-lives in [`reference/fix-loop.md`](fix-loop.md). It is not restated here.

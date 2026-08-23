@@ -12,42 +12,36 @@
 ## Paths
 
 ```
-PLUGIN_ROOT = self-resolved, env-free (deterministic). CANONICAL Bash bootstrap - the ONE copy;
+PLUGIN_ROOT = self-resolved, env-free (deterministic). The CANONICAL Bash bootstrap - the ONE copy;
               every commands/ site cites it as {PR_BOOTSTRAP} rather than restating it:
               PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
-              then: node -p "require('$PR/scripts/...')"  (or node "$PR/scripts/...", etc.)
+              then: node "$PR/scripts/..."  (or node -p "require('$PR/scripts/...')", etc.)
 
-              {PR_BOOTSTRAP} = that resolve line, verbatim. Every Bash call is a FRESH shell, so $PR
-              never survives across calls: a site needing $PR PREPENDS {PR_BOOTSTRAP} in the SAME
-              command, then uses bare "$PR/scripts/..." with the guard its context requires (below).
-              The canonical form always re-resolves from disk rather than trusting an inherited
-              $PR - deterministic, never env-derived. The 8 checkpoint one-liners in
-              start.md/execute.md/resume.md predate this change and carry their own literal
-              `PR="${PR:-...}"` shape instead - pinned verbatim by `test/portable-skill.test.js`,
-              left as-is here on purpose rather than reconciled to the canonical form.
-
-              NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/phantom} —
-              pure self-resolve. (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it
-              at hook-exec — the one reliable surface; nothing else relies on the env var.)
-
-              EMPTY-GUARD (REQUIRED — fresh machine / dev clone has no cache dir, so $PR resolves EMPTY;
-              an unguarded `node "$PR/scripts/..."` then becomes `node "/scripts/..."` → MODULE_NOT_FOUND crash).
-              Every copy of the bootstrap MUST include one of two guards, by context:
+              Rules (each is load-bearing; sites cite this section, never restate it):
+              - $PR never survives across Bash calls (each is a FRESH shell): a site needing $PR
+                PREPENDS {PR_BOOTSTRAP} in the SAME command, then uses bare "$PR/scripts/...".
+                Always re-resolve from disk, never an inherited $PR — pure self-resolve.
+                NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/phantom}
+                (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it at
+                hook-exec — the one reliable surface).
+              - EMPTY-GUARD (REQUIRED — a fresh machine / dev clone has no cache dir, so $PR resolves
+                EMPTY and an unguarded `node "$PR/scripts/..."` becomes `node "/scripts/..."` → crash).
+                By context:
                 • GATE-CRITICAL (path resolution that must succeed) — fail READABLE, never crash:
                     [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
                 • ADVISORY (checkpoints, cost-link, cost-report, compress — already 'never error / never blocks') — SKIP SILENTLY:
                     [ -n "$PR" ] && node "$PR/scripts/..."
-                  (run only when $PR is non-empty; empty → no-op, the surrounding flow continues.)
+              - The 8 checkpoint one-liners in start.md/execute.md/resume.md predate this form and carry
+                their own literal `PR="${PR:-...}"` shape — pinned verbatim by test/portable-skill.test.js.
 
 Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
 {TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in skills/phantom/references/verification.md
-{PKG_MGR}  = lockfile table in _shared-repo-detection.md
+{PKG_MGR}  = repo-detect.js `package_manager` fact (§_shared-repo-detection.md)
 {DEV_PORT} = repo dev-server config
 
-REPO_NAME = resolved by detectRepo()/phantom_detect_repo() — 6-step precedence
-            (worktrees fast-path → PHANTOM_REPO → git remote basename → git main-root
-            basename → .git walk-up → "_default"). SINGLE SOURCE: _shared-repo-detection.md
-            §"Repo Name Resolution". Do NOT restate the order here — it drifted before.
+REPO_NAME = resolved by detectRepo()/phantom_detect_repo() through the ONE shared codec; the codec
+            comment owns the precedence — do NOT restate it (it drifted before).
+            `node "$PR/scripts/repo-detect.js" --json` prints it (plus aliases and data_root).
 TEAM_DIR  = ${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}   # default ~/.phantom; override with PHANTOM_DATA env
 SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
@@ -164,11 +158,14 @@ Compact with hints. Subagents for heavy reads. After compact: re-read `intent.md
 
 ## Preamble Tiers
 
+Canonical registry: `scripts/preamble-tier.js` (`node scripts/preamble-tier.js <command> --json`).
+This table is a rendering of it — `test/preamble-tier.test.js` fails on any drift, so edit the registry, never just this table.
+
 | Tier | Commands | Shared Contexts |
 |------|----------|----------------|
-| **T1** | status, sessions, health, learn, note, scout | `_shared.md` only |
-| **T2** | verify, fix, validate, eval, detective | + repo-detection + auto-learning |
-| **T3** | review, contract, recruit, visual | + shadows + discipline + contracts |
-| **T4** | start, execute, wrap, resume, pause | ALL shared contexts |
+| **T1** | status, sessions, health, learn, scout, evolve, grill | `_shared.md` |
+| **T2** | verify, fix, validate, eval, detective, brainstorm, close, greploop, loop, q, wire | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` (+ `_shared-detective.md` on the detective trigger) |
+| **T3** | review, pr-review, contract, recruit, visual, visualflow | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` |
+| **T4** | start, execute, wrap, resume, pause | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` + `_shared-detective.md` |
 
 > **Repo Brain** (on-demand, not a tier): `_shared-brain.md` — grep-only recall of `{TEAM_DIR}/brain/cards/`. Loaded ad hoc by `scout.md` / `start.md` Phase A; never auto-included by any tier above.

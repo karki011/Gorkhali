@@ -1,12 +1,12 @@
 ---
 name: contract
-description: "Use when you need to define scope, write an interface contract, or create acceptance criteria before implementation. Creates structured contracts from templates (feature/api/testing/ui/fix) that agents must satisfy. Also use when user says 'define the interface', 'what are the requirements', 'scope this', or 'acceptance criteria'."
+description: "Use when you need to define scope, write an interface contract, or set acceptance criteria before implementation. Creates structured contracts from templates (feature/api/testing/ui/fix)."
 argument-hint: "<type>"
 # Generic triggers ('scope this', 'what are the requirements') are intentionally muted by user-invocable:false — contract is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety.
 user-invocable: false
 ---
 
-> **Preamble Tier: T3** — loads '_shared.md' + '_shared-shadows.md' + '_shared-discipline.md' + '_shared-contracts.md'
+> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /phantom:contract $ARGUMENTS
 
