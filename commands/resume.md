@@ -1,6 +1,8 @@
 ---
 name: resume
 description: "Use when continuing PREVIOUS work from a paused or prior session — 'resume', 'pick up where we left off'. Restores context and plan. New scope → gorkhali:start; approved plan → gorkhali:execute."
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)

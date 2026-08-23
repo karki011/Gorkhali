@@ -2,6 +2,8 @@
 name: evolve
 description: "Use when learnings files grow large or knowledge needs maintenance. Scans learnings, promotes patterns to global, distills oversized files, cleans stale entries ('clean up learnings')."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

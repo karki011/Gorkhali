@@ -2,6 +2,8 @@
 name: close
 description: "Use when a PR has MERGED and you want to close out the ticket — Jira to Done, archive the session, clean up branch/worktree, record final cost. Shipping a PR → gorkhali:wrap; close is post-merge."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

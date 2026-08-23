@@ -3,6 +3,8 @@ name: scout
 description: "Use when you need context before planning — explore the codebase, understand an implementation, map dependencies ('how is X implemented', 'gather context'). Implementation → gorkhali:start."
 argument-hint: "[area]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

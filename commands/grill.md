@@ -2,6 +2,8 @@
 name: grill
 description: "Use when you want a Socratic challenge on your own changes — 'grill me', 'quiz me', 'test my understanding', 'play devil's advocate' — before shipping. NOT for code review (use gorkhali:review)."
 argument-hint: "[--hard] [--quick]"
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
