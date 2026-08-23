@@ -1,6 +1,6 @@
 {
   "name": "gorkhali",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "description": "Provider-adaptive multi-agent development workflows for Codex, Claude Code, and Kimi Code.",
   "author": {
     "name": "Subash Karki"
