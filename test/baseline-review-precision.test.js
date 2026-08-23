@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // baseline-review-precision.test.js — B9b. The second half of B9's stated test:
 // the baseline miner printing a per-finding table with a fixed/dismissed/deferred
-// column, over a REAL temp PHANTOM_DATA corpus, through the production CLI.
+// column, over a REAL temp GORKHALI_DATA corpus, through the production CLI.
 //
 // Four failure classes are pinned here, and three of them are F8:
 //
@@ -119,7 +119,7 @@ function buildCorpus() {
 function mine(dataRoot, extraArgs = []) {
   return execFileSync('node', [MINER, '--no-gh', ...extraArgs], {
     encoding: 'utf-8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot },
+    env: { ...process.env, GORKHALI_DATA: dataRoot },
     cwd: REPO_ROOT,
   });
 }

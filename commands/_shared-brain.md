@@ -1,4 +1,4 @@
-# Phantom Shadows -- Repo Brain Context
+# Gorkhali Shadows -- Repo Brain Context
 
 > **On-demand ONLY.** Never preloaded, never part of any preamble tier (see
 > `_shared.md` §Preamble Tiers). Load this file — and grep the cards dir —

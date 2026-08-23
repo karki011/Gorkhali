@@ -30,7 +30,7 @@ const MANIFEST_PATHS = [
 // Copies the repo's real manifests into a fresh tmp dir so tests exercise
 // real formatting/shape without ever touching the checked-in files.
 function makeFixture() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-release-version-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-release-version-'));
   for (const [subdir, name] of MANIFEST_PATHS) {
     fs.mkdirSync(path.join(dir, subdir), { recursive: true });
     fs.copyFileSync(path.join(REPO_ROOT, subdir, name), path.join(dir, subdir, name));

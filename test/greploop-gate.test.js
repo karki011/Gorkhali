@@ -1,16 +1,16 @@
 // Author: Subash Karki
 // greploop-gate.test.js — locks the greploop Stop gate's behavior. This is a
 // discipline gate that FAILS OPEN: it only BLOCKS the stop when an active
-// phantom session has a freshly-created LIVE PR whose greptile loop has not
+// gorkhali session has a freshly-created LIVE PR whose greptile loop has not
 // settled (greptile.status missing/pending). Any ambiguity, inactive session,
 // settled (merged/closed) PR, or settled loop ALLOWS. The fixtures below still
 // carry pr.status "draft" alongside "open" because the gate is status-agnostic:
 // wrap now writes "open", legacy sessions wrote "draft", and both must gate.
 // It is BOUNDED — at most
-// PHANTOM_GREPLOOP_GATE_MAX blocks per PR (default 3), then it allows forever.
+// GORKHALI_GREPLOOP_GATE_MAX blocks per PR (default 3), then it allows forever.
 //
 // Spawns the REAL hook process. Env is read at INVOCATION time, so every spawn
-// pins PHANTOM_DATA to a fresh tmpdir, and PHANTOM_GREPLOOP_GATE_MAX is set
+// pins GORKHALI_DATA to a fresh tmpdir, and GORKHALI_GREPLOOP_GATE_MAX is set
 // only when the case overrides it (never inherited from the outer shell).
 'use strict';
 
@@ -26,7 +26,7 @@ const HOOK = path.join(__dirname, '..', 'hooks', 'greploop-gate.js');
 function runGate(envOverrides, stdinObj, cwd) {
   const env = { ...process.env, ...envOverrides };
   // The bound is read from env at invocation; outer shell state must not leak.
-  if (!envOverrides.PHANTOM_GREPLOOP_GATE_MAX) delete env.PHANTOM_GREPLOOP_GATE_MAX;
+  if (!envOverrides.GORKHALI_GREPLOOP_GATE_MAX) delete env.GORKHALI_GREPLOOP_GATE_MAX;
   // Session resolution is cwd-scoped: detectRepo walks from cwd. Drive it via
   // the cwd in the Stop payload (matching how the hook reads cwd).
   const stdinText = typeof stdinObj === 'string'
@@ -48,7 +48,7 @@ function runGate(envOverrides, stdinObj, cwd) {
   }
 }
 
-// Fresh PHANTOM_DATA + a fake worktree cwd. Writes the .chief-active marker, the
+// Fresh GORKHALI_DATA + a fake worktree cwd. Writes the .chief-active marker, the
 // current-session/<repo>.json pointer (so ticket resolution succeeds), and the
 // session wrap.json at the SAME path the gate resolves. `wrap` is written
 // verbatim when a string (malformed case), else JSON.stringified. Pass
@@ -78,7 +78,7 @@ function setup({ wrap, active = true, repo = 'myrepo', ticket = 'PROJ-1', resolv
     fs.writeFileSync(path.join(sessDir, 'wrap.json'), body);
   }
 
-  return { data, cwd, env: { PHANTOM_DATA: data } };
+  return { data, cwd, env: { GORKHALI_DATA: data } };
 }
 
 function assertBlock(res, prNumber) {
@@ -150,7 +150,7 @@ test('8. malformed wrap.json → ALLOW (fail-open)', () => {
 });
 
 test('9. bounded-fire: default max blocks 3x then allows the 4th', () => {
-  // One PHANTOM_DATA reused across all 4 spawns so the counter file persists.
+  // One GORKHALI_DATA reused across all 4 spawns so the counter file persists.
   const { env, cwd } = setup({ wrap: { pr: { number: 7, status: 'draft' }, greptile: { status: 'pending' } } });
   assertBlock(runGate(env, {}, cwd), 7);
   assertBlock(runGate(env, {}, cwd), 7);
@@ -158,10 +158,10 @@ test('9. bounded-fire: default max blocks 3x then allows the 4th', () => {
   assertAllow(runGate(env, {}, cwd), 'ceiling hit → never trap');
 });
 
-test('10. PHANTOM_GREPLOOP_GATE_MAX=1 → first BLOCKs, second ALLOWS', () => {
+test('10. GORKHALI_GREPLOOP_GATE_MAX=1 → first BLOCKs, second ALLOWS', () => {
   const { env, cwd } = setup({ wrap: { pr: { number: 9, status: 'draft' }, greptile: { status: 'pending' } } });
-  assertBlock(runGate({ ...env, PHANTOM_GREPLOOP_GATE_MAX: '1' }, {}, cwd), 9);
-  assertAllow(runGate({ ...env, PHANTOM_GREPLOOP_GATE_MAX: '1' }, {}, cwd), 'env override respected');
+  assertBlock(runGate({ ...env, GORKHALI_GREPLOOP_GATE_MAX: '1' }, {}, cwd), 9);
+  assertAllow(runGate({ ...env, GORKHALI_GREPLOOP_GATE_MAX: '1' }, {}, cwd), 'env override respected');
 });
 
 test('11. repo/ticket unresolvable (no current-session, detached cwd) → ALLOW (fail-open)', () => {

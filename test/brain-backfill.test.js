@@ -1,6 +1,6 @@
 // Author: Subash Karki
 // brain-backfill.test.js — EXECUTED fixture tests (per [executed-review]): builds
-// a real temp PHANTOM_DATA world (wrap.json / learnings / costs.json + a fake
+// a real temp GORKHALI_DATA world (wrap.json / learnings / costs.json + a fake
 // transcript), runs the backfill for effect, and asserts the cards on disk +
 // their retrievability via the T4 grep recipes. Zero external deps.
 'use strict';
@@ -22,7 +22,7 @@ function write(p, s) { mkdirp(path.dirname(p)); fs.writeFileSync(p, s); }
 const REPO = 'feature-web-apps';
 const SID = 'aaaa1111-2222-3333-4444-555555555555';
 
-/** Build an isolated PHANTOM_DATA world and return env + paths. */
+/** Build an isolated GORKHALI_DATA world and return env + paths. */
 function buildWorld() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bf-'));
   const DATA = path.join(root, 'data');
@@ -74,7 +74,7 @@ function buildWorld() {
 
   return {
     root,
-    env: { PHANTOM_DATA: DATA, PHANTOM_PROJECTS_DIR: projects },
+    env: { GORKHALI_DATA: DATA, GORKHALI_PROJECTS_DIR: projects },
     DATA, base, projects,
   };
 }
@@ -198,7 +198,7 @@ test('date-less source: card id derives from source mtime, stable across re-runs
   const projects = path.join(root, 'projects');
   const repo = 'mtime-repo';
   const base = path.join(DATA, 'repos', repo);
-  const env = { PHANTOM_DATA: DATA, PHANTOM_PROJECTS_DIR: projects };
+  const env = { GORKHALI_DATA: DATA, GORKHALI_PROJECTS_DIR: projects };
 
   // Tier1 wrap.json with NO _meta.writtenAt (and no date anywhere) — the case that
   // used to default to TODAY and mint a fresh id per run day.

@@ -83,7 +83,7 @@ test('leading-dash entries parse (older writers emitted bullets)', () => {
 });
 
 test('the graduateToDomainFile bullet form parses, including its u: date', () => {
-  // Written by skills/phantom/scripts/phantom-learning.mjs graduateToDomainFile.
+  // Written by skills/gorkhali/scripts/gorkhali-learning.mjs graduateToDomainFile.
   const [e] = G.parseLearningEntries('- prefer semantic tokens [validated:7] q:0.9 u:2026-07-01', 'ui.md');
   assert.equal(e.type, 'pattern');
   assert.equal(e.validationCount, 7);
@@ -304,7 +304,7 @@ test('auto-capture lines parse with their v: count and u: date', () => {
 test('the real learnings files parse to a NON-ZERO count with no entry losing its date', () => {
   let learningsPath;
   try {
-    learningsPath = require('../scripts/lib/phantom-paths').learningsDir();
+    learningsPath = require('../scripts/lib/gorkhali-paths').learningsDir();
   } catch (_) {
     return; // paths lib unavailable in this environment
   }
@@ -379,9 +379,9 @@ test('neither consumer keeps a private entry regex', () => {
 test('memory-reader emits a NON-EMPTY injection block for a prompt with no matching domain file', () => {
   // The headline regression. A 'ui' prompt in a repo whose only files are infra.md and
   // workflow.md resolved to no file at all and injected silence.
-  // learningsDir() resolves <PHANTOM_DATA>/repos/<PHANTOM_REPO>/learnings, so those two
+  // learningsDir() resolves <GORKHALI_DATA>/repos/<GORKHALI_REPO>/learnings, so those two
   // env vars are the seam that points the hook at a fixture instead of real state.
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-memory-reader-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-memory-reader-'));
   const dir = path.join(root, 'repos', 'grammar-fixture', 'learnings');
   fs.mkdirSync(dir, { recursive: true });
   try {
@@ -402,7 +402,7 @@ test('memory-reader emits a NON-EMPTY injection block for a prompt with no match
     const { execFileSync } = require('node:child_process');
     const out = execFileSync('node', [path.join(__dirname, '..', 'hooks', 'memory-reader.js')], {
       input: JSON.stringify({ prompt: 'fix the react component css layout' }),
-      env: { ...process.env, PHANTOM_DATA: root, PHANTOM_REPO: 'grammar-fixture' },
+      env: { ...process.env, GORKHALI_DATA: root, GORKHALI_REPO: 'grammar-fixture' },
       encoding: 'utf8',
     });
 

@@ -10,9 +10,9 @@ so it gets its own file rather than living inside a document about scoring.
 ## Fix-Loop Ceiling
 
 **The fix-loop ceiling is owned by `scripts/lib/constants.js`** (`FIX_LOOP_CEILING`,
-default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by
+default 2, env override `GORKHALI_FIX_LOOP_CEILING`), enforced by
 `hooks/loop-controller.js`. This document is the PROTOCOL reference for every
-verify/fix/re-review loop across Phantom — verify.md, fix.md, chief.md, start.md,
+verify/fix/re-review loop across Gorkhali — verify.md, fix.md, chief.md, start.md,
 contracts.md, and reference/agent-protocols defer to constants.js for the number (so it can't
 drift). Rationale for the default: the user's CLAUDE.md rule — *"if a fix attempt
 fails twice with the same error class, STOP patching; the approach is wrong."*
@@ -31,11 +31,11 @@ validly completed review round. Both `review-round.js status` (before a pass) an
 
 **A round is not an attempt.** Round 1 is the first review — nothing has been
 fixed yet. And a later round only means a fix happened if the code CHANGED
-between the two: `/phantom:review` is read-only and re-runnable, so counting
+between the two: `/gorkhali:review` is read-only and re-runnable, so counting
 rounds alone would let three reviews of one untouched diff spend the whole
 ceiling and escalate the first genuine fix. The evidence is the `fingerprint`
 each entry carries (passed by `commands/review.md` from
-`phantom-state.mjs fingerprint`): when every entry is stamped, the count is how
+`gorkhali-state.mjs fingerprint`): when every entry is stamped, the count is how
 many times that fingerprint CHANGED between consecutive rounds.
 
 Transitions, not distinct values — the difference matters for the one sequence
@@ -68,7 +68,7 @@ primary; `resolveFixLoops()` prefers the ledger and reports which it used.
 
 In unattended mode, enforcement happens at the Skill-tool boundary via
 `hooks/fix-loop-gate.js`, which reads the ledger first and the legacy artifact
-second. An agent that keeps looping WITHOUT re-invoking `phantom:fix` is outside
+second. An agent that keeps looping WITHOUT re-invoking `gorkhali:fix` is outside
 that gate — but not outside the ceiling, because every re-review closes a round
 and `review-round.js` reports the standing on every pass. Wrap is not a backstop
 here: `commands/wrap.md` validates the recorded review artifacts and does not run
@@ -110,5 +110,5 @@ body — not action items. See `reference/wrap/pr-body.md`.
 
 An escalation is the loop ENDING, not the loop pausing. `commands/fix.md` step 9
 hands the user four options (pivot / reduce scope / accept as-is / abandon) and
-waits. Re-running `/phantom:verify` in place of choosing one is how a bounded
+waits. Re-running `/gorkhali:verify` in place of choosing one is how a bounded
 loop becomes an unbounded one.

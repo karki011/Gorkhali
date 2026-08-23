@@ -9,12 +9,12 @@ const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
-const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const STATE = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
 const DECISION_CONTRACTS = path.join(
   __dirname,
   '..',
   'skills',
-  'phantom',
+  'gorkhali',
   'scripts',
   'lib',
   'decision-contracts.mjs',
@@ -41,12 +41,12 @@ function parse(result) {
 }
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lifecycle-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-lifecycle-'));
   const workspace = path.join(root, 'workspace');
   const data = path.join(root, 'neutral-data');
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'planning.md'), '# Existing planning context\n');
-  return { root, workspace, data, env: { PHANTOM_DATA: data } };
+  return { root, workspace, data, env: { GORKHALI_DATA: data } };
 }
 
 function treeSnapshot(root) {
@@ -410,12 +410,12 @@ test('portable state defaults to a neutral home directory and honors its overrid
   const isolatedHome = path.join(context.root, 'home');
   fs.mkdirSync(isolatedHome);
   const common = ['--workspace', context.workspace];
-  const baseEnv = { HOME: isolatedHome, PHANTOM_DATA: '' };
+  const baseEnv = { HOME: isolatedHome, GORKHALI_DATA: '' };
 
   parse(await run([
     'start', ...common, '--task', 'HOME-1', '--intent', 'Use neutral home', '--route', 'direct',
   ], baseEnv));
-  assert.ok(fs.existsSync(path.join(isolatedHome, '.phantom')));
+  assert.ok(fs.existsSync(path.join(isolatedHome, '.gorkhali')));
   assert.equal(fs.existsSync(path.join(isolatedHome, '.claude')), false);
   assert.equal(fs.existsSync(path.join(isolatedHome, '.codex')), false);
 
@@ -440,7 +440,7 @@ test('portable start shards under the canonical codec repo id', async () => {
     'start', ...common, '--task', 'SHARD-1', '--intent', 'Shard by codec id', '--route', 'direct',
   ], context.env));
 
-  const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+  const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
   const expected = codec.repoId(context.workspace, { dataRoot: context.data });
   assert.match(started.repo_id, /^portable-shard-[0-9a-f]{10}$/, 'canonical remote-backed id');
   assert.equal(started.repo_id, expected, 'portable routes identity through the shared codec');
@@ -626,7 +626,7 @@ test('concurrent artifact writes remain complete JSON and leave no temporary fil
     '--status', 'passed',
     '--run', 'shared-run',
     '--input', evidence,
-  ], { ...context.env, PHANTOM_WRITER: String(index) })));
+  ], { ...context.env, GORKHALI_WRITER: String(index) })));
   for (const result of results) parse(result);
 
   const files = [];
@@ -648,7 +648,7 @@ test('mutating lifecycle commands fail clearly without an active session', async
   const context = fixture();
   const result = await run(['pause', '--workspace', context.workspace], context.env);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /No active Phantom session/);
+  assert.match(result.stderr, /No active Gorkhali session/);
 });
 
 test('completion is blocked until verification and review pass', async () => {
@@ -971,7 +971,7 @@ test('a commit after classification makes user-verification evidence stale', asy
   execFileSync('git', ['init'], { cwd: context.workspace, stdio: 'ignore' });
   execFileSync('git', ['add', 'planning.md'], { cwd: context.workspace });
   execFileSync('git', [
-    '-c', 'user.name=Phantom Test', '-c', 'user.email=phantom@example.test',
+    '-c', 'user.name=Gorkhali Test', '-c', 'user.email=gorkhali@example.test',
     'commit', '-m', 'initial',
   ], { cwd: context.workspace, stdio: 'ignore' });
   parse(await run([
@@ -991,7 +991,7 @@ test('a commit after classification makes user-verification evidence stale', asy
   fs.writeFileSync(config, 'cache=true\n');
   execFileSync('git', ['add', 'config/runtime.data'], { cwd: context.workspace });
   execFileSync('git', [
-    '-c', 'user.name=Phantom Test', '-c', 'user.email=phantom@example.test',
+    '-c', 'user.name=Gorkhali Test', '-c', 'user.email=gorkhali@example.test',
     'commit', '-m', 'change runtime config',
   ], { cwd: context.workspace, stdio: 'ignore' });
 
@@ -1827,7 +1827,7 @@ test('older sessions recover lifecycle defaults and identify the next command', 
   assert.equal(blocked.code, 1);
   assert.match(
     blocked.stderr,
-    /implementation authorization is missing.*phantom-state\.mjs authorize --scope implementation/s,
+    /implementation authorization is missing.*gorkhali-state\.mjs authorize --scope implementation/s,
   );
   parse(await run([
     'authorize', ...common, '--scope', 'implementation',

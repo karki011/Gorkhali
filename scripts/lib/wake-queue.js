@@ -9,7 +9,7 @@
 //                                       rename, returns deduped records + liveness
 //   triage(dir, line)                -> one-line stub appended to .triage-log
 //
-// CONCURRENCY (no lock): Phantom runs a SINGLE consumer (Chief drains) and any
+// CONCURRENCY (no lock): Gorkhali runs a SINGLE consumer (Chief drains) and any
 // number of lockless producers (classifier processes append/triage). append is a
 // single O_APPEND write — atomic for row-sized payloads; drain moves the queue
 // aside with an atomic rename, so a concurrent append either lands before the
@@ -49,11 +49,11 @@ const POINTER_FILE = '.active-wake-session';
 // import pattern the classifier hook uses.
 let stateDir, detectRepo;
 try {
-  ({ stateDir, detectRepo } = require('./phantom-paths'));
+  ({ stateDir, detectRepo } = require('./gorkhali-paths'));
 } catch (_) {
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
   stateDir = () => path.join(data, 'state');
   detectRepo = null;
 }
@@ -62,7 +62,7 @@ function nowEpoch() {
   return Math.floor(Date.now() / 1000);
 }
 
-// Per-repo pointer filename. detectRepo() may be unavailable (phantom-paths
+// Per-repo pointer filename. detectRepo() may be unavailable (gorkhali-paths
 // failed to load) or throw; either way we fall back to the un-suffixed pointer,
 // preserving the pre-scoping behavior.
 function pointerFileName() {
@@ -79,7 +79,7 @@ function pointerFileName() {
 
 /**
  * resolveWakeSource() -> { dir, source } where source is one of:
- *   'env'     — PHANTOM_WAKE_SESSION_DIR (explicit per-spawn override / tests)
+ *   'env'     — GORKHALI_WAKE_SESSION_DIR (explicit per-spawn override / tests)
  *   'pointer' — the per-repo <stateDir>/.active-wake-session.<repo> file, present
  *               and naming a dir that exists
  *   'state'   — stateDir() global fallback (no env, no live pointer)
@@ -89,7 +89,7 @@ function pointerFileName() {
  * fallback ('state'), so it can skip appending when no consumer exists.
  */
 function resolveWakeSource() {
-  const explicit = process.env.PHANTOM_WAKE_SESSION_DIR;
+  const explicit = process.env.GORKHALI_WAKE_SESSION_DIR;
   if (explicit && explicit.trim()) return { dir: explicit.trim(), source: 'env' };
   try {
     const dir = fs.readFileSync(path.join(stateDir(), pointerFileName()), 'utf8').trim();

@@ -1,12 +1,12 @@
 {
-  "name": "phantom",
+  "name": "gorkhali",
   "version": "0.10.0",
-  "description": "Phantom — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer.",
+  "description": "Gorkhali — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer.",
   "author": {
     "name": "Subash Karki"
   },
-  "homepage": "https://github.com/Cloudzero/research-phantom-skills",
-  "repository": "https://github.com/Cloudzero/research-phantom-skills",
+  "homepage": "https://github.com/karki011/Gorkhali",
+  "repository": "https://github.com/karki011/Gorkhali",
   "keywords": [
     "orchestration",
     "multi-agent",

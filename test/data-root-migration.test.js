@@ -25,9 +25,9 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const SCRIPT = require.resolve('../scripts/migrate-data.js');
-const LEARNING = require.resolve('../skills/phantom/scripts/phantom-learning.mjs');
-const STATE = require.resolve('../skills/phantom/scripts/phantom-state.mjs');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const LEARNING = require.resolve('../skills/gorkhali/scripts/gorkhali-learning.mjs');
+const STATE = require.resolve('../skills/gorkhali/scripts/gorkhali-state.mjs');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
 const HAS_GIT = (() => {
   try { require('child_process').execSync('git --version', { stdio: 'ignore' }); return true; } catch (_) { return false; }
 })();
@@ -68,7 +68,7 @@ function snapshot(root) {
   return out;
 }
 
-const CANON = hashedId('research-phantom-skills', 'origin-canonical');
+const CANON = hashedId('research-gorkhali-skills', 'origin-canonical');
 const OTHER = hashedId('feature-web-apps', 'origin-other');
 
 /**
@@ -78,12 +78,12 @@ const OTHER = hashedId('feature-web-apps', 'origin-other');
  */
 function buildWorld() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-'));
-  const DEST = path.join(root, 'phantom');
-  const phantomData = path.join(root, 'claude-phantom-data');
-  const phantom = path.join(root, 'claude-phantom');
+  const DEST = path.join(root, 'gorkhali');
+  const gorkhaliData = path.join(root, 'claude-gorkhali-data');
+  const gorkhali = path.join(root, 'claude-gorkhali');
   const team = path.join(root, 'claude-team');
-  const codexUpper = path.join(root, 'Codex-phantom');
-  const codexLower = path.join(root, 'codex-phantom');
+  const codexUpper = path.join(root, 'Codex-gorkhali');
+  const codexLower = path.join(root, 'codex-gorkhali');
 
   // --- DEST baseline: an existing canonical repo with a learnings file whose
   // bytes a source will extend (drives the rollback-backup path).
@@ -92,32 +92,32 @@ function buildWorld() {
   write(path.join(DEST, 'repos', CANON, 'sessions', 'KEEP', 'wrap.json'),
     JSON.stringify({ kept: true, note: 'a '.repeat(40) + 'mega paragraph value kept as-is' }));
 
-  // --- phantom-data (highest priority): new session, learnings extension,
+  // --- gorkhali-data (highest priority): new session, learnings extension,
   // an EXACT duplicate of a baseline file (dedup), and an unresolved branch id.
-  writeJson(path.join(phantomData, 'repos', CANON, 'sessions', 'IMPORT-1', 'wrap.json'),
+  writeJson(path.join(gorkhaliData, 'repos', CANON, 'sessions', 'IMPORT-1', 'wrap.json'),
     { imported: true, weirdKey: 'x', prose: 'p '.repeat(30) });
-  write(path.join(phantomData, 'repos', CANON, 'learnings', 'workflow.md'),
+  write(path.join(gorkhaliData, 'repos', CANON, 'learnings', 'workflow.md'),
     'shared-line\nLEARNING [beta]: a genuinely new learning line to append.\n');
-  write(path.join(phantomData, 'repos', CANON, 'sessions', 'KEEP', 'wrap.json'),
+  write(path.join(gorkhaliData, 'repos', CANON, 'sessions', 'KEEP', 'wrap.json'),
     JSON.stringify({ kept: true, note: 'a '.repeat(40) + 'mega paragraph value kept as-is' }));
   // An unsafe-segment repo id (unresolved -> requires --map) and a stale runtime
   // marker (skipped-live-state) so every artifact class is exercised.
-  writeJson(path.join(phantomData, 'repos', UNSAFE_ID, 'sessions', 'T', 'x.json'), { branchFragment: true });
-  writeJson(path.join(phantomData, 'state', 'routing-nudge', 'n.json'), { stale: true });
+  writeJson(path.join(gorkhaliData, 'repos', UNSAFE_ID, 'sessions', 'T', 'x.json'), { branchFragment: true });
+  writeJson(path.join(gorkhaliData, 'state', 'routing-nudge', 'n.json'), { stale: true });
   // Mutable top-level classes that must be imported, and a managed worktree that
   // must NEVER be copied (it is live per-run working state, not durable knowledge).
-  write(path.join(phantomData, 'timing', `${CANON}.jsonl`), 'run-1 timing\n');
-  write(path.join(phantomData, 'events', CANON, 'e.jsonl'), 'an event line\n');
-  write(path.join(phantomData, 'worktrees', CANON, 'T', 'code.js'), 'live worktree file');
+  write(path.join(gorkhaliData, 'timing', `${CANON}.jsonl`), 'run-1 timing\n');
+  write(path.join(gorkhaliData, 'events', CANON, 'e.jsonl'), 'an event line\n');
+  write(path.join(gorkhaliData, 'worktrees', CANON, 'T', 'code.js'), 'live worktree file');
 
-  // --- phantom: _default shard + global/root-level learnings + a decisions file.
-  writeJson(path.join(phantom, 'repos', '_default', 'sessions', 'LOOSE-1', 'costs.json'),
+  // --- gorkhali: _default shard + global/root-level learnings + a decisions file.
+  writeJson(path.join(gorkhali, 'repos', '_default', 'sessions', 'LOOSE-1', 'costs.json'),
     { session_id: 'sess-loose', cost: 3 });
-  write(path.join(phantom, 'learnings', 'INDEX.md'), '# Root learnings\n\n- global note [validated:1]\n');
-  write(path.join(phantom, 'global', 'patterns', 'p.md'), 'a promoted global pattern\n');
-  write(path.join(phantom, 'repos', CANON, 'decisions', 'global.md'), '# Decisions\n\nkeep this decision.\n');
+  write(path.join(gorkhali, 'learnings', 'INDEX.md'), '# Root learnings\n\n- global note [validated:1]\n');
+  write(path.join(gorkhali, 'global', 'patterns', 'p.md'), 'a promoted global pattern\n');
+  write(path.join(gorkhali, 'repos', CANON, 'decisions', 'global.md'), '# Decisions\n\nkeep this decision.\n');
 
-  // --- team: brain card + a CONFLICT (different bytes at a path phantom-data also
+  // --- team: brain card + a CONFLICT (different bytes at a path gorkhali-data also
   // writes) to exercise deterministic parking under source priority.
   write(path.join(team, 'repos', CANON, 'brain', 'cards', 'rb-abc123.md'),
     '---\nid: rb-abc123\ntitle: a card\n---\nbody\n');
@@ -133,14 +133,14 @@ function buildWorld() {
 
   const env = {
     ...process.env,
-    PHANTOM_DATA: DEST,
-    PHANTOM_MIGRATE_SRC_PHANTOM_DATA: phantomData,
-    PHANTOM_MIGRATE_SRC_PHANTOM: phantom,
-    PHANTOM_MIGRATE_SRC_TEAM: team,
-    PHANTOM_MIGRATE_SRC_CODEX_UPPER: codexUpper,
-    PHANTOM_MIGRATE_SRC_CODEX_LOWER: codexLower,
+    GORKHALI_DATA: DEST,
+    GORKHALI_MIGRATE_SRC_GORKHALI_DATA: gorkhaliData,
+    GORKHALI_MIGRATE_SRC_GORKHALI: gorkhali,
+    GORKHALI_MIGRATE_SRC_TEAM: team,
+    GORKHALI_MIGRATE_SRC_CODEX_UPPER: codexUpper,
+    GORKHALI_MIGRATE_SRC_CODEX_LOWER: codexLower,
   };
-  return { root, DEST, phantomData, phantom, team, codexUpper, codexLower, env };
+  return { root, DEST, gorkhaliData, gorkhali, team, codexUpper, codexLower, env };
 }
 
 function dryRun(env, extraArgs = []) {
@@ -162,7 +162,7 @@ function apply(env, manifestPath, extraArgs = [], envExtra = {}) {
 
 function runPortable(env, args) {
   const res = spawnSync(process.execPath, [STATE, ...args, '--json'], { env, encoding: 'utf8' });
-  assert.equal(res.status, 0, `phantom-state exited nonzero: ${res.stderr}`);
+  assert.equal(res.status, 0, `gorkhali-state exited nonzero: ${res.stderr}`);
   return JSON.parse(res.stdout);
 }
 
@@ -172,7 +172,7 @@ function reportOf(applyResult) {
 
 // The three external source roots whose bytes must be byte-identical after apply.
 function externalRoots(w) {
-  return [w.phantomData, w.phantom, w.team, w.codexUpper, w.codexLower];
+  return [w.gorkhaliData, w.gorkhali, w.team, w.codexUpper, w.codexLower];
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ test('dry-run accounts for every source class with per-root and per-artifact cou
     assert.ok(m.counts.byClass['skipped-live-state'] >= 1, 'the stale runtime marker is skipped');
 
     // Per-root + per-artifact breakdowns exist.
-    assert.ok(m.counts.byRoot['phantom-data'], 'per-root counts present');
+    assert.ok(m.counts.byRoot['gorkhali-data'], 'per-root counts present');
     assert.ok(Object.keys(m.counts.byArtifact).length >= 1, 'per-artifact counts present');
 
     // Unresolved ids are surfaced for --map.
@@ -287,7 +287,7 @@ test('learnings merge is append-only with dedup and a content-addressed rollback
 
 test('the migrator SEEDS aliases from the live workspace and collapses a legacy id through mapRepoId', { skip: !HAS_GIT }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-seed-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const src = path.join(root, 'legacy-src');
   const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'drm-seed-repo-')));
   const rawRemote = 'git@github.com:Cloudzero/seeded-repo.git';
@@ -305,14 +305,14 @@ test('the migrator SEEDS aliases from the live workspace and collapses a legacy 
 
     const env = {
       ...process.env,
-      PHANTOM_DATA: DEST,
-      PHANTOM_MIGRATE_SRC_PHANTOM_DATA: src,
-      PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-a'),
-      PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
-      PHANTOM_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
-      PHANTOM_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
+      GORKHALI_DATA: DEST,
+      GORKHALI_MIGRATE_SRC_GORKHALI_DATA: src,
+      GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-a'),
+      GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
+      GORKHALI_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
+      GORKHALI_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
     };
-    delete env.PHANTOM_REPO;
+    delete env.GORKHALI_REPO;
 
     // Run FROM the repo workspace so apply seeds the alias map from its identity.
     const dry = spawnSync(process.execPath, [SCRIPT], { cwd: repo, env, encoding: 'utf8' });
@@ -337,7 +337,7 @@ test('the migrator SEEDS aliases from the live workspace and collapses a legacy 
 
 test('the migrator collapses a legacy NO-REMOTE path-derived id onto the codec bare-basename id', { skip: !HAS_GIT }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-nore-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const src = path.join(root, 'legacy-src');
   const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'drm-nore-repo-')));
   const g = (args) => spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
@@ -360,14 +360,14 @@ test('the migrator collapses a legacy NO-REMOTE path-derived id onto the codec b
 
     const env = {
       ...process.env,
-      PHANTOM_DATA: DEST,
-      PHANTOM_MIGRATE_SRC_PHANTOM_DATA: src,
-      PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-a'),
-      PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
-      PHANTOM_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
-      PHANTOM_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
+      GORKHALI_DATA: DEST,
+      GORKHALI_MIGRATE_SRC_GORKHALI_DATA: src,
+      GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-a'),
+      GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
+      GORKHALI_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
+      GORKHALI_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
     };
-    delete env.PHANTOM_REPO;
+    delete env.GORKHALI_REPO;
 
     // Run FROM the no-remote workspace so apply seeds the alias map from its identity.
     const dry = spawnSync(process.execPath, [SCRIPT], { cwd: repo, env, encoding: 'utf8' });
@@ -391,7 +391,7 @@ test('the migrator collapses a legacy NO-REMOTE path-derived id onto the codec b
 
 test('a plain alias shared by two repos flips to AMBIGUOUS and the migrator leaves the shared dir unresolved', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-ambig-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const src = path.join(root, 'legacy-src');
   try {
     // Two DISTINCT canonical repos that share the plain basename 'shared-repo' (same
@@ -417,14 +417,14 @@ test('a plain alias shared by two repos flips to AMBIGUOUS and the migrator leav
     writeJson(path.join(src, 'repos', 'shared-repo', 'sessions', 'S', 'wrap.json'), { legacy: true });
     const env = {
       ...process.env,
-      PHANTOM_DATA: DEST,
-      PHANTOM_MIGRATE_SRC_PHANTOM_DATA: src,
-      PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-a'),
-      PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
-      PHANTOM_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
-      PHANTOM_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
+      GORKHALI_DATA: DEST,
+      GORKHALI_MIGRATE_SRC_GORKHALI_DATA: src,
+      GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-a'),
+      GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
+      GORKHALI_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
+      GORKHALI_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
     };
-    delete env.PHANTOM_REPO;
+    delete env.GORKHALI_REPO;
 
     // cwd=root is not a git checkout, so the migrator's own seed is a no-op for
     // 'shared-repo' -- the pre-seeded ambiguity is what the mapper must honor.
@@ -449,7 +449,7 @@ test('a plain alias shared by two repos flips to AMBIGUOUS and the migrator leav
 
 test('INDEX.md merge keeps ONE Auto-Captured header and the MAX validated count with the newest date', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-index-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const src = path.join(root, 'src');
   const id = 'index-repo';
   try {
@@ -463,12 +463,12 @@ test('INDEX.md merge keeps ONE Auto-Captured header and the MAX validated count 
 
     const env = {
       ...process.env,
-      PHANTOM_DATA: DEST,
-      PHANTOM_MIGRATE_SRC_PHANTOM_DATA: src,
-      PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-a'),
-      PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
-      PHANTOM_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
-      PHANTOM_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
+      GORKHALI_DATA: DEST,
+      GORKHALI_MIGRATE_SRC_GORKHALI_DATA: src,
+      GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-a'),
+      GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
+      GORKHALI_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
+      GORKHALI_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
     };
     const res = apply(env, saveManifest(root, dryRun(env)));
     assert.equal(res.status, 0, res.stderr);
@@ -483,7 +483,7 @@ test('INDEX.md merge keeps ONE Auto-Captured header and the MAX validated count 
 
 test('domain-file merge keeps ONE Validated Patterns header and preserves both sides bullets + corrections', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-domain-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const src = path.join(root, 'src');
   const id = 'domain-repo';
   const file = path.join('repos', id, 'learnings', 'workflow.md');
@@ -499,12 +499,12 @@ test('domain-file merge keeps ONE Validated Patterns header and preserves both s
 
     const env = {
       ...process.env,
-      PHANTOM_DATA: DEST,
-      PHANTOM_MIGRATE_SRC_PHANTOM_DATA: src,
-      PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-a'),
-      PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
-      PHANTOM_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
-      PHANTOM_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
+      GORKHALI_DATA: DEST,
+      GORKHALI_MIGRATE_SRC_GORKHALI_DATA: src,
+      GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-a'),
+      GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-b'),
+      GORKHALI_MIGRATE_SRC_CODEX_UPPER: path.join(root, 'absent-c'),
+      GORKHALI_MIGRATE_SRC_CODEX_LOWER: path.join(root, 'absent-d'),
     };
     const res = apply(env, saveManifest(root, dryRun(env)));
     assert.equal(res.status, 0, res.stderr);
@@ -526,7 +526,7 @@ test('different-bytes collisions park deterministically under a source/content-h
     assert.equal(res.status, 0, res.stderr);
 
     const dir = path.join(w.DEST, 'repos', CANON, 'sessions', 'IMPORT-1');
-    // The winner (phantom-data, higher priority) occupies the canonical path.
+    // The winner (gorkhali-data, higher priority) occupies the canonical path.
     assert.match(fs.readFileSync(path.join(dir, 'wrap.json'), 'utf8'), /"imported": true/);
     // The team conflict is parked, never overwriting the winner.
     const parked = fs.readdirSync(dir).filter((n) => n.startsWith('wrap.json.from-team.'));
@@ -564,7 +564,7 @@ test('reruns are idempotent and rescan changed sources without duplicating', () 
     assert.match(res2.stdout, /already migrated/, 'marker makes a repeat apply a no-op');
 
     // A source file changes; a --force rerun rescans and imports only the new data.
-    writeJson(path.join(w.phantomData, 'repos', CANON, 'sessions', 'IMPORT-2', 'late.json'), { late: true });
+    writeJson(path.join(w.gorkhaliData, 'repos', CANON, 'sessions', 'IMPORT-2', 'late.json'), { late: true });
     const before = snapshot(path.join(w.DEST, 'repos', CANON, 'sessions', 'IMPORT-1'));
     const res3 = apply(w.env, saveManifest(w.root, dryRun(w.env)), ['--force']);
     assert.equal(res3.status, 0, res3.stderr);
@@ -597,17 +597,17 @@ test('apply fails closed without --apply, without a manifest, and on a manifest/
 
 test('realpath-deduped sources: two env roots pointing at one dir are scanned once', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'drm-alias-'));
-  const DEST = path.join(root, 'phantom');
+  const DEST = path.join(root, 'gorkhali');
   const shared = path.join(root, 'one-dir');
   writeJson(path.join(shared, 'repos', OTHER, 'sessions', 'S', 'wrap.json'), { once: true });
   const env = {
     ...process.env,
-    PHANTOM_DATA: DEST,
-    PHANTOM_MIGRATE_SRC_CODEX_UPPER: shared,
-    PHANTOM_MIGRATE_SRC_CODEX_LOWER: shared, // same realpath as upper
-    PHANTOM_MIGRATE_SRC_PHANTOM_DATA: path.join(root, 'absent-a'),
-    PHANTOM_MIGRATE_SRC_PHANTOM: path.join(root, 'absent-b'),
-    PHANTOM_MIGRATE_SRC_TEAM: path.join(root, 'absent-c'),
+    GORKHALI_DATA: DEST,
+    GORKHALI_MIGRATE_SRC_CODEX_UPPER: shared,
+    GORKHALI_MIGRATE_SRC_CODEX_LOWER: shared, // same realpath as upper
+    GORKHALI_MIGRATE_SRC_GORKHALI_DATA: path.join(root, 'absent-a'),
+    GORKHALI_MIGRATE_SRC_GORKHALI: path.join(root, 'absent-b'),
+    GORKHALI_MIGRATE_SRC_TEAM: path.join(root, 'absent-c'),
   };
   try {
     const m = dryRun(env);
@@ -635,7 +635,7 @@ test('migration-wide lock: apply fails closed when a live lock is held, proceeds
     const old = new Date(Date.now() - 20 * 60 * 1000);
     fs.utimesSync(lock, old, old);
     const proceed = apply(w.env, saveManifest(w.root, dryRun(w.env)), ['--force'],
-      { PHANTOM_MIGRATE_LOCK_STALE_MS: '1' });
+      { GORKHALI_MIGRATE_LOCK_STALE_MS: '1' });
     assert.equal(proceed.status, 0, proceed.stderr);
     assert.ok(fs.existsSync(path.join(w.DEST, MARKER)), 'stale lock reclaimed and migration ran');
   } finally { cleanup(w.root); }
@@ -666,7 +666,7 @@ test('concurrent applies serialize: exactly one migrates, the other is a clean n
 test('a state writer holding a repo lifecycle lock makes that repo fail closed (no unlocked write)', () => {
   const w = buildWorld();
   try {
-    // Simulate phantom-state mid-mutation on OTHER: hold its lifecycle lock live.
+    // Simulate gorkhali-state mid-mutation on OTHER: hold its lifecycle lock live.
     const repoLock = path.join(w.DEST, 'locks', `${OTHER}.lock`);
     write(repoLock, JSON.stringify({ pid: process.pid, token: 'live-writer', created_at: new Date().toISOString() }));
 
@@ -687,7 +687,7 @@ test('a state writer holding a repo lifecycle lock makes that repo fail closed (
 test('a concurrent learnings writer holding the T3 lock defers the merge (baseline unchanged)', () => {
   const w = buildWorld();
   try {
-    // Hold the T3 per-learnings-dir lock live, exactly as phantom-learning would
+    // Hold the T3 per-learnings-dir lock live, exactly as gorkhali-learning would
     // mid-write. The migration routes its merge through withLearningLock, so it
     // must fail closed rather than merge unlocked.
     const learningsDir = path.join(w.DEST, 'repos', CANON, 'learnings');
@@ -712,18 +712,18 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     mkdirp(workspace);
     // A real git repo so the workspace resolves to a canonical (non-_default) id.
     spawnSync('git', ['-C', workspace, 'init', '-q'], { encoding: 'utf8' });
-    // Create a genuine active session in the phantom-data SOURCE root.
-    const legacyEnv = { ...w.env, PHANTOM_DATA: w.phantomData };
+    // Create a genuine active session in the gorkhali-data SOURCE root.
+    const legacyEnv = { ...w.env, GORKHALI_DATA: w.gorkhaliData };
     const started = runPortable(legacyEnv, [
       'start', '--workspace', workspace, '--task', 'MIG-1',
       '--intent', 'Preserve active session discovery across the migration', '--route', 'direct',
     ]);
-    const legacyPointer = path.join(w.phantomData, 'state', 'current-session', `${started.repo_id}.json`);
+    const legacyPointer = path.join(w.gorkhaliData, 'state', 'current-session', `${started.repo_id}.json`);
     // Invalid pointers that must each be classified skipped-live-state, never copied:
     // a legacy-hook schema, an unknown schema, and an unsafe-segment portable-v1.
-    writeJson(path.join(w.phantom, 'state', 'current-session', 'legacy.json'),
+    writeJson(path.join(w.gorkhali, 'state', 'current-session', 'legacy.json'),
       { session_id: 'old-session', cwd: w.root, ticket: 'OLD-1' });
-    writeJson(path.join(w.phantom, 'state', 'current-session', 'unknown.json'), { arbitrary: 'marker' });
+    writeJson(path.join(w.gorkhali, 'state', 'current-session', 'unknown.json'), { arbitrary: 'marker' });
     writeJson(path.join(w.team, 'state', 'current-session', 'repo.json'),
       { schema_version: 1, repo_id: 'repo', task_id: '..' });
 
@@ -737,7 +737,7 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     assert.equal(pointer.session_dir, path.join(w.DEST, 'repos', started.repo_id, 'sessions', 'MIG-1'));
 
     // The session is resumable from the canonical root.
-    const status = runPortable({ ...w.env, PHANTOM_DATA: w.DEST }, ['status', '--workspace', workspace]);
+    const status = runPortable({ ...w.env, GORKHALI_DATA: w.DEST }, ['status', '--workspace', workspace]);
     assert.equal(status.task_id, 'MIG-1');
     assert.equal(status.status, 'active');
 

@@ -1,8 +1,8 @@
 # Workflow Delegation Protocol (WDP)
 
-> Phantom does NOT run dynamic workflows — it RECOMMENDS them. Chief CANNOT launch a workflow:
+> Gorkhali does NOT run dynamic workflows — it RECOMMENDS them. Chief CANNOT launch a workflow:
 > the `workflow` keyword fires only on USER input and there is no programmatic launch (verified
-> 2026-05, Claude Code v2.1.157). Phantom's job: recognize WHEN a Claude Code dynamic workflow
+> 2026-05, Claude Code v2.1.157). Gorkhali's job: recognize WHEN a Claude Code dynamic workflow
 > beats turn-by-turn shadows, and hand the user the exact command.
 
 ## What a dynamic workflow is
@@ -52,12 +52,12 @@ The workflow returns ONE report; Chief treats it as the phase output:
 - brainstorm (optional) -> ranked approaches -> GATE 1 options
 Chief still runs any human GATE in-conversation AFTER the report lands.
 
-## ultracode — DO NOT rely on it for gated phantom work
+## ultracode — DO NOT rely on it for gated gorkhali work
 `/effort ultracode` makes the runtime auto-wrap tasks in background workflows that take NO mid-run
 input, and a skill CANNOT detect the effort level. So under ultracode the runtime may wrap a gated
-phantom phase and your approval/direction GATES cannot surface — silent gate bypass.
-**RULE:** run gated phantom phases at `/effort high`, not `ultracode`. Use ultracode only for
-ungated single-shot phantom work (e.g. a standalone scout/research). Documented warning, not an
+gorkhali phase and your approval/direction GATES cannot surface — silent gate bypass.
+**RULE:** run gated gorkhali phases at `/effort high`, not `ultracode`. Use ultracode only for
+ungated single-shot gorkhali work (e.g. a standalone scout/research). Documented warning, not an
 enforced check.
 
 ## Phases wired in v1
@@ -68,7 +68,7 @@ not "scale".)
 
 ## Deferred / open
 - Programmatic launch unavailable today — re-evaluate if Claude Code exposes a launch tool/API.
-- Saved `.claude/workflows/phantom-*.js` library deferred until the workflow JS agent-spawn API is
+- Saved `.claude/workflows/gorkhali-*.js` library deferred until the workflow JS agent-spawn API is
   confirmed (probe a run, `Ctrl+G` / "View raw script").
 - `execute`-SHADOWS-as-workflow deferred (direct edits + worktree/merge + bypass/acceptEdits risk).
 - No telemetry yet on whether recommendations help — refine thresholds from real session data.

@@ -73,7 +73,7 @@ const {
 } = require('./lib/review-standard');
 const { assignFindingIds } = require('./lib/review-finding');
 const { validate } = require('./validate-artifact');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 // The loop authority. Fail-open like every other optional lib load in this
 // repo: a controller that will not load must not break the convergence report
@@ -170,7 +170,7 @@ function readReview(file) {
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch (err) {
-    throw new PhantomError(`ERROR: cannot read review artifact ${file}: ${err.message}`, 'IO_ERROR', [
+    throw new GorkhaliError(`ERROR: cannot read review artifact ${file}: ${err.message}`, 'IO_ERROR', [
       'A missing reviewer artifact is `blocked`, never a clean review - nothing is recorded for this round',
     ]);
   }
@@ -178,10 +178,10 @@ function readReview(file) {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new PhantomError(`ERROR: ${file} is not valid JSON: ${err.message}`, 'VALIDATION_ERROR');
+    throw new GorkhaliError(`ERROR: ${file} is not valid JSON: ${err.message}`, 'VALIDATION_ERROR');
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Array.isArray(parsed.findings)) {
-    throw new PhantomError(`ERROR: ${file} has no findings array - it is not a review artifact`, 'VALIDATION_ERROR');
+    throw new GorkhaliError(`ERROR: ${file} has no findings array - it is not a review artifact`, 'VALIDATION_ERROR');
   }
   // Shape alone is not enough to consume a round. A file that merely HAS a
   // findings array can still violate the review schema, and accepting it would
@@ -191,7 +191,7 @@ function readReview(file) {
   // the artifact is held to everywhere else.
   const errors = validate('review', parsed);
   if (errors.length) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `ERROR: ${file} is not a valid review artifact:\n  ${errors.join('\n  ')}`,
       'VALIDATION_ERROR',
       ['An invalid reviewer artifact is `blocked`, never a clean review - nothing is recorded for this round']
@@ -201,7 +201,7 @@ function readReview(file) {
   // findings to carry over and must not consume a round either. `pass` and
   // `fail` are both completed reviews and do.
   if (parsed.verdict === 'blocked') {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `ERROR: ${file} has verdict "blocked" - a blocked review did not complete and does not consume a round`,
       'VALIDATION_ERROR',
       ['Resolve the blocker and re-run the review; the next pass is still this round']
@@ -275,7 +275,7 @@ function runClose(reviewsDir, reviewFile, { fingerprint = null, dryRun = false, 
       fs.mkdirSync(reviewsDir, { recursive: true });
       fs.writeFileSync(ledgerPath(reviewsDir), JSON.stringify(next, null, 2) + '\n');
     } catch (err) {
-      throw new PhantomError(`ERROR: cannot write ${ledgerPath(reviewsDir)}: ${err.message}`, 'IO_ERROR');
+      throw new GorkhaliError(`ERROR: cannot write ${ledgerPath(reviewsDir)}: ${err.message}`, 'IO_ERROR');
     }
   }
 
@@ -378,7 +378,7 @@ function parseArgs(argv) {
     else if (a === '--fingerprint') args.fingerprint = argv[++i];
     else if (a === '--session') args.session = argv[++i];
     else if (!a.startsWith('-') && args.action === null) args.action = a;
-    else throw new PhantomError(`ERROR: unknown option: ${a}`, 'USAGE', ['Run review-round.js --help']);
+    else throw new GorkhaliError(`ERROR: unknown option: ${a}`, 'USAGE', ['Run review-round.js --help']);
   }
   return args;
 }
@@ -390,7 +390,7 @@ function main(argv) {
     return;
   }
   if (!args.reviews) {
-    throw new PhantomError('ERROR: --reviews <dir> is required', 'USAGE', [
+    throw new GorkhaliError('ERROR: --reviews <dir> is required', 'USAGE', [
       'Point it at {SESSION_DIR}/reviews - the directory holding auditor.json and the round ledger',
     ]);
   }
@@ -407,7 +407,7 @@ function main(argv) {
     });
     if (!args.json) process.stdout.write(renderClose(result) + '\n');
   } else {
-    throw new PhantomError(`ERROR: unknown action: ${args.action}`, 'USAGE', ['Actions: status, close']);
+    throw new GorkhaliError(`ERROR: unknown action: ${args.action}`, 'USAGE', ['Actions: status, close']);
   }
   if (args.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
 }

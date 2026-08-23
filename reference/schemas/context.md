@@ -1,6 +1,6 @@
 # `context.json` Schema
 
-Written by Phase A (`phantom:start`). Provides ticket context for all downstream phases.
+Written by Phase A (`gorkhali:start`). Provides ticket context for all downstream phases.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
@@ -21,7 +21,7 @@ Written by Phase A (`phantom:start`). Provides ticket context for all downstream
   "summary": "Add cost-per-tag breakdown to the dashboard",
   "source": "jira",
   "jira": { "status": "In Progress", "priority": "High", "assigned": "assigned | already-mine | reassigned | skipped | unavailable", "transition": "in-progress | already | skipped | no-match | terminal | unavailable" },
-  "learningsRefs": ["~/.phantom/repos/{REPO_NAME}/learnings/frontend.md"],
+  "learningsRefs": ["~/.gorkhali/repos/{REPO_NAME}/learnings/frontend.md"],
   "modelOverride": null
 }
 ```

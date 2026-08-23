@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // brain-card.test.js — executed round-trips for the Repo Brain card lib.
 // Zero external deps: node:test + node:assert. Every card is written into a
-// throwaway PHANTOM_DATA temp root and read back off disk.
+// throwaway GORKHALI_DATA temp root and read back off disk.
 'use strict';
 
 const { test } = require('node:test');
@@ -17,16 +17,16 @@ function mkTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
-// Run fn with PHANTOM_DATA pointed at a fresh temp root; always clean up.
+// Run fn with GORKHALI_DATA pointed at a fresh temp root; always clean up.
 function withData(fn) {
   const tmp = mkTmp('brain-data-');
-  const saved = process.env.PHANTOM_DATA;
-  process.env.PHANTOM_DATA = tmp;
+  const saved = process.env.GORKHALI_DATA;
+  process.env.GORKHALI_DATA = tmp;
   try {
     return fn(tmp);
   } finally {
-    if (saved === undefined) delete process.env.PHANTOM_DATA;
-    else process.env.PHANTOM_DATA = saved;
+    if (saved === undefined) delete process.env.GORKHALI_DATA;
+    else process.env.GORKHALI_DATA = saved;
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
@@ -60,7 +60,7 @@ test('makeCardId: collision-free across repos/tickets on the same date (concurre
   const date = '2026-07-01';
   const title = 'Fix repo detection';
   const idRepoA = makeCardId({ repo: 'feature-web-apps', ticket: 'cp-1', date, title });
-  const idRepoB = makeCardId({ repo: 'phantom-terminal', ticket: 'cp-1', date, title });
+  const idRepoB = makeCardId({ repo: 'gorkhali-terminal', ticket: 'cp-1', date, title });
   const idTicket2 = makeCardId({ repo: 'feature-web-apps', ticket: 'cp-2', date, title });
   assert.notEqual(idRepoA, idRepoB, 'different repos, same ticket/date/title -> different id');
   assert.notEqual(idRepoA, idTicket2, 'different tickets, same repo/date/title -> different id');
@@ -135,10 +135,10 @@ test('writeCard: two repos, same ticket/date/title -> two distinct files, no col
   withData(tmp => {
     const card = { ...SAMPLE, date: '2026-07-01' };
     const a = writeCard(card, { repo: 'feature-web-apps' });
-    const b = writeCard(card, { repo: 'phantom-terminal' });
+    const b = writeCard(card, { repo: 'gorkhali-terminal' });
     assert.notEqual(a.id, b.id);
     assert.ok(fs.existsSync(path.join(tmp, 'repos', 'feature-web-apps', 'brain', 'cards', `${a.id}.md`)));
-    assert.ok(fs.existsSync(path.join(tmp, 'repos', 'phantom-terminal', 'brain', 'cards', `${b.id}.md`)));
+    assert.ok(fs.existsSync(path.join(tmp, 'repos', 'gorkhali-terminal', 'brain', 'cards', `${b.id}.md`)));
   });
 });
 
@@ -236,8 +236,8 @@ test('supersede: missing card throws (caller guards)', () => {
 // (legacy plain name, pre-normalization hash) still live in that aliased dir.
 // A bare join greps an empty dir and recall silently reports "no matches".
 
-const CANON = 'research-phantom-skills-490f3d276e';
-const LEGACY = 'research-phantom-skills';
+const CANON = 'research-gorkhali-skills-490f3d276e';
+const LEGACY = 'research-gorkhali-skills';
 
 /** Write <data>/repos/.aliases.json. The map includes the canonical self-mapping,
  *  exactly as recordAliases writes it, so the reverse lookup must exclude it. */

@@ -1,6 +1,6 @@
 # Brainstorm Protocol
 
-Canonical: `skills/phantom/references/brainstorming.md`
+Canonical: `skills/gorkhali/references/brainstorming.md`
 
 Loaded by Chief when the router classifies a task as `BRAINSTORM_PLAN` or `FULL`.
 The portable reference owns the shared contract: when to activate, the
@@ -20,7 +20,7 @@ adds one native-only optional field on top of the canonical shape:
 
 ## Council Mode (anonymized peer-ranking + chairman synthesis)
 
-> Borrowed from [karpathy/llm-council](https://github.com/karpathy/llm-council). Phantom is
+> Borrowed from [karpathy/llm-council](https://github.com/karpathy/llm-council). Gorkhali is
 > single-provider, so treat peer-rankings as a **self-consistency** signal, not independent
 > validation — same-family agents share blind spots. Council costs ~2-3 + 2-3 + 1 spawns, so use it
 > only when divergence is genuinely open. Measure the cost with `scripts/timing-report.js`.
@@ -90,7 +90,7 @@ Native session-file layout for the canonical convergence contract:
    downstream reads chat prose.
 2. **Review HTML:** Have the active AI author `{SESSION_DIR}/brainstorm.candidate.html` from the
    canonical JSON, in the canonical page order. Promote only a valid candidate with `node
-   {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs brainstorm --source
+   {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs brainstorm --source
    {SESSION_DIR}/brainstorm.json --candidate {SESSION_DIR}/brainstorm.candidate.html --out
    {SESSION_DIR}/brainstorm.html`. Open the accepted HTML directly and collect feedback and direction
    selection in chat. Apply feedback to `brainstorm.json`; regenerate and validate/promote a fresh

@@ -13,7 +13,7 @@
 // projection on a plain object.
 'use strict';
 
-const { PhantomError, reportError, VALIDATION_ERROR } = require('./axi-error');
+const { GorkhaliError, reportError, VALIDATION_ERROR } = require('./axi-error');
 
 // validNames may be an array of names or a map keyed by name (gh-axi's
 // `available` shape) - either way we only care about the key set.
@@ -27,7 +27,7 @@ function _namesOf(x) {
  * parseFields(fieldsArg, validNames) -> string[]
  *
  * fieldsArg undefined/empty -> []. Otherwise split on ',', trim, drop empty
- * segments, dedup. Any name not in validNames throws a PhantomError
+ * segments, dedup. Any name not in validNames throws a GorkhaliError
  * (VALIDATION_ERROR) listing the unknown names in supplied order and the
  * full valid set sorted alphabetically.
  */
@@ -42,7 +42,7 @@ function parseFields(fieldsArg, validNames) {
   const unknown = requested.filter((f) => !valid.has(f));
   if (unknown.length > 0) {
     const sorted = [...valid].sort().join(', ');
-    throw new PhantomError(
+    throw new GorkhaliError(
       `Unknown field(s): ${unknown.join(', ')}. Available: ${sorted}`,
       VALIDATION_ERROR,
       [`Choose from: ${sorted}`],
@@ -124,7 +124,7 @@ if (require.main === module) {
       try {
         obj = JSON.parse(raw);
       } catch (err) {
-        reportError(new PhantomError(`invalid JSON: ${err.message}`, VALIDATION_ERROR), process.stderr);
+        reportError(new GorkhaliError(`invalid JSON: ${err.message}`, VALIDATION_ERROR), process.stderr);
         return;
       }
       process.stdout.write(`${JSON.stringify(pickFields(obj, fields))}\n`);

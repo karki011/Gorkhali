@@ -1,6 +1,6 @@
-# Phantom Evals
+# Gorkhali Evals
 
-Test cases verifying that each Phantom triggers correctly and produces expected behavior.
+Test cases verifying that each Gorkhali triggers correctly and produces expected behavior.
 
 ## Structure
 
@@ -17,7 +17,7 @@ Each eval entry:
 | Field | Description |
 |---|---|
 | `id` | Unique integer |
-| `skill` | Skill name (e.g., `phantom:start`) |
+| `skill` | Skill name (e.g., `gorkhali:start`) |
 | `prompt` | Realistic user message |
 | `should_trigger` | `true` = skill should activate, `false` = near-miss |
 | `expected_behavior` | What the skill should do when triggered |
@@ -27,16 +27,16 @@ Each eval entry:
 
 | Skill | IDs | Trigger | No-Trigger |
 |---|---|---|---|
-| `phantom:start` | 1–3 | 1, 2 | 3 |
-| `phantom:verify` | 4–6 | 4, 5 | 6 |
-| `phantom:fix` | 7–9 | 7, 8 | 9 |
-| `phantom:review` | 10–12 | 10, 11 | 12 |
-| `phantom:detective` | 13–15 | 13, 14 | 15 |
-| `phantom:wrap` | 16–18 | 16, 17 | 18 |
-| `phantom:scout` | 19–21 | 19, 20 | 21 |
-| `phantom:recruit` | 22–24 | 22, 23 | 24 |
-| `phantom:pause` | 25–27 | 25, 26 | 27 |
-| `phantom:resume` | 28–30 | 28, 29 | 30 |
+| `gorkhali:start` | 1–3 | 1, 2 | 3 |
+| `gorkhali:verify` | 4–6 | 4, 5 | 6 |
+| `gorkhali:fix` | 7–9 | 7, 8 | 9 |
+| `gorkhali:review` | 10–12 | 10, 11 | 12 |
+| `gorkhali:detective` | 13–15 | 13, 14 | 15 |
+| `gorkhali:wrap` | 16–18 | 16, 17 | 18 |
+| `gorkhali:scout` | 19–21 | 19, 20 | 21 |
+| `gorkhali:recruit` | 22–24 | 22, 23 | 24 |
+| `gorkhali:pause` | 25–27 | 25, 26 | 27 |
+| `gorkhali:resume` | 28–30 | 28, 29 | 30 |
 
 ## How to Run
 
@@ -54,7 +54,7 @@ node scripts/run-evals.js --gate --model sonnet          # claude-code live run;
 node scripts/run-evals.js --gate --host kimi             # Kimi Code live run (kimi CLI, k3 model + judge)
 ```
 
-Compares the run to `evals/baselines/<model>.json` mechanically instead of printing a drift report to read. It blocks on a missing baseline, a cross-model comparison, an unpaired case set, any `pass` → `fail` flip, or a pass rate below baseline. On `--host kimi` the model defaults to `k3` and the judge to `k3` (override with `PHANTOM_EVAL_KIMI_BIN` / `PHANTOM_EVAL_JUDGE_MODEL`); a first run records the baseline, and the gate refuses to pass without one. Rules and caveats: [baselines/README.md](baselines/README.md).
+Compares the run to `evals/baselines/<model>.json` mechanically instead of printing a drift report to read. It blocks on a missing baseline, a cross-model comparison, an unpaired case set, any `pass` → `fail` flip, or a pass rate below baseline. On `--host kimi` the model defaults to `k3` and the judge to `k3` (override with `GORKHALI_EVAL_KIMI_BIN` / `GORKHALI_EVAL_JUDGE_MODEL`); a first run records the baseline, and the gate refuses to pass without one. Rules and caveats: [baselines/README.md](baselines/README.md).
 
 ### Automated eval script (future)
 
@@ -79,7 +79,7 @@ done
 
 ## Adding New Evals
 
-1. Read the target skill's command file in `{PLUGIN_ROOT}/commands/` (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "phantom: plugin dir not found — run /plugin to install"; exit 0; }`)
+1. Read the target skill's command file in `{PLUGIN_ROOT}/commands/` (self-resolve {PLUGIN_ROOT} env-free: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && { echo "gorkhali: plugin dir not found — run /plugin to install"; exit 0; }`)
 2. Note the `description` field — that's what the skill router uses for matching
 3. Write 2 trigger prompts (one casual, one formal) and 1 near-miss
 4. Add to `evals.json` with the next available `id`

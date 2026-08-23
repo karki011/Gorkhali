@@ -27,7 +27,7 @@
 
 const { execFileSync } = require('child_process');
 const { report } = require('./lib/test-companion');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 function changedFilesFromGit(base) {
   const args = base ? ['diff', '--name-only', base] : ['diff', '--name-only', 'HEAD'];
@@ -35,7 +35,7 @@ function changedFilesFromGit(base) {
   try {
     out = execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (err) {
-    throw new PhantomError(`ERROR: git ${args.join(' ')} failed: ${err.message}`, 'IO_ERROR', [
+    throw new GorkhaliError(`ERROR: git ${args.join(' ')} failed: ${err.message}`, 'IO_ERROR', [
       'Pass the changed-file list explicitly: review-gaps.js --files <paths...>',
     ]);
   }
@@ -92,7 +92,7 @@ function parseArgs(argv) {
     } else if (a === '--files') {
       args.files = [];
       while (argv[i + 1] && !argv[i + 1].startsWith('--')) args.files.push(argv[++i]);
-    } else throw new PhantomError(`ERROR: unknown option: ${a}`, 'USAGE');
+    } else throw new GorkhaliError(`ERROR: unknown option: ${a}`, 'USAGE');
   }
   return args;
 }

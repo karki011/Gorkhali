@@ -58,7 +58,7 @@ test('root-level runtime state is never inventoried (markers + worktrees are whi
     fs.writeFileSync(path.join(src, '.apex-active'), 'marker-legacy\n');
     fs.writeFileSync(path.join(src, '.blade-editing'), 'marker-legacy\n');
 
-    // Managed worktrees dir -- flat under the root, per phantom-paths.js.
+    // Managed worktrees dir -- flat under the root, per gorkhali-paths.js.
     fs.mkdirSync(path.join(src, 'worktrees', 'some-repo', 'T'), { recursive: true });
     fs.writeFileSync(path.join(src, 'worktrees', 'some-repo', 'T', 'code.js'), 'live worktree file\n');
 

@@ -1,15 +1,15 @@
 {
-  "name": "phantom",
+  "name": "gorkhali",
   "owner": {
     "name": "Subash Karki"
   },
   "metadata": {
-    "description": "Phantom — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code.",
+    "description": "Gorkhali — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code.",
     "version": "0.10.0"
   },
   "plugins": [
     {
-      "name": "phantom",
+      "name": "gorkhali",
       "source": "./",
       "description": "Provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer."
     }

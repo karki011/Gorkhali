@@ -1,11 +1,11 @@
 # Greploop Protocol
 
-Loaded by `/phantom:greploop`. Iteratively fix a GitHub PR until Greptile gives a perfect review:
+Loaded by `/gorkhali:greploop`. Iteratively fix a GitHub PR until Greptile gives a perfect review:
 **5/5 confidence, zero unresolved comments.**
 
 Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only;
 multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are
-intentional mechanics; reply tone is configurable via env `PHANTOM_GREPTILE_TONE` (`neutral` default,
+intentional mechanics; reply tone is configurable via env `GORKHALI_GREPTILE_TONE` (`neutral` default,
 `roast` for CZ-style replies).
 
 ---
@@ -30,7 +30,7 @@ the Availability guard below (they don't need to opt out). Always-on, fail-open,
 
 - Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger
   comment. Fallback only: `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
-- **Reply tone** — read env `PHANTOM_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
+- **Reply tone** — read env `GORKHALI_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
   - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
   - `roast`: self-deprecating humor (CZ style). Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai". Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai".
   - Whatever the tone: include the fix reference and **always end with `@greptileai`** so re-review triggers.
@@ -150,7 +150,7 @@ git push
 
 ### G. Reply in-thread + resolve
 
-**Inline comments** — post an in-thread reply in the configured tone (`PHANTOM_GREPTILE_TONE`), ending with `@greptileai`:
+**Inline comments** — post an in-thread reply in the configured tone (`GORKHALI_GREPTILE_TONE`), ending with `@greptileai`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{PR}/comments/{COMMENT_ID}/replies \
@@ -172,7 +172,7 @@ EOF
 )"
 ```
 
-Use the same tone rules as inline (`PHANTOM_GREPTILE_TONE`), always end each entry with `@greptileai`.
+Use the same tone rules as inline (`GORKHALI_GREPTILE_TONE`), always end each entry with `@greptileai`.
 
 **Resolve inline threads** via GraphQL. Fetch unresolved thread IDs:
 
@@ -214,7 +214,7 @@ After posting the fallback `@greptileai review` (section A), if poll B still fin
 
 The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is missing/`pending`. At **both** exit points above, patch the session `wrap.json` to release it: `done` on successful completion (5/5, zero unresolved), `skipped` when Greptile is unavailable on the repo.
 
-The wrap.json path MUST be resolved with the SAME phantom-paths helpers the gate reads with (`detectRepo` + `current-session/<repo>.json` ticket precedence + `sessionsDir`) so the write lands in the byte-identical file the gate checks — a hand-built `basename $(git rev-parse --show-toplevel)` path shards under the ticket name inside worktrees and the gate never releases. Non-blocking and fail-soft — a write failure must not error the loop:
+The wrap.json path MUST be resolved with the SAME gorkhali-paths helpers the gate reads with (`detectRepo` + `current-session/<repo>.json` ticket precedence + `sessionsDir`) so the write lands in the byte-identical file the gate checks — a hand-built `basename $(git rev-parse --show-toplevel)` path shards under the ticket name inside worktrees and the gate never releases. Non-blocking and fail-soft — a write failure must not error the loop:
 
 ```bash
 # STATUS = "done" (5/5 exit) or "skipped" (Greptile unavailable)
@@ -222,8 +222,8 @@ STATUS="done"
 node -e '
   const fs=require("fs"), path=require("path");
   const root=process.env.CLAUDE_PLUGIN_ROOT
-    || path.join(process.env.HOME,".claude","plugins","marketplaces","phantom");
-  let pp; try{ pp=require(path.join(root,"scripts","lib","phantom-paths")); }
+    || path.join(process.env.HOME,".claude","plugins","marketplaces","gorkhali");
+  let pp; try{ pp=require(path.join(root,"scripts","lib","gorkhali-paths")); }
   catch(e){ process.exit(0); /* helper missing → fail-soft */ }
   try{
     const TICKET_RE=/[A-Z][A-Z0-9]+-\d+/;

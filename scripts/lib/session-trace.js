@@ -54,9 +54,9 @@ function findTranscript(sessionId, projectsDir) {
   return null;
 }
 
-/** Default Claude transcript root; PHANTOM_PROJECTS_DIR overrides (testing). */
+/** Default Claude transcript root; GORKHALI_PROJECTS_DIR overrides (testing). */
 function projectsRoot() {
-  return process.env.PHANTOM_PROJECTS_DIR ||
+  return process.env.GORKHALI_PROJECTS_DIR ||
     path.join(require('os').homedir(), '.claude', 'projects');
 }
 

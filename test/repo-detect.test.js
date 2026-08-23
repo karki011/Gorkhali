@@ -27,13 +27,13 @@ function fixture(files) {
 }
 
 function detect(workspace) {
-  // PHANTOM_DATA pinned to a temp dir: detectRepo records aliases into
+  // GORKHALI_DATA pinned to a temp dir: detectRepo records aliases into
   // <data>/repos/.aliases.json as a side effect, and a test must never write
   // into the developer's real data root.
   const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-detect-data-'));
   const raw = execFileSync(process.execPath, [SCRIPT, '--json', '--workspace', workspace], {
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot, PHANTOM_REPO: '' },
+    env: { ...process.env, GORKHALI_DATA: dataRoot, GORKHALI_REPO: '' },
   });
   return JSON.parse(raw);
 }

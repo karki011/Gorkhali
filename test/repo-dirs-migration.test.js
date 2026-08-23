@@ -86,13 +86,13 @@ function buildWorld() {
   mkdirp(path.join(reposRoot, 'br-empty-2', 'sessions', 'deep'));
 
   const env = {
-    PHANTOM_DATA: DATA,
-    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
-    PHANTOM_PROJECTS_DIR: projects,
-    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
-    PHANTOM_MIGRATE_SRC_TEAM: legacy,
-    PHANTOM_MIGRATE_SRC_PHANTOM: legacy,
-    PHANTOM_MIGRATE_SRC_PHANTOM_DATA: legacy,
+    GORKHALI_DATA: DATA,
+    GORKHALI_MIGRATE_CANDIDATE_DIRS: candParent,
+    GORKHALI_PROJECTS_DIR: projects,
+    GORKHALI_MIGRATE_LEGACY_ROOT: legacy,
+    GORKHALI_MIGRATE_SRC_TEAM: legacy,
+    GORKHALI_MIGRATE_SRC_GORKHALI: legacy,
+    GORKHALI_MIGRATE_SRC_GORKHALI_DATA: legacy,
   };
   return { root, DATA, reposRoot, env, betaSha, SID };
 }
@@ -275,10 +275,10 @@ test('two orphans colliding on the same top-level filename park distinctly (neve
   write(path.join(reposRoot, 'br-b', 'notes.txt'), 'from-b');
 
   const env = {
-    PHANTOM_DATA: DATA,
-    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
-    PHANTOM_PROJECTS_DIR: projects,
-    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+    GORKHALI_DATA: DATA,
+    GORKHALI_MIGRATE_CANDIDATE_DIRS: candParent,
+    GORKHALI_PROJECTS_DIR: projects,
+    GORKHALI_MIGRATE_LEGACY_ROOT: legacy,
   };
   try {
     runMigrate(env, ['--apply']);
@@ -320,10 +320,10 @@ test('orphan learnings merge through the T3 grammar: one header, max validated c
     '# Workflow Learnings\n\n## Validated Patterns\n\n- orphan pattern [validated:4] q:0.9 u:2026-07-10\n');
 
   const env = {
-    PHANTOM_DATA: DATA,
-    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
-    PHANTOM_PROJECTS_DIR: projects,
-    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+    GORKHALI_DATA: DATA,
+    GORKHALI_MIGRATE_CANDIDATE_DIRS: candParent,
+    GORKHALI_PROJECTS_DIR: projects,
+    GORKHALI_MIGRATE_LEGACY_ROOT: legacy,
   };
   try {
     runMigrate(env, ['--apply']);
@@ -361,13 +361,13 @@ test('a live lock makes --apply skip; a stale lock is reclaimed', () => {
   } finally { cleanup(w.root); }
 });
 
-test('an inherited PHANTOM_REPO override never collapses candidate resolution', () => {
+test('an inherited GORKHALI_REPO override never collapses candidate resolution', () => {
   const w = buildWorld();
-  const prevOverride = process.env.PHANTOM_REPO;
-  process.env.PHANTOM_REPO = 'evil-override';
+  const prevOverride = process.env.GORKHALI_REPO;
+  process.env.GORKHALI_REPO = 'evil-override';
   try {
     // session-marker.js spawns the migrator inheriting process.env, so a
-    // shell-exported PHANTOM_REPO reaches the child exactly like this.
+    // shell-exported GORKHALI_REPO reaches the child exactly like this.
     runMigrate(w.env); // dry-run: candidates() resolves off two DISTINCT git checkouts
 
     const rep = latestReport(w.DATA, 'dry-run');
@@ -380,8 +380,8 @@ test('an inherited PHANTOM_REPO override never collapses candidate resolution', 
     // No plan merges anything into the override name — candidates never collapsed to one.
     assert.ok(!Object.values(targets).includes('evil-override'), 'override never used as a merge target');
   } finally {
-    if (prevOverride === undefined) delete process.env.PHANTOM_REPO;
-    else process.env.PHANTOM_REPO = prevOverride;
+    if (prevOverride === undefined) delete process.env.GORKHALI_REPO;
+    else process.env.GORKHALI_REPO = prevOverride;
     cleanup(w.root);
   }
 });
@@ -389,7 +389,7 @@ test('an inherited PHANTOM_REPO override never collapses candidate resolution', 
 test('auto-run hook (session-marker) is lock-aware, triggers exactly one migration, then self-gates', () => {
   const w = buildWorld();
   try {
-    const env = { ...process.env, ...w.env, PHANTOM_MIGRATE_SYNC: '1' };
+    const env = { ...process.env, ...w.env, GORKHALI_MIGRATE_SYNC: '1' };
     const payload = JSON.stringify({ session_id: 'sess-1', cwd: w.reposRoot });
 
     // Lock-awareness: while a data-root migration holds the migration-wide lock,
@@ -434,10 +434,10 @@ test('a resolved target is canonicalized through the codec alias map', () => {
     { pr: 'https://github.com/AcmeOrg/repo-legacy/pull/5' });
 
   const env = {
-    PHANTOM_DATA: DATA,
-    PHANTOM_MIGRATE_CANDIDATE_DIRS: candParent,
-    PHANTOM_PROJECTS_DIR: projects,
-    PHANTOM_MIGRATE_LEGACY_ROOT: legacy,
+    GORKHALI_DATA: DATA,
+    GORKHALI_MIGRATE_CANDIDATE_DIRS: candParent,
+    GORKHALI_PROJECTS_DIR: projects,
+    GORKHALI_MIGRATE_LEGACY_ROOT: legacy,
   };
   try {
     runMigrate(env, ['--apply']);
@@ -473,7 +473,7 @@ test('a live T3 learnings lock defers the merge without clobbering; the orphan i
   const w = buildWorld();
   try {
     // Simulate a concurrent memory-writer (capture/consolidate) mid-write on the
-    // canonical dest, exactly as phantom-learning's withLearningLock would hold
+    // canonical dest, exactly as gorkhali-learning's withLearningLock would hold
     // it: the sweep must never read-merge-write around this lock unlocked.
     const learningsDir = path.join(w.reposRoot, 'repo-alpha', 'learnings');
     const dataFile = path.join(learningsDir, 'data.md');

@@ -1,6 +1,6 @@
-# Phantom — Helper Scripts
+# Gorkhali — Helper Scripts
 
-Deterministic scripts for the Phantom. These do mechanical work that should not consume LLM tokens.
+Deterministic scripts for the Gorkhali. These do mechanical work that should not consume LLM tokens.
 
 ---
 
@@ -8,7 +8,7 @@ Deterministic scripts for the Phantom. These do mechanical work that should not 
 
 ### `validate-artifact.js`
 
-Validates a Phantom JSON artifact against its canonical schema from `reference/artifact-schemas.md`.
+Validates a Gorkhali JSON artifact against its canonical schema from `reference/artifact-schemas.md`.
 
 ```bash
 node validate-artifact.js <artifact-type> <file-path>
@@ -27,7 +27,7 @@ node validate-artifact.js <artifact-type> <file-path>
 
 **Example:**
 ```bash
-node validate-artifact.js verification ~/.phantom/repos/myrepo/sessions/ENG-1234/verification.json
+node validate-artifact.js verification ~/.gorkhali/repos/myrepo/sessions/ENG-1234/verification.json
 ```
 
 ---
@@ -103,7 +103,7 @@ Verifies that `learnings/INDEX.md` is internally consistent with the domain file
 node check-learnings-index.js [learnings-dir]
 ```
 
-**Default dir:** `${PHANTOM_DATA:-~/.phantom}/repos/<detected-repo>/learnings`
+**Default dir:** `${GORKHALI_DATA:-~/.gorkhali}/repos/<detected-repo>/learnings`
 
 **Checks:**
 - Every `.md` file referenced in INDEX.md exists on disk
@@ -115,7 +115,7 @@ node check-learnings-index.js [learnings-dir]
 
 **Example:**
 ```bash
-node check-learnings-index.js ~/.phantom/repos/feature-web-apps/learnings
+node check-learnings-index.js ~/.gorkhali/repos/feature-web-apps/learnings
 ```
 
 ---
@@ -141,17 +141,17 @@ Checks a session directory for expected artifacts and validates their JSON.
 **Examples:**
 ```bash
 # Auto-detect phase
-./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234
+./session-health.sh ~/.gorkhali/repos/myrepo/sessions/ENG-1234
 
 # Check that all wrap-phase artifacts are present
-./session-health.sh ~/.phantom/repos/myrepo/sessions/ENG-1234 --phase wrap
+./session-health.sh ~/.gorkhali/repos/myrepo/sessions/ENG-1234 --phase wrap
 ```
 
 ---
 
 ### `preamble-tier.js`
 
-Given a Phantom command name, outputs which preamble tier it belongs to and which shared context files it loads. The tier registry in this file is CANONICAL — the `_shared.md` Preamble Tiers table and every command's blockquote are renderings of it, pinned by `test/preamble-tier.test.js`.
+Given a Gorkhali command name, outputs which preamble tier it belongs to and which shared context files it loads. The tier registry in this file is CANONICAL — the `_shared.md` Preamble Tiers table and every command's blockquote are renderings of it, pinned by `test/preamble-tier.test.js`.
 
 ```bash
 node preamble-tier.js [command] [--json]
@@ -169,8 +169,8 @@ node preamble-tier.js [command] [--json]
 ```bash
 # Show tier for a specific command
 node preamble-tier.js start
-node preamble-tier.js phantom:verify
-node preamble-tier.js /phantom:status
+node preamble-tier.js gorkhali:verify
+node preamble-tier.js /gorkhali:status
 
 # Machine-readable output
 node preamble-tier.js wrap --json
@@ -214,7 +214,7 @@ node routing-report.js <session-dir> [--json]
 
 **Example:**
 ```bash
-node routing-report.js ~/.phantom/repos/myrepo/sessions/ENG-1234 --json
+node routing-report.js ~/.gorkhali/repos/myrepo/sessions/ENG-1234 --json
 ```
 
 ---
@@ -231,7 +231,7 @@ node outcome-write.js --ticket <T> [--repo-path <path>] [--out <file>] [--no-gh]
 
 **Checks:**
 - `pr_state` is a closed enum (`draft | open | merged | closed | absent`) mapped only from gh's own answer; an unmappable state is nulled with a reason, never guessed
-- `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`lite | direct | plan | brainstorm | full`) chosen at `start` by `phantom-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
+- `route` / `route_source` are copied from `session.json`: `route` is the closed SESSION-route enum (`lite | direct | plan | brainstorm | full`) chosen at `start` by `gorkhali-state.mjs` - NOT the `solo | shadows` EXECUTION route that lives in `wrap.json`/`plan.json`. `route_source` (`explicit | default | unknown`) says whether the route was chosen or defaulted; a session predating the field yields `unknown` + an unresolved entry
 - An out-of-enum `route` or `pr_state` is refused at write time, never persisted verbatim
 - `verified`, `fix_loops`, `wall_time_ms`, `agents` come from `verification.json`, loop-controller (counting `reviews/rounds.json`, the portable review round ledger, and falling back to legacy `verification.json` `review.fixLoops`), the session timestamps, and the timing jsonl respectively
 
@@ -255,7 +255,7 @@ node route-report.js [--json]
 **Flags:** `--json` emits the stable machine shape (`{records, perRoute, scanned, caveat}`) instead of the human table.
 
 **Checks:**
-- Walks `${PHANTOM_DATA:-~/.phantom}/repos/*/{sessions,completed}/<ticket>/` at exactly depth 3; nested and off-bucket `outcome.json` copies are counted and reported, never aggregated
+- Walks `${GORKHALI_DATA:-~/.gorkhali}/repos/*/{sessions,completed}/<ticket>/` at exactly depth 3; nested and off-bucket `outcome.json` copies are counted and reported, never aggregated
 - Falls back to `session.json` for the route only when `outcome.json` predates the route field (key absent, not `null`)
 - Merge rate = merged / (merged + closed): the denominator is SETTLED records only, and the sample is stated before the rate
 - ATTRIBUTION CAVEAT (carried by both outputs): only `route_source: explicit` records measure a routing decision; `default`/`unknown`/unset records measure the router's default and accumulate in their own `unattributable` metric block per route - no combined number exists, because a rate over mixed attribution would ascribe the default's outcomes to the router's decisions
@@ -265,7 +265,7 @@ node route-report.js [--json]
 
 **Example:**
 ```bash
-PHANTOM_DATA=~/.phantom node route-report.js --json
+GORKHALI_DATA=~/.gorkhali node route-report.js --json
 ```
 
 ---
@@ -287,7 +287,7 @@ node route-bias.js --min-sample 20    # stricter evidence floor
 
 ### `migrate-data.js`
 
-Consolidates every historical Phantom data root into the one canonical neutral root (`<data>`, resolved by the T1 codec, `~/.phantom` by default).
+Consolidates every historical Gorkhali data root into the one canonical neutral root (`<data>`, resolved by the T1 codec, `~/.gorkhali` by default).
 It is dry-run-FIRST, content-fingerprinted, and migration-wide-locked.
 
 ```bash
@@ -298,10 +298,10 @@ node migrate-data.js --map <srcId>=<canonId>  # pin an unresolved repo id (repea
 node migrate-data.js --apply --manifest plan.json --force  # ignore the marker; rescan changed sources
 ```
 
-**Source registry (all env-overridable for tests):** the legacy Claude data root (`PHANTOM_MIGRATE_SRC_PHANTOM_DATA`), the legacy Claude phantom root (`PHANTOM_MIGRATE_SRC_PHANTOM`), the Claude team root (`PHANTOM_MIGRATE_SRC_TEAM`), and the upper- and lower-case Codex phantom roots (`PHANTOM_MIGRATE_SRC_CODEX_UPPER`, `PHANTOM_MIGRATE_SRC_CODEX_LOWER`).
+**Source registry (all env-overridable for tests):** the legacy Claude data root (`GORKHALI_MIGRATE_SRC_GORKHALI_DATA`), the legacy Claude gorkhali root (`GORKHALI_MIGRATE_SRC_GORKHALI`), the Claude team root (`GORKHALI_MIGRATE_SRC_TEAM`), and the upper- and lower-case Codex gorkhali roots (`GORKHALI_MIGRATE_SRC_CODEX_UPPER`, `GORKHALI_MIGRATE_SRC_CODEX_LOWER`).
 The two Codex cases resolve to one inode on a case-insensitive filesystem and are deduped by realpath, so nothing is scanned twice.
 See `buildSources()` for the exact defaults.
-The existing `~/.phantom` is the destination BASELINE, never an immutable source.
+The existing `~/.gorkhali` is the destination BASELINE, never an immutable source.
 
 **Safety guarantees:**
 - The default invocation performs ZERO filesystem writes.
@@ -310,7 +310,7 @@ The existing `~/.phantom` is the destination BASELINE, never an immutable source
 - Before a learnings merge modifies a pre-existing canonical file, its original bytes are copied to a content-addressed rollback backup under `<data>/audit/rollback-backups/` and both hashes are recorded in the manifest.
 - Repository ids map through the codec + aliases; an id that is not a safe path segment stays `unresolved` and requires an explicit `--map` (mappings are never guessed).
 - Identical bytes at a canonical path DEDUPLICATE; different bytes CONFLICT-PARK under a deterministic `.from-<source>.<hash>` suffix (the baseline is never overwritten); learnings merge append-only through the T3 learning API lock.
-- Apply takes a migration-wide lock (`<data>/locks/.data-migration.lock`) for the whole window, routes learnings merges through the per-learnings-dir lock and per-repo writes through the phantom-state lifecycle lock, so a concurrent state writer that races the migration blocks or fails closed.
+- Apply takes a migration-wide lock (`<data>/locks/.data-migration.lock`) for the whole window, routes learnings merges through the per-learnings-dir lock and per-repo writes through the gorkhali-state lifecycle lock, so a concurrent state writer that races the migration blocks or fails closed.
 
 **Per-item manifest classes:** `imported`, `deduplicated`, `conflict-parked`, `unresolved`, `skipped-live-state`, with per-root and per-artifact counts.
 
@@ -322,7 +322,7 @@ The real apply against live machine state is a separately gated, signed-off step
 
 ### `migrate-repo-dirs.js`
 
-Dry-run-first, non-destructive consolidation of branch-named orphan repo dirs under `<data>/repos/*` (and the legacy repos root named by `PHANTOM_MIGRATE_LEGACY_ROOT`) into their canonical repo dir.
+Dry-run-first, non-destructive consolidation of branch-named orphan repo dirs under `<data>/repos/*` (and the legacy repos root named by `GORKHALI_MIGRATE_LEGACY_ROOT`) into their canonical repo dir.
 Resolved targets are canonicalized through the T1 codec alias map so consolidation agrees with every other writer.
 
 ```bash
@@ -341,8 +341,8 @@ The `UserPromptSubmit` hook (`hooks/session-marker.js`) auto-runs `--apply` once
 Reference these scripts from skill `.md` files by self-resolving the plugin dir env-free (deterministic — never via `CLAUDE_PLUGIN_ROOT`, which is reserved for `hooks/hooks.json`):
 
 ```
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
-[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }   # empty-guard: no cache dir → readable abort, not MODULE_NOT_FOUND
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+[ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }   # empty-guard: no cache dir → readable abort, not MODULE_NOT_FOUND
 Run: node "$PR/scripts/validate-artifact.js" verification {VERIFICATION_JSON_PATH}
 ```
 

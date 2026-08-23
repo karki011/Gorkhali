@@ -5,19 +5,19 @@
 //
 // RULE 1 (fable-deny): engineer|steward|inspector|surveyor|clerk are bounded worker agents -
 // none may run on a Fable-tier model (bare alias "fable" or full id like
-// "claude-fable-5"). Fable is retired from Phantom's routing; this rule stays as
+// "claude-fable-5"). Fable is retired from Gorkhali's routing; this rule stays as
 // a defensive guard so a stray fable pin never reaches an implementer. Note the
 // gate does NOT enforce the preset mapping itself (economy -> haiku, balanced/
 // deep -> sonnet on claude-code): that lives in model-presets.json, and a user's
 // explicit model choice is still theirs to make (reference/agents.md -> Model
 // Routing, Precedence).
-// Matching on subagent_type is EXACT and case-insensitive after stripping the "phantom:" prefix -
-// never substring - so "phantom:reference:engineer-conventions" does not match
+// Matching on subagent_type is EXACT and case-insensitive after stripping the "gorkhali:" prefix -
+// never substring - so "gorkhali:reference:engineer-conventions" does not match
 // "engineer". config.yaml model overrides (see evals/evals.json) surface here as
 // an explicit `model:` param on the spawn, so this gate sees them same as any
 // other explicit choice.
 //
-// RULE 3 (name gate): every Phantom-role spawn must carry a `name:` param drawn
+// RULE 3 (name gate): every Gorkhali-role spawn must carry a `name:` param drawn
 // from reference/roster.md. The spawn's `name:`, its agent-records stub filename
 // and hooks/wake-classifier.js's `payload.agent_type` are all the SAME string, so
 // a name-less spawn is unresolvable at wake time, and a WRONG name binds the
@@ -34,8 +34,8 @@
 //                 unreadable or unparseable roster.md skips 3c silently and
 //                 allows - the gate never blocks because it could not read a doc.
 // Matching uses the same exact, prefix-stripped, case-insensitive role name as
-// the rules above, so non-Phantom agent types (general-purpose, Explore,
-// statusline-setup, ...) and `phantom:reference:*` docs pass through untouched.
+// the rules above, so non-Gorkhali agent types (general-purpose, Explore,
+// statusline-setup, ...) and `gorkhali:reference:*` docs pass through untouched.
 //
 // RULE 2 (engineer missing-model): engineer.md carries a generated `model:` pin (see
 // scripts/gen-agent-frontmatter.js), so an omitted model falls back to the pin -
@@ -45,7 +45,7 @@
 // other agent is untouched by this rule.
 //
 // POLICY READ (advisory): the concrete tier names this gate used to hardcode in
-// its deny reasons now come from skills/phantom/references/model-policy.json —
+// its deny reasons now come from skills/gorkhali/references/model-policy.json —
 // the single source of truth for role -> profile. The read is ADVISORY ONLY: it
 // shapes the wording (which profile the role should run at, whether risk can
 // elevate it), never the allow/deny decision, and unreadable policy degrades to
@@ -57,7 +57,7 @@
 //
 // FAIL-OPEN POLARITY — read this before editing: any crash or ambiguity in
 // the enforce path must ALLOW the spawn (never block on the gate's own bug).
-// Escape hatch: PHANTOM_BLADE_MODEL_GATE=0 makes the gate a no-op (armed by
+// Escape hatch: GORKHALI_BLADE_MODEL_GATE=0 makes the gate a no-op (armed by
 // default otherwise). Always exits 0 — the decision rides the stdout JSON.
 'use strict';
 
@@ -83,7 +83,7 @@ const NAME_RE = /^[a-z][a-z0-9-]*$/;
 const NAME_ROLE_ALIASES = { engineer: ['scout', 'council'] };
 
 const POLICY_FILE = path.join(
-  __dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'
+  __dirname, '..', 'skills', 'gorkhali', 'references', 'model-policy.json'
 );
 
 const ROSTER_FILE = path.join(__dirname, '..', 'reference', 'roster.md');
@@ -215,7 +215,7 @@ function nameIsKnown(role, name, index) {
 }
 
 const RESOLVER_HINT =
-  'node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role <role> --host <host> '
+  'node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role <role> --host <host> '
   + '($PR per commands/_shared.md §Paths - the session cwd is the consumer repo, never a relative path)';
 
 // Advisory sentence naming the role's policy profile (and whether a critical
@@ -245,7 +245,7 @@ function policyGuidance(role) {
 // runs when roster.md parsed.
 function nameViolation(role, rawName) {
   if (typeof rawName !== 'string' || !NAME_RE.test(rawName.trim())) {
-    return 'every Phantom-role spawn must pass a roster name as name: - "' + role +
+    return 'every Gorkhali-role spawn must pass a roster name as name: - "' + role +
       '" was spawned with ' +
       (rawName === undefined ? 'no name:' : 'name: ' + JSON.stringify(rawName)) +
       ', which is not a lowercase roster name (' + NAME_RE.source + ').';
@@ -270,7 +270,7 @@ function nameViolation(role, rawName) {
 }
 
 function main() {
-  if (process.env.PHANTOM_BLADE_MODEL_GATE === '0') return;
+  if (process.env.GORKHALI_BLADE_MODEL_GATE === '0') return;
 
   let payload;
   try {
@@ -285,7 +285,7 @@ function main() {
 
     const toolInput = payload.tool_input || {};
     const rawType = toolInput.subagent_type || '';
-    const name = rawType.replace(/^phantom:/i, '').toLowerCase();
+    const name = rawType.replace(/^gorkhali:/i, '').toLowerCase();
     const model = toolInput.model;
 
     // RULE 1: fable-deny - must run before RULE 2's non-empty-model early
@@ -297,7 +297,7 @@ function main() {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
           permissionDecisionReason:
-            `WORKER MODEL GATE: Fable is not legal for Phantom role "${name}". ` +
+            `WORKER MODEL GATE: Fable is not legal for Gorkhali role "${name}". ` +
             'Re-spawn with the model this role\'s ' +
             'policy profile resolves to.' + policyGuidance(name) +
             ' See reference/agents.md → Model Routing.',

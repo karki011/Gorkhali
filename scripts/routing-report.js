@@ -10,14 +10,14 @@
 //   --json  emit the stable machine shape instead of the human table
 // This tool is READ-ONLY: it never writes anything, and it never infers
 // actual_profile - reconciliation is reported active only when the host itself
-// recorded a non-null actual_profile (see skills/phantom/references/state.md).
+// recorded a non-null actual_profile (see skills/gorkhali/references/state.md).
 // Exit 0 = report produced (including empty sessions); nonzero via reportError.
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { GorkhaliError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
 
 // Label used when a routing field is absent, so distributions stay countable
 // instead of dropping records with an undefined key.
@@ -214,13 +214,13 @@ function parseArgs(argv) {
     } else if (arg === '--help' || arg === '-h') {
       return { help: true };
     } else if (arg.startsWith('-')) {
-      throw new PhantomError(`ERROR: Unknown flag: ${arg}`, VALIDATION_ERROR, [
+      throw new GorkhaliError(`ERROR: Unknown flag: ${arg}`, VALIDATION_ERROR, [
         'Usage: routing-report.js <session-dir> [--json]',
       ]);
     } else if (sessionDir === null) {
       sessionDir = arg;
     } else {
-      throw new PhantomError(`ERROR: Unexpected extra argument: ${arg}`, VALIDATION_ERROR, [
+      throw new GorkhaliError(`ERROR: Unexpected extra argument: ${arg}`, VALIDATION_ERROR, [
         'Usage: routing-report.js <session-dir> [--json]',
       ]);
     }
@@ -229,7 +229,7 @@ function parseArgs(argv) {
 }
 
 const HELP =
-  'routing-report - summarize model-routing evidence in a Phantom session\n\n' +
+  'routing-report - summarize model-routing evidence in a Gorkhali session\n\n' +
   'Usage: node scripts/routing-report.js <session-dir> [--json]\n\n' +
   '  <session-dir>  session directory holding routed JSON artifacts\n' +
   '  --json         emit the stable machine shape instead of the human table\n';
@@ -242,17 +242,17 @@ function main(argv) {
   }
 
   if (!opts.sessionDir) {
-    throw new PhantomError('ERROR: Missing required <session-dir> argument', VALIDATION_ERROR, [
+    throw new GorkhaliError('ERROR: Missing required <session-dir> argument', VALIDATION_ERROR, [
       'Usage: routing-report.js <session-dir> [--json]',
     ]);
   }
 
   const sessionDir = opts.sessionDir.replace(/^~/, process.env.HOME || '');
   if (!fs.existsSync(sessionDir)) {
-    throw new PhantomError(`ERROR: Session directory not found: ${sessionDir}`, VALIDATION_ERROR);
+    throw new GorkhaliError(`ERROR: Session directory not found: ${sessionDir}`, VALIDATION_ERROR);
   }
   if (!fs.statSync(sessionDir).isDirectory()) {
-    throw new PhantomError(`ERROR: Not a directory: ${sessionDir}`, VALIDATION_ERROR);
+    throw new GorkhaliError(`ERROR: Not a directory: ${sessionDir}`, VALIDATION_ERROR);
   }
 
   const records = extractRecords(collectJsonFiles(sessionDir));

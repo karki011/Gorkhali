@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 // Route the data root through the shared codec so every host resolves the same
 // neutral root as every other layer. The codec ships inside the portable skill.
 const require = createRequire(import.meta.url);
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
 
 function optionValue(argv, flag) {
   const index = argv.indexOf(flag);
@@ -28,14 +28,14 @@ export function resolveRuntime(environment = process.env, workflow = null, host 
     schema_version: 1,
     host,
     plugin_root: pluginRoot,
-    portable_skill_root: join(pluginRoot, 'skills', 'phantom'),
+    portable_skill_root: join(pluginRoot, 'skills', 'gorkhali'),
     compatibility_scripts_root: join(pluginRoot, 'scripts'),
     data_root: codec.resolveDataRoot(process.cwd(), environment),
   };
   if (!workflow) return runtime;
 
   const commandFile = join(pluginRoot, 'commands', `${workflow}.md`);
-  if (!existsSync(commandFile)) throw new Error(`Unknown Phantom workflow: ${workflow}`);
+  if (!existsSync(commandFile)) throw new Error(`Unknown Gorkhali workflow: ${workflow}`);
   const tierResolver = join(pluginRoot, 'scripts', 'preamble-tier.js');
   const tier = JSON.parse(execFileSync(process.execPath, [tierResolver, workflow, '--json'], {
     encoding: 'utf8',

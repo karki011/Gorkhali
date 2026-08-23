@@ -1,6 +1,6 @@
 # `pause-state.json` Schema
 
-Written by `phantom:pause`. Read by `phantom:resume` to restore context.
+Written by `gorkhali:pause`. Read by `gorkhali:resume` to restore context.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
@@ -27,9 +27,9 @@ Written by `phantom:pause`. Read by `phantom:resume` to restore context.
   "phase": "C",
   "phaseStep": "agent-spawn",
   "status": "paused",
-  "intent": "~/.phantom/repos/{REPO_NAME}/sessions/ENG-1234/intent.json",
-  "plan": "~/.phantom/repos/{REPO_NAME}/sessions/ENG-1234/plan.json",
-  "contracts": ["~/.phantom/repos/{REPO_NAME}/sessions/ENG-1234/contracts/api.html"],
+  "intent": "~/.gorkhali/repos/{REPO_NAME}/sessions/ENG-1234/intent.json",
+  "plan": "~/.gorkhali/repos/{REPO_NAME}/sessions/ENG-1234/plan.json",
+  "contracts": ["~/.gorkhali/repos/{REPO_NAME}/sessions/ENG-1234/contracts/api.html"],
   "contractsCompleted": [],
   "contractsPending": ["api.html"],
   "route": "shadows",

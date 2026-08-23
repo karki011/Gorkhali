@@ -20,7 +20,7 @@ const CLI = require.resolve('../scripts/lib/md-grammar');
 // a trailing-space line, a tab-indented continuation, a double-space in prose, and a
 // blank line inside a section. If any of these reflow, the round-trip test fails.
 const FIXTURE = [
-  '# Research Phantom — Learnings INDEX',
+  '# Research Gorkhali — Learnings INDEX',
   '',
   'Curated pointers. One line per learning.',
   '',

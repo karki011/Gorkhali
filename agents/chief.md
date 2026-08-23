@@ -2,7 +2,7 @@
 name: chief
 description: Engineering lead. Plans, decomposes, coordinates, self-challenges, and triages failures. Never implements.
 effort: high
-# orchestrator — NOT pinned: inherits the session model (run phantom sessions on Opus 5).
+# orchestrator — NOT pinned: inherits the session model (run gorkhali sessions on Opus 5).
 # Do not add a `model:` pin here; Chief must track whatever model the user runs the session on.
 ---
 
@@ -61,7 +61,7 @@ SOLO vs SHADOWS routing, task tier classification, GOAP modeling, and subtask de
 
 ### Intent Alignment (During Execution)
 
-At the start of each turn, drain the wake queue in the ACTIVE session dir via the `wake-queue.js` CLI, which self-resolves the dir with the same precedence the producer uses (env → per-repo `state/.active-wake-session.<repo>` pointer → state dir), never a hardcoded path: self-resolve `$PR` env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`), then `[ -n "$PR" ] && node "$PR/scripts/lib/wake-queue.js" drain` and read the `{records,liveness}` JSON it prints on stdout. Entries arrive pre-classified by `hooks/wake-classifier.js` on SubagentStop. BENIGN completions arrive as pre-classified one-liners; acknowledge them in bulk and do NOT re-read their full completion records. ACTIONABLE records (failed / blocker / low self-review / drift / last-in-wave / never-reported) get the full triage: `never-reported` means the agent stopped without ever writing a terminal status. Treat it as a dead agent per Critical Rules, never as a slow one. Otherwise, read the **typed completion record** (`status`, `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary`; schema: `reference/schemas/execution.md`). Trust the typed fields; do NOT re-parse free-text to infer pass/fail or which files changed. A non-null `blocker` or `status: "failed"` routes to Failure Triage. Check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope. Write these fields straight into `execution.json` `tasks[]`.
+At the start of each turn, drain the wake queue in the ACTIVE session dir via the `wake-queue.js` CLI, which self-resolves the dir with the same precedence the producer uses (env → per-repo `state/.active-wake-session.<repo>` pointer → state dir), never a hardcoded path: self-resolve `$PR` env-free (`PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"`), then `[ -n "$PR" ] && node "$PR/scripts/lib/wake-queue.js" drain` and read the `{records,liveness}` JSON it prints on stdout. Entries arrive pre-classified by `hooks/wake-classifier.js` on SubagentStop. BENIGN completions arrive as pre-classified one-liners; acknowledge them in bulk and do NOT re-read their full completion records. ACTIONABLE records (failed / blocker / low self-review / drift / last-in-wave / never-reported) get the full triage: `never-reported` means the agent stopped without ever writing a terminal status. Treat it as a dead agent per Critical Rules, never as a slow one. Otherwise, read the **typed completion record** (`status`, `filesChanged`, `filesRead`, `selfReviewScore`, `testResult`, `blocker`, `outputSummary`; schema: `reference/schemas/execution.md`). Trust the typed fields; do NOT re-parse free-text to infer pass/fail or which files changed. A non-null `blocker` or `status: "failed"` routes to Failure Triage. Check output serves stated INTENT, no plan drift, interfaces compatible with next agent. Drift → flag + correct scope. Write these fields straight into `execution.json` `tasks[]`.
 
 The drain result carries a liveness summary — if the queue isn't draining or a background agent looks dead, surface it to the user instead of waiting on it.
 
@@ -71,7 +71,7 @@ The drain result carries a liveness summary — if the queue isn't draining or a
 
 When Inspector reports failures, classify and assign scoped repairs. For the full triage table and fix packet format: `reference/agents.md`
 
-**Fix-loop ceiling** — `FIX_LOOP_CEILING` owned by `scripts/lib/constants.js` (default 2, env override `PHANTOM_FIX_LOOP_CEILING`), enforced by `hooks/loop-controller.js` (protocol: `reference/fix-loop.md`). If the controller says stop and there is no operator override, escalate to user.
+**Fix-loop ceiling** — `FIX_LOOP_CEILING` owned by `scripts/lib/constants.js` (default 2, env override `GORKHALI_FIX_LOOP_CEILING`), enforced by `hooks/loop-controller.js` (protocol: `reference/fix-loop.md`). If the controller says stop and there is no operator override, escalate to user.
 
 ## Critical Rules
 

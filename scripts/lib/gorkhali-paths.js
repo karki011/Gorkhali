@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// phantom-paths.js — single source of truth for Phantom mutable-state paths.
+// gorkhali-paths.js — single source of truth for Gorkhali mutable-state paths.
 // Path computation only: nothing here writes, and no mkdir happens at import
 // time. Callers create directories as needed. One resolver, resolveRepoSubdir,
 // READS the filesystem and the alias map to choose between a repo's canonical
@@ -9,27 +9,27 @@
 
 const fs = require('fs');
 const path = require('path');
-const codec = require('../../skills/phantom/scripts/lib/shared-state.cjs');
+const codec = require('../../skills/gorkhali/scripts/lib/shared-state.cjs');
 
-/** Root for all Phantom mutable state. PHANTOM_DATA overrides the default. */
-function phantomData(workspace = process.cwd()) {
+/** Root for all Gorkhali mutable state. GORKHALI_DATA overrides the default. */
+function gorkhaliData(workspace = process.cwd()) {
   return codec.resolveDataRoot(workspace);
 }
 
 // Per-process memoization. Hooks are hot paths (detectRepo runs on every
 // PreToolUse); a cold resolve shells out to git twice. Key on the inputs that
-// change the answer — resolved cwd + PHANTOM_REPO + data root — so env flips
+// change the answer — resolved cwd + GORKHALI_REPO + data root — so env flips
 // (and tests) stay correct while the warm path is a single Map hit (<10ms).
 const REPO_CACHE = new Map();
 
 /**
  * Resolve the current repo id. The full precedence lives in the shared codec
- * (skills/phantom/scripts/lib/shared-state.cjs) so this CommonJS layer, the
+ * (skills/gorkhali/scripts/lib/shared-state.cjs) so this CommonJS layer, the
  * portable ESM skill, and the shell resolver all agree on ONE id:
- *   1. cwd inside <data>/worktrees/<seg>/... -> that <seg> (Phantom-managed
- *      worktree; verbatim). NOTE: user worktrees at ~/.phantom-os/worktrees/ are
+ *   1. cwd inside <data>/worktrees/<seg>/... -> that <seg> (Gorkhali-managed
+ *      worktree; verbatim). NOTE: user worktrees at ~/.gorkhali-os/worktrees/ are
  *      NOT this root; they never hit this step and are resolved by (3)/(4).
- *   2. PHANTOM_REPO env override (per-spawn, verbatim; never export globally).
+ *   2. GORKHALI_REPO env override (per-spawn, verbatim; never export globally).
  *   3. Origin remote -> normalized -> `<name>-<hash>` (worktree- and
  *      clone-name-invariant; SSH/HTTPS/renamed clones converge; collision-safe
  *      across owners and hosts).
@@ -41,15 +41,15 @@ const REPO_CACHE = new Map();
 function detectRepo(cwd = process.cwd()) {
   let key;
   try {
-    key = path.resolve(cwd) + '\0' + (process.env.PHANTOM_REPO || '') + '\0' + phantomData();
+    key = path.resolve(cwd) + '\0' + (process.env.GORKHALI_REPO || '') + '\0' + gorkhaliData();
   } catch (_) {
     key = String(cwd);
   }
   if (REPO_CACHE.has(key)) return REPO_CACHE.get(key);
-  const dataRoot = phantomData();
+  const dataRoot = gorkhaliData();
   const identity = codec.repoIdentity(cwd, {
     dataRoot,
-    phantomRepo: process.env.PHANTOM_REPO,
+    gorkhaliRepo: process.env.GORKHALI_REPO,
   });
   // Persist this repo's aliases (legacy plain name, raw-hash, codec-upgrade ids)
   // into <data>/repos/.aliases.json so its earlier ids stay discoverable and the
@@ -63,7 +63,7 @@ function detectRepo(cwd = process.cwd()) {
 
 /** Per-repo state dir: <data>/repos/<repoName> */
 function repoDir(repoName) {
-  return path.join(phantomData(), 'repos', repoName);
+  return path.join(gorkhaliData(), 'repos', repoName);
 }
 
 // Alias ids become path segments, and the alias map is a JSON object keyed by
@@ -94,7 +94,7 @@ function isPopulatedDir(dir) {
  * prototype value.
  */
 function aliasCandidates(repo) {
-  return Object.entries(codec.readAliasMap(phantomData()))
+  return Object.entries(codec.readAliasMap(gorkhaliData()))
     .filter(([id, canonical]) => canonical === repo && id !== repo && isSafeAliasId(id))
     .map(([id]) => id);
 }
@@ -126,33 +126,33 @@ function resolveRepoSubdir(repo, ...segments) {
 
 /** Per-repo event log dir: <data>/events/<repo> */
 function eventsDir(repo) {
-  return path.join(phantomData(), 'events', repo);
+  return path.join(gorkhaliData(), 'events', repo);
 }
 
 /** Observation capture dir: <data>/observations */
 function observationsDir() {
-  return path.join(phantomData(), 'observations');
+  return path.join(gorkhaliData(), 'observations');
 }
 
 /** Agent timing log dir: <data>/timing (per-repo <repo>.jsonl) */
 function timingDir() {
-  return path.join(phantomData(), 'timing');
+  return path.join(gorkhaliData(), 'timing');
 }
 
 /** Promoted global patterns dir: <data>/global/patterns */
 function globalPatternsDir() {
-  return path.join(phantomData(), 'global', 'patterns');
+  return path.join(gorkhaliData(), 'global', 'patterns');
 }
 
 /** Hook/session state dir: <data>/state */
-function stateDir()     { return path.join(phantomData(), 'state'); }
+function stateDir()     { return path.join(gorkhaliData(), 'state'); }
 
 /**
  * Runtime session-telemetry dir: <data>/state/session-telemetry.
  * Per-repo `<repo>.json` = { session_id, cwd, ts } written by the
  * UserPromptSubmit hook. This is transient runtime telemetry and is kept
  * PHYSICALLY SEPARATE from the durable portable task pointer at
- * state/current-session/<repo>.json (owned by phantom-state.mjs), so a
+ * state/current-session/<repo>.json (owned by gorkhali-state.mjs), so a
  * per-prompt telemetry write can never overwrite the active task pointer.
  */
 function sessionTelemetryDir() { return path.join(stateDir(), 'session-telemetry'); }
@@ -175,7 +175,7 @@ function completedDir(repo = detectRepo()) { return path.join(repoDir(repo), 'co
 function learningsDir(repo = detectRepo()) { return resolveRepoSubdir(repo, 'learnings'); }
 
 /** Audit log dir: <data>/audit */
-function auditDir()     { return path.join(phantomData(), 'audit'); }
+function auditDir()     { return path.join(gorkhaliData(), 'audit'); }
 
 /** Per-ticket runs dir: <data>/repos/<repo>/sessions/<ticket>/runs */
 function runsDir(ticket, repo = detectRepo()) { return path.join(sessionsDir(repo), ticket, 'runs'); }
@@ -188,7 +188,7 @@ function currentRunPointer(ticket, repo = detectRepo()) { return path.join(runsD
 
 /** Worktrees root: <data>/worktrees — FLAT, directly under the data root (NOT under repos/). */
 function worktreesRoot() {
-  return path.join(phantomData(), 'worktrees');
+  return path.join(gorkhaliData(), 'worktrees');
 }
 
 /** Per-ticket worktree: <data>/worktrees/<repo>/<ticket> */
@@ -197,7 +197,7 @@ function worktreeDir(ticket, repo = detectRepo()) {
 }
 
 module.exports = {
-  phantomData,
+  gorkhaliData,
   detectRepo,
   repoDir,
   aliasCandidates,

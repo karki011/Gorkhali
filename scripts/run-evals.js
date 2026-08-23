@@ -5,11 +5,11 @@
 // Usage: run-evals.js [--filter <skill|kind|id[,..]>] [--model <alias>]
 //        [--host <claude-code|kimi>] [--dry-run] [--baseline] [--gate]
 //        [--date <YYYY-MM-DD>] [--concurrency N] [--keep-transcripts <dir>]
-// Env: PHANTOM_EVAL_TIMEOUT_S (per-case cap, default 60)
-//      PHANTOM_EVAL_JUDGE_MODEL (llm-judge model, default haiku / k3 on host kimi)
-//      PHANTOM_EVAL_CLAUDE_BIN  (claude binary override)
-//      PHANTOM_EVAL_KIMI_BIN    (kimi binary override, default `kimi`)
-//      PHANTOM_EVAL_DATE        (baseline date fallback for --baseline)
+// Env: GORKHALI_EVAL_TIMEOUT_S (per-case cap, default 60)
+//      GORKHALI_EVAL_JUDGE_MODEL (llm-judge model, default haiku / k3 on host kimi)
+//      GORKHALI_EVAL_CLAUDE_BIN  (claude binary override)
+//      GORKHALI_EVAL_KIMI_BIN    (kimi binary override, default `kimi`)
+//      GORKHALI_EVAL_DATE        (baseline date fallback for --baseline)
 // --host kimi drives the kimi CLI only — the claude binary is never spawned on
 // that host, so no eval request can reach Anthropic or OpenAI through this runner.
 // Live runs spend tokens — `npm run evals` stays --dry-run by default.
@@ -428,7 +428,7 @@ function evidencePredicate(c) {
   return null;
 }
 
-// Timeout is NOT an automatic failure: heavy skills (e.g. phantom:start) never
+// Timeout is NOT an automatic failure: heavy skills (e.g. gorkhali:start) never
 // finish inside a headless budget, but trigger/route evidence lands in the
 // first turns — so the partial transcript is judged with the normal logic.
 function finalizeVerdict(c, verdict, run, timeoutMs) {
@@ -461,8 +461,8 @@ function finalizeVerdict(c, verdict, run, timeoutMs) {
 // kimi host cannot send a request to Anthropic or OpenAI through this runner.
 function hostBin(host) {
   return host === 'kimi'
-    ? (process.env.PHANTOM_EVAL_KIMI_BIN || 'kimi')
-    : (process.env.PHANTOM_EVAL_CLAUDE_BIN || 'claude');
+    ? (process.env.GORKHALI_EVAL_KIMI_BIN || 'kimi')
+    : (process.env.GORKHALI_EVAL_CLAUDE_BIN || 'claude');
 }
 
 function runClaude(args, timeoutMs, earlyExit, host) {
@@ -509,7 +509,7 @@ function headlessArgs(host, prompt, model, streamJson) {
 }
 
 async function runLlmJudge(transcript, c, timeoutMs, partial, host) {
-  const judgeModel = process.env.PHANTOM_EVAL_JUDGE_MODEL || DEFAULT_JUDGE_MODEL[host] || 'haiku';
+  const judgeModel = process.env.GORKHALI_EVAL_JUDGE_MODEL || DEFAULT_JUDGE_MODEL[host] || 'haiku';
   const prompt = [
     'You are a strict eval judge. Decide if the transcript satisfies the criteria.',
     `Criteria: ${c.expected_check.criteria}`,
@@ -625,7 +625,7 @@ async function main() {
     process.exit(0);
   }
 
-  const timeoutMs = (parseInt(process.env.PHANTOM_EVAL_TIMEOUT_S, 10) || 60) * 1000;
+  const timeoutMs = (parseInt(process.env.GORKHALI_EVAL_TIMEOUT_S, 10) || 60) * 1000;
   console.error('='.repeat(72));
   console.error(`WARNING: live eval run — ${selected.length} case(s) will invoke the ${hostCli} CLI and SPEND TOKENS.`);
   console.error(`Per-case timeout ${timeoutMs / 1000}s, concurrency ${opts.concurrency}. Use --filter to narrow, --dry-run to preview.`);
@@ -681,7 +681,7 @@ async function main() {
       }
     }
     fs.mkdirSync(BASELINES_DIR, { recursive: true });
-    const date = opts.date || process.env.PHANTOM_EVAL_DATE || new Date().toISOString().slice(0, 10);
+    const date = opts.date || process.env.GORKHALI_EVAL_DATE || new Date().toISOString().slice(0, 10);
     const baseline = { model: modelAlias || 'default', host: opts.host, date, cases: resultMap, passRate: Number(passRate.toFixed(3)) };
     fs.writeFileSync(bp, JSON.stringify(baseline, null, 2) + '\n');
     console.log(`Baseline written: ${path.relative(ROOT, bp)}`);

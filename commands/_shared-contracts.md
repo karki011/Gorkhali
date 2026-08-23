@@ -1,4 +1,4 @@
-# Phantom Shadows -- Contracts & Hooks Context
+# Gorkhali Shadows -- Contracts & Hooks Context
 
 > See `reference/contracts.md` for templates and hook checkpoints.
 

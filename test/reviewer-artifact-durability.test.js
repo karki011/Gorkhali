@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// Semantic contracts for Phantom's lean, artifact-backed quality pipeline.
+// Semantic contracts for Gorkhali's lean, artifact-backed quality pipeline.
 'use strict';
 
 const { test } = require('node:test');
@@ -18,7 +18,7 @@ const FILES = {
   review: 'commands/review.md',
   rpsl: 'reference/wrap/rpsl.md',
   verify: 'commands/verify.md',
-  verificationReference: 'skills/phantom/references/verification.md',
+  verificationReference: 'skills/gorkhali/references/verification.md',
   inspector: 'agents/inspector.md',
   wrap: 'commands/wrap.md',
 };

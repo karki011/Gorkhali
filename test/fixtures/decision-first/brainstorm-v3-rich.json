@@ -2,9 +2,9 @@
   "_meta": {
     "writtenAt": "2026-07-19T12:00:00Z",
     "gitHead": "50ca22f",
-    "gitBranch": "feat/ai-agnostic-phantom-skill",
+    "gitBranch": "feat/ai-agnostic-gorkhali-skill",
     "phase": "A",
-    "skill": "phantom:brainstorm",
+    "skill": "gorkhali:brainstorm",
     "version": 3
   },
   "contract_version": 3,
@@ -56,19 +56,19 @@
     },
     {
       "claim": "A comparison table is effective for repeated attributes, but not for explaining complete option narratives.",
-      "source": "skills/phantom/references/brainstorming.md",
+      "source": "skills/gorkhali/references/brainstorming.md",
       "status": "supported",
       "implication": "Pair a scan-friendly matrix with detailed approach dossiers."
     },
     {
       "claim": "A static AI-authored document plus conservative validation is sufficient for the first review workflow.",
-      "source": "skills/phantom/references/review-html.md",
+      "source": "skills/gorkhali/references/review-html.md",
       "status": "inferred",
       "implication": "Defer annotation and editing controls."
     },
     {
       "claim": "Reviewers will prefer every execution task expanded by default.",
-      "source": "skills/phantom/references/planning.md (no default specified)",
+      "source": "skills/gorkhali/references/planning.md (no default specified)",
       "status": "unknown",
       "implication": "Keep task disclosure reversible and validate the default with real usage."
     }

@@ -1,6 +1,6 @@
 # `intent.json` Schema
 
-Written by Phase B (`phantom:start`). Defines the goal contract for verify and wrap.
+Written by Phase B (`gorkhali:start`). Defines the goal contract for verify and wrap.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |

@@ -1,13 +1,13 @@
 ---
 name: pause
-description: "Use when stepping away or saving progress mid-session — 'pause', 'checkpoint', 'done for today'. Saves artifacts only, no git ops. Ship → phantom:wrap; continue → phantom:resume."
+description: "Use when stepping away or saving progress mid-session — 'pause', 'checkpoint', 'done for today'. Saves artifacts only, no git ops. Ship → gorkhali:wrap; continue → gorkhali:resume."
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:pause
+# /gorkhali:pause
 
-Save full session state so `/clear` + `/phantom:resume` restores everything.
+Save full session state so `/clear` + `/gorkhali:resume` restores everything.
 
 <instructions>
 1. **Capture git state**
@@ -25,7 +25,7 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
        "gitHead": "{HEAD sha}",
        "gitBranch": "{branch}",
        "phase": "{current phase A/B/C/D}",
-       "skill": "phantom:pause",
+       "skill": "gorkhali:pause",
        "version": 1
      },
      "ticket": "{TICKET}",
@@ -82,7 +82,7 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    - {from learnings written this session; n/a if none}
 
    ## To continue
-   - **Same machine:** `/phantom:resume {TICKET}`
+   - **Same machine:** `/gorkhali:resume {TICKET}`
    - **Fresh session / another agent:** paste this entire packet as your first message.
    ```
 </output_format>
@@ -94,10 +94,10 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
 
 5. **Record learnings** through the canonical locked API - never edit
    `learnings/` files by hand. Pipe candidates as JSON to
-   `skills/phantom/scripts/phantom-learning.mjs capture --learnings <dir>`; it
+   `skills/gorkhali/scripts/gorkhali-learning.mjs capture --learnings <dir>`; it
    takes the per-repo lock, dedups, graduates, and updates `INDEX.md`,
    `auto-captures.md`, and domain files without ever writing unlocked
-   (see `skills/phantom/references/state.md` § Learning index).
+   (see `skills/gorkhali/references/state.md` § Learning index).
 
 6. **Update auto-memory** in project memory directory
 
@@ -110,9 +110,9 @@ Save full session state so `/clear` + `/phantom:resume` restores everything.
    Include the report's `Total:` line in the pause summary. Never block the pause if it fails. Empty `$PR` (no plugin cache) → the `[ -n "$PR" ]` guards skip both silently; the pause still completes.
 
 **Running workflow + pause.** A Claude Code dynamic workflow does NOT survive exiting Claude Code —
-it restarts fresh next session (per docs), and `phantom:resume` cannot restore an in-flight run.
+it restarts fresh next session (per docs), and `gorkhali:resume` cannot restore an in-flight run.
 Before a cross-session pause, finish or stop the workflow (`/workflows` → `x`) and capture its
 report into session artifacts.
 </instructions>
 
-Print: "Session paused. Handoff packet written to `{SESSION_DIR}/handoff.md` and printed above — copy-paste it to continue in a fresh session or another agent. Same machine: run `/clear` then `/phantom:resume {TICKET}`."
+Print: "Session paused. Handoff packet written to `{SESSION_DIR}/handoff.md` and printed above — copy-paste it to continue in a fresh session or another agent. Same machine: run `/clear` then `/gorkhali:resume {TICKET}`."

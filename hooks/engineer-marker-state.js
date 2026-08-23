@@ -4,7 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { phantomData, detectRepo } = require('../scripts/lib/phantom-paths');
+const { gorkhaliData, detectRepo } = require('../scripts/lib/gorkhali-paths');
 const { MARKER_FRESHNESS_MS } = require('../scripts/lib/constants');
 
 const MAX_AGE_MS = Math.min(MARKER_FRESHNESS_MS, 24 * 60 * 60 * 1000);
@@ -12,7 +12,7 @@ const ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const ELIGIBLE_NAME_RE = /^(?:engineer|steward)-[a-z0-9][a-z0-9-]*$/;
 
 function markerDir(cwd = process.cwd()) {
-  return path.join(phantomData(cwd), '.engineer-editing.d', detectRepo(cwd));
+  return path.join(gorkhaliData(cwd), '.engineer-editing.d', detectRepo(cwd));
 }
 
 // One-release upgrade shim: .blade-editing / .blade-editing.d were this
@@ -26,7 +26,7 @@ const LEGACY_MARKER_DIR_NAME = '.blade-editing.d';
 const LEGACY_MARKER_FILE_NAME = '.blade-editing';
 
 function legacyMarkerDir(cwd = process.cwd()) {
-  return path.join(phantomData(cwd), LEGACY_MARKER_DIR_NAME, detectRepo(cwd));
+  return path.join(gorkhaliData(cwd), LEGACY_MARKER_DIR_NAME, detectRepo(cwd));
 }
 
 function payloadId(payload = {}) {
@@ -114,7 +114,7 @@ function active(payload = {}) {
 function legacyActive(cwd = process.cwd(), now = Date.now()) {
   for (const name of ['.engineer-editing', LEGACY_MARKER_FILE_NAME]) {
     try {
-      if (now - fs.statSync(path.join(phantomData(cwd), name)).mtimeMs < MAX_AGE_MS) return true;
+      if (now - fs.statSync(path.join(gorkhaliData(cwd), name)).mtimeMs < MAX_AGE_MS) return true;
     } catch (_) { /* try next namespace */ }
   }
   return false;

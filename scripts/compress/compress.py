@@ -18,7 +18,7 @@ OUTER_FENCE_REGEX = re.compile(
 
 # Filenames and paths that almost certainly hold secrets or PII. Compressing
 # them ships raw bytes to the active provider's API (Anthropic by default,
-# Moonshot/Kimi when PHANTOM_COMPRESS_PROVIDER=kimi) — a third-party data
+# Moonshot/Kimi when GORKHALI_COMPRESS_PROVIDER=kimi) — a third-party data
 # boundary that developers on sensitive codebases cannot cross. detect.py
 # already skips .env by extension, but credentials.md / secrets.txt /
 # ~/.aws/credentials would slip through the natural-language filter. This is a
@@ -72,12 +72,12 @@ MAX_RETRIES = 2
 
 # ---------- Provider selection ----------
 #
-# PHANTOM_COMPRESS_PROVIDER picks the LLM backend: "claude" (default — the
+# GORKHALI_COMPRESS_PROVIDER picks the LLM backend: "claude" (default — the
 # original behavior below) or "kimi" (Moonshot AI's Kimi, OpenAI-compatible
 # API). When "kimi" is selected the Anthropic SDK is never imported and the
 # claude CLI is never spawned: no request may leave for Anthropic or OpenAI
 # on that path.
-COMPRESS_PROVIDER = os.environ.get("PHANTOM_COMPRESS_PROVIDER", "claude")
+COMPRESS_PROVIDER = os.environ.get("GORKHALI_COMPRESS_PROVIDER", "claude")
 PROVIDER_LABEL = {"claude": "Claude", "kimi": "Kimi"}.get(COMPRESS_PROVIDER, COMPRESS_PROVIDER)
 
 
@@ -128,7 +128,7 @@ def call_kimi(prompt: str) -> str:
 
     Note the two Kimi identifier spaces: this backend targets the platform
     APIs, whose model IDs are `kimi-k3` etc. The Kimi Code CLI product
-    (host preset in skills/phantom/references/model-presets.json) uses `k3`,
+    (host preset in skills/gorkhali/references/model-presets.json) uses `k3`,
     `k3-256k`, and `kimi-for-coding` instead — do not mix them.
     """
     api_key = os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
@@ -171,13 +171,13 @@ def call_kimi(prompt: str) -> str:
 
 
 def call_llm(prompt: str) -> str:
-    """Dispatch to the backend named by PHANTOM_COMPRESS_PROVIDER."""
+    """Dispatch to the backend named by GORKHALI_COMPRESS_PROVIDER."""
     if COMPRESS_PROVIDER == "kimi":
         return call_kimi(prompt)
     if COMPRESS_PROVIDER == "claude":
         return call_claude(prompt)
     raise ValueError(
-        f"Unknown PHANTOM_COMPRESS_PROVIDER: {COMPRESS_PROVIDER!r} "
+        f"Unknown GORKHALI_COMPRESS_PROVIDER: {COMPRESS_PROVIDER!r} "
         "(expected 'claude' or 'kimi')"
     )
 

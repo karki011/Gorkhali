@@ -6,7 +6,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:wrap
+# /gorkhali:wrap
 
 Wrap is a thin shipping adapter. Portable lifecycle state, worktree fingerprint,
 verification, and review artifacts are the authority. Do not run a second Chief
@@ -18,8 +18,8 @@ review or mandatory RPSL panel.
 2. Read portable status and fingerprint:
 
    ```text
-   node <skill-directory>/scripts/phantom-state.mjs status --workspace <workspace>
-   node <skill-directory>/scripts/phantom-state.mjs fingerprint --workspace <workspace>
+   node <skill-directory>/scripts/gorkhali-state.mjs status --workspace <workspace>
+   node <skill-directory>/scripts/gorkhali-state.mjs fingerprint --workspace <workspace>
    ```
 
 3. Require the portable ship gate's authoritative latest
@@ -36,7 +36,7 @@ review or mandatory RPSL panel.
 
 If Inspector, Auditor, or a triggered specialist is missing, failed, blocked, or stale,
 the helper rejects the cross-gate contract: stop with the exact gap and run
-`/phantom:verify`. A mismatched required/result role set is the same blocking
+`/gorkhali:verify`. A mismatched required/result role set is the same blocking
 case. Never infer approval from a legacy `verification.json`, chat message, old
 panel, or clean-looking diff.
 
@@ -67,7 +67,7 @@ for h in "What we did" "Why we did it" "Watch out for" "What you need to know" "
 done
 ```
 
-The optional `--grill` flag may invoke `phantom:grill`; it is never automatic.
+The optional `--grill` flag may invoke `gorkhali:grill`; it is never automatic.
 
 ## 3. Prepare the release summary and render the PR body
 
@@ -82,7 +82,7 @@ finished file to `gh pr create --body-file`.
 session artifact rather than free prose, under hard caps of 40 lines and 2500
 characters. Do not restate the section spec here; follow it there.
 
-For a UI-facing change you MAY attach a Phantom Surveyor screenshot under
+For a UI-facing change you MAY attach a Gorkhali Surveyor screenshot under
 `## Verification` as optional supporting evidence (test credentials are already
 in the user's shell env); its absence never blocks the wrap.
 
@@ -99,7 +99,7 @@ awk '/^## /{if (h) exit 1; h=1; next} NF {h=0} END {exit h}' "$BODY" || exit 1
 
 Use repo-relative paths. Do not publish local absolute paths, credentials,
 private session data, or screenshots without explicit approval. Do not commit
-Phantom session artifacts.
+Gorkhali session artifacts.
 
 ## 4. Authorize and cross the portable ship gate
 
@@ -107,8 +107,8 @@ PR-shipping authorization is distinct from implementation authorization. When th
 user asked to create a PR, record that authorization, then cross the ship gate:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <workspace> --scope ship-pr
-node <skill-directory>/scripts/phantom-state.mjs ship --workspace <workspace>
+node <skill-directory>/scripts/gorkhali-state.mjs authorize --workspace <workspace> --scope ship-pr
+node <skill-directory>/scripts/gorkhali-state.mjs ship --workspace <workspace>
 ```
 
 The helper revalidates current fingerprint, gate status, and artifact ordering.

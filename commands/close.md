@@ -1,12 +1,12 @@
 ---
 name: close
-description: "Use when a PR has MERGED and you want to close out the ticket — Jira to Done, archive the session, clean up branch/worktree, record final cost. Shipping a PR → phantom:wrap; close is post-merge."
+description: "Use when a PR has MERGED and you want to close out the ticket — Jira to Done, archive the session, clean up branch/worktree, record final cost. Shipping a PR → gorkhali:wrap; close is post-merge."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:close
+# /gorkhali:close
 
 Post-merge terminal closeout. Two hard principles: **(a) IDEMPOTENT** — safe to re-run; if already closed, report and exit cleanly. **(b) GUARDED** — a failure in any step never leaves a half-broken state; report what succeeded/failed and continue.
 
@@ -29,7 +29,7 @@ Read `{TEAM_DIR}/sessions/{TICKET}/wrap.json`. Extract:
 - `jira.ticket` — the Jira key (falls back to `{TICKET}` arg)
 - `eval.score` — the wrap-time session eval score (may be absent, or `eval-failed`), carried into close.json
 
-If `wrap.json` missing → **STOP**: "No shipped session for {TICKET} — run `/phantom:wrap` first."
+If `wrap.json` missing → **STOP**: "No shipped session for {TICKET} — run `/gorkhali:wrap` first."
 
 If `{TEAM_DIR}/sessions/{TICKET}/close.json` exists and `status == "closed"` → report "Already closed." and exit (idempotent).
 
@@ -41,13 +41,13 @@ gh pr view {pr.number} --json state,mergedAt,mergeCommit,headRefName
 ```
 
 - `state == "MERGED"` → proceed
-- `state == "OPEN"` (or legacy `"DRAFT"`) → **STOP**: "PR #{pr.number} is {state} — merge the PR first, or run `/phantom:greploop` if review is still in progress."
+- `state == "OPEN"` (or legacy `"DRAFT"`) → **STOP**: "PR #{pr.number} is {state} — merge the PR first, or run `/gorkhali:greploop` if review is still in progress."
 - Any other state → **STOP** with the actual state value.
 
 ## Step 3: Jira → Done
 
 Running this command IS the authorization; no confirmation required.
-Read `jira.auto_transition` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/phantom-config.js" get jira.auto_transition` - `{PR_BOOTSTRAP}` per `_shared.md` §Paths).
+Read `jira.auto_transition` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/gorkhali-config.js" get jira.auto_transition` - `{PR_BOOTSTRAP}` per `_shared.md` §Paths).
 Skip the transition ONLY when that command prints exactly `false`.
 Unset prints nothing on stdout (exit 1, reason on stderr) and is NOT a skip signal, so the transition proceeds - unchanged from today for anyone who has never set the key.
 
@@ -56,7 +56,7 @@ Using the Atlassian MCP:
 2. Find the transition whose name matches `Done` (case-insensitive); fall back to `Closed` or `Resolved` in that order.
 3. If already in a terminal state (Done/Closed) → skip transition, note "already Done".
 4. Otherwise `transitionJiraIssue(...)` to move it.
-5. `addCommentToJiraIssue(...)` with: "PR #{pr.number} merged ({mergeCommit.oid[:8]}). Session closed via phantom:close. {pr.url}"
+5. `addCommentToJiraIssue(...)` with: "PR #{pr.number} merged ({mergeCommit.oid[:8]}). Session closed via gorkhali:close. {pr.url}"
 
 Guard: if Jira/MCP unavailable, log "Jira unavailable — skipping transition" and continue; do not block.
 
@@ -80,7 +80,7 @@ git worktree prune
 
 Skip cleanly if branch/worktree already gone. Log each action and result.
 
-Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${PHANTOM_DATA:-$HOME/.phantom}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
+Then clear this session's wake state (the pointer is per-repo — resolve the repo name the same way `start` wrote it, bare-pointer fallback included): `S="{TEAM_DIR}/sessions/{TICKET}"; rm -f "$S/.wake-queue" "$S/.wake-queue.seq" "$S/.triage-log"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/gorkhali-paths").detectRepo())' "$PR" 2>/dev/null || true)"; P="${GORKHALI_DATA:-$HOME/.gorkhali}/state/.active-wake-session${REPO:+.$REPO}"; [ "$(cat "$P" 2>/dev/null)" = "$S" ] && rm -f "$P" || true` — only clears the pointer when it still points at this session.
 
 ## Step 5: Cost Finalize
 
@@ -100,7 +100,7 @@ Read `brainCard.id` from wrap.json (skip cleanly if absent/`null`). Enrich as a 
 
 ```bash
 {PR_BOOTSTRAP}
-REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/phantom-paths").detectRepo())' "$PR" 2>/dev/null || true)"
+REPO="$(node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/gorkhali-paths").detectRepo())' "$PR" 2>/dev/null || true)"
 CARD_ID="{brainCard.id from wrap.json}"
 [ -n "$PR" ] && [ -n "$REPO" ] && [ -n "$CARD_ID" ] && node -e '
   const b = require(process.argv[1] + "/scripts/lib/brain-card");
@@ -124,7 +124,7 @@ Write `{TEAM_DIR}/sessions/{TICKET}/close.json`:
     "writtenAt": "{ISO 8601 now}",
     "gitHead": "{current HEAD sha}",
     "phase": "close",
-    "skill": "phantom:close",
+    "skill": "gorkhali:close",
     "version": 1
   },
   "ticket": "{TICKET}",
@@ -160,12 +160,12 @@ Write the closed-schema outcome record for this ticket now that the session is f
 
 ```bash
 {PR_BOOTSTRAP}
-[ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} || echo "phantom: outcome-write failed or unavailable - outcome.json not written, close continues"
+[ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} || echo "gorkhali: outcome-write failed or unavailable - outcome.json not written, close continues"
 ```
 
 ## Step 9: Future Autonomy Note
 
-Full autonomy — a Mission Control watcher that auto-fires `phantom:close` on merge and advances the ticket queue — is a future layer. This manual skill is the primitive it will call.
+Full autonomy — a Mission Control watcher that auto-fires `gorkhali:close` on merge and advances the ticket queue — is a future layer. This manual skill is the primitive it will call.
 
 ---
 

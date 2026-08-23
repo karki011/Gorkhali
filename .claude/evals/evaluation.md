@@ -1,4 +1,4 @@
-# Phantom Shadows Evaluation Rubric
+# Gorkhali Shadows Evaluation Rubric
 
 Author: Subash Karki
 
@@ -8,8 +8,8 @@ It does NOT own the per-agent criterion lists — those live in [`commands/eval.
 
 Two consumers read this rubric:
 
-- **Per-agent eval** — `/phantom:eval` scores each active shadow 1-5 using the criterion lists in `commands/eval.md`, applying the scale and evidence rules below.
-- **Session-level eval** — `phantom:wrap` Step 5 (Shadows Evaluation) scores the whole session across the five dimensions below and records the result in the session file.
+- **Per-agent eval** — `/gorkhali:eval` scores each active shadow 1-5 using the criterion lists in `commands/eval.md`, applying the scale and evidence rules below.
+- **Session-level eval** — `gorkhali:wrap` Step 5 (Shadows Evaluation) scores the whole session across the five dimensions below and records the result in the session file.
 
 > If an eval cannot READ this file, it MUST report `eval-failed` and stop.
 > It must never invent a scale, invent criteria, or proceed on remembered rules.
@@ -90,7 +90,7 @@ Report the `n/e` count alongside the mean; an agent scored mostly on `n/e` crite
 
 ## Session-Level Evaluation
 
-`phantom:wrap` Step 5 scores the session across five dimensions.
+`gorkhali:wrap` Step 5 scores the session across five dimensions.
 Each dimension is scored 1-5 with a confidence and at least one evidence line drawn from session artifacts.
 
 | Dimension | Weight | Question | Primary evidence |

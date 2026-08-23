@@ -154,13 +154,13 @@ test('the hook is registered on SessionStart for every context-losing source', (
 });
 
 test('the hook stays silent unless the mode is explicitly enabled', () => {
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-shape-off-'));
-  assert.equal(runHook({ PHANTOM_DATA: data, PHANTOM_RESPONSE_SHAPE: '' }), '');
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-shape-off-'));
+  assert.equal(runHook({ GORKHALI_DATA: data, GORKHALI_RESPONSE_SHAPE: '' }), '');
 });
 
 test('the hook injects the contract when the mode is on', () => {
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-shape-on-'));
-  const out = runHook({ PHANTOM_DATA: data, PHANTOM_RESPONSE_SHAPE: 'always' });
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-shape-on-'));
+  const out = runHook({ GORKHALI_DATA: data, GORKHALI_RESPONSE_SHAPE: 'always' });
   assert.match(out, /applies to every response for the rest of this session/);
   assert.ok(out.includes('## Rules'), 'the rules themselves must be injected');
   assert.ok(out.includes('Pre-send check'), 'the pre-send check must be injected');
@@ -169,13 +169,13 @@ test('the hook injects the contract when the mode is on', () => {
 });
 
 test('the hook never blocks session start on bad input', () => {
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-shape-bad-'));
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-shape-bad-'));
   fs.writeFileSync(path.join(data, 'config.json'), 'not json at all');
-  assert.equal(runHook({ PHANTOM_DATA: data, PHANTOM_RESPONSE_SHAPE: '' }), '');
+  assert.equal(runHook({ GORKHALI_DATA: data, GORKHALI_RESPONSE_SHAPE: '' }), '');
 });
 
 test('output.response_shape is a closed enum in the config schema', () => {
-  const config = read(path.join(ROOT, 'scripts', 'phantom-config.js'));
+  const config = read(path.join(ROOT, 'scripts', 'gorkhali-config.js'));
   assert.match(
     config,
     /'output\.response_shape':\s*\{\s*type:\s*'enum',\s*values:\s*\['off',\s*'always'\]\s*\}/,
@@ -184,10 +184,10 @@ test('output.response_shape is a closed enum in the config schema', () => {
 });
 
 test('the portable skill carries the contract too, since it loads no commands', () => {
-  // skills/phantom/ is the provider-neutral distribution: it never reads
+  // skills/gorkhali/ is the provider-neutral distribution: it never reads
   // commands/_shared.md, so omitting the contract there would ship an unshaped
-  // Phantom to every portable host.
-  const router = read(path.join(ROOT, 'skills', 'phantom', 'SKILL.md'));
+  // Gorkhali to every portable host.
+  const router = read(path.join(ROOT, 'skills', 'gorkhali', 'SKILL.md'));
   assert.ok(router.includes('## Response shape'), 'portable router must carry the contract');
   assert.match(router, /every response for the rest of the session/);
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// baseline-report.js - read-only retrospective miner over the existing Phantom corpus.
+// baseline-report.js - read-only retrospective miner over the existing Gorkhali corpus.
 //
 // READ-ONLY: this script has NO side effects - no writes, no mkdir, no mutation.
 // It reads wrap.json / verification.json / outcome.json under
@@ -22,9 +22,9 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { phantomData, timingDir } = require('./lib/phantom-paths');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const { gorkhaliData, timingDir } = require('./lib/gorkhali-paths');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
 const loopController = require('../hooks/loop-controller');
 // The disposition vocabulary and the id derivation, from their one home (B9).
 // The miner never keeps a private copy of either: a second list would drift the
@@ -48,8 +48,8 @@ const USAGE =
 const GH_BATCH_SIZE = 50;
 
 const AGENTS_DIR = path.join(__dirname, '..', 'agents');
-const POLICY_PATH = path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json');
-const PRESETS_PATH = path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-presets.json');
+const POLICY_PATH = path.join(__dirname, '..', 'skills', 'gorkhali', 'references', 'model-policy.json');
+const PRESETS_PATH = path.join(__dirname, '..', 'skills', 'gorkhali', 'references', 'model-presets.json');
 const PRESET_HOST = 'claude-code';
 
 function loadJson(file) {
@@ -516,7 +516,7 @@ function frontmatterModel(agent) {
 // an agent with no row was never expected to pin a model, so it can never
 // "drift". Agents/*.md files without a row (none exist today, but the check is
 // not assumed away) are reported via noPolicyRoleAgents instead, alongside the
-// built-in/recruited agent types collected by nonPhantomAgentRows().
+// built-in/recruited agent types collected by nonGorkhaliAgentRows().
 function modelExpectations(agents, timing) {
   const policy = loadJson(POLICY_PATH);
   const presets = loadJson(PRESETS_PATH);
@@ -561,12 +561,12 @@ function modelExpectations(agents, timing) {
 // ad hoc recruited specialists, etc. These have no pin BY DESIGN and are never
 // policy-drift candidates, so they are reported separately rather than folded
 // into (or silently missing from) the policy comparison table.
-function nonPhantomAgentRows(timing, policy) {
+function nonGorkhaliAgentRows(timing, policy) {
   if (!timing.available || !policy || !policy.roles) return [];
   const policyNames = new Set(Object.keys(policy.roles));
   const rows = [];
   for (const [name, entry] of timing.byAgent) {
-    const bare = name.startsWith('phantom:') ? name.slice('phantom:'.length) : name;
+    const bare = name.startsWith('gorkhali:') ? name.slice('gorkhali:'.length) : name;
     if (policyNames.has(bare)) continue;
     rows.push({
       agent: name,
@@ -580,10 +580,10 @@ function nonPhantomAgentRows(timing, policy) {
 }
 
 // Models actually observed in the timing log for this agent, under both the
-// `phantom:<agent>` and bare `<agent>` spawn names.
+// `gorkhali:<agent>` and bare `<agent>` spawn names.
 function observedModels(timing, agent) {
   const merged = new Map();
-  for (const name of ['phantom:' + agent, agent]) {
+  for (const name of ['gorkhali:' + agent, agent]) {
     const entry = timing.byAgent.get(name);
     if (!entry) continue;
     for (const [model, count] of entry.models) merged.set(model, (merged.get(model) || 0) + count);
@@ -596,7 +596,7 @@ function observedModels(timing, agent) {
 function spawnCountFor(timing, agent) {
   if (!timing.available) return null;
   let total = 0;
-  for (const name of ['phantom:' + agent, agent]) {
+  for (const name of ['gorkhali:' + agent, agent]) {
     const entry = timing.byAgent.get(name);
     if (entry) total += entry.spawns;
   }
@@ -799,7 +799,7 @@ function median(nums) {
  * sibling entry in unresolved[] naming the field and the reason.
  */
 function runBaseline(opts) {
-  const dataRoot = phantomData();
+  const dataRoot = gorkhaliData();
   const unresolved = [];
   const { records, pathResolution, nestedCopies, offBucket, reviewDirsOutsideRecords } = readCorpus(dataRoot);
 
@@ -910,7 +910,7 @@ function runBaseline(opts) {
   const models = modelExpectations(agents, timing);
   if (models.unresolved) unresolved.push({ field: 'model_policy', reason: models.unresolved });
   const policy = loadJson(POLICY_PATH);
-  const nonPhantomAgents = nonPhantomAgentRows(timing, policy);
+  const nonGorkhaliAgents = nonGorkhaliAgentRows(timing, policy);
 
   // MODEL SOURCE: the four-way split ground truth. legacyNoField is a coverage
   // gap, not a routing signal - it cannot be attributed to param/pinned/session
@@ -1239,7 +1239,7 @@ function runBaseline(opts) {
     modelSource,
     models: models.rows,
     noPolicyRoleAgents: models.noPolicyRoleAgents,
-    nonPhantomAgents,
+    nonGorkhaliAgents,
     wallTime: {
       coverage: wallTimes.length + '/' + records.length,
       totalMs: wallTimes.length ? wallTimes.reduce((a, b) => a + b, 0) : null,
@@ -1422,7 +1422,7 @@ function printHuman(r) {
   const w = (s) => process.stdout.write(s + '\n');
 
   w('');
-  w('  Phantom baseline - ' + r.dataRoot);
+  w('  Gorkhali baseline - ' + r.dataRoot);
   w('  ' + r.ts);
   w('');
   w('  CORPUS');
@@ -1499,7 +1499,7 @@ function printHuman(r) {
 }
 
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function parseArgs(argv) {

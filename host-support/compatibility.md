@@ -27,9 +27,9 @@ phase, state-path, or lifecycle authority.
    `<compatibility_scripts_root>` from the resolver only when those mechanics
    remain compatible with the portable contract.
 5. Do not require provider-only hooks, paths under `.claude`, tool names, model aliases, or private MCP identifiers. Prefer helpers under `<portable_skill_root>/scripts`; use a compatibility script only when the portable workflow has no equivalent.
-6. Pass `PHANTOM_DATA=<data_root>` to every compatibility script and inline shell operation that reads or writes Phantom state. Store mutable state under `PHANTOM_DATA` when set, otherwise `~/.phantom`; never write workflow state under `.claude` or any other provider-specific directory.
+6. Pass `GORKHALI_DATA=<data_root>` to every compatibility script and inline shell operation that reads or writes Gorkhali state. Store mutable state under `GORKHALI_DATA` when set, otherwise `~/.gorkhali`; never write workflow state under `.claude` or any other provider-specific directory.
 7. Use the current host's native file, shell, search, delegation, visual, issue-tracker, and review capabilities. Follow the fallback ledger in `<portable_skill_root>/references/capabilities.md` when a capability is unavailable; never turn missing evidence into a pass.
-8. Route a chained `phantom:<workflow>` operation to that installed plugin skill. If direct skill dispatch is unavailable, read its adapter and continue in the current task without launching another host process.
+8. Route a chained `gorkhali:<workflow>` operation to that installed plugin skill. If direct skill dispatch is unavailable, read its adapter and continue in the current task without launching another host process.
 9. Preserve every user approval boundary, lifecycle gate, artifact contract,
    and destructive-action warning required by higher-precedence authority.
    A legacy command's automatic chaining or provider mechanics cannot create

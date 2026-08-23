@@ -45,7 +45,7 @@ per-delegate effort; on this host the session's effort applies to every spawn.
 
 **Chief never invents a model ID (design principle D3).** Chief supplies the role and a risk signal only; the
 policy files decide the model. Pass the value that
-`node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role <role> --host claude-code [--risk <level>]`
+`node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role <role> --host claude-code [--risk <level>]`
 prints (`$PR` resolved by the canonical plugin-root bootstrap in `commands/_shared.md` §Paths — the session
 cwd is the consumer repo, so never invoke the resolver by relative path) as
 the Agent tool `model:` param, explicitly on every spawn rather than leaning on the frontmatter pin: the
@@ -82,7 +82,7 @@ it saves. Batch related small edits into a single Engineer rather than assigning
 never spawn one-line-per-agent. Prefer a single worker when one suffices, and keep spawn counts low
 even when the work could technically be split further.
 
-This file is canonical for Claude-native hosts; `skills/phantom/references/roles.md` deliberately
+This file is canonical for Claude-native hosts; `skills/gorkhali/references/roles.md` deliberately
 carries its own copy of this same calibration for the portable-contract path.
 
 ## Naming

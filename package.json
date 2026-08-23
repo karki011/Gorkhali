@@ -1,11 +1,11 @@
 {
-  "name": "phantom-skill",
+  "name": "gorkhali-skill",
   "private": true,
-  "description": "Phantom provider-neutral Agent Skill and native compatibility distribution.",
+  "description": "Gorkhali provider-neutral Agent Skill and native compatibility distribution.",
   "author": "Subash Karki",
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
-    "validate:skill": "node scripts/validate-portable-skill.mjs skills/phantom",
+    "validate:skill": "node scripts/validate-portable-skill.mjs skills/gorkhali",
     "version:check": "node scripts/release-version.js --check"
   }
 }

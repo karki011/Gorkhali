@@ -19,7 +19,7 @@
 // ROUTE FIELDS: `route` and `route_source` are copied from session.json so the
 // router's choice survives into the durable record. `route` here is the SESSION
 // route (the closed enum lite | direct | plan | brainstorm | full) chosen at start by
-// phantom-state.mjs - it is NOT the solo | shadows EXECUTION route that lives in
+// gorkhali-state.mjs - it is NOT the solo | shadows EXECUTION route that lives in
 // plan.json/wrap.json and is validated by validate-artifact.js. `route_source`
 // (closed vocabulary explicit | default | unknown) records whether that route was
 // chosen or defaulted; a session.json written before route_source existed yields
@@ -41,9 +41,9 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { sessionsDir, completedDir, timingDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, completedDir, timingDir, detectRepo } = require('./lib/gorkhali-paths');
 const { atomicWrite } = require('./lib/atomic');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
 const loopController = require('../hooks/loop-controller');
 
 const USAGE =
@@ -55,7 +55,7 @@ const USAGE =
 const PR_STATE = ['draft', 'open', 'merged', 'closed', 'absent'];
 
 // The ONLY legal route values. This is the SESSION route recorded in session.json
-// by phantom-state.mjs, distinct from wrap.json/plan.json's solo|shadows EXECUTION
+// by gorkhali-state.mjs, distinct from wrap.json/plan.json's solo|shadows EXECUTION
 // route. A session route outside this enum leaves route null plus an unresolved[]
 // entry - never written verbatim.
 const ROUTE = ['lite', 'direct', 'plan', 'brainstorm', 'full'];
@@ -376,7 +376,7 @@ function validRoute(record) {
 }
 
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function parseArgs(argv) {
@@ -432,13 +432,13 @@ function main(argv = process.argv.slice(2)) {
 
   const record = deriveOutcome(opts);
   if (!validPrState(record)) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       'refusing to write: pr_state ' + JSON.stringify(record.pr_state) + ' is outside the closed enum',
       'VALIDATION_ERROR',
     );
   }
   if (!validRoute(record)) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       'refusing to write: route ' + JSON.stringify(record.route) + ' is outside the closed enum',
       'VALIDATION_ERROR',
     );
@@ -449,7 +449,7 @@ function main(argv = process.argv.slice(2)) {
     const sessionDir = resolveSessionDir(record.ticket, record.repo);
     target = opts.out || (sessionDir ? path.join(sessionDir, 'outcome.json') : null);
     if (!target) {
-      throw new PhantomError(
+      throw new GorkhaliError(
         'no session dir for ' + record.ticket + ' and no --out given - nothing to write to',
         'VALIDATION_ERROR',
       );

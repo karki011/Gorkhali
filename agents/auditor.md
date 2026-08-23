@@ -66,13 +66,13 @@ Before writing any finding, read the shared review standard — the named securi
 categories, the severity scale, the confidence axis, the reporting rules, the
 verification pass, the re-review convergence rule, and the finding shape you
 write:
-`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/review-standard.md"` — empty `$PR` skips the read silently; if it was skipped, say so in the artifact's `observationGaps` and apply the standard conservatively.
+`PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/review-standard.md"` — empty `$PR` skips the read silently; if it was skipped, say so in the artifact's `observationGaps` and apply the standard conservatively.
 
 ## Specialist boundary
 
 Auditor does not create a panel: user-visible UI goes to explicit user
 verification, and Chief adds Justice only on the risk triggers listed in
-`skills/phantom/references/verification.md`. Do not duplicate Justice's narrow
+`skills/gorkhali/references/verification.md`. Do not duplicate Justice's narrow
 analysis;
 incorporate its artifact when supplied.
 

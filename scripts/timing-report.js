@@ -18,7 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { timingDir, detectRepo } = require('./lib/phantom-paths');
+const { timingDir, detectRepo } = require('./lib/gorkhali-paths');
 
 function parseArgs() {
   const a = { routing: false, repo: '', since: '' };
@@ -44,7 +44,7 @@ function resolveFile(repoArg) {
   let files = [];
   try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl')); } catch (_) {}
   if (files.length === 1) return path.join(dir, files[0]);
-  if (files.length === 0) { console.error(`No timing logs in ${dir}. Run a Phantom session first.`); process.exit(1); }
+  if (files.length === 0) { console.error(`No timing logs in ${dir}. Run a Gorkhali session first.`); process.exit(1); }
   console.error(`Multiple repos logged. Pass one with --repo:\n  ${files.map((f) => f.replace(/\.jsonl$/, '')).join('\n  ')}`);
   process.exit(1);
 }
@@ -94,7 +94,7 @@ function main() {
   }
   const total = spawns.length;
 
-  console.log(`\n  Phantom agent timing — ${path.basename(file, '.jsonl')}${args.since ? ` (since ${args.since})` : ''}`);
+  console.log(`\n  Gorkhali agent timing — ${path.basename(file, '.jsonl')}${args.since ? ` (since ${args.since})` : ''}`);
   console.log(`  ${total} spawns, ${stops.length} stops\n`);
   console.log('  MODEL ROUTING (exact)');
   for (const m of Object.keys(byModel).sort((a, b) => byModel[b].count - byModel[a].count)) {

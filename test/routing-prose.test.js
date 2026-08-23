@@ -51,29 +51,29 @@ test('routing.md documents repository-scoped portable state', () => {
 
 // ── env-var toggle (replaces the removed config.yaml) ─────────────────────
 
-test('routing.md documents the PHANTOM_ROUTING_ENFORCE env toggle', () => {
+test('routing.md documents the GORKHALI_ROUTING_ENFORCE env toggle', () => {
   const content = read('reference/routing.md');
   assert.ok(
-    /PHANTOM_ROUTING_ENFORCE/.test(content),
-    'routing.md must document PHANTOM_ROUTING_ENFORCE as the opt-in arm toggle'
+    /GORKHALI_ROUTING_ENFORCE/.test(content),
+    'routing.md must document GORKHALI_ROUTING_ENFORCE as the opt-in arm toggle'
   );
 });
 
 // ── hooks/routing-gate.js ─────────────────────────────────────────────────
 
-test("hooks/routing-gate.js deny reason contains 'phantom:start'", () => {
+test("hooks/routing-gate.js deny reason contains 'gorkhali:start'", () => {
   const content = read('hooks/routing-gate.js');
   assert.ok(
-    content.includes('phantom:start'),
-    "routing-gate.js deny reason must reference 'phantom:start'"
+    content.includes('gorkhali:start'),
+    "routing-gate.js deny reason must reference 'gorkhali:start'"
   );
 });
 
-test("hooks/routing-gate.js deny reason contains 'PHANTOM_ADHOC'", () => {
+test("hooks/routing-gate.js deny reason contains 'GORKHALI_ADHOC'", () => {
   const content = read('hooks/routing-gate.js');
   assert.ok(
-    content.includes('PHANTOM_ADHOC'),
-    "routing-gate.js must reference 'PHANTOM_ADHOC' in its deny reason or bypass logic"
+    content.includes('GORKHALI_ADHOC'),
+    "routing-gate.js must reference 'GORKHALI_ADHOC' in its deny reason or bypass logic"
   );
 });
 

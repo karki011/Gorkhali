@@ -1,4 +1,4 @@
-# Phantom Shadows -- Detective Mode Context
+# Gorkhali Shadows -- Detective Mode Context
 
 > Loaded at T2+ when detective mode activates.
 > Skip entirely if not in a detective flow (bug investigation, verify failure, fix loop 2+).
@@ -14,7 +14,7 @@
 | Defect or regression detected in `start.md` Phase A | Keywords, Jira type, branch prefix | Defect proof gate |
 | Verification failure in `verify.md` | Any correctness check fails | Failure scan (targeted) |
 | Fix loop 2+ in `fix.md` | Same failure class repeats | Deep investigation (full) |
-| Explicit `/phantom:detective` | User invocation | Full investigation |
+| Explicit `/gorkhali:detective` | User invocation | Full investigation |
 
 Depth levels and abbreviated flows defined in `reference/detective/depth-levels.md`.
 The start-time pre-scan may enrich context, but it never authorizes a fix.

@@ -6,7 +6,7 @@
 // the verdict. queue.md Step 3b calls it as a per-ticket readiness check.
 //
 // Usage:
-//   phantom-preflight --ticket <T> [--repo <path>] [--max-files <N>]
+//   gorkhali-preflight --ticket <T> [--repo <path>] [--max-files <N>]
 //                     [--strict-jira] [--json]
 //
 // Exit codes: 0 = all gates pass; 1 = any gate fails; 2 = usage/env error.
@@ -16,16 +16,16 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { phantomData, stateDir, sessionsDir, detectRepo } = require('./lib/phantom-paths');
+const { gorkhaliData, stateDir, sessionsDir, detectRepo } = require('./lib/gorkhali-paths');
 const { PREFLIGHT_MAX_FILES, MARKER_FRESHNESS_MS } = require('./lib/constants');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
 const markerState = require('../hooks/engineer-marker-state');
 
 // Staleness window for the current-session collision marker.
 const FRESH_WINDOW_MS = MARKER_FRESHNESS_MS;
 
 const USAGE =
-  'usage: phantom-preflight --ticket <T> [--repo <path>] [--max-files <N>] ' +
+  'usage: gorkhali-preflight --ticket <T> [--repo <path>] [--max-files <N>] ' +
   '[--strict-jira] [--json]\n';
 
 function git(args, cwd) {
@@ -46,10 +46,10 @@ function loadJson(file) {
 
 // Feature-branch discipline is enforced by convention and checked at wrap -
 // no hook blocks the Edit; there is no feature-branch-gate.sh. Protected
-// branches: PHANTOM_PROTECTED_BRANCHES env (comma / pipe / space separated) >
+// branches: GORKHALI_PROTECTED_BRANCHES env (comma / pipe / space separated) >
 // default "main master develop".
 function protectedBranches() {
-  const raw = process.env.PHANTOM_PROTECTED_BRANCHES;
+  const raw = process.env.GORKHALI_PROTECTED_BRANCHES;
   const list = raw ? raw.split(/[,|\s]+/).filter(Boolean) : [];
   return list.length ? list : ['main', 'master', 'develop'];
 }
@@ -135,9 +135,9 @@ function checkBlastRadius(repo, ticket, maxFiles) {
 }
 
 function checkJira(ticket, strictJira) {
-  const cmd = process.env.PHANTOM_JIRA_CHECK_CMD;
+  const cmd = process.env.GORKHALI_JIRA_CHECK_CMD;
   if (cmd && cmd.trim()) {
-    const res = spawnSync('/bin/sh', ['-c', cmd + ' "$1"', 'phantom-preflight-jira', ticket], {
+    const res = spawnSync('/bin/sh', ['-c', cmd + ' "$1"', 'gorkhali-preflight-jira', ticket], {
       encoding: 'utf-8',
     });
     return res.status === 0
@@ -147,7 +147,7 @@ function checkJira(ticket, strictJira) {
   if (strictJira) {
     return { status: 'fail', detail: 'no jira provider configured and --strict-jira set' };
   }
-  return { status: 'skip', detail: 'no jira provider configured (PHANTOM_JIRA_CHECK_CMD unset)', stubbed: true };
+  return { status: 'skip', detail: 'no jira provider configured (GORKHALI_JIRA_CHECK_CMD unset)', stubbed: true };
 }
 
 /**
@@ -183,7 +183,7 @@ function runPreflight(opts) {
 // Usage errors are VALIDATION_ERROR-class -> exitCodeForError maps them to 2,
 // preserving preflight's historical usage exit code.
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function parseArgs(argv) {

@@ -1,6 +1,6 @@
 # Ship Ceremony
 
-> **Context:** Called during `/phantom:wrap` only after the portable ship gate confirms current passed Inspector verification and Auditor review, plus every risk-triggered specialist. Missing, failed, blocked, or stale required evidence stops before this ceremony. No git operations happened before this point — all prior work was local-only.
+> **Context:** Called during `/gorkhali:wrap` only after the portable ship gate confirms current passed Inspector verification and Auditor review, plus every risk-triggered specialist. Missing, failed, blocked, or stale required evidence stops before this ceremony. No git operations happened before this point — all prior work was local-only.
 
 ## 1. Stage Changed Files
 
@@ -42,7 +42,7 @@ Create the PR **autonomously** — do NOT ask the user to confirm before creatin
 ### PR body
 
 The body is neither written nor specified here. Chief rendered
-`{SESSION_DIR}/pr-body.md` at `/phantom:wrap` Step 3 from session artifacts;
+`{SESSION_DIR}/pr-body.md` at `/gorkhali:wrap` Step 3 from session artifacts;
 `reference/wrap/pr-body.md` is the single copy of that three-section contract.
 Clerk's entire body operation is passing the file through:
 
@@ -81,10 +81,10 @@ The loop **always runs**. Greptile auto-reviews the PR on creation; we poll it, 
 After the PR is created, hand off to the greploop skill:
 
 ```
-Skill(skill="phantom:greploop", args="{PR_NUMBER}")
+Skill(skill="gorkhali:greploop", args="{PR_NUMBER}")
 ```
 
-This triggers Greptile (`@greptileai review`), polls the check-run, fixes actionable comments, replies in-thread (tone from `PHANTOM_GREPTILE_TONE`: `neutral` default, `roast` opt-in), resolves threads, and re-reviews — looping until **5/5 confidence with zero unresolved comments** or the iteration ceiling (default 5).
+This triggers Greptile (`@greptileai review`), polls the check-run, fixes actionable comments, replies in-thread (tone from `GORKHALI_GREPTILE_TONE`: `neutral` default, `roast` opt-in), resolves threads, and re-reviews — looping until **5/5 confidence with zero unresolved comments** or the iteration ceiling (default 5).
 
 - Skip if section 4 skipped the PR (no PR → no greploop).
 - If `gh`/Greptile unavailable or greploop errors: log a warning and tell the user "Greptile loop not run — request manually with `@greptileai review`." Do not block the wrap.

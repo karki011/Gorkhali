@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// rename-roster.mjs - mechanical Depth 2 rename of Phantom's agent-naming
+// rename-roster.mjs - mechanical Depth 2 rename of Gorkhali's agent-naming
 // vocabulary (11 roles + 64 characters, 75 tokens total) across the whole
 // repo. `reference/roster.md` is the new-vocabulary SSoT this rename derives
 // from (already rewritten by an earlier task in this same rename effort).
@@ -148,7 +148,7 @@ export const EXCEPTIONS = {
     { re: /distinct lens/i, note: 'approach-lens prose' },
     { re: /whyLens/i, note: 'the whyLens schema field name is the approach-lens concept, not the agent' },
     // Found while curating: additional genuine approach-lens usages in
-    // reference/brainstorm.md and skills/phantom/references/brainstorming.md
+    // reference/brainstorm.md and skills/gorkhali/references/brainstorming.md
     // that do not contain any of the base patterns above.
     { re: /idea's lens/i, note: "brainstorming.md: \"Record each idea's lens\" - approach-lens, not the agent" },
     { re: /summary,\s*lens,\s*technique/i, note: 'brainstorming.md ideas[] schema field list - "lens" is a field name for the approach-lens concept' },
@@ -182,7 +182,7 @@ export const EXCEPTIONS = {
 // Whole-file exemptions: every "sweep" occurrence in these files is the
 // generic filesystem/session maintenance-pass sense (repo-dirs consolidation,
 // stale-lock reclaim, per-repo archival sweep) - confirmed by inspection that
-// none of them ever mention subagent_type, phantom:sweep, agents/sweep, or
+// none of them ever mention subagent_type, gorkhali:sweep, agents/sweep, or
 // any other Sweep-agent call site. Doing this at file scope (rather than
 // hunting down every individual "the sweep .../sweep's ..." phrasing) keeps
 // the exception list honest instead of an ever-growing regex pile chasing
@@ -232,12 +232,12 @@ export const FILE_EXEMPT = {
   ],
   // Every "lens" occurrence in this file is the ideas[] approach-lens schema
   // field name (brainstorm contract v3: `{ id, title, summary, lens,
-  // technique, ... }`, matching skills/phantom/references/brainstorming.md
+  // technique, ... }`, matching skills/gorkhali/references/brainstorming.md
   // and reference/brainstorm.md), not the Lens/Surveyor agent - confirmed by
   // inspection that decision-contracts.mjs never mentions subagent_type,
-  // phantom:lens, or any other Lens-agent call site.
+  // gorkhali:lens, or any other Lens-agent call site.
   lens: [
-    'skills/phantom/scripts/lib/decision-contracts.mjs',
+    'skills/gorkhali/scripts/lib/decision-contracts.mjs',
     // fixtures/tests that mirror the same ideas[].lens schema field
     'test/decision-first-output.test.js',
     'test/fixtures/decision-first/brainstorm-v3-rich.json',

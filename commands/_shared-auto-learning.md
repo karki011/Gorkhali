@@ -1,4 +1,4 @@
-# Phantom Shadows -- Auto-Learning System
+# Gorkhali Shadows -- Auto-Learning System
 
 > See `reference/learning-system.md` for full protocol.
 
@@ -6,4 +6,4 @@
 
 **Domain routing:** ui (*.tsx, components/), data (*.api.*, hooks/), auth (auth/, session/), testing (*.test.*), tooling (*.config.*), migration (migrations/), shadows (workflow, agent).
 
-**Writes go through one locked API.** Never edit `INDEX.md` / `auto-captures.md` / domain files by hand from a workflow. The auto-capture and consolidation hooks and any portable workflow route writes through the canonical, concurrent-safe learning API (`skills/phantom/scripts/phantom-learning.mjs capture|consolidate`, candidates JSON on stdin). It takes a per-repo lock and never writes unlocked, so concurrent writers keep every entry. See `skills/phantom/references/state.md` § Learning index.
+**Writes go through one locked API.** Never edit `INDEX.md` / `auto-captures.md` / domain files by hand from a workflow. The auto-capture and consolidation hooks and any portable workflow route writes through the canonical, concurrent-safe learning API (`skills/gorkhali/scripts/gorkhali-learning.mjs capture|consolidate`, candidates JSON on stdin). It takes a per-repo lock and never writes unlocked, so concurrent writers keep every entry. See `skills/gorkhali/references/state.md` § Learning index.

@@ -9,7 +9,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
-test('the optional Phantom Surveyor agent ships with only its private protocols', () => {
+test('the optional Gorkhali Surveyor agent ships with only its private protocols', () => {
   for (const file of [
     'agents/surveyor.md',
     'reference/agent-protocols/smart-auth.md',
@@ -25,8 +25,8 @@ test('visual verification defaults to the user and activates Surveyor only expli
   const adapter = read('skills/visual/SKILL.md');
 
   assert.match(command, /user checklist by default/i);
-  assert.match(command, /only when.*--surveyor.*affirmatively.*run, use, or invoke Phantom Surveyor/is);
-  assert.match(command, /Merely naming,\s+asking about, or negating Surveyor.*do not use Phantom Surveyor.*does not\s+activate it/is);
+  assert.match(command, /only when.*--surveyor.*affirmatively.*run, use, or invoke Gorkhali Surveyor/is);
+  assert.match(command, /Merely naming,\s+asking about, or negating Surveyor.*do not use Gorkhali Surveyor.*does not\s+activate it/is);
   assert.match(command, /exactly one read-only Surveyor named `surveyor-meridan`/i);
   assert.match(command, /do not create a\s+review specialist artifact/i);
   assert.match(command, /never replaces explicit user\s+confirmation/i);
@@ -39,7 +39,7 @@ test('visual verification defaults to the user and activates Surveyor only expli
 });
 
 test('Surveyor is registered for explicit delegation but cannot auto-route or gate shipping', () => {
-  const policy = JSON.parse(read('skills/phantom/references/model-policy.json'));
+  const policy = JSON.parse(read('skills/gorkhali/references/model-policy.json'));
   assert.equal(policy.roles.surveyor, 'balanced');
   assert.equal(policy.critical_elevation.eligible_roles.includes('surveyor'), true);
 
@@ -69,7 +69,7 @@ test('Surveyor is registered for explicit delegation but cannot auto-route or ga
   assert.match(protocol, /manager is unavailable.*card is absent or ambiguous.*no\s+running Dev link.*ask through the caller for the exact URL/is);
   assert.match(protocol, /Never click Start\/Restart Dev,\s+guess a port, or select a different worktree/i);
 
-  const state = read('skills/phantom/scripts/phantom-state.mjs');
+  const state = read('skills/gorkhali/scripts/gorkhali-state.mjs');
   assert.match(state, /SPECIALIST_ROLES\s*=\s*new Set\(\['justice'\]\)/);
   assert.doesNotMatch(state, /SPECIALIST_ROLES[^;]*surveyor/i);
 });

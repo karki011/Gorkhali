@@ -1,6 +1,6 @@
 # `brainstorm.json` Schema
 
-Written by `phantom:brainstorm`'s Diverge phase. Schema v3 is a
+Written by `gorkhali:brainstorm`'s Diverge phase. Schema v3 is a
 decision-first review contract presented at the Convergence human gate before a
 choice is locked into `decisions.json`.
 

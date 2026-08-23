@@ -11,8 +11,8 @@ and decision gates. Ask the user for explicit implementation authorization,
 then record it:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope implementation
-node <skill-directory>/scripts/phantom-state.mjs execute --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs authorize --workspace <path> --scope implementation
+node <skill-directory>/scripts/gorkhali-state.mjs execute --workspace <path>
 ```
 
 Let the state helper reject missing or stale prerequisites. Do not infer that a
@@ -111,7 +111,7 @@ criteria, changed paths, current dirty state, decisions, checks, blockers, and
 the exact next safe action:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs pause --workspace <path> --reason <text>
+node <skill-directory>/scripts/gorkhali-state.mjs pause --workspace <path> --reason <text>
 ```
 
 On resume, reread repository instructions and corrections, compare the current

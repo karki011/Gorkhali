@@ -1,13 +1,13 @@
 ---
 name: detective
-description: "Use when investigating an UNKNOWN cause — bug, regression, wrong behavior with no error, failing since a deploy. HTML forensic reports. Known failures → phantom:fix; Phantom itself → phantom:health."
+description: "Use when investigating an UNKNOWN cause — bug, regression, wrong behavior with no error, failing since a deploy. HTML forensic reports. Known failures → gorkhali:fix; Gorkhali itself → gorkhali:health."
 argument-hint: "<symptoms or file paths>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:detective "$ARGUMENTS"
+# /gorkhali:detective "$ARGUMENTS"
 
 Forensic investigation engine. Main LLM = **coordinator**: gather symptoms, spawn Detective agent to investigate, present findings. Coordinator does NOT run investigation steps — delegates entirely to the Detective agent.
 
@@ -74,7 +74,7 @@ cleanup evidence may set cleanupStatus to cleaned, and only explicit user approv
 approved_in_scope.
 
 Obtain the canonical baselineFingerprint with portable
-`phantom-state.mjs fingerprint --workspace <path>` when command execution is
+`gorkhali-state.mjs fingerprint --workspace <path>` when command execution is
 available. Do not invent or approximate it.
 
 ## Other output

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // gen-agent-frontmatter.js - regenerates the `model:` pin in agents/*.md from
-// skills/phantom/references/model-policy.json so model policy is stated ONCE.
+// skills/gorkhali/references/model-policy.json so model policy is stated ONCE.
 //
 // Chain (no second source of truth): model-policy.json maps role -> profile,
 // model-presets.json maps profile + host -> concrete model, and this script
 // stamps the result into frontmatter. Resolution itself is delegated to
-// skills/phantom/scripts/resolve-profile.mjs - never re-implemented here.
+// skills/gorkhali/scripts/resolve-profile.mjs - never re-implemented here.
 //
 // Only the `model:` line is generated. `effort` is deliberately untouched:
 // effort is uniform `high` and session-inherited (reference/agents.md), so it
@@ -27,7 +27,7 @@
 //     so policy moved up to balanced rather than the pin moving down.
 //
 // Usage:
-//   phantom-gen-agent-frontmatter [--check] [--json] [--dir <agents dir>]
+//   gorkhali-gen-agent-frontmatter [--check] [--json] [--dir <agents dir>]
 //
 // Exit codes: 0 = in sync (or written); 1 = drift found under --check;
 // 2 = usage/validation error.
@@ -37,10 +37,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
 
 const REPO_ROOT = path.join(__dirname, '..');
-const RESOLVER = path.join(REPO_ROOT, 'skills', 'phantom', 'scripts', 'resolve-profile.mjs');
+const RESOLVER = path.join(REPO_ROOT, 'skills', 'gorkhali', 'scripts', 'resolve-profile.mjs');
 const AGENTS_DIR = path.join(REPO_ROOT, 'agents');
 
 // The host whose presets the checked-in frontmatter represents. Other hosts
@@ -54,10 +54,10 @@ const EXEMPT_ROLES = new Set(['chief']);
 const MARKER_PREFIX = '# GENERATED from model-policy.json';
 
 const USAGE =
-  'usage: phantom-gen-agent-frontmatter [--check] [--json] [--dir <agents dir>]\n';
+  'usage: gorkhali-gen-agent-frontmatter [--check] [--json] [--dir <agents dir>]\n';
 
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function resolveRole(role) {
@@ -68,12 +68,12 @@ function resolveRole(role) {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (err) {
-    throw new PhantomError('resolve-profile.mjs failed for role ' + role + ': ' + err.message, 'IO_ERROR');
+    throw new GorkhaliError('resolve-profile.mjs failed for role ' + role + ': ' + err.message, 'IO_ERROR');
   }
   try {
     return JSON.parse(raw);
   } catch (_) {
-    throw new PhantomError('resolve-profile.mjs returned non-JSON for role ' + role, 'IO_ERROR');
+    throw new GorkhaliError('resolve-profile.mjs returned non-JSON for role ' + role, 'IO_ERROR');
   }
 }
 

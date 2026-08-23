@@ -84,7 +84,7 @@ function mine(dataRoot, gh, extraArgs = []) {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      PHANTOM_DATA: dataRoot,
+      GORKHALI_DATA: dataRoot,
       PATH: gh.dir + path.delimiter + process.env.PATH,
       FAKE_GH_STATES: JSON.stringify(gh.states),
     },

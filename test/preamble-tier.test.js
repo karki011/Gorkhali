@@ -43,7 +43,7 @@ test('the registry covers exactly the commands that exist, once each', () => {
   assert.deepEqual(
     registryCommands(),
     commandFiles(),
-    'preamble-tier.js commands must equal commands/*.md (no phantom entries, none missing, none twice)',
+    'preamble-tier.js commands must equal commands/*.md (no gorkhali entries, none missing, none twice)',
   );
 });
 

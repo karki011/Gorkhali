@@ -29,7 +29,7 @@
 const fs = require('fs');
 const { normalizeReview, normalizeFinding } = require('./lib/review-standard');
 const { findingId } = require('./lib/review-finding');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 /** What would change in one artifact, without touching disk. */
 function planFile(file) {
@@ -37,13 +37,13 @@ function planFile(file) {
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch (err) {
-    throw new PhantomError(`ERROR: cannot read ${file}: ${err.message}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: cannot read ${file}: ${err.message}`, 'IO_ERROR');
   }
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new PhantomError(`ERROR: ${file} is not valid JSON: ${err.message}`, 'VALIDATION_ERROR');
+    throw new GorkhaliError(`ERROR: ${file} is not valid JSON: ${err.message}`, 'VALIDATION_ERROR');
   }
 
   const next = normalizeReview(parsed);
@@ -83,7 +83,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--check') args.check = true;
     else if (a === '--help') args.help = true;
-    else if (a.startsWith('--')) throw new PhantomError(`ERROR: unknown option: ${a}`, 'USAGE');
+    else if (a.startsWith('--')) throw new GorkhaliError(`ERROR: unknown option: ${a}`, 'USAGE');
     else args.files.push(a);
   }
   return args;
@@ -101,7 +101,7 @@ function main(argv, { stdout = process.stdout } = {}) {
 
   const refused = plans.filter((p) => p.idShifts.length);
   if (refused.length) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `Refusing to migrate: ${refused.length} file(s) would move a finding id, breaking the link to any recorded disposition.`,
       'VALIDATION_ERROR',
       ['Report this: normalization is supposed to be id-preserving, so a shift means a bug in scripts/lib/review-standard.js']
@@ -111,7 +111,7 @@ function main(argv, { stdout = process.stdout } = {}) {
   const pending = plans.filter((p) => p.changed);
   if (args.check) {
     if (pending.length) {
-      throw new PhantomError(
+      throw new GorkhaliError(
         `${pending.length} file(s) are not in the canonical shape.`,
         'VALIDATION_ERROR',
         ['Run: node scripts/migrate-review-findings.js ' + pending.map((p) => p.file).join(' ')]

@@ -1,4 +1,4 @@
-# Phantom — Shadows Context
+# Gorkhali — Shadows Context
 
 > Loaded by commands that spawn agents. Always load `_shared.md` first.
 

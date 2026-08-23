@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // routing-gate.js — PreToolUse hook that denies implementation edits in
-// Git repositories when no matching portable Phantom session is active.
+// Git repositories when no matching portable Gorkhali session is active.
 //
 // FAIL-OPEN POLARITY — read this before editing: this is an opt-in DISCIPLINE
 // gate, NOT a safety gate. It FAILS OPEN: any crash or ambiguity in the enforce
 // branch must ALLOW the edit. The gate is armed ONLY by the env var
-// PHANTOM_ROUTING_ENFORCE=1; with it unset (the default) the gate is a no-op.
+// GORKHALI_ROUTING_ENFORCE=1; with it unset (the default) the gate is a no-op.
 // Always exits 0 — the decision rides the stdout JSON.
 'use strict';
 
@@ -14,17 +14,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-let phantomData, stateDir, detectRepo, resolveRepoSubdir, routingState;
+let gorkhaliData, stateDir, detectRepo, resolveRepoSubdir, routingState;
 try {
-  ({ phantomData, stateDir, detectRepo, resolveRepoSubdir } = require('../scripts/lib/phantom-paths'));
+  ({ gorkhaliData, stateDir, detectRepo, resolveRepoSubdir } = require('../scripts/lib/gorkhali-paths'));
   ({ routingState } = require('../scripts/lib/routing-state'));
 } catch (_) {
-  // fail open: inline fallback matching phantom-paths.js logic
+  // fail open: inline fallback matching gorkhali-paths.js logic
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
-  phantomData = () => data;
-  stateDir = () => path.join(phantomData(), 'state');
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
+  gorkhaliData = () => data;
+  stateDir = () => path.join(gorkhaliData(), 'state');
   detectRepo = null;
   resolveRepoSubdir = null;
   routingState = null;
@@ -56,8 +56,8 @@ function main() {
     return; // unparseable stdin → allow
   }
 
-  // Opt-in only: armed solely by PHANTOM_ROUTING_ENFORCE=1 → otherwise no-op.
-  if (process.env.PHANTOM_ROUTING_ENFORCE !== '1') return;
+  // Opt-in only: armed solely by GORKHALI_ROUTING_ENFORCE=1 → otherwise no-op.
+  if (process.env.GORKHALI_ROUTING_ENFORCE !== '1') return;
 
   // ── Enforce branch: every error path below ALLOWS (fail open). ──
   try {
@@ -66,7 +66,7 @@ function main() {
     const cwd = payload.cwd || process.cwd();
 
     // Logged escape hatch for deliberate ad-hoc work.
-    if (process.env.PHANTOM_ADHOC === '1') {
+    if (process.env.GORKHALI_ADHOC === '1') {
       try {
         fs.mkdirSync(stateDir(), { recursive: true });
         fs.appendFileSync(
@@ -81,8 +81,8 @@ function main() {
 
     const target = realResolve(path.isAbsolute(rawTarget) ? rawTarget : path.resolve(cwd, rawTarget));
 
-    // Phantom's own data tree is never gated.
-    if (within(target, realResolve(phantomData()))) return;
+    // Gorkhali's own data tree is never gated.
+    if (within(target, realResolve(gorkhaliData()))) return;
 
     // Walk up from the target dir to the repo boundary. W8: `.git` may be a
     // FILE (worktree pointer) or a DIRECTORY — both count; existsSync covers
@@ -95,15 +95,15 @@ function main() {
       if (parent === dir) break;
       dir = parent;
     }
-    if (!repoRoot) return; // not inside a repo → not phantom's business
+    if (!repoRoot) return; // not inside a repo → not gorkhali's business
 
-    // Preserve the existing Phantom-known scope unless the operator explicitly
+    // Preserve the existing Gorkhali-known scope unless the operator explicitly
     // opts into all Git repositories. Missing hook code and operational read
     // failures are gate failures and therefore allow the edit.
     if (!detectRepo || !resolveRepoSubdir || !routingState) return;
     const repo = detectRepo(repoRoot);
     const known = fs.existsSync(resolveRepoSubdir(repo));
-    if (!known && process.env.PHANTOM_ROUTING_SCOPE !== 'all-git') return;
+    if (!known && process.env.GORKHALI_ROUTING_SCOPE !== 'all-git') return;
     const state = routingState(repoRoot);
     if (state === 'active' || state === 'unknown') return;
 
@@ -112,8 +112,8 @@ function main() {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason:
-          'ROUTING GATE: implementation edit outside a matching Phantom session — invoke ' +
-          'phantom:start, or set PHANTOM_ADHOC=1 for ad-hoc work ' +
+          'ROUTING GATE: implementation edit outside a matching Gorkhali session — invoke ' +
+          'gorkhali:start, or set GORKHALI_ADHOC=1 for ad-hoc work ' +
           '(logged). See reference/routing.md',
       },
     }));

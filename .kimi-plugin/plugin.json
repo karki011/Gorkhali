@@ -1,12 +1,12 @@
 {
-  "name": "phantom",
+  "name": "gorkhali",
   "version": "0.10.0",
   "description": "Provider-adaptive multi-agent development workflows for Kimi Code.",
   "author": {
     "name": "Subash Karki"
   },
-  "homepage": "https://github.com/Cloudzero/research-phantom-skills",
-  "repository": "https://github.com/Cloudzero/research-phantom-skills",
+  "homepage": "https://github.com/karki011/Gorkhali",
+  "repository": "https://github.com/karki011/Gorkhali",
   "keywords": [
     "orchestration",
     "multi-agent",
@@ -30,7 +30,7 @@
     }
   ],
   "interface": {
-    "displayName": "Phantom",
+    "displayName": "Gorkhali",
     "shortDescription": "Provider-adaptive software delivery workflows",
     "longDescription": "Plan, implement, investigate, review, verify, pause, resume, and ship software work through capability-adaptive workflows.",
     "developerName": "Subash Karki",
@@ -39,11 +39,11 @@
       "Interactive",
       "Write"
     ],
-    "websiteURL": "https://github.com/Cloudzero/research-phantom-skills",
+    "websiteURL": "https://github.com/karki011/Gorkhali",
     "defaultPrompt": [
-      "Use Phantom to plan and implement this task.",
-      "Use Phantom to investigate this failure.",
-      "Use Phantom to review and verify these changes."
+      "Use Gorkhali to plan and implement this task.",
+      "Use Gorkhali to investigate this failure.",
+      "Use Gorkhali to review and verify these changes."
     ]
   }
 }

@@ -80,9 +80,9 @@ after the human or delegated approval is recorded separately.
     {
       "id": "T1",
       "description": "Validate the AI-authored decision review before presentation",
-      "read_first": ["skills/phantom/scripts/validate-review-html.mjs"],
+      "read_first": ["skills/gorkhali/scripts/validate-review-html.mjs"],
       "action": "Enforce the review HTML safety and decision-fidelity contract",
-      "files": ["skills/phantom/scripts/validate-review-html.mjs"],
+      "files": ["skills/gorkhali/scripts/validate-review-html.mjs"],
       "dependsOn": [],
       "acceptance_criteria": ["Unsafe or decision-incomplete review HTML cannot replace the accepted page"],
       "verify": "node --test test/validate-review-html.test.js",
@@ -121,7 +121,7 @@ Each entry in `plan.json -> tasks[]` must follow this shape:
 }
 ```
 
-`{TEST_CMD}` / `{LINT_CMD}` are resolved via the discovery protocol in `skills/phantom/references/verification.md`. Generated plans must contain the resolved concrete commands, not the placeholders.
+`{TEST_CMD}` / `{LINT_CMD}` are resolved via the discovery protocol in `skills/gorkhali/references/verification.md`. Generated plans must contain the resolved concrete commands, not the placeholders.
 
 **Field rules:**
 

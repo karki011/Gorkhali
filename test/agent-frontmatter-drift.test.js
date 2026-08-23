@@ -1,6 +1,6 @@
 // Author: Subash Karki
 // agent-frontmatter-drift.test.js — locks agents/*.md `model:` pins to
-// skills/phantom/references/model-policy.json. Hand-editing a pin (or editing
+// skills/gorkhali/references/model-policy.json. Hand-editing a pin (or editing
 // policy without regenerating) fails here, so the policy file stays the single
 // source of truth. chief.md is exempt: it inherits the session model and carries
 // no pin by design.
@@ -63,7 +63,7 @@ test('--check exits 0 in sync and mutates nothing', () => {
 });
 
 test('a hand-edited pin makes --check fail with exit 1', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-frontmatter-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-frontmatter-'));
   fs.cpSync(AGENTS_DIR, dir, { recursive: true });
   const bladePath = path.join(dir, 'engineer.md');
   fs.writeFileSync(
@@ -83,7 +83,7 @@ test('a hand-edited pin makes --check fail with exit 1', () => {
 });
 
 test('generation is idempotent — a second run writes nothing', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-frontmatter-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-frontmatter-'));
   fs.cpSync(AGENTS_DIR, dir, { recursive: true });
   assert.equal(generate({ dir }).written, 0, 'checked-in frontmatter is already generated output');
   assert.equal(generate({ dir }).written, 0, 'second run must be a no-op');

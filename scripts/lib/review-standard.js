@@ -293,7 +293,7 @@ function normalizeReviewerModel(value) {
 // obtained; when no legal independent check exists at all, label the
 // acceptance "accepted under reduced assurance", never a silent clean pass.
 //
-// In Phantom this is COMMON, not an edge case: the delegated roles span two
+// In Gorkhali this is COMMON, not an edge case: the delegated roles span two
 // model-policy tiers on claude-code (economy -> haiku, balanced/deep ->
 // sonnet), so an Engineer (balanced) verified by an Inspector (economy) is
 // already a cross-tier pair - but same-tier pairs (an Auditor reviewing
@@ -488,7 +488,7 @@ const CLAIM_KEYS = Object.freeze(['evidence', 'issue', 'message', 'description']
 
 // One spelling for the not-observed array. Auditor wrote `observation_gaps`,
 // Justice wrote `observationGaps`; camelCase wins because every other key in
-// every Phantom artifact is camelCase.
+// every Gorkhali artifact is camelCase.
 const GAPS_KEY = 'observationGaps';
 const LEGACY_GAPS_KEY = 'observation_gaps';
 
@@ -848,7 +848,7 @@ function precisionGate({ before, after, minSample = PRECISION_GATE.minSample, mo
 // the freshness property by construction rather than by discipline: there is no
 // stale verdict in it TO reuse. scripts/review-round.js owns the file I/O.
 const REVIEW_ROUNDS_FILE = 'rounds.json';
-const REVIEW_ROUNDS_SCHEMA = 'phantom.review-rounds/1';
+const REVIEW_ROUNDS_SCHEMA = 'gorkhali.review-rounds/1';
 
 /** Every finding id recorded by any earlier round, de-duplicated, in order. */
 function priorFindingIds(ledger) {

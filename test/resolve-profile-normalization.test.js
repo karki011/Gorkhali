@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // resolve-profile-normalization.test.js - EXECUTED tests for role normalization
 // in resolveProfile(). Delegation-v2 tasks carry a title-cased role such as
-// "Engineer" (see skills/phantom/references/roles.md), but model-policy.json keys
+// "Engineer" (see skills/gorkhali/references/roles.md), but model-policy.json keys
 // its roles lowercase. Role matching must normalize case so that neither the
 // policy.roles lookup nor the critical_elevation.eligible_roles check silently
 // falls through to the default profile.
@@ -13,7 +13,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..');
-const RESOLVER = path.join(REPO_ROOT, 'skills', 'phantom', 'scripts', 'resolve-profile.mjs');
+const RESOLVER = path.join(REPO_ROOT, 'skills', 'gorkhali', 'scripts', 'resolve-profile.mjs');
 
 function runJson(args) {
   return JSON.parse(execFileSync(process.execPath, [RESOLVER, ...args], { encoding: 'utf8' }));

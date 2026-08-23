@@ -7,7 +7,7 @@
 //   3. current bias comes from the newest PATTERN [routing-bias] learnings entry;
 //   4. dry-run writes nothing; --apply appends exactly the printed entry.
 // Fixtures mirror test/route-report.test.js: a real corpus in tmpdir, CLI as a
-// child process with PHANTOM_DATA pointed at it.
+// child process with GORKHALI_DATA pointed at it.
 'use strict';
 
 const { test } = require('node:test');
@@ -42,7 +42,7 @@ function seedRoute(dataRoot, route, n, passed, startIndex = 0) {
 function runCli(dataRoot, args = []) {
   const res = spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot },
+    env: { ...process.env, GORKHALI_DATA: dataRoot },
   });
   return { code: res.status, stdout: res.stdout, stderr: res.stderr };
 }

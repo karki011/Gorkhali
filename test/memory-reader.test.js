@@ -6,8 +6,8 @@
 // (repeat runs keep injecting, and no shared 'unknown' marker file is written).
 //
 // Spawns the REAL hook process (subprocess seam pattern from
-// test/router-nudge.test.js:21-72). Each spawn pins PHANTOM_DATA to a tmpdir and
-// PHANTOM_REPO to a fixed id so learningsDir() resolves to fixture content we
+// test/router-nudge.test.js:21-72). Each spawn pins GORKHALI_DATA to a tmpdir and
+// GORKHALI_REPO to a fixed id so learningsDir() resolves to fixture content we
 // control, independent of this repo's own learnings.
 'use strict';
 
@@ -41,7 +41,7 @@ function setup() {
     'LEARNING [beta]: Entry Beta describes a second stable pattern worth remembering for tests (2026-01-01)\n'
   );
   return {
-    env: { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: REPO },
+    env: { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: REPO },
     cleanup: () => fs.rmSync(data, { recursive: true, force: true }),
   };
 }
@@ -116,7 +116,7 @@ test('5. no session_id → dedup skipped entirely, no shared "unknown" marker', 
     assert.match(second.stdout, /Entry Alpha/, 'no session_id means no dedup — every run injects');
     assert.match(second.stdout, /Entry Beta/);
 
-    const markerDir = path.join(env.PHANTOM_DATA, 'state', 'memory-injected');
+    const markerDir = path.join(env.GORKHALI_DATA, 'state', 'memory-injected');
     if (fs.existsSync(markerDir)) {
       assert.equal(
         fs.readdirSync(markerDir).includes('unknown'),

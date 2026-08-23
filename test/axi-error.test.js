@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// axi-error.test.js - the typed error + exit-code taxonomy that the Phantom CLIs
+// axi-error.test.js - the typed error + exit-code taxonomy that the Gorkhali CLIs
 // route through. The failure class this guards: silent absorption - an
 // unexpected internal error exiting 0 instead of non-zero. So the load-bearing
 // assertions are (a) VALIDATION_ERROR -> 2, (b) EVERYTHING else, including a bare
@@ -12,10 +12,10 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const {
-  PhantomError,
+  GorkhaliError,
   exitCodeForError,
   reportError,
-  isPhantomError,
+  isGorkhaliError,
   VALIDATION_ERROR,
 } = require('../scripts/lib/axi-error');
 
@@ -36,28 +36,28 @@ function withExitCode(fn) {
   }
 }
 
-test('PhantomError carries message, code, and suggestions', () => {
-  const e = new PhantomError('boom', 'IO_ERROR', ['do x', 'do y']);
-  assert.equal(e.name, 'PhantomError');
+test('GorkhaliError carries message, code, and suggestions', () => {
+  const e = new GorkhaliError('boom', 'IO_ERROR', ['do x', 'do y']);
+  assert.equal(e.name, 'GorkhaliError');
   assert.equal(e.message, 'boom');
   assert.equal(e.code, 'IO_ERROR');
   assert.deepEqual(e.suggestions, ['do x', 'do y']);
   assert.ok(e instanceof Error);
 });
 
-test('PhantomError defaults suggestions to []', () => {
-  assert.deepEqual(new PhantomError('x', 'C').suggestions, []);
+test('GorkhaliError defaults suggestions to []', () => {
+  assert.deepEqual(new GorkhaliError('x', 'C').suggestions, []);
   // Non-array suggestions are coerced away, never left as a foot-gun.
-  assert.deepEqual(new PhantomError('x', 'C', 'nope').suggestions, []);
+  assert.deepEqual(new GorkhaliError('x', 'C', 'nope').suggestions, []);
 });
 
 test('exitCodeForError: VALIDATION_ERROR -> 2', () => {
-  assert.equal(exitCodeForError(new PhantomError('x', VALIDATION_ERROR)), 2);
+  assert.equal(exitCodeForError(new GorkhaliError('x', VALIDATION_ERROR)), 2);
   assert.equal(exitCodeForError({ code: 'VALIDATION_ERROR' }), 2);
 });
 
 test('exitCodeForError: anything else -> 1, never 0 (absorption direction)', () => {
-  assert.equal(exitCodeForError(new PhantomError('x', 'IO_ERROR')), 1);
+  assert.equal(exitCodeForError(new GorkhaliError('x', 'IO_ERROR')), 1);
   assert.equal(exitCodeForError(new Error('plain')), 1);
   assert.equal(exitCodeForError('a string'), 1);
   assert.equal(exitCodeForError(null), 1);
@@ -65,17 +65,17 @@ test('exitCodeForError: anything else -> 1, never 0 (absorption direction)', () 
   assert.equal(exitCodeForError({}), 1);
 });
 
-test('isPhantomError duck-types across a name match, not just instanceof', () => {
-  assert.ok(isPhantomError(new PhantomError('x', 'C')));
-  assert.ok(isPhantomError({ name: 'PhantomError', message: 'x' }));
-  assert.ok(!isPhantomError(new Error('x')));
-  assert.ok(!isPhantomError(null));
+test('isGorkhaliError duck-types across a name match, not just instanceof', () => {
+  assert.ok(isGorkhaliError(new GorkhaliError('x', 'C')));
+  assert.ok(isGorkhaliError({ name: 'GorkhaliError', message: 'x' }));
+  assert.ok(!isGorkhaliError(new Error('x')));
+  assert.ok(!isGorkhaliError(null));
 });
 
-test('reportError: PhantomError prints message + suggestions, sets exitCode', () => {
+test('reportError: GorkhaliError prints message + suggestions, sets exitCode', () => {
   withExitCode(() => {
     const s = fakeStream();
-    reportError(new PhantomError('bad input', VALIDATION_ERROR, ['fix it']), s);
+    reportError(new GorkhaliError('bad input', VALIDATION_ERROR, ['fix it']), s);
     assert.equal(s.data, 'bad input\n  → fix it\n');
     assert.equal(process.exitCode, 2);
   });

@@ -28,7 +28,7 @@ For detailed detection methods, examples, and scoring: `reference/agent-protocol
 Before writing any finding, read the shared review standard — the one severity
 scale, the confidence axis, the verification pass, and the finding shape you
 write:
-`PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/review-standard.md"` — empty `$PR` skips the read silently; if it was skipped, say so in the artifact's `observationGaps` and apply the standard conservatively.
+`PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/review-standard.md"` — empty `$PR` skips the read silently; if it was skipped, say so in the artifact's `observationGaps` and apply the standard conservatively.
 
 ## Output Format
 
@@ -94,5 +94,5 @@ Don't run the project's build/test gates - Chief owns those - unless a specific 
 
 ## Reference
 
-- See `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance, learnings, and Advisor escalation.
+- See `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance, learnings, and Advisor escalation.
 - You complement Auditor — your findings merge with Auditor's. Auditor resolves conflicts.

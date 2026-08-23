@@ -1,77 +1,77 @@
 {
-  "skill_name": "phantom",
+  "skill_name": "gorkhali",
   "version": "2.1",
   "created": "2026-05-23",
   "evals": [
     {
       "id": 1,
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "ok so I need to add a date picker to the settings page, the Jira ticket is CP-4521 and the PM wants it by Thursday",
       "should_trigger": true,
       "expected_behavior": "Parse CP-4521, fetch Jira ticket, create session state, decompose into phases, spawn shadows agents for implementation"
     },
     {
       "id": 2,
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "Please implement the multi-currency support feature described in CLOUD-8834. It affects the billing module and we need to handle EUR, GBP, and JPY alongside USD.",
       "should_trigger": true,
       "expected_behavior": "Parse CLOUD-8834, load Jira context, detect feature (not bug), create plan with blast radius check on billing module, execute multi-agent shadows"
     },
     {
       "id": 3,
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "what's the status of the CP-4521 work?",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:status — user wants current state, not to start new work. phantom:start would create a new session when one already exists."
+      "expected_behavior": "Should route to gorkhali:status — user wants current state, not to start new work. gorkhali:start would create a new session when one already exists."
     },
 
     {
       "id": 4,
-      "skill": "phantom:verify",
+      "skill": "gorkhali:verify",
       "prompt": "does it pass? run the tests and lint before I push",
       "should_trigger": true,
       "expected_behavior": "Discover verify commands from repo CLAUDE.md or package.json, run lint + build + tests, report pass/fail, run power level if all pass"
     },
     {
       "id": 5,
-      "skill": "phantom:verify",
+      "skill": "gorkhali:verify",
       "prompt": "Please run the full verification suite against the changes I just made to the billing module. I need lint, typecheck, and unit tests to all be green before we proceed.",
       "should_trigger": true,
       "expected_behavior": "Run repo verification commands (pnpm lint, pnpm typecheck:tsc, pnpm test), run simplify on changed files, spawn power level agent on pass"
     },
     {
       "id": 6,
-      "skill": "phantom:verify",
+      "skill": "gorkhali:verify",
       "prompt": "can you fix the test that's failing in billing.test.ts?",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:fix — user wants repair, not verification. Verify reports status; fix repairs failures."
+      "expected_behavior": "Should route to gorkhali:fix — user wants repair, not verification. Verify reports status; fix repairs failures."
     },
 
     {
       "id": 7,
-      "skill": "phantom:fix",
+      "skill": "gorkhali:fix",
       "prompt": "tests are failing, build is broken — fix it",
       "should_trigger": true,
-      "expected_behavior": "Load failure details from verification.json, triage failures by type, spawn scoped repair agents, re-run phantom:verify after repairs"
+      "expected_behavior": "Load failure details from verification.json, triage failures by type, spawn scoped repair agents, re-run gorkhali:verify after repairs"
     },
     {
       "id": 8,
-      "skill": "phantom:fix",
+      "skill": "gorkhali:fix",
       "prompt": "The TypeScript build errors from the last verify run need to be addressed. There are 3 type errors in packages/billing/src/currency.ts and a lint violation in apps/dashboard/src/components/CurrencyPicker.tsx",
       "should_trigger": true,
       "expected_behavior": "Load verification artifact, classify as type + lint failures, spawn repair agents scoped to those files, re-verify after repairs"
     },
     {
       "id": 9,
-      "skill": "phantom:fix",
+      "skill": "gorkhali:fix",
       "prompt": "I think there might be a bug in the currency formatter — can you investigate what's going wrong?",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:detective — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
+      "expected_behavior": "Should route to gorkhali:detective — this is an unknown bug requiring investigation, not a known verification failure with a fix packet"
     },
 
     {
       "id": 10,
-      "skill": "phantom:review",
+      "skill": "gorkhali:review",
       "hosts": ["claude-code"],
       "prompt": "review this before I ship it — I want a second opinion on the approach",
       "should_trigger": true,
@@ -79,58 +79,58 @@
     },
     {
       "id": 11,
-      "skill": "phantom:review",
+      "skill": "gorkhali:review",
       "prompt": "Can you do a full code quality review of the changes? I'm particularly concerned about whether we're following KISS/DRY principles and if there's any code that could be simplified.",
       "should_trigger": true,
       "expected_behavior": "Run Auditor in gauntlet mode: simplify → full review → verify. Check KISS/DRY, flag architecture concerns, produce file:line specific findings"
     },
     {
       "id": 12,
-      "skill": "phantom:review",
+      "skill": "gorkhali:review",
       "prompt": "run the tests and check if the build passes",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:verify — user wants correctness checks (tests/build), not a quality/architecture review from Auditor"
+      "expected_behavior": "Should route to gorkhali:verify — user wants correctness checks (tests/build), not a quality/architecture review from Auditor"
     },
 
     {
       "id": 13,
-      "skill": "phantom:detective",
+      "skill": "gorkhali:detective",
       "prompt": "users are reporting that invoice totals are wrong for EUR customers — started happening after Tuesday's deploy, no error in logs",
       "should_trigger": true,
       "expected_behavior": "Run 7-step investigation: collect symptoms, build timeline (check Tuesday deploy via git log), trace code path through currency/invoice logic, form hypothesis, gather evidence, confirm root cause, produce HTML report"
     },
     {
       "id": 14,
-      "skill": "phantom:detective",
+      "skill": "gorkhali:detective",
       "prompt": "investigate why the CurrencyFormatter class is producing NaN for certain JPY amounts — I suspect it's something in the rounding logic but I'm not sure",
       "should_trigger": true,
       "expected_behavior": "Start with symptoms (NaN for JPY), check git blame on CurrencyFormatter, trace through rounding logic, form and test hypothesis, write HTML investigation report"
     },
     {
       "id": 15,
-      "skill": "phantom:detective",
+      "skill": "gorkhali:detective",
       "prompt": "fix the NaN bug in CurrencyFormatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:fix — user already knows the issue and wants it fixed. Detective is for unknown failures requiring forensic investigation."
+      "expected_behavior": "Should route to gorkhali:fix — user already knows the issue and wants it fixed. Detective is for unknown failures requiring forensic investigation."
     },
 
     {
       "id": 16,
-      "skill": "phantom:wrap",
+      "skill": "gorkhali:wrap",
       "prompt": "ok we're done, ship it — create the PR",
       "should_trigger": true,
       "expected_behavior": "Check verification.json for passing verdict, run diff-against-main scope check, run shadows eval, save learnings, create PR with branch push"
     },
     {
       "id": 17,
-      "skill": "phantom:wrap",
+      "skill": "gorkhali:wrap",
       "prompt": "I'm satisfied with the implementation of CP-4521, please finalize the session, record what we learned, and open a pull request against main",
       "should_trigger": true,
       "expected_behavior": "Verify state artifact exists and verdict is pass, run pre-wrap hook, check scope creep via git diff main...HEAD, record learnings, create PR"
     },
     {
       "id": 18,
-      "skill": "phantom:wrap",
+      "skill": "gorkhali:wrap",
       "prompt": "can you push this branch so I can review it locally on another machine?",
       "should_trigger": false,
       "expected_behavior": "A simple git push should not trigger the full wrap ceremony — wrap runs eval, scope checks, learning recording. User just wants a branch push."
@@ -138,96 +138,96 @@
 
     {
       "id": 19,
-      "skill": "phantom:scout",
+      "skill": "gorkhali:scout",
       "prompt": "before we start building the currency picker component, can you explore how other pickers are implemented in the codebase and what design tokens they use?",
       "should_trigger": true,
       "expected_behavior": "Spawn parallel explorer agents for design (component patterns, tokens), api (existing hooks/clients), patterns (state management patterns used in similar pickers)"
     },
     {
       "id": 20,
-      "skill": "phantom:scout",
+      "skill": "gorkhali:scout",
       "prompt": "what does the billing module do and how does it connect to the invoicing service?",
       "should_trigger": true,
       "expected_behavior": "Auto-detect relevant scouting areas (deps, api), spawn background agents to map billing → invoicing relationships, API contracts, shared types"
     },
     {
       "id": 21,
-      "skill": "phantom:scout",
+      "skill": "gorkhali:scout",
       "prompt": "implement a currency switcher in the nav bar",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:start — user wants to build something, not gather context. Scout is for exploration before planning, not for kicking off implementation."
+      "expected_behavior": "Should route to gorkhali:start — user wants to build something, not gather context. Scout is for exploration before planning, not for kicking off implementation."
     },
 
     {
       "id": 22,
-      "skill": "phantom:recruit",
+      "skill": "gorkhali:recruit",
       "prompt": "I need an accessibility specialist to audit the new currency picker — focus on keyboard nav and screen reader support",
       "should_trigger": true,
       "expected_behavior": "Parse role focus as 'accessibility specialist', spawn Engineer with A11Y ROLE FOCUS directive, scoped to currency picker files, report findings via Post-Agent Hook"
     },
     {
       "id": 23,
-      "skill": "phantom:recruit",
+      "skill": "gorkhali:recruit",
       "prompt": "get me a performance expert to look at why the billing dashboard is loading slowly — I want someone focused on bundle size and render cost",
       "should_trigger": true,
       "expected_behavior": "Parse role focus as 'performance specialist', spawn Engineer to analyze bundle size, render performance, lazy loading opportunities in billing dashboard"
     },
     {
       "id": 24,
-      "skill": "phantom:recruit",
+      "skill": "gorkhali:recruit",
       "prompt": "do a code review of the currency formatter",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:review — a general code review is Auditor's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."
+      "expected_behavior": "Should route to gorkhali:review — a general code review is Auditor's job. Recruit is for specialized one-off agents with a specific ROLE FOCUS beyond normal shadows."
     },
 
     {
       "id": 25,
-      "skill": "phantom:pause",
+      "skill": "gorkhali:pause",
       "prompt": "I gotta jump to another meeting, save where we are on CP-4521",
       "should_trigger": true,
       "expected_behavior": "Capture git state (branch, HEAD, uncommitted files), write pause-state.json with current phase and artifact paths, output resume command"
     },
     {
       "id": 26,
-      "skill": "phantom:pause",
+      "skill": "gorkhali:pause",
       "prompt": "Pausing for the day — please save the full session state for CP-4521 including what phase we're in, what's been completed, and what's still pending",
       "should_trigger": true,
       "expected_behavior": "Write complete pause-state.json artifact with git state, current phase, completed artifacts, pending work, and resume instructions"
     },
     {
       "id": 27,
-      "skill": "phantom:pause",
+      "skill": "gorkhali:pause",
       "prompt": "commit my work and push the branch",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:wrap — committing and pushing is the wrap ceremony. Pause only saves state artifacts; no git operations happen during pause."
+      "expected_behavior": "Should route to gorkhali:wrap — committing and pushing is the wrap ceremony. Pause only saves state artifacts; no git operations happen during pause."
     },
 
     {
       "id": 28,
-      "skill": "phantom:resume",
+      "skill": "gorkhali:resume",
       "prompt": "resuming CP-4521, pick up where we left off",
       "should_trigger": true,
       "expected_behavior": "Read state/sessions/CP-4521/pause-state.json, check git HEAD staleness, restore intent + plan + contracts, display current phase and pending tasks"
     },
     {
       "id": 29,
-      "skill": "phantom:resume",
+      "skill": "gorkhali:resume",
       "prompt": "Continue working on CLOUD-8834 — I was in the middle of implementing the EUR support when we stopped yesterday",
       "should_trigger": true,
       "expected_behavior": "Load CLOUD-8834 pause-state.json, perform staleness check (yesterday's HEAD vs current), restore full session context, resume from last recorded phase"
     },
     {
       "id": 30,
-      "skill": "phantom:resume",
+      "skill": "gorkhali:resume",
       "prompt": "start working on CP-4521 again, we need to add GBP support",
       "should_trigger": false,
-      "expected_behavior": "Should route to phantom:start — user wants to add new scope (GBP support), not just resume saved state. Resume restores context; start creates new work scope."
+      "expected_behavior": "Should route to gorkhali:start — user wants to add new scope (GBP support), not just resume saved state. Resume restores context; start creates new work scope."
     },
 
     {
       "id": 31,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "ENG-123: there's a typo in the empty state on the settings page — 'Recieve notifications' should be 'Receive notifications', it's in EmptyState.tsx",
       "expected_route": "DIRECT",
       "expected_behavior": "Parse ENG-123 as the ticket via the generic [A-Z][A-Z0-9]+-\\d+ match (no hardcoded project prefix), classify DIRECT (single known file, known pattern, confidence >=0.9), report '[DIRECT] {rationale}' with zero human gates, spawn an Engineer immediately"
@@ -235,7 +235,7 @@
     {
       "id": 32,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "rename the formatTotal helper to formatInvoiceTotal in src/utils/invoice.ts — all call sites are in that same file",
       "expected_route": "DIRECT",
       "expected_behavior": "Single-file mechanical rename with clear scope and a known pattern → DIRECT. Transcript shows the '[DIRECT] {rationale}' route report and an Engineer spawn with no plan-approval gate"
@@ -243,7 +243,7 @@
     {
       "id": 33,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "PLAT-4567: add a CSV export button to the cost report table. AC: button sits in the table toolbar, export respects the active filters, file downloads as UTF-8 CSV. It mirrors the existing PDF export — touches the toolbar, the table container, a new export util, and the download hook.",
       "expected_route": "PLAN",
       "expected_behavior": "Parse PLAT-4567 via the generic ticket regex. Clear scope, ~4 files, known approach (mirrors existing PDF export), confidence >=0.7 → PLAN. Transcript shows '[PLAN] {rationale}', Planner↔Challenger deliberation, and exactly one human gate (plan approval) before execution"
@@ -251,23 +251,23 @@
     {
       "id": 34,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "the analytics dashboard feels slow and clunky — improve the loading experience somehow. not sure if we want skeletons, prefetching, streaming, or caching. open to ideas",
       "expected_route": "BRAINSTORM",
-      "expected_behavior": "Ambiguous scope ('somehow'), competing patterns (skeletons vs prefetch vs streaming vs caching), confidence <0.7 → BRAINSTORM. Transcript shows '[BRAINSTORM] {rationale}', invokes Skill(skill=\"phantom:brainstorm\"), and presents a direction gate before any plan gate (2 gates total)"
+      "expected_behavior": "Ambiguous scope ('somehow'), competing patterns (skeletons vs prefetch vs streaming vs caching), confidence <0.7 → BRAINSTORM. Transcript shows '[BRAINSTORM] {rationale}', invokes Skill(skill=\"gorkhali:brainstorm\"), and presents a direction gate before any plan gate (2 gates total)"
     },
     {
       "id": 35,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "ACME-89: migrate authentication from session cookies to OAuth2 with PKCE across the gateway, web app, and CLI — auth middleware, token storage, the login UI, and the public token endpoints all change",
       "expected_route": "FULL",
-      "expected_behavior": "Parse ACME-89 via the generic ticket regex. 10+ files across 3+ packages, cross-layer, security + public-API surface → FULL. Transcript shows '[FULL] {rationale}' and three human gates in order: direction (brainstorm), plan, and wiring via Skill(skill=\"phantom:wire\")"
+      "expected_behavior": "Parse ACME-89 via the generic ticket regex. 10+ files across 3+ packages, cross-layer, security + public-API surface → FULL. Transcript shows '[FULL] {rationale}' and three human gates in order: direction (brainstorm), plan, and wiring via Skill(skill=\"gorkhali:wire\")"
     },
     {
       "id": 36,
       "kind": "route",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "a teammate logged abc-123 in our internal tracker — it's just a typo: 'occured' should be 'occurred' in the error toast in Toast.tsx",
       "expected_route": "DIRECT",
       "expected_behavior": "Lowercase abc-123 must NOT match the ticket pattern [A-Z][A-Z0-9]+-\\d+ — no Jira fetch is attempted for abc-123; ticket resolution falls back to the current branch or the no-ticket flow. The single-file typo still classifies DIRECT with a '[DIRECT] {rationale}' report"
@@ -276,10 +276,10 @@
     {
       "id": 37,
       "kind": "convention",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "hosts": ["claude-code"],
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
-      "setup": "config.yaml at ${PHANTOM_DATA:-~/.claude/phantom-data}/config.yaml contains:\nmodels:\n  advisor: opus\nThe Engineer hits a hard decision (2+ viable approaches) mid-task and escalates to Advisor.",
+      "setup": "config.yaml at ${GORKHALI_DATA:-~/.claude/gorkhali-data}/config.yaml contains:\nmodels:\n  advisor: opus\nThe Engineer hits a hard decision (2+ viable approaches) mid-task and escalates to Advisor.",
       "expected_check": {
         "type": "regex",
         "pattern": "subagent_type[\"':\\s]*\"?advisor\"?[\\s\\S]{0,300}?model[\"':\\s]*\"?opus\"?"
@@ -289,7 +289,7 @@
     {
       "id": 38,
       "kind": "convention",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "hosts": ["claude-code"],
       "prompt": "implement retry-with-backoff in the sync client — there are at least two reasonable designs (queue-based vs decorator), pick the right one",
       "setup": "config.yaml exists but contains no models: key (or config.yaml is missing entirely). The Engineer escalates to Advisor mid-task.",
@@ -302,7 +302,7 @@
     {
       "id": 39,
       "kind": "convention",
-      "skill": "phantom:verify",
+      "skill": "gorkhali:verify",
       "prompt": "does it pass? run the full verification suite before I push",
       "setup": "Repo root contains yarn.lock (no pnpm-lock.yaml, no bun.lockb, no package-lock.json). Neither CLAUDE.md nor package.json scripts define explicit test/lint/build commands, so tier-3 stack defaults apply.",
       "expected_check": {
@@ -314,8 +314,8 @@
     {
       "id": 40,
       "kind": "convention",
-      "skill": "phantom:visual",
-      "prompt": "use Phantom Surveyor to visual check the new pricing card across viewports",
+      "skill": "gorkhali:visual",
+      "prompt": "use Gorkhali Surveyor to visual check the new pricing card across viewports",
       "setup": "The canonical worktree is /workspace/pricing-card on branch feature/pricing-card. The workspace manager at localhost:3333 has one exact-path matching running card whose displayed Dev link is http://localhost:4312. vite.config.ts mentions port 5173 for another checkout.",
       "expected_check": {
         "type": "regex",
@@ -326,7 +326,7 @@
     {
       "id": 42,
       "kind": "convention",
-      "skill": "phantom:greploop",
+      "skill": "gorkhali:greploop",
       "prompt": "wrap it up and create the PR",
       "setup": "config.yaml has no integrations: section — integrations.greptile is absent. A ready-for-review PR was just created by wrap, which auto-invokes greploop.",
       "expected_check": {
@@ -338,7 +338,7 @@
     {
       "id": 43,
       "kind": "convention",
-      "skill": "phantom:greploop",
+      "skill": "gorkhali:greploop",
       "prompt": "greploop this PR until it's clean",
       "setup": "config.yaml has integrations.greptile: true but no greptile.reply_tone key. Greptile left one actionable inline comment; greploop fixes it, pushes, and drafts an in-thread reply.",
       "expected_check": {
@@ -350,7 +350,7 @@
     {
       "id": 44,
       "kind": "convention",
-      "skill": "phantom:learn",
+      "skill": "gorkhali:learn",
       "prompt": "record what we learned from this session",
       "setup": "python3 is not on PATH (command -v python3 fails). A learnings file exceeds the compress threshold during the learn flow.",
       "expected_check": {
@@ -362,19 +362,19 @@
     {
       "id": 45,
       "kind": "convention",
-      "skill": "phantom:start",
-      "prompt": "where do the phantom coding principles and base agent protocol live? print the paths",
-      "setup": "Plugin installed natively at ~/.claude/plugins/cache/phantom/phantom/<version>/. CLAUDE_PLUGIN_ROOT is NOT relied on by skills/agents (it is reserved for hooks/hooks.json only). The flow does not touch the learn/compress path.",
+      "skill": "gorkhali:start",
+      "prompt": "where do the gorkhali coding principles and base agent protocol live? print the paths",
+      "setup": "Plugin installed natively at ~/.claude/plugins/cache/gorkhali/gorkhali/<version>/. CLAUDE_PLUGIN_ROOT is NOT relied on by skills/agents (it is reserved for hooks/hooks.json only). The flow does not touch the learn/compress path.",
       "expected_check": {
         "type": "regex",
-        "pattern": "^(?![\\s\\S]*~/\\.claude/phantom)(?![\\s\\S]*CLAUDE_PLUGIN_ROOT)[\\s\\S]*plugins/cache/phantom/phantom/\\*?/"
+        "pattern": "^(?![\\s\\S]*~/\\.claude/gorkhali)(?![\\s\\S]*CLAUDE_PLUGIN_ROOT)[\\s\\S]*plugins/cache/gorkhali/gorkhali/\\*?/"
       },
-      "expected_behavior": "The response resolves the plugin dir env-free by globbing ~/.claude/plugins/cache/phantom/phantom/*/ (e.g. `ls -dt ...plugins/cache/phantom/phantom/*/ | head -1`) and prints {PLUGIN_ROOT}/reference/coding-principles.md and {PLUGIN_ROOT}/reference/_base-agent.md from it. It must NOT depend on the CLAUDE_PLUGIN_ROOT env var (that string never appears) and must NOT use the legacy ~/.claude/phantom literal"
+      "expected_behavior": "The response resolves the plugin dir env-free by globbing ~/.claude/plugins/cache/gorkhali/gorkhali/*/ (e.g. `ls -dt ...plugins/cache/gorkhali/gorkhali/*/ | head -1`) and prints {PLUGIN_ROOT}/reference/coding-principles.md and {PLUGIN_ROOT}/reference/_base-agent.md from it. It must NOT depend on the CLAUDE_PLUGIN_ROOT env var (that string never appears) and must NOT use the legacy ~/.claude/gorkhali literal"
     },
     {
       "id": 46,
       "kind": "convention",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "plan a cross-cutting authentication migration and show me the plan before editing",
       "setup": "The task affects multiple services, has two viable migration strategies, and includes a reliable integration-test command.",
       "expected_check": {
@@ -386,7 +386,7 @@
     {
       "id": 47,
       "kind": "convention",
-      "skill": "phantom:brainstorm",
+      "skill": "gorkhali:brainstorm",
       "prompt": "brainstorm how we should redesign our plugin configuration without implementing anything",
       "setup": "There are several plausible approaches and enough repository evidence to compare them.",
       "expected_check": {
@@ -398,7 +398,7 @@
     {
       "id": 48,
       "kind": "convention",
-      "skill": "phantom:start",
+      "skill": "gorkhali:start",
       "prompt": "plan the one-line rename of a clearly identified constant; do not implement",
       "setup": "The target file, replacement, pattern, and deterministic test are already known; the change is reversible and low risk.",
       "expected_check": {
@@ -410,8 +410,8 @@
     {
       "id": 49,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "render this saved v3 Phantom plan for review in an agent runtime with no browser plugin or MCP server",
+      "skill": "gorkhali",
+      "prompt": "render this saved v3 Gorkhali plan for review in an agent runtime with no browser plugin or MCP server",
       "setup": "Command execution and local file viewing are available. The installed portable skill contains references/review-html.md and scripts/validate-review-html.mjs; the input is a valid portable state envelope.",
       "expected_check": {
         "type": "llm-judge",
@@ -422,74 +422,74 @@
     {
       "id": 50,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for currency formatting in the new invoice summary. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide and describe the minimum implementation for currency formatting in the new invoice summary. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already exports a tested formatCurrency helper used by three invoice callers. The new summary needs identical behavior and no new API.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects repository reuse, names the existing formatCurrency helper as the implementation basis, and avoids proposing a duplicate helper, new utility file, abstraction, or dependency. Existing relevant tests are reused or extended only if coverage is missing."
       },
-      "expected_behavior": "Phantom traces callers, reuses the shared helper, and makes only the bounded call-site change needed for the invoice summary."
+      "expected_behavior": "Gorkhali traces callers, reuses the shared helper, and makes only the bounded call-site change needed for the invoice summary."
     },
     {
       "id": 51,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for parsing filters in this request URL. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide and describe the minimum implementation for parsing filters in this request URL. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The runtime provides the standard URL and URLSearchParams APIs. The repository has no special query grammar and no existing helper or dependency that should override those APIs.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the standard library URL/URLSearchParams capability and rejects a custom parser, regex parser, new helper file, or new package. It retains required input/error handling and proposes focused verification."
       },
-      "expected_behavior": "Phantom uses the standard URL APIs directly and adds no parser framework or dependency."
+      "expected_behavior": "Gorkhali uses the standard URL APIs directly and adds no parser framework or dependency."
     },
     {
       "id": 52,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for a date selector in the account settings form. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide and describe the minimum implementation for a date selector in the account settings form. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The product only needs a single calendar date with browser-native constraints. The existing form has a visible label, keyboard flow, error association, and no design requirement for a custom calendar.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the native date input, adds no date-picker package or custom calendar component, and explicitly preserves the visible label, keyboard use, error association, and required validation."
       },
-      "expected_behavior": "Phantom uses the native platform control with the existing accessible form pattern and the minimum validation change."
+      "expected_behavior": "Gorkhali uses the native platform control with the existing accessible form pattern and the minimum validation change."
     },
     {
       "id": 53,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide and describe the minimum implementation for validating whether this release string satisfies the configured version range. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide and describe the minimum implementation for validating whether this release string satisfies the configured version range. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The repository already depends on semver and uses it elsewhere. There is no local wrapper, and the language standard library has no equivalent version-range parser.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response selects the already-installed semver dependency, follows the repository's existing usage, and avoids a custom range parser, new wrapper, or additional package. It includes boundary-case verification."
       },
-      "expected_behavior": "Phantom reuses the approved installed dependency with the smallest clear call and focused range tests."
+      "expected_behavior": "Gorkhali reuses the approved installed dependency with the smallest clear call and focused range tests."
     },
     {
       "id": 54,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide whether any implementation is needed to keep archived reports hidden. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide whether any implementation is needed to keep archived reports hidden. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. Archived reports are already excluded by the shared repository query, covered by an integration test, and no caller can opt into them. A new flag would duplicate the existing guarantee.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response returns an evidence-backed no-change/YAGNI decision because the requested outcome already holds. It does not propose a flag, config field, migration, file, dependency, or speculative abstraction, and it identifies the existing query and test as evidence."
       },
-      "expected_behavior": "Phantom explains that no mechanism needs to be added and stops without editing."
+      "expected_behavior": "Gorkhali explains that no mechanism needs to be added and stops without editing."
     },
     {
       "id": 55,
       "kind": "convention",
-      "skill": "phantom",
-      "prompt": "Use the Phantom skill to decide and describe the minimum safe simplification for upload destination path handling. Do not implement it.",
+      "skill": "gorkhali",
+      "prompt": "Use the Gorkhali skill to decide and describe the minimum safe simplification for upload destination path handling. Do not implement it.",
       "setup": "Decision-only evaluation: treat this fixture as verified repository evidence and do not inspect the filesystem. The current shared function normalizes the path and rejects absolute paths, parent traversal, and destinations outside the upload root before any write. Those checks protect a trust boundary and are covered by security tests.",
       "expected_check": {
         "type": "llm-judge",
         "criteria": "The response may simplify duplication but preserves normalization, absolute-path rejection, parent-traversal rejection, root containment, pre-write ordering, and the security tests. It explicitly refuses a shorter implementation that weakens those guards; raw line-count reduction is not treated as success."
       },
-      "expected_behavior": "Phantom keeps all trust-boundary protections and verification even if the smallest safe result is no change."
+      "expected_behavior": "Gorkhali keeps all trust-boundary protections and verification even if the smallest safe result is no change."
     }
   ]
 }

@@ -6,17 +6,17 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
-# /phantom:review
+# /gorkhali:review
 
 ## Review round procedure
 
-This is the one procedure for a review round; `/phantom:verify` runs it as its
+This is the one procedure for a review round; `/gorkhali:verify` runs it as its
 review stage rather than restating it.
 
 1. Resolve the active portable session and current worktree fingerprint.
 2. Require the latest portable verification artifact to be passed, current, and
    bound to that fingerprint. If it is absent or stale, stop with `blocked` and
-   direct the caller to `/phantom:verify`; do not recreate Inspector evidence here.
+   direct the caller to `/gorkhali:verify`; do not recreate Inspector evidence here.
    Read its `requiredSpecialists` role-string array as the authoritative
    selection; do not reclassify the diff in this command.
 3. Load the intent, repository rules, current changed-file list, and diff.
@@ -24,7 +24,7 @@ review stage rather than restating it.
 
    ```text
    {PR_BOOTSTRAP}
-   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
    node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR}
    ```
 
@@ -54,7 +54,7 @@ review stage rather than restating it.
    `role`; `verdict: pass|fail|blocked`; `findings` as an array; and
    `observationGaps` as an array. Missing or invalid evidence is blocked.
 
-   When this procedure runs from `/phantom:verify`, the accepted Auditor result
+   When this procedure runs from `/gorkhali:verify`, the accepted Auditor result
    must also carry exactly one passed check named
    `user-verification-classification`: Auditor checks verification's
    `userVerification` classification against the complete diff, and any
@@ -64,11 +64,11 @@ review stage rather than restating it.
 
    ```text
    {PR_BOOTSTRAP}
-   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
    node "$PR/scripts/review-round.js" close --reviews {SESSION_DIR}/reviews --session {SESSION_DIR} --fingerprint <current worktree fingerprint> --json
    ```
 
-   Pass the fingerprint from `phantom-state.mjs fingerprint` — the same one this
+   Pass the fingerprint from `gorkhali-state.mjs fingerprint` — the same one this
    round's verification is bound to. It is what separates a re-review of an
    unchanged worktree from a round that followed an actual fix, and the fix-loop
    count below is derived from it. An unstamped round still records; the count
@@ -116,7 +116,7 @@ review stage rather than restating it.
    reduced assurance: <what was unavailable>"` - never a silent pass.
 
    ```text
-   node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>
+   node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>
    ```
 
    Copy each valid required artifact unchanged into the review payload's

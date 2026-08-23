@@ -1,10 +1,10 @@
 // Author: Subash Karki
-// Read-only projection of portable Phantom lifecycle state for routing hooks.
+// Read-only projection of portable Gorkhali lifecycle state for routing hooks.
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const codec = require('../../skills/phantom/scripts/lib/shared-state.cjs');
+const codec = require('../../skills/gorkhali/scripts/lib/shared-state.cjs');
 
 const ACTIVE = 'active';
 const INACTIVE = 'inactive';
@@ -48,7 +48,7 @@ function routingState(workspace) {
     const root = path.resolve(codec.resolveDataRoot(workspace));
     const identity = codec.repoIdentity(workspace, {
       dataRoot: root,
-      phantomRepo: process.env.PHANTOM_REPO,
+      gorkhaliRepo: process.env.GORKHALI_REPO,
     });
     if (identity.kind === 'walk-up' || identity.kind === 'default') return UNKNOWN;
     const repo = identity.id;

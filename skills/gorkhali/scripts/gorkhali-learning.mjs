@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// phantom-learning.mjs -- the single, concurrent-safe learning/index API.
+// gorkhali-learning.mjs -- the single, concurrent-safe learning/index API.
 //
 // This is the ONE place the auto-learning files are mutated:
 //   <learnings>/INDEX.md          -- the `## Auto-Captured` section
@@ -65,7 +65,7 @@ const MAX_INDEX_AUTO_LINES = 100; // INDEX.md auto-line hard cap
 const STALE_DAYS = 3; // proposed-capture staleness window
 const MIN_CONFIDENCE = 0.15; // drop proposed entries below this confidence
 
-// Advisory-lock tuning, matching phantom-state.mjs's proven pattern. The wait
+// Advisory-lock tuning, matching gorkhali-state.mjs's proven pattern. The wait
 // budget is generous because concurrent learning writes are fast file ops; a
 // handful of contenders serialize well within it.
 const LOCK_WAIT_MS = 5_000;
@@ -193,7 +193,7 @@ function acquireLock(file) {
         continue; // took over the exact judged generation -> retry the create immediately
       }
       if (Date.now() >= deadline) {
-        throw new Error('phantom-learning: could not acquire the learnings lock before the deadline.');
+        throw new Error('gorkhali-learning: could not acquire the learnings lock before the deadline.');
       }
       Atomics.wait(lockWaiter, 0, 0, LOCK_RETRY_MS);
     }
@@ -547,9 +547,9 @@ export const _internals = { judgeStaleLock, takeoverStaleLock, STALE_LOCK_MS };
 // --- CLI --------------------------------------------------------------------
 // Both hooks and portable prose shell out here so there is exactly one write
 // path. Candidates arrive as a JSON array on stdin.
-//   node phantom-learning.mjs capture     --learnings <dir>   # candidates on stdin
-//   node phantom-learning.mjs consolidate --learnings <dir>   # candidates on stdin
-//   node phantom-learning.mjs check       --learnings <dir>   # validate, exit 1 on problems
+//   node gorkhali-learning.mjs capture     --learnings <dir>   # candidates on stdin
+//   node gorkhali-learning.mjs consolidate --learnings <dir>   # candidates on stdin
+//   node gorkhali-learning.mjs check       --learnings <dir>   # validate, exit 1 on problems
 
 function readStdinJson() {
   let raw = '';
@@ -572,7 +572,7 @@ function main() {
   const command = args._[0];
   const learningsDir = args.learnings;
   if (!learningsDir) {
-    process.stderr.write('phantom-learning: --learnings <dir> is required.\n');
+    process.stderr.write('gorkhali-learning: --learnings <dir> is required.\n');
     process.exitCode = 1;
     return;
   }
@@ -598,11 +598,11 @@ function main() {
         `OK: Learnings index healthy -- ${domainFileCount} domain file(s), ${warnings.length} warning(s)\n`,
       );
     } else {
-      process.stderr.write('Usage: phantom-learning.mjs <capture|consolidate|check> --learnings <dir>\n');
+      process.stderr.write('Usage: gorkhali-learning.mjs <capture|consolidate|check> --learnings <dir>\n');
       process.exitCode = 1;
     }
   } catch (error) {
-    process.stderr.write(`phantom-learning: ${error.message}\n`);
+    process.stderr.write(`gorkhali-learning: ${error.message}\n`);
     process.exitCode = 1;
   }
 }

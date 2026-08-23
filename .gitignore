@@ -49,6 +49,7 @@ crew-diagram.html
 
 # Local tool artifacts / scratch
 .playwright-mcp/
+.ruff_cache/
 board-v2*.png
 
 # Archive (restorable, not shared)

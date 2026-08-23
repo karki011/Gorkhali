@@ -8,7 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const SCRIPT = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'validate-review-html.mjs');
+const SCRIPT = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'validate-review-html.mjs');
 const BRAINSTORM_COMMAND = path.join(__dirname, '..', 'commands', 'brainstorm.md');
 const CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
@@ -35,7 +35,7 @@ ${CSP_META}<title>Review</title>${extraHead}</head>
 
 const planPage = (extra = '', extraHead = '') => page(`<p>${plan().decision.question}</p><p>${plan().decision.recommendation}</p><p>${plan().outcome.goal}</p>${extra}`, extraHead);
 const brainstormPage = () => page(`<p>${brainstorm().decision.question}</p><p>Direct AI HTML</p><p>${brainstorm().recommendedDefault.reason}</p><p>${brainstorm().directionGate.question}</p>`);
-const fixtureDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-review-html-'));
+const fixtureDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-review-html-'));
 
 const run = (dir, type, source, candidate, output = 'accepted.html') => {
   const sourcePath = path.join(dir, 'source.json');

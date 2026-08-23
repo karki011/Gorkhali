@@ -1,11 +1,11 @@
 ---
 name: health
-description: "Use when the Phantom SYSTEM ITSELF seems broken — stale learnings, corrupted sessions, missing artifacts. Diagnoses and suggests fixes. Broken user code → phantom:fix or phantom:detective."
+description: "Use when the Gorkhali SYSTEM ITSELF seems broken — stale learnings, corrupted sessions, missing artifacts. Diagnoses and suggests fixes. Broken user code → gorkhali:fix or gorkhali:detective."
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:health
+# /gorkhali:health
 
 Validate knowledge layer integrity for the current repo. Reports issues but does NOT auto-fix (user decides).
 
@@ -25,7 +25,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
 
 7. **Edge integrity** — if `EDGES.md` exists, check that all Source and Target IDs reference entries that still exist in INDEX.md or domain files. Report broken refs as `BROKEN EDGE: [{source}] → [{target}] — target not found`.
 
-8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
+8. **Global promotion candidates** — scan INDEX.md for entries with `[validated:5+]` that are NOT in `${GORKHALI_DATA:-~/.gorkhali}/global/patterns/INDEX.md`. Report as `PROMOTE?: [{entry}] validated {N} times — consider global promotion`.
 
 9. **File size caps**: Check all skill/reference/learnings files against caps:
    - `commands/*.md` (non-shared) > 80 lines → needs trimming
@@ -34,7 +34,7 @@ Validate knowledge layer integrity for the current repo. Reports issues but does
    - `learnings/{domain}.md` > 50 entries → needs condensing
    Report oversized files. Remediation by class:
    - Oversized `commands/*.md` or `reference/*.md` → suggest a behavior-preserving distillation pass via an Engineer (compress prose; preserve every instruction, gate, and reference). `*-template.md` files are exempt — they hold full HTML documents by design, not prose. NOT evolve — evolve only touches the learnings layer.
-   - Oversized `learnings/INDEX.md` or `learnings/{domain}.md` → suggest `/phantom:evolve`.
+   - Oversized `learnings/INDEX.md` or `learnings/{domain}.md` → suggest `/gorkhali:evolve`.
 
 10. **Stale sessions**: Sessions in `{TEAM_DIR}/sessions/` older than 14 days with no recent artifacts → mark stale, suggest archival to `{TEAM_DIR}/completed/`.
 

@@ -12,7 +12,7 @@ const TOKEN = '{PR_BOOTSTRAP}';
 // (the 8 checkpoint literals in start/execute/resume use a deliberately different
 // PR="${PR:-...}" guarded shape, pinned by test/portable-skill.test.js — not this line).
 const CANONICAL_LINE =
-  'PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"';
+  'PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"';
 
 const SKIP_DIRS = new Set(['.git', '.claude', 'node_modules']);
 

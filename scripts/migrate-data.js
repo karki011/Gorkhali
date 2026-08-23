@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // migrate-data.js -- dry-run-FIRST, fingerprinted, migration-wide-locked migrator
-// that consolidates every historical Phantom data root into the ONE canonical
-// neutral root (<data> resolved by the T1 codec -- ~/.phantom by default).
+// that consolidates every historical Gorkhali data root into the ONE canonical
+// neutral root (<data> resolved by the T1 codec -- ~/.gorkhali by default).
 //
 // Design goals (contract T4):
 //   * The DEFAULT invocation is a DRY-RUN that performs ZERO filesystem writes
@@ -25,7 +25,7 @@
 //   * Apply takes a migration-wide lock for the whole inventory/copy window and
 //     fails closed rather than running unlocked or concurrently. Learning merges
 //     route through the T3 per-learnings-dir lock and per-repo writes through the
-//     phantom-state lifecycle lock, so a concurrent state writer that races the
+//     gorkhali-state lifecycle lock, so a concurrent state writer that races the
 //     migration blocks or fails closed.
 //
 // Modes:
@@ -44,9 +44,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { phantomData } = require('./lib/phantom-paths');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
+const { gorkhaliData } = require('./lib/gorkhali-paths');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
+const learningGrammar = require('../skills/gorkhali/scripts/lib/learning-grammar.cjs');
 
 const MIGRATION_VERSION = 3;
 const MANIFEST_SCHEMA = 1;
@@ -87,7 +87,7 @@ const CLASSES = [
   'skipped-live-state',
 ];
 
-const LOCK_STALE_MS = positiveNumber(process.env.PHANTOM_MIGRATE_LOCK_STALE_MS, 5 * 60 * 1000);
+const LOCK_STALE_MS = positiveNumber(process.env.GORKHALI_MIGRATE_LOCK_STALE_MS, 5 * 60 * 1000);
 
 // --------------------------------------------------------------------------
 // Small helpers
@@ -193,25 +193,25 @@ function buildSources(dest, env) {
   // scanner sees each in its migration context. Every root is env-overridable.
   const declared = [
     {
-      label: 'phantom-data',
-      root: env.PHANTOM_MIGRATE_SRC_PHANTOM_DATA
-        || path.join(os.homedir(), '.claude', 'phantom-data'),
+      label: 'gorkhali-data',
+      root: env.GORKHALI_MIGRATE_SRC_GORKHALI_DATA
+        || path.join(os.homedir(), '.claude', 'gorkhali-data'),
     },
     {
       label: 'codex-upper',
-      root: env.PHANTOM_MIGRATE_SRC_CODEX_UPPER || path.join(os.homedir(), '.Codex', 'phantom'),
+      root: env.GORKHALI_MIGRATE_SRC_CODEX_UPPER || path.join(os.homedir(), '.Codex', 'gorkhali'),
     },
     {
       label: 'codex-lower',
-      root: env.PHANTOM_MIGRATE_SRC_CODEX_LOWER || path.join(os.homedir(), '.codex', 'phantom'),
+      root: env.GORKHALI_MIGRATE_SRC_CODEX_LOWER || path.join(os.homedir(), '.codex', 'gorkhali'),
     },
     {
-      label: 'phantom',
-      root: env.PHANTOM_MIGRATE_SRC_PHANTOM || path.join(os.homedir(), '.claude', 'phantom'),
+      label: 'gorkhali',
+      root: env.GORKHALI_MIGRATE_SRC_GORKHALI || path.join(os.homedir(), '.claude', 'gorkhali'),
     },
     {
       label: 'team',
-      root: env.PHANTOM_MIGRATE_SRC_TEAM || path.join(os.homedir(), '.claude', 'team'),
+      root: env.GORKHALI_MIGRATE_SRC_TEAM || path.join(os.homedir(), '.claude', 'team'),
     },
   ];
 
@@ -734,7 +734,7 @@ function lockIsStale(file) {
 
 // Acquire an exclusive lock at `file`. Returns a release fn, or null when a live
 // lock is held (caller fails closed). Reuses the JSON `{pid, token}` owner format
-// so it mutually excludes with phantom-state's lifecycle lock on the same path.
+// so it mutually excludes with gorkhali-state's lifecycle lock on the same path.
 function acquireLock(file) {
   const token = `${process.pid}-${crypto.randomBytes(12).toString('hex')}`;
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -782,7 +782,7 @@ function releaseLock(file, token) {
   }
 }
 
-// Run `action` while holding the per-repo phantom-state lifecycle lock, so a
+// Run `action` while holding the per-repo gorkhali-state lifecycle lock, so a
 // concurrent session write for the same repo blocks or fails closed. Returns
 // { ok: true, value } or { ok: false } when the live lock could not be taken.
 function withRepoLock(dest, repoId, action) {
@@ -806,9 +806,9 @@ async function loadLearningApi() {
     __dirname,
     '..',
     'skills',
-    'phantom',
+    'gorkhali',
     'scripts',
-    'phantom-learning.mjs',
+    'gorkhali-learning.mjs',
   );
   learningApi = await import(pathToFileURL(modulePath).href);
   return learningApi;
@@ -931,7 +931,7 @@ async function apply(context, options) {
     try {
       codec.recordAliases(dest, codec.repoIdentity(process.cwd(), {
         dataRoot: dest,
-        phantomRepo: process.env.PHANTOM_REPO,
+        gorkhaliRepo: process.env.GORKHALI_REPO,
       }));
     } catch (_) { /* fail open: seeding is best-effort */ }
 
@@ -1142,7 +1142,7 @@ function parseArgs(argv) {
 }
 
 function buildContext(env, mapOverrides) {
-  const dest = phantomData();
+  const dest = gorkhaliData();
   const sources = buildSources(dest, env);
   return { dest, sources, mapOverrides };
 }

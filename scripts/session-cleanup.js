@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Auto-archives stale Phantom sessions.
+// Auto-archives stale Gorkhali sessions.
 // Sweeps every repo under <data>/repos/*: scans repos/<r>/sessions/*/context.json
 // for timestamps and moves stale sessions into that same repo's
 // repos/<r>/completed/{TICKET}/ with an archive-summary.json.
@@ -17,10 +17,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { phantomData, sessionsDir, completedDir } = require('./lib/phantom-paths');
+const { gorkhaliData, sessionsDir, completedDir } = require('./lib/gorkhali-paths');
 
 // --- Config ---
-const REPOS_DIR = path.join(phantomData(), 'repos');
+const REPOS_DIR = path.join(gorkhaliData(), 'repos');
 
 // --- Parse args ---
 const args = process.argv.slice(2);

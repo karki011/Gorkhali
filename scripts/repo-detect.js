@@ -16,8 +16,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { detectRepo, aliasCandidates, phantomData } = require('./lib/phantom-paths');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const { detectRepo, aliasCandidates, gorkhaliData } = require('./lib/gorkhali-paths');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
 
 // Marker tables lifted from commands/_shared-repo-detection.md - the doc keeps
 // the POLICY (what the facts mean), this script computes the facts. First match
@@ -155,7 +155,7 @@ function detectFacts(workspace) {
   try {
     facts.repo_id = detectRepo(root);
     facts.aliases = aliasCandidates(facts.repo_id);
-    facts.data_root = phantomData(root);
+    facts.data_root = gorkhaliData(root);
   } catch (_) {
     // Repo identity must never break detection of the rest - fail open.
   }
@@ -163,7 +163,7 @@ function detectFacts(workspace) {
 }
 
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function parseArgs(argv) {

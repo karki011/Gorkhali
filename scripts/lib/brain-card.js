@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { resolveRepoSubdir } = require('./phantom-paths');
+const { resolveRepoSubdir } = require('./gorkhali-paths');
 
 // md-grammar lets a read-modify-write (supersede) rewrite ONLY the frontmatter while
 // the human-authored body prose (## What / ## Why / ## Gotchas) keeps its exact bytes

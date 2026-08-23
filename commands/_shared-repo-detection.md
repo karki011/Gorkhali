@@ -1,4 +1,4 @@
-# Phantom Shadows -- Repo Detection Context
+# Gorkhali Shadows -- Repo Detection Context
 
 > Loaded by commands that need repo-aware verification or stack-specific behavior.
 > Always load `_shared.md` first.
@@ -15,8 +15,8 @@ Run the detector instead of walking marker files yourself:
 
 It emits `repo_id` (+ `aliases`), `data_root`, `stack`, `package_manager`,
 `monorepo`, `has_ui`, and discovered `verify_commands` — computed by ONE shared
-codec (`skills/phantom/scripts/lib/shared-state.cjs`, routed through
-`scripts/lib/phantom-paths.js`'s `detectRepo`, the portable ESM skill, and the
+codec (`skills/gorkhali/scripts/lib/shared-state.cjs`, routed through
+`scripts/lib/gorkhali-paths.js`'s `detectRepo`, the portable ESM skill, and the
 shell resolver), so every layer produces the SAME id for the same workspace.
 Never reimplement the precedence in prose or per-command shell — the codec's
 comment owns it (it drifted once, in `_shared.md`).
@@ -26,9 +26,9 @@ comment owns it (it drifted once, in `_shared.md`).
 previous id stays discoverable after an origin change or codec upgrade. Readers
 resolve through `resolveRepoSubdir` (fresh canonical data always wins).
 
-**Data root:** `<data>` is `PHANTOM_DATA` when set (absolute wins, relative
-resolves against the workspace), else `$HOME/.phantom`, else
-`<workspace>/.phantom`.
+**Data root:** `<data>` is `GORKHALI_DATA` when set (absolute wins, relative
+resolves against the workspace), else `$HOME/.gorkhali`, else
+`<workspace>/.gorkhali`.
 
 ---
 
@@ -37,10 +37,10 @@ resolves against the workspace), else `$HOME/.phantom`, else
 Order of precedence (first match wins):
 1. Repo `CLAUDE.md` / `AGENTS.md` commands section
 2. Machine-readable layer reported by `repo-detect.js`: `package.json` scripts, `Makefile` targets, `justfile`, `Taskfile.yml`
-3. Stack defaults (see `skills/phantom/references/verification.md` for full table)
+3. Stack defaults (see `skills/gorkhali/references/verification.md` for full table)
 4. Monorepo: Nx `affected`, Turborepo `--filter`
 
-Inspector verification protocol: see `skills/phantom/references/verification.md`.
+Inspector verification protocol: see `skills/gorkhali/references/verification.md`.
 
 ---
 
@@ -48,7 +48,7 @@ Inspector verification protocol: see `skills/phantom/references/verification.md`
 
 Smart PR creation — default is to create, exceptions are explicit.
 Decision is based on **what happened** (changed files, code vs artifacts), not the route.
-This is the canonical decision table; `reference/wrap/ship-ceremony.md` executes it during `/phantom:wrap`.
+This is the canonical decision table; `reference/wrap/ship-ceremony.md` executes it during `/gorkhali:wrap`.
 
 | # | Condition | Action | Reason |
 |---|-----------|--------|--------|

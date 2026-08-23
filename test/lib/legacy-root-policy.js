@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // legacy-root-policy.js -- shared scanner for provider-owned legacy state
 // root literals (old Claude and Codex data-root conventions, pre-unification).
-// Used by test/state-root-literals.test.js (the phantom-data-named detector)
+// Used by test/state-root-literals.test.js (the gorkhali-data-named detector)
 // and test/active-state-paths.test.js (the broader policy that also covers
 // the other retired roots). Kept as one walker so both suites agree on repo
 // enumeration, allowlist matching, and stale-entry detection.

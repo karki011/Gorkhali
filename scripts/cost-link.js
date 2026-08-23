@@ -3,8 +3,8 @@
 // cost-link.js — bind the current Claude session to a ticket's cost ledger.
 //
 // Usage:
-//   node cost-link.js open  <TICKET>   # phantom:start / phantom:resume
-//   node cost-link.js close <TICKET>   # phantom:pause / phantom:wrap
+//   node cost-link.js open  <TICKET>   # gorkhali:start / gorkhali:resume
+//   node cost-link.js close <TICKET>   # gorkhali:pause / gorkhali:wrap
 //
 // Reads the current session_id from the marker written by hooks/session-marker.js
 // and upserts an interval entry into <sessions>/<TICKET>/costs.json:
@@ -19,7 +19,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { sessionTelemetryFile, sessionsDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionTelemetryFile, sessionsDir, detectRepo } = require('./lib/gorkhali-paths');
 
 function loadJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch (_) { return null; }

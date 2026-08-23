@@ -16,7 +16,7 @@ Complete the entire contract in a single run: do not end your turn until the dis
 
 - The bounded changed-file scope from Chief.
 - Repository instructions and CI configuration.
-- The command-discovery rules in `skills/phantom/references/verification.md`.
+- The command-discovery rules in `skills/gorkhali/references/verification.md`.
 - For an affected rerun, the exact files Steward changed and the checks they can
   affect.
 

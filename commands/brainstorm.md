@@ -3,16 +3,16 @@ name: brainstorm
 description: "Diverge/converge brainstorm — generates approaches, human picks direction. Use when scope is ambiguous, the domain is new, or approaches compete ('brainstorm', 'explore options')."
 argument-hint: "<requirement or problem statement> [--council|--simple]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Generic triggers ('explore options', 'let's think about this') are intentionally muted by user-invocable:false — brainstorm is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety (it would over-fire on casual "let's think" prose).
+# Generic triggers ('explore options', 'let's think about this') are intentionally muted by user-invocable:false — brainstorm is dispatched by gorkhali:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety (it would over-fire on casual "let's think" prose).
 user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:brainstorm "$ARGUMENTS"
+# /gorkhali:brainstorm "$ARGUMENTS"
 
 Diverge → Converge. Output: locked decision in `decisions.json` feeding downstream planning.
-READ `skills/phantom/references/brainstorming.md` for full protocol (question rules, anti-patterns,
+READ `skills/gorkhali/references/brainstorming.md` for full protocol (question rules, anti-patterns,
 learnings check); `reference/brainstorm.md` adds the native Council Mode, Opposition Pass, and Convergence
 spawn/artifact mechanics.
 
@@ -57,12 +57,12 @@ Spawn 2-3 research agents **in parallel** to gather context before forming appro
 
 After all agents return, the coordinator synthesizes their summaries into context for approach generation.
 
-**Questions** — per `skills/phantom/references/brainstorming.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 1-3, max 2 rounds, skip anything the scout agents already answered, stop once every open question has a confirmed answer/accepted default or answers degrade to "up to you".
+**Questions** — per `skills/gorkhali/references/brainstorming.md` SS Question-Asking Rules: only WHAT-questions (scope-changing), batch 1-3, max 2 rounds, skip anything the scout agents already answered, stop once every open question has a confirmed answer/accepted default or answers degrade to "up to you".
 
 **Approaches** — produce 2-3 genuinely distinct strategies via ONE path. Both paths generate ALL
 approaches before any evaluation touches any of them (anti-anchoring), and each states a concrete
 lens (`whyLens`) — never a vague "be creative". Full rules:
-`skills/phantom/references/brainstorming.md` → **Exploration Protocol**.
+`skills/gorkhali/references/brainstorming.md` → **Exploration Protocol**.
 - **Council** (route is FULL, architecture choice, high uncertainty, or `--council`): independent
   lens-agents generate candidates in parallel → Chief anonymizes + peer-ranks them → a Chairman synthesizes the
   recommended approach + ranked alternatives. Full steps: `reference/brainstorm.md` → **Council Mode**.
@@ -85,7 +85,7 @@ cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `r
 
 ## Phase 2: Converge
 
-1. **Write `brainstorm.json`** with `_meta.version: 3` (schema: `reference/schemas/brainstorm.md`) — decision frame, evidence with decision implications, open questions, 2-3 genuinely distinct full approach dossiers (benefits, tradeoffs, what breaks, failure mode, deciding condition), mandatory recommendation with its accepted tradeoff/confidence/next action, cheapest discriminating experiment, and direction gate. Generic or renamed duplicate candidates do not pass convergence. Have the active AI author `{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from that canonical JSON. The AI chooses the information design; it must be self-contained and lead with the recommendation and decision frame, then pending calls, evidence, experiment, comparison, and detailed cards. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs brainstorm --source {TEAM_DIR}/sessions/{TICKET}/brainstorm.json --candidate {TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html --out {TEAM_DIR}/sessions/{TICKET}/brainstorm.html`. Open the accepted HTML directly before GATE 1. Feedback and direction selection happen in chat: material feedback updates `brainstorm.json`; presentation-only feedback leaves JSON unchanged. Regenerate a fresh candidate from the applicable source plus feedback, validate/promote it, and reopen only when the user asks for another review. If generation, validation, or opening is unavailable, use chat-only approval with the reason stated; every path still ends at GATE 1.
+1. **Write `brainstorm.json`** with `_meta.version: 3` (schema: `reference/schemas/brainstorm.md`) — decision frame, evidence with decision implications, open questions, 2-3 genuinely distinct full approach dossiers (benefits, tradeoffs, what breaks, failure mode, deciding condition), mandatory recommendation with its accepted tradeoff/confidence/next action, cheapest discriminating experiment, and direction gate. Generic or renamed duplicate candidates do not pass convergence. Have the active AI author `{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from that canonical JSON. The AI chooses the information design; it must be self-contained and lead with the recommendation and decision frame, then pending calls, evidence, experiment, comparison, and detailed cards. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs brainstorm --source {TEAM_DIR}/sessions/{TICKET}/brainstorm.json --candidate {TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html --out {TEAM_DIR}/sessions/{TICKET}/brainstorm.html`. Open the accepted HTML directly before GATE 1. Feedback and direction selection happen in chat: material feedback updates `brainstorm.json`; presentation-only feedback leaves JSON unchanged. Regenerate a fresh candidate from the applicable source plus feedback, validate/promote it, and reopen only when the user asks for another review. If generation, validation, or opening is unavailable, use chat-only approval with the reason stated; every path still ends at GATE 1.
 2. **HUMAN GATE** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 

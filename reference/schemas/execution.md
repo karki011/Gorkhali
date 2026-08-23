@@ -62,7 +62,7 @@ Each `tasks[]` entry is the typed Engineer→Chief completion record — Chief r
     }
   ],
   "totalSpawns": 3,
-  "agentOutputs": "~/.phantom/repos/{REPO_NAME}/sessions/ENG-1234/agent-logs/"
+  "agentOutputs": "~/.gorkhali/repos/{REPO_NAME}/sessions/ENG-1234/agent-logs/"
 }
 ```
 

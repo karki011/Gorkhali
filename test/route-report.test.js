@@ -19,7 +19,7 @@
 //      nested/off-bucket copies are counted, never aggregated.
 //
 // Every case builds a real corpus in tmpdir and runs the CLI as a child process
-// with PHANTOM_DATA pointed at it; assertions are dual-surface (regex on the
+// with GORKHALI_DATA pointed at it; assertions are dual-surface (regex on the
 // human stdout AND deepEqual/equal on the --json parse).
 'use strict';
 
@@ -63,7 +63,7 @@ function outcome(route, source, prState, verified = null, fixLoops = null, revie
 function runCli(dataRoot, args = []) {
   const res = spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot },
+    env: { ...process.env, GORKHALI_DATA: dataRoot },
   });
   return { code: res.status, stdout: res.stdout, stderr: res.stderr };
 }
@@ -243,7 +243,7 @@ test('cost join: priced ledgers ride the metrics, uncosted records never enter t
     // and the coverage (1 of 2) is printed, never blended.
     writeRecord(data, 'r1', 'completed', 'A-2', outcome('plan', 'explicit', 'merged', 'pass'));
 
-    const env = { ...process.env, PHANTOM_DATA: data, HOME: home };
+    const env = { ...process.env, GORKHALI_DATA: data, HOME: home };
     const res = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8', env });
     assert.equal(res.status, 0, res.stderr);
     assert.match(res.stdout, /cost\s+over 1 of 2 record\(s\): total \$3\.00, mean \$3\.00/);
@@ -261,7 +261,7 @@ test('cost join: an unpriceable corpus says so, and never reads unknown as $0', 
   const home = mkTmp();
   try {
     writeRecord(data, 'r1', 'completed', 'N-1', outcome('direct', 'explicit', 'merged', 'pass'));
-    const env = { ...process.env, PHANTOM_DATA: data, HOME: home };
+    const env = { ...process.env, GORKHALI_DATA: data, HOME: home };
     const res = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8', env });
     assert.equal(res.status, 0, res.stderr);
     assert.match(res.stdout, /cost\s+over 0 of 1 record\(s\): no priced cost data/);

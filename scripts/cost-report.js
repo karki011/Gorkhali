@@ -40,10 +40,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
-const { sessionsDir, completedDir, sessionTelemetryFile, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, completedDir, sessionTelemetryFile, detectRepo } = require('./lib/gorkhali-paths');
 const { render } = require('./lib/render-output');
 const { resolveFields, pickFields } = require('./lib/fields');
-const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { GorkhaliError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
 
 const COST_MODEL_VERSION = '2026-06-30';
 
@@ -279,7 +279,7 @@ if (require.main === module) {
 
   const unknownFlags = args.filter((a) => a.startsWith('--') && !KNOWN_FLAGS.has(a));
   if (unknownFlags.length > 0) {
-    reportError(new PhantomError(
+    reportError(new GorkhaliError(
       `Unknown flag(s): ${unknownFlags.join(', ')}. Known flags: ${[...KNOWN_FLAGS].sort().join(', ')}, --help`,
       VALIDATION_ERROR,
     ));

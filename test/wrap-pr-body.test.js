@@ -289,7 +289,7 @@ test('ship-ceremony creates a ready-for-review PR with the body as a file', () =
 //
 // This is a directory scanner, not a file enumeration: an enumerated list only
 // ever catches the files someone remembered to add to it (that is how
-// reference/greploop.md and skills/phantom/SKILL.md leaked stale "draft PR"
+// reference/greploop.md and skills/gorkhali/SKILL.md leaked stale "draft PR"
 // language past this guard before). Walking every instruction root makes a new
 // or unlisted file just as visible as the ones already known about.
 
@@ -389,7 +389,7 @@ const POPULATED_BODY = [
 ].join('\n');
 
 function runPreflight(body) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-pr-body-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-pr-body-'));
   const file = path.join(dir, 'pr-body.md');
   fs.writeFileSync(file, body);
   const script = preflightScript().replace(/BODY="[^"]*"/, `BODY=${JSON.stringify(file)}`);

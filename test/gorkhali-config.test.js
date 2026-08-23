@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// phantom-config.test.js - coverage for scripts/phantom-config.js, proven by
+// gorkhali-config.test.js - coverage for scripts/gorkhali-config.js, proven by
 // spawning the REAL CLI against throwaway tmpdir git repos plus in-process library
 // calls for the layers a CLI cannot express (explicit override, askPlan).
 //
@@ -20,7 +20,7 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SCRIPT = path.join(REPO_ROOT, 'scripts', 'phantom-config.js');
+const SCRIPT = path.join(REPO_ROOT, 'scripts', 'gorkhali-config.js');
 
 // Throwaway git fixture. `remote` gives the detect layer something to see.
 function mkRepo(remote) {
@@ -34,21 +34,21 @@ function mkData() {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'config-data-')));
 }
 
-// Spawn the real CLI with an isolated env: PHANTOM_DATA pinned to the fixture,
-// ambient phantom overrides stripped so host state cannot leak in.
+// Spawn the real CLI with an isolated env: GORKHALI_DATA pinned to the fixture,
+// ambient gorkhali overrides stripped so host state cannot leak in.
 function cli(args, dataDir, extraEnv = {}) {
-  const env = { ...process.env, PHANTOM_DATA: dataDir };
-  delete env.PHANTOM_REPO;
-  delete env.PHANTOM_UNATTENDED;
+  const env = { ...process.env, GORKHALI_DATA: dataDir };
+  delete env.GORKHALI_REPO;
+  delete env.GORKHALI_UNATTENDED;
   for (const [k, v] of Object.entries(extraEnv)) env[k] = v; // applied last: survives the deletes
   return spawnSync('node', [SCRIPT, ...args], { encoding: 'utf-8', env });
 }
 
-// Fresh module instance with PHANTOM_DATA pinned - the layer memoizes per process.
+// Fresh module instance with GORKHALI_DATA pinned - the layer memoizes per process.
 function loadLib(dataDir) {
-  const saved = process.env.PHANTOM_DATA;
-  process.env.PHANTOM_DATA = dataDir;
-  const id = require.resolve('../scripts/phantom-config');
+  const saved = process.env.GORKHALI_DATA;
+  process.env.GORKHALI_DATA = dataDir;
+  const id = require.resolve('../scripts/gorkhali-config');
   delete require.cache[id];
   const mod = require(id);
   mod.clearCache();
@@ -56,8 +56,8 @@ function loadLib(dataDir) {
     mod,
     restore() {
       delete require.cache[id];
-      if (saved === undefined) delete process.env.PHANTOM_DATA;
-      else process.env.PHANTOM_DATA = saved;
+      if (saved === undefined) delete process.env.GORKHALI_DATA;
+      else process.env.GORKHALI_DATA = saved;
     },
   };
 }
@@ -70,8 +70,8 @@ function repoConfigFile(dataDir, repoDir) {
   const out = spawnSync(
     'node',
     ['-e', 'process.stdout.write(require(process.argv[1]).repoConfigPath(require(process.argv[2]).detectRepo(process.argv[3])))',
-      SCRIPT, path.join(REPO_ROOT, 'scripts', 'lib', 'phantom-paths.js'), repoDir],
-    { encoding: 'utf-8', env: { ...process.env, PHANTOM_DATA: dataDir, PHANTOM_REPO: '' } },
+      SCRIPT, path.join(REPO_ROOT, 'scripts', 'lib', 'gorkhali-paths.js'), repoDir],
+    { encoding: 'utf-8', env: { ...process.env, GORKHALI_DATA: dataDir, GORKHALI_REPO: '' } },
   );
   return out.stdout.trim();
 }
@@ -322,14 +322,14 @@ test('askPlan reports what to ask and never prompts; unattended + unset is INACT
     assert.deepEqual(attended.choices, ['jira', 'linear', 'github', 'file', 'none']);
     assert.equal(attended.inactive_message, null);
 
-    const unattended = lib.mod.askPlan('tracker.provider', { cwd: repo, env: { PHANTOM_UNATTENDED: '1' } });
+    const unattended = lib.mod.askPlan('tracker.provider', { cwd: repo, env: { GORKHALI_UNATTENDED: '1' } });
     assert.equal(unattended.needed, true);
     assert.equal(unattended.unattended, true);
     assert.equal(unattended.guidance, 'inactive', 'unconfigured is INACTIVE, not an error');
     assert.match(unattended.inactive_message, /^INACTIVE: tracker\.provider is not configured/);
 
     lib.mod.set('tracker.provider', 'jira', { cwd: repo });
-    const resolved = lib.mod.askPlan('tracker.provider', { cwd: repo, env: { PHANTOM_UNATTENDED: '1' } });
+    const resolved = lib.mod.askPlan('tracker.provider', { cwd: repo, env: { GORKHALI_UNATTENDED: '1' } });
     assert.equal(resolved.needed, false);
     assert.equal(resolved.guidance, 'resolved');
     assert.equal(resolved.resolved.value, 'jira');
@@ -348,7 +348,7 @@ test('the CLI never reads stdin (an unattended caller can never be blocked)', ()
     // wedged run.
     const res = spawnSync('node', [SCRIPT, 'get', 'tracker.provider', '--repo', repo], {
       encoding: 'utf-8',
-      env: { ...process.env, PHANTOM_DATA: data, PHANTOM_UNATTENDED: '1' },
+      env: { ...process.env, GORKHALI_DATA: data, GORKHALI_UNATTENDED: '1' },
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000,
     });
@@ -369,11 +369,11 @@ test('tracker.label roundtrips, is unset by default, and rejects an illegal labe
     assert.equal(before.stdout, '', 'no fabricated default label');
     assert.match(before.stderr, /tracker\.label is unset/);
 
-    assert.equal(cli(['set', 'tracker.label', 'phantom', '--repo', repo], data).status, 0);
-    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'phantom\n');
+    assert.equal(cli(['set', 'tracker.label', 'gorkhali', '--repo', repo], data).status, 0);
+    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'gorkhali\n');
 
     const json = JSON.parse(cli(['get', 'tracker.label', '--repo', repo, '--json'], data).stdout);
-    assert.equal(json.value, 'phantom');
+    assert.equal(json.value, 'gorkhali');
     assert.equal(json.provenance, 'repo');
 
     // A label with a space and an empty label are both illegal in Jira, so the
@@ -384,7 +384,7 @@ test('tracker.label roundtrips, is unset by default, and rejects an illegal labe
       assert.match(res.stderr, /tracker\.label must be a valid tracker label/);
     }
     // A rejected set leaves the previously stored value untouched.
-    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'phantom\n');
+    assert.equal(cli(['get', 'tracker.label', '--repo', repo], data).stdout, 'gorkhali\n');
   } finally {
     cleanup(repo, data);
   }
@@ -397,7 +397,7 @@ test('tracker.label prose in start.md names the real reader and keeps the set-se
   assert.ok(at >= 0, 'start.md must govern tracker.label');
   assert.match(
     lines[at],
-    /scripts\/phantom-config\.js" get tracker\.label/,
+    /scripts\/gorkhali-config\.js" get tracker\.label/,
     'start.md must name the real reader, not a config that does not exist',
   );
   // The read-modify-write hazard is the whole point of the step; a future
@@ -416,7 +416,7 @@ test('jira.auto_transition prose in close.md and start.md names the real reader'
     assert.ok(at >= 0, file + ' must still govern jira.auto_transition');
     assert.match(
       lines[at],
-      /scripts\/phantom-config\.js" get jira\.auto_transition/,
+      /scripts\/gorkhali-config\.js" get jira\.auto_transition/,
       file + ' must name the real reader, not a config that does not exist',
     );
     // The skip condition may sit on a following line (one sentence per line).

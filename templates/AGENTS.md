@@ -15,8 +15,8 @@ Multi-agent shadows for this repository. Compatible with Claude Code, Codex, Kim
 
 Model pins are GENERATED, not hand-maintained: `scripts/gen-agent-frontmatter.js`
 stamps each `agents/*.md` `model:` line from the role-to-profile mapping in
-`skills/phantom/references/model-policy.json`, resolved to a concrete model per
-host by `skills/phantom/references/model-presets.json`. A drift test fails CI
+`skills/gorkhali/references/model-policy.json`, resolved to a concrete model per
+host by `skills/gorkhali/references/model-presets.json`. A drift test fails CI
 if a pin is hand-edited out of sync with that policy. Do not hand-edit a pin or
 restate a concrete model name here - change the policy file instead.
 
@@ -38,9 +38,9 @@ Plan (Chief) → Challenge + plan-check (Opposition) → Build (Engineer) → Ve
 ## Usage
 
 ```bash
-/phantom:start "ticket or description"
+/gorkhali:start "ticket or description"
 ```
 
 ## Configuration
 
-See the installed plugin dir for the full skill system (self-resolve: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && echo "phantom: plugin dir not found - run /plugin to install"`).
+See the installed plugin dir for the full skill system (self-resolve: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -z "$PR" ] && echo "gorkhali: plugin dir not found - run /plugin to install"`).

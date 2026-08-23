@@ -23,12 +23,12 @@ A wave cut off mid-flight leaves half-merged worktrees and orphaned agent state.
    - what's done so far (waves/tasks complete)
    - the exact next wave (agents + their scoped tasks + file targets)
    - where state lives (`{TEAM_DIR}/sessions/{TICKET}/` — plan.json, execution.json, checkpoints)
-   - the single command to resume: `/phantom:resume {TICKET}`
+   - the single command to resume: `/gorkhali:resume {TICKET}`
 3. Stop. Let the user resume in a fresh session with headroom.
 
 ## Notes
 
-- Conservative by design — a false pause costs one `/phantom:resume`; a false start costs a
+- Conservative by design — a false pause costs one `/gorkhali:resume`; a false start costs a
   cut-off wave.
 - If budget is unknown/unavailable → proceed (never block on a missing signal).
 - Single-shot / solo tasks → ignore this entirely.

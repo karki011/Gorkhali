@@ -9,12 +9,12 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
-const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const STATE = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
 const DEFECT_PROOF = path.join(
   __dirname,
   '..',
   'skills',
-  'phantom',
+  'gorkhali',
   'scripts',
   'lib',
   'defect-proof.mjs',
@@ -40,12 +40,12 @@ function parse(result) {
 }
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-defect-proof-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-defect-proof-'));
   const workspace = path.join(root, 'workspace');
   const data = path.join(root, 'data');
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'source.txt'), 'baseline\n');
-  return { root, workspace, data, env: { PHANTOM_DATA: data } };
+  return { root, workspace, data, env: { GORKHALI_DATA: data } };
 }
 
 function writeEvidence(sessionDirectory) {
@@ -200,7 +200,7 @@ test('DiagnosticGrant validation rejects expiry, revocation, and scope escape', 
 
 test('DiagnosticGrant evidence references must resolve to session files', async () => {
   const { diagnosticGrantErrors } = await import(pathToFileURL(DEFECT_PROOF).href);
-  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-grant-evidence-'));
+  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-grant-evidence-'));
   const logs = path.join(sessionDir, 'logs');
   fs.mkdirSync(logs);
   fs.writeFileSync(path.join(logs, 'instrumentation.txt'), 'captured output\n');
@@ -246,7 +246,7 @@ test('defect proof requires failed pre-fix regression evidence', async () => {
 
 test('defect proof evidence references must resolve to session files', async () => {
   const { defectProofErrors } = await import(pathToFileURL(DEFECT_PROOF).href);
-  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-proof-evidence-'));
+  const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-proof-evidence-'));
   const fingerprint = `sha256:${'b'.repeat(64)}`;
   const proof = readyProof({ repo_id: 'repo-1', task_id: 'task-1' }, fingerprint);
   writeEvidence(sessionDir);

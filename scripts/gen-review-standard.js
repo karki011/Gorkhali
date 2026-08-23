@@ -28,7 +28,7 @@
 const fs = require('fs');
 const path = require('path');
 const { renderBlock, BLOCKS } = require('./lib/review-standard');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 const DEFAULT_ROOT = path.join(__dirname, '..');
 
@@ -66,13 +66,13 @@ function applyBlock(content, name, file) {
   const lines = content.split('\n');
   const b = lines.findIndex((l) => l.trim() === begin(name));
   if (b === -1) {
-    throw new PhantomError(`ERROR: missing marker "${begin(name)}" in ${file}`, 'VALIDATION_ERROR', [
+    throw new GorkhaliError(`ERROR: missing marker "${begin(name)}" in ${file}`, 'VALIDATION_ERROR', [
       `Add the BEGIN/END marker pair for block "${name}" to ${file}`,
     ]);
   }
   const e = lines.findIndex((l, i) => i > b && l.trim() === end(name));
   if (e === -1) {
-    throw new PhantomError(`ERROR: unterminated block "${name}" in ${file}`, 'VALIDATION_ERROR');
+    throw new GorkhaliError(`ERROR: unterminated block "${name}" in ${file}`, 'VALIDATION_ERROR');
   }
   const rendered = renderBlock(name).split('\n');
   return [...lines.slice(0, b + 1), ...rendered, ...lines.slice(e)].join('\n');
@@ -82,7 +82,7 @@ function applyBlock(content, name, file) {
 function renderFile(root, relative) {
   const file = path.join(root, relative);
   if (!fs.existsSync(file)) {
-    throw new PhantomError(`ERROR: review-standard target not found: ${file}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: review-standard target not found: ${file}`, 'IO_ERROR');
   }
   const current = fs.readFileSync(file, 'utf8');
   let next = current;
@@ -113,7 +113,7 @@ function runCheck(root) {
     if (next !== current) drifted.push(relative);
   }
   if (drifted.length) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `Review-standard prose is out of date: ${drifted.join(', ')}`,
       'VALIDATION_ERROR',
       ['Run: node scripts/gen-review-standard.js', 'Then commit the regenerated files']
@@ -142,7 +142,7 @@ function parseArgs(argv) {
     else if (a === '--help') args.help = true;
     else if (a === '--list') args.list = true;
     else if (a === '--dir') args.dir = argv[++i];
-    else throw new PhantomError(`ERROR: unknown option: ${a}`, 'USAGE');
+    else throw new GorkhaliError(`ERROR: unknown option: ${a}`, 'USAGE');
   }
   return args;
 }

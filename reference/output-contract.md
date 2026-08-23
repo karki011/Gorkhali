@@ -2,7 +2,7 @@
 
 Author: Subash Karki
 
-Every script phantom runs, every skill summary it renders, and every artifact it generates is
+Every script gorkhali runs, every skill summary it renders, and every artifact it generates is
 read by an agent first — often the orchestrating agent itself, mid-session. Output written for
 a human who scrolls and skims will burn an agent's context and mislead its next decision. This
 contract retargets AXI's 10 CLI-ergonomics principles from "a CLI you build" to "output your
@@ -10,7 +10,7 @@ scripts print / summaries your skills render / artifacts you generate," plus one
 which deliverables must be HTML instead of markdown.
 
 Internal logic stays on plain objects; render once, at the output boundary, the moment a script
-or skill is about to print. Phantom uses plain key-value text, not TOON — the wire-format
+or skill is about to print. Gorkhali uses plain key-value text, not TOON — the wire-format
 optimization is skipped, the boundary discipline is not.
 
 ## 1. Minimal default schemas
@@ -82,8 +82,8 @@ not a fixed workflow, not one path enforced:
 
 ```
 help[2]:
-  Run `/phantom:fix` to repair the failing test named above
-  Run `/phantom:learn` to record why this kept happening
+  Run `/gorkhali:fix` to repair the failing test named above
+  Run `/gorkhali:learn` to record why this kept happening
 ```
 
 Omit the block when the output is already self-contained (a confirmation, a single count) —
@@ -105,7 +105,7 @@ are both HTML. This section makes the rule general, not feature-local. Contract
 `reference/eval/eval-template.md`) are HTML-compliant producers alongside detective/plan/visualflow.
 
 **Stays as-is** (unaffected by this rule): machine state (`intent.json`, `plan.json`, checkpoint
-JSON), `learnings/INDEX.md` + `EDGES.md`, agent handoff output between phantom agents, portability
+JSON), `learnings/INDEX.md` + `EDGES.md`, agent handoff output between gorkhali agents, portability
 packets (`handoff.md`), and session logs (e.g. pause's `{date}_{slug}.md` resume records). Those
 are consumed by other agents or scripts, not read visually by a human — HTML would be friction,
 not value.
@@ -120,9 +120,9 @@ moving to the next step only when the current one truly yields nothing:
 
 1. **User's explicit ask** — a named look, a named design system.
 2. **Subject project's own design system** — the project the artifact is *about* (which may
-   differ from the phantom checkout itself): its Tailwind/theme config, CSS variables/design
+   differ from the gorkhali checkout itself): its Tailwind/theme config, CSS variables/design
    tokens, component library, or brand assets.
-3. **Phantom's default dark aesthetic** — only when both above come up empty.
+3. **Gorkhali's default dark aesthetic** — only when both above come up empty.
 
 State which of the three you used and why when you deliver the artifact.
 

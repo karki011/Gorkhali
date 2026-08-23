@@ -66,16 +66,16 @@ test('NEGATIVE: no "max 3 fix attempts"-class phrase in prose (oracle/advisor co
 test('POSITIVE: scripts/lib/constants.js FIX_LOOP_CEILING default is 2', () => {
   const CONSTANTS_PATH = require.resolve('../scripts/lib/constants');
   // Clear cache so env overrides from other tests don't leak.
-  const saved = process.env.PHANTOM_FIX_LOOP_CEILING;
-  delete process.env.PHANTOM_FIX_LOOP_CEILING;
+  const saved = process.env.GORKHALI_FIX_LOOP_CEILING;
+  delete process.env.GORKHALI_FIX_LOOP_CEILING;
   delete require.cache[CONSTANTS_PATH];
   let C;
   try {
     C = require(CONSTANTS_PATH);
   } finally {
     delete require.cache[CONSTANTS_PATH];
-    if (saved === undefined) delete process.env.PHANTOM_FIX_LOOP_CEILING;
-    else process.env.PHANTOM_FIX_LOOP_CEILING = saved;
+    if (saved === undefined) delete process.env.GORKHALI_FIX_LOOP_CEILING;
+    else process.env.GORKHALI_FIX_LOOP_CEILING = saved;
   }
   assert.equal(C.FIX_LOOP_CEILING, 2, 'FIX_LOOP_CEILING default must be 2');
 });

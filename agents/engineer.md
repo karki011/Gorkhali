@@ -96,4 +96,4 @@ Handoff note (free-text, alongside the record): key decisions, what the next age
 
 ## Inheritance
 
-Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance protocol and learnings lookup.
+Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance protocol and learnings lookup.

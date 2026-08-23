@@ -14,14 +14,14 @@ try {
 
   let learningsDir, stateDir;
   try {
-    ({ learningsDir, stateDir } = require('../scripts/lib/phantom-paths'));
+    ({ learningsDir, stateDir } = require('../scripts/lib/gorkhali-paths'));
   } catch (_) {
     // fail open: env-free stateDir fallback, mirrors hooks/router-nudge.js:16-23.
     // learningsDir has no safe standalone fallback; a missing module surfaces
     // below as INDEX_PATH never resolving, and the outer try/catch exits 0.
     const home = os.homedir();
-    const data = process.env.PHANTOM_DATA ||
-      (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+    const data = process.env.GORKHALI_DATA ||
+      (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
     stateDir = () => path.join(data, 'state');
   }
 

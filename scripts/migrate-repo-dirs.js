@@ -2,10 +2,10 @@
 // Author: Subash Karki
 // migrate-repo-dirs.js — idempotent, non-destructive consolidation of
 // branch-named orphan repo dirs under <data>/repos/* (and legacy
-// ~/.claude/phantom/repos/*) into their CANONICAL repo dir.
+// ~/.claude/gorkhali/repos/*) into their CANONICAL repo dir.
 //
 // WHY this exists: before the T1 detection fix, detectRepo() returned the
-// BRANCH name for user worktrees at ~/.phantom-os/worktrees/{repo}/{branch},
+// BRANCH name for user worktrees at ~/.gorkhali-os/worktrees/{repo}/{branch},
 // so session/learnings state was written under dozens of branch-named dirs
 // (cp-43042-…, feature-…-branch) instead of the real repo. T1 now resolves the
 // canonical name via `git remote get-url origin`; this script sweeps the old
@@ -37,11 +37,11 @@
 //   --map a=b   pin orphan dir `a` to repo `b` (repeatable).
 //
 // Env overrides (testing):
-//   PHANTOM_DATA                 destination/source root (via phantom-paths)
-//   PHANTOM_MIGRATE_LEGACY_ROOT  legacy repos root (default ~/.claude/phantom/repos)
-//   PHANTOM_MIGRATE_CANDIDATE_DIRS  ':'-sep parents holding repo checkouts
-//                                   (default ~/CZ:~/.phantom-os/worktrees)
-//   PHANTOM_PROJECTS_DIR         Claude transcript root (default ~/.claude/projects)
+//   GORKHALI_DATA                 destination/source root (via gorkhali-paths)
+//   GORKHALI_MIGRATE_LEGACY_ROOT  legacy repos root (default ~/.claude/gorkhali/repos)
+//   GORKHALI_MIGRATE_CANDIDATE_DIRS  ':'-sep parents holding repo checkouts
+//                                   (default ~/CZ:~/.gorkhali-os/worktrees)
+//   GORKHALI_PROJECTS_DIR         Claude transcript root (default ~/.claude/projects)
 
 'use strict';
 
@@ -49,10 +49,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
-const { phantomData, detectRepo, repoDir, auditDir } = require('./lib/phantom-paths');
+const { gorkhaliData, detectRepo, repoDir, auditDir } = require('./lib/gorkhali-paths');
 const { collectSessionIds } = require('./lib/session-trace');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const learningGrammar = require('../skills/phantom/scripts/lib/learning-grammar.cjs');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
+const learningGrammar = require('../skills/gorkhali/scripts/lib/learning-grammar.cjs');
 const { isDataMigrationInProgress, atomicWriteText, loadLearningApi } = require('./migrate-data');
 
 const MARKER_NAME = '.repo-dirs-migrated';
@@ -137,14 +137,14 @@ function walkFiles(dir) {
 // ---------------------------------------------------------------------------
 // Candidate repo discovery. A candidate is a real checkout whose CANONICAL name
 // (via T1 detectRepo) may differ from its directory basename — that mismatch is
-// exactly the fragmentation we resolve (e.g. worktrees/research-phantom-skills
+// exactly the fragmentation we resolve (e.g. worktrees/research-gorkhali-skills
 // whose git remote canonical name is research-team-skills).
 // ---------------------------------------------------------------------------
 function candidateParents() {
-  const raw = process.env.PHANTOM_MIGRATE_CANDIDATE_DIRS;
+  const raw = process.env.GORKHALI_MIGRATE_CANDIDATE_DIRS;
   if (raw && raw.trim()) return raw.split(':').filter(Boolean);
   const home = os.homedir();
-  return [path.join(home, 'CZ'), path.join(home, '.phantom-os', 'worktrees')];
+  return [path.join(home, 'CZ'), path.join(home, '.gorkhali-os', 'worktrees')];
 }
 
 /** Pick a git checkout to represent a parent-of-worktrees dir (its children are
@@ -204,7 +204,7 @@ function knownCanonical() {
 // PR URLs are only trusted from a session's OWN artifacts (sessions/**/*.json,
 // e.g. wrap.json/close.json trace fields). Scanning learnings prose misfires —
 // a learnings note routinely cites ANOTHER repo's PR (that produced the
-// phantom-os->phantom and phantom->research-phantom-skills false hits).
+// gorkhali-os->gorkhali and gorkhali->research-gorkhali-skills false hits).
 function scanForPrRepo(files) {
   for (const f of files) {
     if (path.extname(f) !== '.json') continue;
@@ -245,7 +245,7 @@ function collectMeta(files) {
 // Git signals must be UNAMBIGUOUS. A 7-char abbreviated gitHead can exist in
 // several repos, and a branch name can too — accept only when the matching
 // candidates all map to ONE canonical repo; otherwise reject to a report entry
-// rather than guess (guessing produced phantom-terminal->Auth0).
+// rather than guess (guessing produced gorkhali-terminal->Auth0).
 function canonicalsMatching(test) {
   const set = new Set();
   for (const cand of candidates()) if (test(cand)) set.add(cand.canonical);
@@ -574,18 +574,18 @@ function acquireMigrationLock(lockPath) {
 
 async function run(argv = process.argv.slice(2)) {
   // The migrator resolves canonical names for MANY candidate repos, not "the
-  // current one" — honoring a per-spawn PHANTOM_REPO override here would
+  // current one" — honoring a per-spawn GORKHALI_REPO override here would
   // collapse every candidate onto one name and silently cross-merge orphans
   // (session-marker.js spawns this inheriting process.env, so a stray
-  // override reaches production). Testing env overrides (PHANTOM_MIGRATE_*)
+  // override reaches production). Testing env overrides (GORKHALI_MIGRATE_*)
   // are unaffected.
-  delete process.env.PHANTOM_REPO;
+  delete process.env.GORKHALI_REPO;
   const { apply, force, mapOverrides } = parseArgs(argv);
-  const DATA = phantomData();
+  const DATA = gorkhaliData();
   const dataReposRoot = path.join(DATA, 'repos');
-  const legacyRoot = process.env.PHANTOM_MIGRATE_LEGACY_ROOT ||
-    path.join(os.homedir(), '.claude', 'phantom', 'repos');
-  const projectsDir = process.env.PHANTOM_PROJECTS_DIR ||
+  const legacyRoot = process.env.GORKHALI_MIGRATE_LEGACY_ROOT ||
+    path.join(os.homedir(), '.claude', 'gorkhali', 'repos');
+  const projectsDir = process.env.GORKHALI_PROJECTS_DIR ||
     path.join(os.homedir(), '.claude', 'projects');
   const marker = path.join(DATA, MARKER_NAME);
   const lockPath = path.join(DATA, LOCK_NAME);

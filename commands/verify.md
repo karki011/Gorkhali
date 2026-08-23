@@ -6,7 +6,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:verify
+# /gorkhali:verify
 
 Use the portable lifecycle and artifact contract as the authority. This command is
 an adapter for the ordered quality pipeline; it must not create a second
@@ -22,7 +22,7 @@ stage instead of patching metadata.
 2. Run the portable `verify` gate before checks:
 
    ```text
-   node <skill-directory>/scripts/phantom-state.mjs verify --workspace <workspace>
+   node <skill-directory>/scripts/gorkhali-state.mjs verify --workspace <workspace>
    ```
 
 3. Inspect the current changed-file list and diff. Preserve unrelated changes.
@@ -35,7 +35,7 @@ the exact missing prerequisite and stop.
 ### 1. Inspector — deterministic correctness evidence
 
 Run one read-only Inspector pass using `agents/inspector.md`. Inspector discovers commands by
-`skills/phantom/references/verification.md`, runs every applicable command without modifying the
+`skills/gorkhali/references/verification.md`, runs every applicable command without modifying the
 worktree, and returns exact commands, exit codes, and evidence states. A failed,
 blocked, or missing Inspector result blocks verification. Do not invoke a fix skill.
 
@@ -52,10 +52,10 @@ and rerun results so the newest observation for each check is authoritative. If
 Steward changed nothing, record that the rerun was not applicable.
 
 Make the semantic risk decision once against the final post-Steward diff using the
-trigger table in `skills/phantom/references/verification.md`. Convert non-visual specialist risk
+trigger table in `skills/gorkhali/references/verification.md`. Convert non-visual specialist risk
 to a unique `requiredSpecialists` array containing only `justice`; use an empty
 array when no Justice trigger applies. For user-visible UI, prepare the
-`/phantom:visual` checklist and wait for explicit user confirmation. This
+`/gorkhali:visual` checklist and wait for explicit user confirmation. This
 selection belongs to verification and must not be recomputed by review or wrap.
 
 Write a provider-neutral verification evidence payload containing at least:
@@ -91,7 +91,7 @@ note; it never blocks the pipeline the way `failed`/`blocked` do. Record it
 through the portable helper, which advances lifecycle state atomically:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <workspace> --type verification --status <status> --run <run-id> --input <evidence-file>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <workspace> --type verification --status <status> --run <run-id> --input <evidence-file>
 ```
 
 Missing passed Inspector evidence blocks the pipeline and records a non-passing verification. A

@@ -1,12 +1,12 @@
 // Author: Subash Karki
 // routing-gate.test.js — proves the routing gate's INVERSE polarity: an opt-in
-// discipline gate that fails OPEN. Only PHANTOM_ROUTING_ENFORCE=1 arms it; it
-// covers Phantom-known repositories (or all Git repositories by explicit
-// scope); PHANTOM_ADHOC=1 bypasses with a logged line; and only valid
+// discipline gate that fails OPEN. Only GORKHALI_ROUTING_ENFORCE=1 arms it; it
+// covers Gorkhali-known repositories (or all Git repositories by explicit
+// scope); GORKHALI_ADHOC=1 bypasses with a logged line; and only valid
 // repository-scoped portable lifecycle state satisfies routing.
 //
 // Spawns the REAL hook process. Env is read at INVOCATION time, so every
-// spawn pins PHANTOM_DATA to a tmpdir and sets PHANTOM_ROUTING_ENFORCE only
+// spawn pins GORKHALI_DATA to a tmpdir and sets GORKHALI_ROUTING_ENFORCE only
 // when the case under test arms the gate.
 'use strict';
 
@@ -18,15 +18,15 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const HOOK = path.join(__dirname, '..', 'hooks', 'routing-gate.js');
-const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const STATE = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
 
 function runGate(envOverrides, stdinText) {
   const env = { ...process.env, ...envOverrides };
-  delete env.PHANTOM_ADHOC; // never inherit from the outer session
-  if (envOverrides.PHANTOM_ADHOC) env.PHANTOM_ADHOC = envOverrides.PHANTOM_ADHOC;
+  delete env.GORKHALI_ADHOC; // never inherit from the outer session
+  if (envOverrides.GORKHALI_ADHOC) env.GORKHALI_ADHOC = envOverrides.GORKHALI_ADHOC;
   // Same isolation for the arm toggle: outer shell state must not leak in.
-  if (!envOverrides.PHANTOM_ROUTING_ENFORCE) delete env.PHANTOM_ROUTING_ENFORCE;
-  if (!envOverrides.PHANTOM_ROUTING_SCOPE) delete env.PHANTOM_ROUTING_SCOPE;
+  if (!envOverrides.GORKHALI_ROUTING_ENFORCE) delete env.GORKHALI_ROUTING_ENFORCE;
+  if (!envOverrides.GORKHALI_ROUTING_SCOPE) delete env.GORKHALI_ROUTING_SCOPE;
   try {
     const stdout = execFileSync(process.execPath, [HOOK], {
       input: stdinText,
@@ -42,7 +42,7 @@ function runGate(envOverrides, stdinText) {
   }
 }
 
-// Fresh PHANTOM_DATA, a controlled config, and a git-repo fixture.
+// Fresh GORKHALI_DATA, a controlled config, and a git-repo fixture.
 // gitKind: 'dir' (normal repo) | 'file' (worktree pointer) | 'none'.
 function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-data-'));
@@ -66,9 +66,9 @@ function setup({ enforce = true, known = true, gitKind = 'dir' } = {}) {
     repoRoot,
     target,
     env: {
-      PHANTOM_DATA: data,
-      PHANTOM_REPO: path.basename(repoRoot),
-      ...(enforce ? { PHANTOM_ROUTING_ENFORCE: '1' } : {}),
+      GORKHALI_DATA: data,
+      GORKHALI_REPO: path.basename(repoRoot),
+      ...(enforce ? { GORKHALI_ROUTING_ENFORCE: '1' } : {}),
     },
     cleanup: () => {
       fs.rmSync(data, { recursive: true, force: true });
@@ -118,7 +118,7 @@ function assertDeny(res) {
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /ROUTING GATE/);
 }
 
-test('1. enforce: false + phantom-known repo edit → no-op allow', () => {
+test('1. enforce: false + gorkhali-known repo edit → no-op allow', () => {
   const { env, repoRoot, target, cleanup } = setup({ enforce: false });
   try {
     assertAllow(runGate(env, editPayload(target, repoRoot)),
@@ -128,7 +128,7 @@ test('1. enforce: false + phantom-known repo edit → no-op allow', () => {
   }
 });
 
-test('2. enforce: true + phantom-known repo + no session → DENY', () => {
+test('2. enforce: true + gorkhali-known repo + no session → DENY', () => {
   const { env, repoRoot, target, cleanup } = setup();
   try {
     assertDeny(runGate(env, editPayload(target, repoRoot)));
@@ -146,16 +146,16 @@ test('3. enforce: true + previously unknown Git repo → ALLOW by default', () =
   }
 });
 
-test('3b. PHANTOM_ROUTING_SCOPE=all-git gates a previously unknown Git repo', () => {
+test('3b. GORKHALI_ROUTING_SCOPE=all-git gates a previously unknown Git repo', () => {
   const { env, repoRoot, target, cleanup } = setup({ known: false });
   try {
-    assertDeny(runGate({ ...env, PHANTOM_ROUTING_SCOPE: 'all-git' }, editPayload(target, repoRoot)));
+    assertDeny(runGate({ ...env, GORKHALI_ROUTING_SCOPE: 'all-git' }, editPayload(target, repoRoot)));
   } finally {
     cleanup();
   }
 });
 
-test('4. W8: worktree fixture (.git is a FILE) in phantom-known repo → DENY', () => {
+test('4. W8: worktree fixture (.git is a FILE) in gorkhali-known repo → DENY', () => {
   const { env, repoRoot, target, cleanup } = setup({ gitKind: 'file' });
   try {
     assertDeny(runGate(env, editPayload(target, repoRoot)));
@@ -184,10 +184,10 @@ test('6. valid active portable state for the same repository → ALLOW', () => {
   }
 });
 
-test('7. PHANTOM_ADHOC=1 → allow AND bypass is logged with file+cwd', () => {
+test('7. GORKHALI_ADHOC=1 → allow AND bypass is logged with file+cwd', () => {
   const { data, env, repoRoot, target, cleanup } = setup();
   try {
-    const res = runGate({ ...env, PHANTOM_ADHOC: '1' }, editPayload(target, repoRoot));
+    const res = runGate({ ...env, GORKHALI_ADHOC: '1' }, editPayload(target, repoRoot));
     assertAllow(res, 'the escape hatch allows');
     const log = fs.readFileSync(path.join(data, 'state', 'routing-bypass.jsonl'), 'utf-8');
     const lines = log.trim().split('\n');
@@ -201,12 +201,12 @@ test('7. PHANTOM_ADHOC=1 → allow AND bypass is logged with file+cwd', () => {
   }
 });
 
-test('8. target under PHANTOM_DATA → allow', () => {
+test('8. target under GORKHALI_DATA → allow', () => {
   const { data, env, repoRoot, cleanup } = setup();
   try {
     const target = path.join(data, 'repos', 'somerepo', 'sessions', 'PROJ-1', 'plan.json');
     assertAllow(runGate(env, editPayload(target, repoRoot)),
-      "phantom's own data tree is never gated");
+      "gorkhali's own data tree is never gated");
   } finally {
     cleanup();
   }
@@ -315,7 +315,7 @@ test('all-git scope fails open when Git identity resolution is unavailable', () 
   const { env, repoRoot, target, cleanup } = setup({ known: false });
   const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-path-'));
   try {
-    const degraded = { ...env, PATH: emptyPath, PHANTOM_REPO: '', PHANTOM_ROUTING_SCOPE: 'all-git' };
+    const degraded = { ...env, PATH: emptyPath, GORKHALI_REPO: '', GORKHALI_ROUTING_SCOPE: 'all-git' };
     assertAllow(runGate(degraded, editPayload(target, repoRoot)));
   } finally {
     fs.rmSync(emptyPath, { recursive: true, force: true });
@@ -328,11 +328,11 @@ test('real no-origin linked worktree shares the portable lifecycle common-root i
   const main = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-main-'));
   const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-linked-parent-'));
   const worktree = path.join(linked, 'worktree');
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_ROUTING_ENFORCE: '1' };
+  const env = { ...process.env, GORKHALI_DATA: data, GORKHALI_ROUTING_ENFORCE: '1' };
   try {
     execFileSync('git', ['init', '-q'], { cwd: main });
-    execFileSync('git', ['config', 'user.email', 'phantom@example.invalid'], { cwd: main });
-    execFileSync('git', ['config', 'user.name', 'Phantom Test'], { cwd: main });
+    execFileSync('git', ['config', 'user.email', 'gorkhali@example.invalid'], { cwd: main });
+    execFileSync('git', ['config', 'user.name', 'Gorkhali Test'], { cwd: main });
     fs.writeFileSync(path.join(main, 'index.ts'), '// main\n');
     execFileSync('git', ['add', 'index.ts'], { cwd: main });
     execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: main });
@@ -353,12 +353,12 @@ test('remote-backed linked worktree does not unlock a sibling checkout', () => {
   const main = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-main-'));
   const linked = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-linked-parent-'));
   const worktree = path.join(linked, 'worktree');
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_ROUTING_ENFORCE: '1' };
+  const env = { ...process.env, GORKHALI_DATA: data, GORKHALI_ROUTING_ENFORCE: '1' };
   try {
     execFileSync('git', ['init', '-q'], { cwd: main });
-    execFileSync('git', ['config', 'user.email', 'phantom@example.invalid'], { cwd: main });
-    execFileSync('git', ['config', 'user.name', 'Phantom Test'], { cwd: main });
-    execFileSync('git', ['remote', 'add', 'origin', 'https://example.invalid/phantom/routing.git'], { cwd: main });
+    execFileSync('git', ['config', 'user.email', 'gorkhali@example.invalid'], { cwd: main });
+    execFileSync('git', ['config', 'user.name', 'Gorkhali Test'], { cwd: main });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://example.invalid/gorkhali/routing.git'], { cwd: main });
     fs.writeFileSync(path.join(main, 'index.ts'), '// main\n');
     execFileSync('git', ['add', 'index.ts'], { cwd: main });
     execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: main });

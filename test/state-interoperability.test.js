@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // state-interoperability.test.js - proves the lifecycle JSON envelopes, the
 // learning index/domains, brain cards, runtime telemetry, and the durable task
-// pointer are interoperable across the portable (ESM phantom-state.mjs) and the
+// pointer are interoperable across the portable (ESM gorkhali-state.mjs) and the
 // Claude-side (CJS hooks/libs) runtimes: what one writes, the other reads.
 'use strict';
 
@@ -14,9 +14,9 @@ const { execFileSync, spawn, spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const ROOT = path.join(__dirname, '..');
-const STATE = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
-const DECISION_CONTRACTS = path.join(ROOT, 'skills', 'phantom', 'scripts', 'lib', 'decision-contracts.mjs');
-const LEARNING = path.join(ROOT, 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
+const STATE = path.join(ROOT, 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
+const DECISION_CONTRACTS = path.join(ROOT, 'skills', 'gorkhali', 'scripts', 'lib', 'decision-contracts.mjs');
+const LEARNING = path.join(ROOT, 'skills', 'gorkhali', 'scripts', 'gorkhali-learning.mjs');
 const SESSION_MARKER = path.join(ROOT, 'hooks', 'session-marker.js');
 const brain = require(path.join(ROOT, 'scripts', 'lib', 'brain-card'));
 
@@ -25,7 +25,7 @@ let sequence = 0;
 // ── fixtures ────────────────────────────────────────────────────────────────
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-interop-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-interop-'));
   const workspace = path.join(root, 'workspace');
   const data = path.join(root, 'data');
   fs.mkdirSync(workspace);
@@ -37,7 +37,7 @@ function fixture() {
   fs.mkdirSync(data, { recursive: true });
   fs.writeFileSync(path.join(data, '.data-root-migrated-v2'), 'done\n');
   fs.writeFileSync(path.join(data, '.repo-dirs-migrated'), 'done\n');
-  return { root, workspace, data, env: { PHANTOM_DATA: data } };
+  return { root, workspace, data, env: { GORKHALI_DATA: data } };
 }
 
 function treeSnapshot(root) {
@@ -389,7 +389,7 @@ test('unsupported or missing session schema representations fail closed without 
     const before = treeSnapshot(ctx.data);
     const result = await runState(['status', ...common], ctx.env);
     assert.equal(result.code, 1, `schema ${JSON.stringify(unsupported)} must fail closed`);
-    assert.match(result.stderr, /Unsupported Phantom session schema version/);
+    assert.match(result.stderr, /Unsupported Gorkhali session schema version/);
     assert.deepEqual(treeSnapshot(ctx.data), before, 'failed inspection must not rewrite unsupported state');
   }
 });
@@ -508,7 +508,7 @@ test('INDEX.md content below Auto-Captured (operator notes, a custom section) su
 
 test('two contenders that judge the SAME stale learning lock -> exactly one wins the takeover', async () => {
   const { _internals } = await import(pathToFileURL(LEARNING).href);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lock-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-lock-'));
   const lock = path.join(dir, '.learning.lock');
   try {
     // A dead-pid lock is judged stale immediately. Both contenders read the SAME
@@ -537,7 +537,7 @@ test('two contenders that judge the SAME stale learning lock -> exactly one wins
 
 test('takeover NEVER clobbers a FRESH live lock recreated after the judgment', async () => {
   const { _internals } = await import(pathToFileURL(LEARNING).href);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lock-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-lock-'));
   const lock = path.join(dir, '.learning.lock');
   try {
     // Never-assignable pid: dead for the whole test, no recycling lottery.
@@ -562,7 +562,7 @@ test('takeover NEVER clobbers a FRESH live lock recreated after the judgment', a
 
 test('takeover of an already-empty lock path -> lost (another contender got there first)', async () => {
   const { _internals } = await import(pathToFileURL(LEARNING).href);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lock-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-lock-'));
   try {
     const r = _internals.takeoverStaleLock(path.join(dir, '.learning.lock'), 'anything');
     assert.equal(r, 'lost', 'a vanished lock is nothing to break');
@@ -655,15 +655,15 @@ test('capture graduates a repeated lesson into its domain file, readable as plai
 
 test('brain cards written by the Claude-side lib stay grep-retrievable and round-trip as plain Markdown', () => {
   const ctx = fixture();
-  const saved = process.env.PHANTOM_DATA;
-  process.env.PHANTOM_DATA = ctx.data;
+  const saved = process.env.GORKHALI_DATA;
+  process.env.GORKHALI_DATA = ctx.data;
   try {
     const { id, file } = brain.writeCard({
       ticket: 'INTEROP-CARD',
       title: 'Interop: cards remain greppable',
       type: 'decision',
       date: '2026-07-23',
-      files: ['skills/phantom/scripts/phantom-learning.mjs'],
+      files: ['skills/gorkhali/scripts/gorkhali-learning.mjs'],
       edges: [{ relates_to: 'rb-000abc' }],
       trace: { session: '/tmp/s', transcript: '', pr: '', commit: '' },
       what: 'Unified the learning API.',
@@ -675,15 +675,15 @@ test('brain cards written by the Claude-side lib stay grep-retrievable and round
     const rawCard = fs.readFileSync(file, 'utf8');
     assert.match(rawCard, new RegExp(`^ticket: INTEROP-CARD$`, 'm'));
     assert.match(rawCard, new RegExp(`^type: decision$`, 'm'));
-    assert.match(rawCard, /^\s+- skills\/phantom\/scripts\/phantom-learning\.mjs$/m);
+    assert.match(rawCard, /^\s+- skills\/gorkhali\/scripts\/gorkhali-learning\.mjs$/m);
 
     // Claude-side read #2: the lib round-trips its own write.
     const parsed = brain.readCard('interop', id);
     assert.equal(parsed.ticket, 'INTEROP-CARD');
     assert.equal(parsed.why, 'One locked write path; rejected per-hook locks.');
   } finally {
-    if (saved === undefined) delete process.env.PHANTOM_DATA;
-    else process.env.PHANTOM_DATA = saved;
+    if (saved === undefined) delete process.env.GORKHALI_DATA;
+    else process.env.GORKHALI_DATA = saved;
   }
 });
 

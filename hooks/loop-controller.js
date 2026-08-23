@@ -8,7 +8,7 @@
 // `review.fixLoops` field on `{SESSION_DIR}/verification.json`, incremented by an
 // `incrementFixLoops()` that this module exported and NOTHING ever called outside
 // its own test. When verify/review moved onto the portable lifecycle
-// (`phantom-state.mjs`, artifacts under `runs/`), the last writer of that file
+// (`gorkhali-state.mjs`, artifacts under `runs/`), the last writer of that file
 // went with it — `commands/wrap.md` now refuses to read it at all. So the ceiling
 // was reading a field no live path wrote: `getFixLoops()` returned 0 forever, the
 // hard stop never fired, and the verify -> review -> fix -> verify cycle had no
@@ -78,7 +78,7 @@ function getFixLoops(verification) {
  *
  * A ROUND IS NOT AN ATTEMPT. Round 1 is the first review of the work — nothing
  * has been fixed yet. And a later round only means a fix happened if the code
- * CHANGED between the two: `/phantom:review` is read-only and re-runnable, so
+ * CHANGED between the two: `/gorkhali:review` is read-only and re-runnable, so
  * counting rounds alone lets three reviews of one untouched diff spend the whole
  * ceiling and escalate the first genuine fix.
  *

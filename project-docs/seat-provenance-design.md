@@ -24,7 +24,7 @@ Every source below was inspected directly in this repository and against live tr
 ### 1a. `hooks/timing-capture.js`, spawn event (PreToolUse, matcher `Agent|Task`)
 
 This is the only source in the harness that currently writes anything about model identity for an Agent dispatch.
-Observed sample line from `~/.phantom/timing/research-phantom-skills-490f3d276e.jsonl` (captured under pre-0.8.0 role naming; `agent` reads the old subagent_type `blade`, which is `engineer` post-rename; every sample quoted verbatim in this document is left exactly as recorded, for the same reason):
+Observed sample line from `~/.gorkhali/timing/research-gorkhali-skills-490f3d276e.jsonl` (captured under pre-0.8.0 role naming; `agent` reads the old subagent_type `blade`, which is `engineer` post-rename; every sample quoted verbatim in this document is left exactly as recorded, for the same reason):
 
 ```json
 {"event":"spawn","ts":"2026-08-19T04:52:15.455Z","sid":"6af5f5ab-63e7-4060-990c-52952b278d1c","id":"toolu_014Avr7TCjn1dG6vMGG5HgNk","agent":"blade","model":"sonnet","modelSource":"param","bg":false}
@@ -93,18 +93,18 @@ So: either `cost-report.js`'s comment describes a different dispatch mechanism t
 Either way, this is not something the design can assume works.
 It needs a direct, deliberate probe (section 4) before v2 gating can depend on it.
 
-### 1f. Anything else Phantom writes
+### 1f. Anything else Gorkhali writes
 
-`~/.phantom/state/session-telemetry/<repo>.json` was checked and holds only `{session_id, cwd, ts}`, no model data.
-`~/.phantom/timing/<repo>.jsonl` is 1a and 1b above, the only real source.
+`~/.gorkhali/state/session-telemetry/<repo>.json` was checked and holds only `{session_id, cwd, ts}`, no model data.
+`~/.gorkhali/timing/<repo>.jsonl` is 1a and 1b above, the only real source.
 Agent-record stubs under `sessions/<ticket>/agent-records/` are 1d above.
 No other agent-record, telemetry, or ledger file in this repository carries model identity in any form.
 
-## 2. Tier model, adapted to Phantom
+## 2. Tier model, adapted to Gorkhali
 
 The foreman digest's tiers are SERVED > BILLED > ROUTED > REQUESTED.
-BILLED does not apply here: it exists in foreman to catch a provider's own billing envelope (Grok's `modelUsage` key) being mistaken for served-tier proof, and Phantom dispatches nothing but native Claude subagents, with no external billed CLI in the loop.
-Dropping BILLED, Phantom's tiers and what actually yields each one today:
+BILLED does not apply here: it exists in foreman to catch a provider's own billing envelope (Grok's `modelUsage` key) being mistaken for served-tier proof, and Gorkhali dispatches nothing but native Claude subagents, with no external billed CLI in the loop.
+Dropping BILLED, Gorkhali's tiers and what actually yields each one today:
 
 | Tier | Definition | Source found | Status |
 |---|---|---|---|
@@ -113,7 +113,7 @@ Dropping BILLED, Phantom's tiers and what actually yields each one today:
 | ROUTED | Proof the request took a given path without naming the served model | None found | No proxy, gateway, or router acknowledgment log exists in this harness |
 | REQUESTED | What was asked for | `hooks/timing-capture.js` spawn record | Confirmed real, this is all F11 currently has |
 
-Consequence, stated plainly: today, every seat Phantom dispatches through the Agent tool is REQUESTED-tier only, exactly as ROADMAP.md's own F11 fix already says ("Nothing WRITES `model` yet").
+Consequence, stated plainly: today, every seat Gorkhali dispatches through the Agent tool is REQUESTED-tier only, exactly as ROADMAP.md's own F11 fix already says ("Nothing WRITES `model` yet").
 The gap is that `baseline-report.js` prints this REQUESTED-tier number under a column header that says OBSERVED, and F11's own prose at line 257 calls it "the real signal," both of which overstate what the data proves.
 This design does not change that label (out of scope, no code touched here), but flags it as the first thing worth fixing once this doc is acted on.
 
@@ -185,6 +185,6 @@ Until then v2 has nothing to gate on that isn't already covered by the existing 
 
 **Open questions, stated honestly rather than papered over:**
 - Does the SubagentStop payload actually carry a `transcript_path` field in this harness, and if so, does it point at a file distinct from the one this investigation searched? No script in this repository currently inspects the raw payload for anything beyond identity fields, so this is unconfirmed in either direction and needs a one-time raw-payload dump to settle.
-- `scripts/cost-report.js` asserts subagent `isSidechain: true` transcript lines exist and are billed for. Direct search across 80 recent transcripts, including this session's own file mid-flight with roughly two dozen concurrent agent dispatches, found none. If that comment is stale or describes a different dispatch path than what Phantom's Agent tool actually uses, cost accounting for subagent spend may itself be silently undercounting today; that is a real, separate risk worth its own follow-up, not something this doc's scope covers or fixes.
-- Is there any ROUTED-tier signal obtainable by instrumenting Phantom's own dispatch path (the "internal router" `timing-capture.js` already distinguishes from native Claude Code), even short of full SERVED-tier proof? Worth a small spike before assuming SERVED is the only way forward.
-- If SERVED-tier evidence for subagents never becomes reachable, does Phantom need its own equivalent of foreman's "reduced assurance" label, explicitly marking every acceptance as unverified-seat rather than silently treating REQUESTED as good enough forever? This design defers that decision to whoever picks up v2, since it is a product/policy call, not a mechanical one.
+- `scripts/cost-report.js` asserts subagent `isSidechain: true` transcript lines exist and are billed for. Direct search across 80 recent transcripts, including this session's own file mid-flight with roughly two dozen concurrent agent dispatches, found none. If that comment is stale or describes a different dispatch path than what Gorkhali's Agent tool actually uses, cost accounting for subagent spend may itself be silently undercounting today; that is a real, separate risk worth its own follow-up, not something this doc's scope covers or fixes.
+- Is there any ROUTED-tier signal obtainable by instrumenting Gorkhali's own dispatch path (the "internal router" `timing-capture.js` already distinguishes from native Claude Code), even short of full SERVED-tier proof? Worth a small spike before assuming SERVED is the only way forward.
+- If SERVED-tier evidence for subagents never becomes reachable, does Gorkhali need its own equivalent of foreman's "reduced assurance" label, explicitly marking every acceptance as unverified-seat rather than silently treating REQUESTED as good enough forever? This design defers that decision to whoever picks up v2, since it is a product/policy call, not a mechanical one.

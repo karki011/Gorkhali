@@ -36,19 +36,19 @@ const {
   saveTranscript,
 } = require('../scripts/run-evals');
 
-const TRIGGER_CASE = { id: 1, skill: 'phantom:start', prompt: 'build the thing', should_trigger: true };
-const ROUTE_CASE = { id: 2, kind: 'route', skill: 'phantom:start', prompt: 'small fix', expected_route: 'DIRECT' };
+const TRIGGER_CASE = { id: 1, skill: 'gorkhali:start', prompt: 'build the thing', should_trigger: true };
+const ROUTE_CASE = { id: 2, kind: 'route', skill: 'gorkhali:start', prompt: 'small fix', expected_route: 'DIRECT' };
 const REGEX_CASE = {
-  id: 3, kind: 'convention', skill: 'phantom:start', prompt: 'check config',
+  id: 3, kind: 'convention', skill: 'gorkhali:start', prompt: 'check config',
   setup: 'config.yaml contains `gates: 3`', expected_check: { type: 'regex', pattern: 'gates:\\s*3' },
 };
 const JUDGE_CASE = {
-  id: 4, kind: 'convention', skill: 'phantom:wrap', prompt: 'wrap up',
+  id: 4, kind: 'convention', skill: 'gorkhali:wrap', prompt: 'wrap up',
   setup: { 'config.yaml': 'gates: 3' }, expected_check: { type: 'llm-judge', criteria: 'mentions the ship gate' },
 };
 
 // Shared stream-json fixture lines (one event per line in real transcripts).
-const INVOKED_TURN = '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"phantom:start","args":""}}]}}';
+const INVOKED_TURN = '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"gorkhali:start","args":""}}]}}';
 const PLAIN_TURN = '{"type":"assistant","message":{"content":[{"type":"text","text":"looking at the repo"}]}}';
 const SYSTEM_ONLY = '{"type":"system","subtype":"init","tools":["Bash"]}';
 const TIMEOUT_MS = 90000;
@@ -108,21 +108,21 @@ test('validateCase: unknown kind and missing core fields rejected', () => {
 });
 
 test('skillInvoked detects stream-json Skill tool input', () => {
-  assert.equal(skillInvoked(INVOKED_TURN, 'phantom:start'), true);
-  assert.equal(skillInvoked(INVOKED_TURN, 'phantom:verify'), false);
+  assert.equal(skillInvoked(INVOKED_TURN, 'gorkhali:start'), true);
+  assert.equal(skillInvoked(INVOKED_TURN, 'gorkhali:verify'), false);
 });
 
 test('skillInvoked detects prose Skill() form and slash command, not bare mention', () => {
-  assert.equal(skillInvoked('I will run Skill(skill="phantom:verify", args="--chained")', 'phantom:verify'), true);
-  assert.equal(skillInvoked('run /phantom:fix now', 'phantom:fix'), true);
-  assert.equal(skillInvoked('phantom:start would create a new session, so I will not use it', 'phantom:start'), false);
+  assert.equal(skillInvoked('I will run Skill(skill="gorkhali:verify", args="--chained")', 'gorkhali:verify'), true);
+  assert.equal(skillInvoked('run /gorkhali:fix now', 'gorkhali:fix'), true);
+  assert.equal(skillInvoked('gorkhali:start would create a new session, so I will not use it', 'gorkhali:start'), false);
 });
 
 test('judgeTrigger matches invocation against should_trigger', () => {
-  const invoked = 'Skill(skill="phantom:start", args="")';
+  const invoked = 'Skill(skill="gorkhali:start", args="")';
   assert.equal(judgeTrigger(invoked, TRIGGER_CASE).pass, true);
   assert.equal(judgeTrigger(invoked, { ...TRIGGER_CASE, should_trigger: false }).pass, false);
-  assert.equal(judgeTrigger('mentions phantom:start in prose only', { ...TRIGGER_CASE, should_trigger: false }).pass, true);
+  assert.equal(judgeTrigger('mentions gorkhali:start in prose only', { ...TRIGGER_CASE, should_trigger: false }).pass, true);
 });
 
 test('judgeRoute matches the [{ROUTE}] report token from start.md', () => {
@@ -267,7 +267,7 @@ test('matchesFilter: id, kind (default trigger), skill, and comma lists', () => 
   assert.equal(matchesFilter(TRIGGER_CASE, '1'), true);
   assert.equal(matchesFilter(TRIGGER_CASE, 'trigger'), true);
   assert.equal(matchesFilter(ROUTE_CASE, 'route'), true);
-  assert.equal(matchesFilter(TRIGGER_CASE, 'phantom:start'), true);
+  assert.equal(matchesFilter(TRIGGER_CASE, 'gorkhali:start'), true);
   assert.equal(matchesFilter(TRIGGER_CASE, 'start'), true);
   assert.equal(matchesFilter(TRIGGER_CASE, 'route,99'), false);
   assert.equal(matchesFilter(REGEX_CASE, 'convention,route'), true);
@@ -618,22 +618,22 @@ test('headlessArgs: kimi maps to kimi -p/--plan/--output-format and pins k3', ()
 });
 
 test('hostBin: kimi never resolves to the claude binary', () => {
-  const savedClaude = process.env.PHANTOM_EVAL_CLAUDE_BIN;
-  const savedKimi = process.env.PHANTOM_EVAL_KIMI_BIN;
+  const savedClaude = process.env.GORKHALI_EVAL_CLAUDE_BIN;
+  const savedKimi = process.env.GORKHALI_EVAL_KIMI_BIN;
   try {
-    delete process.env.PHANTOM_EVAL_CLAUDE_BIN;
-    delete process.env.PHANTOM_EVAL_KIMI_BIN;
+    delete process.env.GORKHALI_EVAL_CLAUDE_BIN;
+    delete process.env.GORKHALI_EVAL_KIMI_BIN;
     assert.equal(hostBin('claude-code'), 'claude');
     assert.equal(hostBin('kimi'), 'kimi');
-    process.env.PHANTOM_EVAL_CLAUDE_BIN = '/custom/claude';
-    process.env.PHANTOM_EVAL_KIMI_BIN = '/custom/kimi';
+    process.env.GORKHALI_EVAL_CLAUDE_BIN = '/custom/claude';
+    process.env.GORKHALI_EVAL_KIMI_BIN = '/custom/kimi';
     assert.equal(hostBin('claude-code'), '/custom/claude');
     assert.equal(hostBin('kimi'), '/custom/kimi');
   } finally {
-    if (savedClaude === undefined) delete process.env.PHANTOM_EVAL_CLAUDE_BIN;
-    else process.env.PHANTOM_EVAL_CLAUDE_BIN = savedClaude;
-    if (savedKimi === undefined) delete process.env.PHANTOM_EVAL_KIMI_BIN;
-    else process.env.PHANTOM_EVAL_KIMI_BIN = savedKimi;
+    if (savedClaude === undefined) delete process.env.GORKHALI_EVAL_CLAUDE_BIN;
+    else process.env.GORKHALI_EVAL_CLAUDE_BIN = savedClaude;
+    if (savedKimi === undefined) delete process.env.GORKHALI_EVAL_KIMI_BIN;
+    else process.env.GORKHALI_EVAL_KIMI_BIN = savedKimi;
   }
 });
 

@@ -18,7 +18,7 @@ The agent roster, the single policy file that routes each role to a model, and t
 | Steward | Code clarity - simplify changed files post-verify |
 | Clerk | Mechanical session-lifecycle executor - ship/close plumbing: git, gh PR, Jira transitions, cost scripts, artifact writes |
 
-Role-to-profile mapping lives in `skills/phantom/references/model-policy.json`, and profile-to-model per host lives in `skills/phantom/references/model-presets.json`.
+Role-to-profile mapping lives in `skills/gorkhali/references/model-policy.json`, and profile-to-model per host lives in `skills/gorkhali/references/model-presets.json`.
 `scripts/gen-agent-frontmatter.js` generates each `agents/*.md` `model:` pin from that policy, and a drift test fails CI on a hand-edited pin.
 
 Delegated work runs on a ladder: on this host `model-presets.json` maps `economy` onto `haiku` and `balanced`/`deep` onto `sonnet` at high effort, while `frontier` inherits the session model — opus is reserved for the orchestrating session, and the mechanical rung (Inspector, Clerk) now costs haiku.
@@ -31,13 +31,13 @@ Use bare aliases only; never pin dated or prior-generation model IDs.
 ## Models & Effort
 
 The portable skill keeps role policy semantic in
-`skills/phantom/references/model-policy.json` and confines concrete defaults to
-`skills/phantom/references/model-presets.json`. Resolution is explicit user
+`skills/gorkhali/references/model-policy.json` and confines concrete defaults to
+`skills/gorkhali/references/model-presets.json`. Resolution is explicit user
 choice, optional external override, bundled host preset, then active-model
 inheritance.
 
 Every resolution diagnostic includes the canonical bundle version from
-`skills/phantom/manifest.json`. This attributes routing results to the exact
+`skills/gorkhali/manifest.json`. This attributes routing results to the exact
 portable bundle without changing existing resolver fields or precedence.
 
 | Profile | Claude Code | Codex | Kimi Code |
@@ -53,7 +53,7 @@ Haiku, and balanced/deep keep Sonnet at high effort as the review quality
 floor. Kimi Code spreads instead: routine mechanical work lands on the K2.7
 Code tier, ordinary delegation on the half-quota 256k K3, and only deep or
 frontier work on the full 1M `k3` — with K3's `reasoning_effort` mapping
-directly onto Phantom's effort field (`high`/`max`). All four model IDs are
+directly onto Gorkhali's effort field (`high`/`max`). All four model IDs are
 Kimi's own, so a Kimi-routed session cannot silently request Anthropic or
 OpenAI compute. Codex is untouched — its preset ladder still spreads across
 three models, which is why the profiles stay semantic rather than collapsing
@@ -82,13 +82,13 @@ the host); a drift test fails CI on any hand-edited pin.
 
 The following policy describes the existing native compatibility plugin only.
 
-Phantom runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
+Gorkhali runs every agent at **`high`** effort - that part is universal; effort is inherited from the session and there is no per-spawn effort param.
 **Scope is the per-task lever** - not effort, and model only via the role's policy rung.
 Only the session and **Chief** (orchestration) leave model unset and inherit the session model - run your session on **Opus 5** (`/model opus`) for the best orchestration experience.
 Delegated roles never inherit the session model; they pin the resolved preset model (`haiku` for the economy rung, `sonnet` above it), so an Opus session buys you a stronger orchestrator without spreading Opus across the whole shadow team.
 See `reference/agents.md` → Model Routing.
 
-**Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Phantom's approval gates. Use `high` for all gated phantom work.
+**Run at `/effort high`, not `ultracode`.** Ultracode lets the runtime wrap a phase in a background workflow that takes no mid-run input, which can silently bypass Gorkhali's approval gates. Use `high` for all gated gorkhali work.
 
 Opus 5 (`claude-opus-5`, the recommended session model) is a step change on long-horizon agentic work - stronger instruction-following, built-in self-verification, and fewer steers - reinforcing the subagent-driven law.
-It is Phantom's top tier, and it is now orchestration-only: the session and **Chief** run on it, while every delegated role - Auditor, Justice, Detective, and Advisor included - resolves to `claude-sonnet-5` or, for the economy rung (Inspector, Clerk), `claude-haiku`.
+It is Gorkhali's top tier, and it is now orchestration-only: the session and **Chief** run on it, while every delegated role - Auditor, Justice, Detective, and Advisor included - resolves to `claude-sonnet-5` or, for the economy rung (Inspector, Clerk), `claude-haiku`.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// router-nudge.js — UserPromptSubmit hook that nudges toward phantom routing
+// router-nudge.js — UserPromptSubmit hook that nudges toward gorkhali routing
 // when a prompt looks like implementation work.
 //
 // POLARITY: pure advisory — this hook can NEVER block anything. Every failure
@@ -14,11 +14,11 @@ const path = require('path');
 
 let stateDir;
 try {
-  ({ stateDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir } = require('../scripts/lib/gorkhali-paths'));
 } catch (_) {
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
   stateDir = () => path.join(data, 'state');
 }
 
@@ -40,10 +40,10 @@ try {
 }
 
 const NUDGE_TEXT =
-  'ROUTING: this prompt matches phantom implementation triggers — invoke ' +
-  'Skill(phantom:start) before the FIRST project-file edit unless the work is ' +
+  'ROUTING: this prompt matches gorkhali implementation triggers — invoke ' +
+  'Skill(gorkhali:start) before the FIRST project-file edit unless the work is ' +
   'purely diagnostic. A debug session that turns into a fix routes through ' +
-  'phantom at the FIRST edit. (One-time reminder this session — see reference/routing.md)';
+  'gorkhali at the FIRST edit. (One-time reminder this session — see reference/routing.md)';
 
 function classify(prompt) {
   if (INTERROGATIVE_RE.test(prompt)) return null;
@@ -61,8 +61,8 @@ function main() {
     process.exit(0); // unparseable stdin → not our call to judge
   }
 
-  // Advisory nudge is on by default; silence it with PHANTOM_ROUTING_NUDGE=0.
-  if (process.env.PHANTOM_ROUTING_NUDGE === '0') process.exit(0);
+  // Advisory nudge is on by default; silence it with GORKHALI_ROUTING_NUDGE=0.
+  if (process.env.GORKHALI_ROUTING_NUDGE === '0') process.exit(0);
 
   if (!classify(String(payload.prompt || ''))) process.exit(0);
 

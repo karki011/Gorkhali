@@ -4,11 +4,11 @@
 // and that every domain file is referenced in INDEX.md.
 // Usage: check-learnings-index.js <learnings-dir>
 //   <learnings-dir> defaults to the current repo's learnings dir
-//   (${PHANTOM_DATA}/repos/<detected-repo>/learnings)
+//   (${GORKHALI_DATA}/repos/<detected-repo>/learnings)
 // Exit 0 = healthy, Exit 1 = problems found
 //
 // The INDEX-vs-domain-file validation itself lives in the canonical learning API
-// (skills/phantom/scripts/phantom-learning.mjs) so the writers (memory-writer,
+// (skills/gorkhali/scripts/gorkhali-learning.mjs) so the writers (memory-writer,
 // memory-consolidator) and this validator all read the index by one grammar.
 
 'use strict';
@@ -16,11 +16,11 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { learningsDir, detectRepo } = require('./lib/phantom-paths');
+const { learningsDir, detectRepo } = require('./lib/gorkhali-paths');
 const { KNOWN_DOMAIN_FILES } = require('./lib/domains');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
-const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
+const LEARNING_API = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-learning.mjs');
 
 async function main(argv) {
   const [,, argDir] = argv;
@@ -28,10 +28,10 @@ async function main(argv) {
     .replace(/^~/, process.env.HOME);
 
   if (!fs.existsSync(dir)) {
-    throw new PhantomError(`ERROR: Learnings directory not found: ${dir}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: Learnings directory not found: ${dir}`, 'IO_ERROR');
   }
   if (!fs.existsSync(path.join(dir, 'INDEX.md'))) {
-    throw new PhantomError(`ERROR: INDEX.md not found in ${dir}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: INDEX.md not found in ${dir}`, 'IO_ERROR');
   }
 
   const { validateLearningIndex } = await import(pathToFileURL(LEARNING_API).href);

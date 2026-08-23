@@ -10,14 +10,14 @@ const assert = require('node:assert/strict');
 const CONSTANTS_PATH = require.resolve('../scripts/lib/constants');
 
 const OVERRIDE_ENVS = [
-  'PHANTOM_FIX_LOOP_CEILING',
-  'PHANTOM_GRADUATION_THRESHOLD',
-  'PHANTOM_PROMOTE_THRESHOLD',
-  'PHANTOM_EXTRACT_TIMEOUT_MS',
-  'PHANTOM_LEARNING_STALE_DAYS',
-  'PHANTOM_LEARNING_REMOVE_DAYS',
-  'PHANTOM_LEARNING_DISTILL_CAP',
-  'PHANTOM_MARKER_FRESHNESS_MS',
+  'GORKHALI_FIX_LOOP_CEILING',
+  'GORKHALI_GRADUATION_THRESHOLD',
+  'GORKHALI_PROMOTE_THRESHOLD',
+  'GORKHALI_EXTRACT_TIMEOUT_MS',
+  'GORKHALI_LEARNING_STALE_DAYS',
+  'GORKHALI_LEARNING_REMOVE_DAYS',
+  'GORKHALI_LEARNING_DISTILL_CAP',
+  'GORKHALI_MARKER_FRESHNESS_MS',
 ];
 
 // Env is read at require time — bust the cache around each load, clearing all
@@ -47,7 +47,7 @@ test('defaults match the pre-centralization literals exactly', () => {
   assert.equal(C.GRADUATION_THRESHOLD, 5);
   assert.equal(C.PROMOTE_THRESHOLD, 5);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 5000);
-  assert.equal(C.PHANTOM_DATA_DIRNAME, 'phantom-data');
+  assert.equal(C.GORKHALI_DATA_DIRNAME, 'gorkhali-data');
   assert.equal(C.LEARNING_STALE_DAYS, 30);
   assert.equal(C.LEARNING_REMOVE_DAYS, 60);
   assert.equal(C.LEARNING_DISTILL_CAP, 50);
@@ -55,25 +55,25 @@ test('defaults match the pre-centralization literals exactly', () => {
   assert.equal(C.MARKER_FRESHNESS_MS, 12 * 60 * 60 * 1000);
 });
 
-test('PHANTOM_DATA_DIRNAME is legacy-only; the canonical data-root dirname is codec-owned', () => {
+test('GORKHALI_DATA_DIRNAME is legacy-only; the canonical data-root dirname is codec-owned', () => {
   const C = freshConstants();
   // Retained ONLY as a migration source; T2 removes provider-owned operational
   // defaults. The canonical root dirname now lives in the shared codec.
-  assert.equal(C.PHANTOM_DATA_DIRNAME, 'phantom-data');
-  const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-  assert.equal(codec.ROOT_DIRNAME, '.phantom');
-  assert.notEqual(C.PHANTOM_DATA_DIRNAME, codec.ROOT_DIRNAME);
+  assert.equal(C.GORKHALI_DATA_DIRNAME, 'gorkhali-data');
+  const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
+  assert.equal(codec.ROOT_DIRNAME, '.gorkhali');
+  assert.notEqual(C.GORKHALI_DATA_DIRNAME, codec.ROOT_DIRNAME);
 });
 
 test('env overrides apply to every numeric constant', () => {
   const C = freshConstants({
-    PHANTOM_FIX_LOOP_CEILING: '4',
-    PHANTOM_GRADUATION_THRESHOLD: '7',
-    PHANTOM_PROMOTE_THRESHOLD: '8',
-    PHANTOM_EXTRACT_TIMEOUT_MS: '9000',
-    PHANTOM_LEARNING_STALE_DAYS: '14',
-    PHANTOM_LEARNING_REMOVE_DAYS: '90',
-    PHANTOM_LEARNING_DISTILL_CAP: '25',
+    GORKHALI_FIX_LOOP_CEILING: '4',
+    GORKHALI_GRADUATION_THRESHOLD: '7',
+    GORKHALI_PROMOTE_THRESHOLD: '8',
+    GORKHALI_EXTRACT_TIMEOUT_MS: '9000',
+    GORKHALI_LEARNING_STALE_DAYS: '14',
+    GORKHALI_LEARNING_REMOVE_DAYS: '90',
+    GORKHALI_LEARNING_DISTILL_CAP: '25',
   });
   assert.equal(C.FIX_LOOP_CEILING, 4);
   assert.equal(C.GRADUATION_THRESHOLD, 7);
@@ -86,9 +86,9 @@ test('env overrides apply to every numeric constant', () => {
 
 test('garbage env values fail open to the defaults', () => {
   const C = freshConstants({
-    PHANTOM_FIX_LOOP_CEILING: 'banana',
-    PHANTOM_EXTRACT_TIMEOUT_MS: '',
-    PHANTOM_GRADUATION_THRESHOLD: 'NaN',
+    GORKHALI_FIX_LOOP_CEILING: 'banana',
+    GORKHALI_EXTRACT_TIMEOUT_MS: '',
+    GORKHALI_GRADUATION_THRESHOLD: 'NaN',
   });
   assert.equal(C.FIX_LOOP_CEILING, 2);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 5000);
@@ -97,8 +97,8 @@ test('garbage env values fail open to the defaults', () => {
 
 test('loop ceilings reject floats while non-ceiling floats remain valid', () => {
   const C = freshConstants({
-    PHANTOM_FIX_LOOP_CEILING: '2.5',
-    PHANTOM_EXTRACT_TIMEOUT_MS: '2500.5',
+    GORKHALI_FIX_LOOP_CEILING: '2.5',
+    GORKHALI_EXTRACT_TIMEOUT_MS: '2500.5',
   });
   assert.equal(C.FIX_LOOP_CEILING, 2);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 2500.5);
@@ -106,15 +106,15 @@ test('loop ceilings reject floats while non-ceiling floats remain valid', () => 
 
 test('loop-controller sources its ceiling from constants (env overridable, default 2)', () => {
   const LC_PATH = require.resolve('../hooks/loop-controller');
-  const saved = process.env.PHANTOM_FIX_LOOP_CEILING;
+  const saved = process.env.GORKHALI_FIX_LOOP_CEILING;
   try {
-    process.env.PHANTOM_FIX_LOOP_CEILING = '5';
+    process.env.GORKHALI_FIX_LOOP_CEILING = '5';
     delete require.cache[LC_PATH];
     delete require.cache[CONSTANTS_PATH];
     assert.equal(require(LC_PATH).FIX_LOOP_CEILING, 5);
   } finally {
-    if (saved === undefined) delete process.env.PHANTOM_FIX_LOOP_CEILING;
-    else process.env.PHANTOM_FIX_LOOP_CEILING = saved;
+    if (saved === undefined) delete process.env.GORKHALI_FIX_LOOP_CEILING;
+    else process.env.GORKHALI_FIX_LOOP_CEILING = saved;
     // Reload clean so other test files see the default ceiling.
     delete require.cache[LC_PATH];
     delete require.cache[CONSTANTS_PATH];

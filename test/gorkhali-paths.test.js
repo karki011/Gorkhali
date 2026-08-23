@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// phantom-paths.test.js — unit tests for the resolver API (detectRepo + dir resolution).
+// gorkhali-paths.test.js — unit tests for the resolver API (detectRepo + dir resolution).
 // Zero external deps: node:test + node:assert only.
 'use strict';
 
@@ -11,14 +11,14 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
-const paths = require('../scripts/lib/phantom-paths');
-const COMMONJS_PATHS = require.resolve('../scripts/lib/phantom-paths');
-const SHELL_PATHS = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
+const paths = require('../scripts/lib/gorkhali-paths');
+const COMMONJS_PATHS = require.resolve('../scripts/lib/gorkhali-paths');
+const SHELL_PATHS = path.resolve(__dirname, '..', 'scripts', 'lib', 'gorkhali-paths.sh');
 const PORTABLE_PATHS = path.resolve(
   __dirname,
   '..',
   'skills',
-  'phantom',
+  'gorkhali',
   'scripts',
   'lib',
   'portable.mjs',
@@ -70,7 +70,7 @@ function resolvedRoot(kind, { cwd, workspace = cwd, env }) {
       process.execPath,
       [
         '-e',
-        'process.stdout.write(require(process.argv[1]).phantomData(process.argv[2]))',
+        'process.stdout.write(require(process.argv[1]).gorkhaliData(process.argv[2]))',
         COMMONJS_PATHS,
         workspace,
       ],
@@ -79,7 +79,7 @@ function resolvedRoot(kind, { cwd, workspace = cwd, env }) {
   } else if (kind === 'shell') {
     result = spawnSync(
       '/bin/sh',
-      ['-c', '. "$1"; printf "%s" "$PHANTOM_DATA"', 'sh', SHELL_PATHS],
+      ['-c', '. "$1"; printf "%s" "$GORKHALI_DATA"', 'sh', SHELL_PATHS],
       { cwd, env, encoding: 'utf8' },
     );
   } else {
@@ -100,18 +100,18 @@ function resolvedRoot(kind, { cwd, workspace = cwd, env }) {
   return result.stdout;
 }
 
-test('phantomData: explicit PHANTOM_DATA override has highest precedence', () => {
-  const explicit = path.join(os.tmpdir(), 'phantom-explicit-root');
-  withEnv({ PHANTOM_DATA: explicit }, () => {
-    assert.equal(paths.phantomData(), explicit);
+test('gorkhaliData: explicit GORKHALI_DATA override has highest precedence', () => {
+  const explicit = path.join(os.tmpdir(), 'gorkhali-explicit-root');
+  withEnv({ GORKHALI_DATA: explicit }, () => {
+    assert.equal(paths.gorkhaliData(), explicit);
   });
 });
 
-test('phantomData: default root is neutral ~/.phantom', () => {
+test('gorkhaliData: default root is neutral ~/.gorkhali', () => {
   const home = mkTmp('paths-home-');
   try {
-    withEnv({ PHANTOM_DATA: undefined, HOME: home }, () => {
-      assert.equal(paths.phantomData(), path.join(home, '.phantom'));
+    withEnv({ GORKHALI_DATA: undefined, HOME: home }, () => {
+      assert.equal(paths.gorkhaliData(), path.join(home, '.gorkhali'));
     });
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
@@ -120,21 +120,21 @@ test('phantomData: default root is neutral ~/.phantom', () => {
 
 test('shell resolver matches explicit override and neutral default root', () => {
   const home = mkTmp('paths-shell-home-');
-  const shellLib = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
-  const command = '. "$1"; printf "%s" "$PHANTOM_DATA"';
+  const shellLib = path.resolve(__dirname, '..', 'scripts', 'lib', 'gorkhali-paths.sh');
+  const command = '. "$1"; printf "%s" "$GORKHALI_DATA"';
   try {
     const defaultEnv = { ...process.env, HOME: home };
-    delete defaultEnv.PHANTOM_DATA;
+    delete defaultEnv.GORKHALI_DATA;
     const defaultRun = spawnSync('/bin/sh', ['-c', command, 'sh', shellLib], {
       env: defaultEnv,
       encoding: 'utf8',
     });
     assert.equal(defaultRun.status, 0, defaultRun.stderr);
-    assert.equal(defaultRun.stdout, path.join(home, '.phantom'));
+    assert.equal(defaultRun.stdout, path.join(home, '.gorkhali'));
 
     const explicit = path.join(home, 'explicit');
     const explicitRun = spawnSync('/bin/sh', ['-c', command, 'sh', shellLib], {
-      env: { ...defaultEnv, PHANTOM_DATA: explicit },
+      env: { ...defaultEnv, GORKHALI_DATA: explicit },
       encoding: 'utf8',
     });
     assert.equal(explicitRun.status, 0, explicitRun.stderr);
@@ -151,7 +151,7 @@ test('all root resolvers normalize relative overrides against their workspace or
   fs.mkdirSync(workspace);
   fs.mkdirSync(otherCwd);
   const canonicalWorkspace = fs.realpathSync(workspace);
-  const env = { ...process.env, PHANTOM_DATA: path.join('relative', '..', 'state') };
+  const env = { ...process.env, GORKHALI_DATA: path.join('relative', '..', 'state') };
   try {
     assert.equal(
       resolvedRoot('commonjs', { cwd: otherCwd, workspace, env }),
@@ -177,38 +177,38 @@ test('all root resolvers treat an empty override as unset and use workspace when
   fs.mkdirSync(workspace);
   fs.mkdirSync(otherCwd);
   const canonicalWorkspace = fs.realpathSync(workspace);
-  const env = { ...process.env, PHANTOM_DATA: '', HOME: '' };
+  const env = { ...process.env, GORKHALI_DATA: '', HOME: '' };
   try {
     assert.equal(
       resolvedRoot('commonjs', { cwd: otherCwd, workspace, env }),
-      path.join(canonicalWorkspace, '.phantom'),
+      path.join(canonicalWorkspace, '.gorkhali'),
     );
     assert.equal(
       resolvedRoot('shell', { cwd: workspace, env }),
-      path.join(canonicalWorkspace, '.phantom'),
+      path.join(canonicalWorkspace, '.gorkhali'),
     );
     assert.equal(
       resolvedRoot('portable', { cwd: otherCwd, workspace, env }),
-      path.join(canonicalWorkspace, '.phantom'),
+      path.join(canonicalWorkspace, '.gorkhali'),
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('detectRepo: PHANTOM_REPO env override wins (trimmed)', () => {
-  withEnv({ PHANTOM_REPO: '  my-override-repo  ' }, () => {
+test('detectRepo: GORKHALI_REPO env override wins (trimmed)', () => {
+  withEnv({ GORKHALI_REPO: '  my-override-repo  ' }, () => {
     assert.equal(detectRepo('/literally/anywhere'), 'my-override-repo');
   });
 });
 
-test('detectRepo: empty/whitespace PHANTOM_REPO is ignored, falls through to walk-up', () => {
+test('detectRepo: empty/whitespace GORKHALI_REPO is ignored, falls through to walk-up', () => {
   const tmp = mkTmp('paths-empty-env-');
   try {
     fs.mkdirSync(path.join(tmp, '.git'), { recursive: true });
     const nested = path.join(tmp, 'a', 'b');
     fs.mkdirSync(nested, { recursive: true });
-    withEnv({ PHANTOM_REPO: '   ' }, () => {
+    withEnv({ GORKHALI_REPO: '   ' }, () => {
       // realpath: macOS tmpdir is a symlink (/var -> /private/var); compare basenames.
       assert.equal(detectRepo(nested), path.basename(fs.realpathSync(tmp)));
     });
@@ -224,7 +224,7 @@ test('detectRepo: .git DIR walk-up returns top dir basename from nested subdir',
     fs.mkdirSync(path.join(top, '.git'), { recursive: true });
     const sub = path.join(top, 'src', 'deep', 'nested');
     fs.mkdirSync(sub, { recursive: true });
-    withEnv({ PHANTOM_REPO: undefined }, () => {
+    withEnv({ GORKHALI_REPO: undefined }, () => {
       assert.equal(detectRepo(sub), path.basename(top));
     });
   } finally {
@@ -240,7 +240,7 @@ test('detectRepo: .git FILE (git worktree case) is also detected', () => {
     fs.writeFileSync(path.join(top, '.git'), 'gitdir: /somewhere/.git/worktrees/wt\n');
     const sub = path.join(top, 'pkg', 'lib');
     fs.mkdirSync(sub, { recursive: true });
-    withEnv({ PHANTOM_REPO: undefined }, () => {
+    withEnv({ GORKHALI_REPO: undefined }, () => {
       assert.equal(detectRepo(sub), path.basename(top));
     });
   } finally {
@@ -249,14 +249,14 @@ test('detectRepo: .git FILE (git worktree case) is also detected', () => {
 });
 
 test('detectRepo: no .git anywhere up the tree -> "_default" (NOT basename of cwd)', () => {
-  withEnv({ PHANTOM_REPO: undefined }, () => {
+  withEnv({ GORKHALI_REPO: undefined }, () => {
     // '/' has no .git up the tree; basename('/') would be '' — must be '_default'.
     assert.equal(detectRepo('/'), '_default');
   });
 });
 
 test('detectRepo: never throws on a bogus/garbage cwd, returns non-empty string', () => {
-  withEnv({ PHANTOM_REPO: undefined }, () => {
+  withEnv({ GORKHALI_REPO: undefined }, () => {
     let result;
     assert.doesNotThrow(() => {
       result = detectRepo('/no/such/path/' + Math.random() + '/\x00garbage');
@@ -270,7 +270,7 @@ test('detectRepo: never throws on a bogus/garbage cwd, returns non-empty string'
 test('dir resolution: learningsDir/sessionsDir/completedDir resolve under <data>/repos/<repo>/...', () => {
   const tmp = mkTmp('paths-resolve-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'acme' }, () => {
       assert.equal(learningsDir(), path.join(tmp, 'repos', 'acme', 'learnings'));
       assert.equal(sessionsDir(), path.join(tmp, 'repos', 'acme', 'sessions'));
       assert.equal(completedDir(), path.join(tmp, 'repos', 'acme', 'completed'));
@@ -283,11 +283,11 @@ test('dir resolution: learningsDir/sessionsDir/completedDir resolve under <data>
 test('dir resolution: explicit repo arg overrides detection', () => {
   const tmp = mkTmp('paths-explicit-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'detected' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'detected' }, () => {
       // Contract invariant: learningsDir('x') === path.join(repoDir('x'), 'learnings')
       assert.equal(learningsDir('explicit'), path.join(repoDir('explicit'), 'learnings'));
       assert.equal(learningsDir('explicit'), path.join(tmp, 'repos', 'explicit', 'learnings'));
-      // Explicit arg must NOT use the PHANTOM_REPO-detected name.
+      // Explicit arg must NOT use the GORKHALI_REPO-detected name.
       assert.ok(!learningsDir('explicit').includes('detected'));
     });
   } finally {
@@ -298,7 +298,7 @@ test('dir resolution: explicit repo arg overrides detection', () => {
 test('dir resolution: globalPatternsDir/auditDir stay FLAT (not under repos/)', () => {
   const tmp = mkTmp('paths-flat-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'acme' }, () => {
       assert.equal(globalPatternsDir(), path.join(tmp, 'global', 'patterns'));
       assert.equal(auditDir(), path.join(tmp, 'audit'));
       // Regression guard: flat dirs must never be relocated under repos/<repo>/.
@@ -313,7 +313,7 @@ test('dir resolution: globalPatternsDir/auditDir stay FLAT (not under repos/)', 
 test('run artifacts: runsDir resolves under sessionsDir/<ticket>/runs', () => {
   const tmp = mkTmp('paths-runs-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'r' }, () => {
       assert.equal(runsDir('T-1'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs'));
     });
   } finally {
@@ -324,7 +324,7 @@ test('run artifacts: runsDir resolves under sessionsDir/<ticket>/runs', () => {
 test('run artifacts: runDir resolves to runsDir/<ts>', () => {
   const tmp = mkTmp('paths-rundir-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'r' }, () => {
       assert.equal(runDir('T-1', 'x'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs', 'x'));
     });
   } finally {
@@ -335,7 +335,7 @@ test('run artifacts: runDir resolves to runsDir/<ts>', () => {
 test('run artifacts: currentRunPointer resolves to runsDir/current', () => {
   const tmp = mkTmp('paths-ptr-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'r' }, () => {
       assert.equal(currentRunPointer('T-1'), path.join(tmp, 'repos', 'r', 'sessions', 'T-1', 'runs', 'current'));
     });
   } finally {
@@ -343,10 +343,10 @@ test('run artifacts: currentRunPointer resolves to runsDir/current', () => {
   }
 });
 
-test('run artifacts: PHANTOM_DATA env override honored by run functions', () => {
+test('run artifacts: GORKHALI_DATA env override honored by run functions', () => {
   const tmp = mkTmp('paths-run-env-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'myrepo' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'myrepo' }, () => {
       assert.ok(runsDir('ENG-1').startsWith(tmp));
       assert.ok(runDir('ENG-1', 'ts1').startsWith(tmp));
       assert.ok(currentRunPointer('ENG-1').startsWith(tmp));
@@ -359,7 +359,7 @@ test('run artifacts: PHANTOM_DATA env override honored by run functions', () => 
 test('run artifacts: no directory created by merely requiring the lib', () => {
   const tmp = mkTmp('paths-no-mkdir-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'r' }, () => {
       // Compute paths — must not create dirs.
       runsDir('T-1');
       runDir('T-1', 'ts1');
@@ -374,7 +374,7 @@ test('run artifacts: no directory created by merely requiring the lib', () => {
 test('worktrees: worktreesRoot stays FLAT under the data root (regression: NOT under repos/)', () => {
   const tmp = mkTmp('paths-wtroot-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'acme' }, () => {
       assert.equal(worktreesRoot(), path.join(tmp, 'worktrees'));
       assert.ok(!worktreesRoot().includes(path.sep + 'repos' + path.sep));
     });
@@ -386,7 +386,7 @@ test('worktrees: worktreesRoot stays FLAT under the data root (regression: NOT u
 test('worktrees: worktreeDir resolves to <data>/worktrees/<repo>/<ticket>', () => {
   const tmp = mkTmp('paths-wtdir-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'acme' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'acme' }, () => {
       assert.equal(worktreeDir('T-1'), path.join(tmp, 'worktrees', 'acme', 'T-1'));
       assert.equal(worktreeDir('T-1', 'other'), path.join(tmp, 'worktrees', 'other', 'T-1'));
     });
@@ -403,10 +403,10 @@ test('detectRepo: cwd inside <data>/worktrees/<repo>/<ticket>/... -> <repo>, bea
     fs.mkdirSync(nested, { recursive: true });
     // git worktree marker — the legacy walk-up would return 'T-1' (the TICKET).
     fs.writeFileSync(path.join(wt, '.git'), 'gitdir: /somewhere/.git/worktrees/T-1\n');
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'conflicting-env-repo' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'conflicting-env-repo' }, () => {
       assert.equal(detectRepo(nested), 'acme', 'worktree containment is ground truth');
     });
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: undefined }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: undefined }, () => {
       assert.equal(detectRepo(nested), 'acme', 'must NOT shard under the ticket basename');
     });
   } finally {
@@ -414,14 +414,14 @@ test('detectRepo: cwd inside <data>/worktrees/<repo>/<ticket>/... -> <repo>, bea
   }
 });
 
-test('detectRepo: PHANTOM_REPO still beats the .git walk-up OUTSIDE worktrees', () => {
+test('detectRepo: GORKHALI_REPO still beats the .git walk-up OUTSIDE worktrees', () => {
   const data = mkTmp('paths-wt-env-data-');
   const repo = mkTmp('paths-wt-env-repo-');
   try {
     fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
     const nested = path.join(repo, 'src');
     fs.mkdirSync(nested, { recursive: true });
-    withEnv({ PHANTOM_DATA: data, PHANTOM_REPO: 'env-wins' }, () => {
+    withEnv({ GORKHALI_DATA: data, GORKHALI_REPO: 'env-wins' }, () => {
       assert.equal(detectRepo(nested), 'env-wins');
     });
   } finally {
@@ -433,7 +433,7 @@ test('detectRepo: PHANTOM_REPO still beats the .git walk-up OUTSIDE worktrees', 
 test('worktrees: pure path computation — no mkdir on compute', () => {
   const tmp = mkTmp('paths-wt-no-mkdir-');
   try {
-    withEnv({ PHANTOM_DATA: tmp, PHANTOM_REPO: 'r' }, () => {
+    withEnv({ GORKHALI_DATA: tmp, GORKHALI_REPO: 'r' }, () => {
       worktreesRoot();
       worktreeDir('T-1');
       assert.ok(!fs.existsSync(path.join(tmp, 'worktrees')), 'worktree fns must not create directories');

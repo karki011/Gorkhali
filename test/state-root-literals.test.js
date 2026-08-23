@@ -14,7 +14,7 @@ const ALLOWLIST = new Map([
   ['project-docs/install.md', [
     {
       kind: 'literal',
-      context: '`~/.claude/phantom-data` directory, the optional',
+      context: '`~/.claude/gorkhali-data` directory, the optional',
       reason: 'documents the source accepted by the legacy data migration',
     },
   ]],
@@ -28,7 +28,7 @@ const ALLOWLIST = new Map([
   ['scripts/migrate-data.js', [
     {
       kind: 'constructed',
-      context: "path.join(os.homedir(), '.claude', 'phantom-data')",
+      context: "path.join(os.homedir(), '.claude', 'gorkhali-data')",
       reason: 'copy-only source for migrating legacy state into the portable root',
     },
   ]],
@@ -37,19 +37,19 @@ const ALLOWLIST = new Map([
 const DETECTORS = [
   {
     kind: 'literal',
-    pattern: /\.claude\/phantom-data/g,
+    pattern: /\.claude\/gorkhali-data/g,
   },
   {
     kind: 'constructed',
-    pattern: /path\.(?:join|resolve)\([^;\n]*['"]\.claude['"]\s*,\s*['"]phantom-data['"]\s*\)/g,
+    pattern: /path\.(?:join|resolve)\([^;\n]*['"]\.claude['"]\s*,\s*['"]gorkhali-data['"]\s*\)/g,
   },
   {
     kind: 'constructed-variable',
-    pattern: /path\.(?:join|resolve)\([^;\n]*['"]\.claude['"][^;\n]*(?:PHANTOM_DATA_DIRNAME|DATA_DIRNAME)[^;\n]*\)/g,
+    pattern: /path\.(?:join|resolve)\([^;\n]*['"]\.claude['"][^;\n]*(?:GORKHALI_DATA_DIRNAME|DATA_DIRNAME)[^;\n]*\)/g,
   },
   {
     kind: 'shell-variable',
-    pattern: /(?:\$HOME|\$\{HOME\})\/\.claude\/["']?\$\{?(?:PHANTOM_DATA_DIRNAME|DATA_DIRNAME)\}?["']?/g,
+    pattern: /(?:\$HOME|\$\{HOME\})\/\.claude\/["']?\$\{?(?:GORKHALI_DATA_DIRNAME|DATA_DIRNAME)\}?["']?/g,
   },
 ];
 
@@ -73,7 +73,7 @@ test('detectors cover common JavaScript and shell root-composition bypasses', ()
   const bypasses = [
     {
       kind: 'constructed',
-      text: "path.resolve(process.env.HOME, '.claude', 'phantom-data')",
+      text: "path.resolve(process.env.HOME, '.claude', 'gorkhali-data')",
     },
     {
       kind: 'constructed-variable',
@@ -81,7 +81,7 @@ test('detectors cover common JavaScript and shell root-composition bypasses', ()
     },
     {
       kind: 'shell-variable',
-      text: '$HOME/.claude/${PHANTOM_DATA_DIRNAME}',
+      text: '$HOME/.claude/${GORKHALI_DATA_DIRNAME}',
     },
   ];
 

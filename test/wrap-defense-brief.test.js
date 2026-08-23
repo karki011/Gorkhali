@@ -100,14 +100,14 @@ test('wrap.md no longer auto-invokes grill at Step 2', () => {
   );
 });
 
-test('wrap.md mentions phantom:grill only in the --grill flag context', () => {
+test('wrap.md mentions gorkhali:grill only in the --grill flag context', () => {
   const content = read('commands/wrap.md');
-  const lines = content.split('\n').filter((line) => line.includes('phantom:grill'));
-  assert.ok(lines.length > 0, 'wrap.md must still mention phantom:grill for the --grill flag');
+  const lines = content.split('\n').filter((line) => line.includes('gorkhali:grill'));
+  assert.ok(lines.length > 0, 'wrap.md must still mention gorkhali:grill for the --grill flag');
   for (const line of lines) {
     assert.ok(
       line.includes('--grill'),
-      `every phantom:grill mention in wrap.md must be in --grill flag context, got: ${line}`
+      `every gorkhali:grill mention in wrap.md must be in --grill flag context, got: ${line}`
     );
   }
 });

@@ -7,7 +7,7 @@ import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const defaultSkillDirectory = join(repositoryRoot, 'skills', 'phantom');
+const defaultSkillDirectory = join(repositoryRoot, 'skills', 'gorkhali');
 const commandsDirectory = join(repositoryRoot, 'commands');
 const skillsDirectory = join(repositoryRoot, 'skills');
 const codexManifestFile = join(repositoryRoot, '.codex-plugin', 'plugin.json');
@@ -22,7 +22,7 @@ const forbiddenPatterns = [
   ['provider name', /\b(?:Claude|Codex|Gemini|Anthropic|OpenAI|Kimi|Moonshot)\b/i],
   ['provider model alias', /\b(?:opus|sonnet|haiku|fable|gpt-[A-Za-z0-9.-]+|kimi-[A-Za-z0-9.-]+)\b/i],
   ['private tool syntax', /\bmcp__|\b(?:Agent|Task|Skill)\s*\(/],
-  ['host command syntax', /\/phantom:|\$ARGUMENTS\b/],
+  ['host command syntax', /\/gorkhali:|\$ARGUMENTS\b/],
   ['host frontmatter', /\b(?:allowed-tools|disable-model-invocation|user-invocable)\s*:/],
   ['absolute user path', /\/Users\//],
 ];
@@ -51,7 +51,7 @@ const lifecycleContractResources = [
   'references/verification.md',
   'references/shipping.md',
   'scripts/lib/defect-proof.mjs',
-  'scripts/phantom-state.mjs',
+  'scripts/gorkhali-state.mjs',
 ];
 const riskLevels = ['low', 'moderate', 'high', 'critical'];
 const criticalEligibleRoles = [
@@ -170,7 +170,7 @@ function validateManifest(manifest, errors, skillDirectory) {
     'Manifest',
     errors,
   )) return;
-  if (manifest.name !== 'phantom') errors.push('Manifest name must be phantom.');
+  if (manifest.name !== 'gorkhali') errors.push('Manifest name must be gorkhali.');
   if (typeof manifest.bundle_version !== 'string'
     || !/^\d+\.\d+\.\d+$/.test(manifest.bundle_version)) {
     errors.push('Manifest bundle_version must be a semantic version.');
@@ -292,8 +292,8 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
       '<conditional_preamble_files>',
       '<portable_skill_root>/SKILL.md',
       '<compatibility_scripts_root>',
-      'PHANTOM_DATA=<data_root>',
-      '~/.phantom',
+      'GORKHALI_DATA=<data_root>',
+      '~/.gorkhali',
       'never write workflow state under `.claude`',
       'User instructions, repository instructions, and runtime safety',
       'The portable skill and its references',
@@ -341,7 +341,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
 
     if (command === 'start') {
       const normalizedContent = content.replace(/\s+/g, ' ');
-      for (const reference of ['../phantom/SKILL.md', '../phantom/references/planning.md']) {
+      for (const reference of ['../gorkhali/SKILL.md', '../gorkhali/references/planning.md']) {
         if (!content.includes(reference)) errors.push(`skills/start/SKILL.md must directly load ${reference}.`);
       }
       for (const legacyReference of [hostCompatibilityReference, '../../commands/start.md', '_shared']) {
@@ -375,7 +375,7 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
 
   const commandSet = new Set(commands);
   const orphanedAdapters = readdirSync(skillRoot)
-    .filter((entry) => entry !== 'phantom' && existsSync(join(skillRoot, entry, 'SKILL.md')))
+    .filter((entry) => entry !== 'gorkhali' && existsSync(join(skillRoot, entry, 'SKILL.md')))
     .filter((entry) => !commandSet.has(entry))
     .sort();
   for (const adapter of orphanedAdapters) {
@@ -412,7 +412,7 @@ export function validatePluginManifests(root = repositoryRoot) {
   const versions = [];
   for (const [label, file] of skillManifests) {
     const plugin = JSON.parse(readFileSync(file, 'utf8'));
-    versions.push(plugin.version);    if (plugin.name !== 'phantom') errors.push(`${label} name must be phantom.`);
+    versions.push(plugin.version);    if (plugin.name !== 'gorkhali') errors.push(`${label} name must be gorkhali.`);
     if (plugin.skills !== './skills/') errors.push(`${label} must expose ./skills/.`);
     if (!isObject(plugin.interface)) {
       errors.push(`${label} interface must be an object.`);
@@ -544,7 +544,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     'references/verification.md',
     'scripts/inspect-impact.mjs',
     'scripts/lib/decision-contracts.mjs',
-    'scripts/phantom-state.mjs',
+    'scripts/gorkhali-state.mjs',
     'scripts/resolve-profile.mjs',
     'scripts/validate-review-html.mjs',
   ];
@@ -567,7 +567,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
       'SHA-256 digest',
       'The authoritative review must have a later',
     ],
-    'scripts/phantom-state.mjs': [
+    'scripts/gorkhali-state.mjs': [
       "const ROUTES = new Set(['lite', 'direct', 'plan', 'brainstorm', 'full'])",
       "'ship-pr'",
       "'ship-draft-pr'",

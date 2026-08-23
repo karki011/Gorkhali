@@ -279,7 +279,7 @@ function buildConfoundedCorpus() {
 function mine(dataRoot, extraArgs = []) {
   return execFileSync('node', [MINER, '--no-gh', ...extraArgs], {
     encoding: 'utf-8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot },
+    env: { ...process.env, GORKHALI_DATA: dataRoot },
     cwd: REPO_ROOT,
   });
 }

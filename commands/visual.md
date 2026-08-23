@@ -1,22 +1,22 @@
 ---
 name: visual
-description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Phantom Surveyor inspection only when explicitly requested."
+description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Gorkhali Surveyor inspection only when explicitly requested."
 argument-hint: "[/route1 /route2 ...] [--surveyor]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
-# /phantom:visual $ARGUMENTS
+# /gorkhali:visual $ARGUMENTS
 
-Prepare a human visual-verification handoff. Phantom does not inspect the UI or
+Prepare a human visual-verification handoff. Gorkhali does not inspect the UI or
 claim a visual pass on the user's behalf by default.
 
 ## Optional Surveyor mode
 
 Activate Surveyor only when `$ARGUMENTS` contains `--surveyor` or the user affirmatively
-asks to run, use, or invoke Phantom Surveyor in the current request. Merely naming,
-asking about, or negating Surveyor (for example, "do not use Phantom Surveyor") does not
+asks to run, use, or invoke Gorkhali Surveyor in the current request. Merely naming,
+asking about, or negating Surveyor (for example, "do not use Gorkhali Surveyor") does not
 activate it. A UI diff, Figma link, screenshot, or required user verification
 never triggers Surveyor automatically.
 
@@ -28,7 +28,7 @@ In optional Surveyor mode:
    `reference/agent-protocols/visual-protocol.md`. If it requires user input, ask with
    the manager link, worktree, and branch, then keep this Surveyor request pending
    until the user supplies the exact Dev URL.
-3. Record a bounded delegation-v2 task with `role: "surveyor"` when a Phantom
+3. Record a bounded delegation-v2 task with `role: "surveyor"` when a Gorkhali
    session is active, then spawn exactly one read-only Surveyor named `surveyor-meridan`.
 4. Surveyor loads `agents/surveyor.md` and its references only inside that worker. It
    inspects and returns advisory screenshots, findings, and observation gaps.
@@ -60,7 +60,7 @@ loop.
 5. If the user reports an issue, return it to normal scoped implementation and
    deterministic verification. Do not auto-fix or start a visual fix loop.
 6. If the user explicitly confirms the UI, return that confirmation to
-   `/phantom:verify`. Verification records it once in its canonical evidence;
+   `/gorkhali:verify`. Verification records it once in its canonical evidence;
    this command creates no specialist review artifact or competing state store.
 
 When invoked outside an active verification flow, stop after the user's reply

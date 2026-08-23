@@ -6,7 +6,7 @@
 //
 // It is the ONE representation of the learning format, shared by three runtimes so
 // they never diverge:
-//   * the ESM learning API (phantom-learning.mjs) imports it via createRequire, so
+//   * the ESM learning API (gorkhali-learning.mjs) imports it via createRequire, so
 //     capture/consolidate/graduate parse and rebuild through this grammar;
 //   * the CommonJS data-root migrator (scripts/migrate-data.js) requires it to
 //     merge learnings semantically under the T3 per-dir lock;

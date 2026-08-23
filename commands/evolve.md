@@ -6,7 +6,7 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:evolve
+# /gorkhali:evolve
 
 Run the 3-tier evolution pipeline on the learnings system via an Inspector sidecar agent.
 
@@ -32,7 +32,7 @@ Spawn a **Inspector** agent to handle Tier 1 and Tier 2 processing:
 - mode: `bypassPermissions`
 
 **Inspector prompt must include:**
-- Script path: `$PR/scripts/evolution-runner.js`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; evolution skipped"; exit 0; }` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
+- Script path: `$PR/scripts/evolution-runner.js`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install; evolution skipped"; exit 0; }` (empty `$PR` aborts the runner readable — the runner is the skill's purpose, so there is nothing to do without it)
 - Flag: `--dry-run` if user requested preview, otherwise no flag
 - Instructions to run the script and capture full output
 - Instructions to return structured report:
@@ -125,5 +125,5 @@ pass — the manifest is the work-list:
 - After 5+ sessions (routine maintenance)
 - When `learnings/INDEX.md` feels bloated
 - Before archiving a milestone
-- At `/phantom:wrap` time (evolution check in wrap protocol)
-- `--scout`: quarterly, or when you spot a notable agent framework worth comparing (the outward feed — keeps phantom from only ever recycling its own ideas)
+- At `/gorkhali:wrap` time (evolution check in wrap protocol)
+- `--scout`: quarterly, or when you spot a notable agent framework worth comparing (the outward feed — keeps gorkhali from only ever recycling its own ideas)

@@ -45,7 +45,7 @@ jobs:
           status=0
           for file in hooks/*.js hooks/*.mjs hooks/*.cjs \
                       scripts/*.js scripts/*.mjs scripts/lib/*.js scripts/lib/*.cjs \
-                      skills/phantom/scripts/*.mjs skills/phantom/scripts/lib/*; do
+                      skills/gorkhali/scripts/*.mjs skills/gorkhali/scripts/lib/*; do
             [ -e "$file" ] || continue
             case "$file" in *.sh) continue ;; esac
             node --check "$file" || { echo "::error file=$file::does not parse"; status=1; }
@@ -85,10 +85,10 @@ jobs:
           # `plugin install` exits 0 even when the plugin later fails to load
           # (verified against a malformed hooks.json), so its exit code is not
           # the assertion — the status line below is.
-          claude plugin install phantom@phantom
+          claude plugin install gorkhali@gorkhali
           claude plugin list | tee plugin-list.txt
           # The status glyph is terminal-dependent (✔ or √), so match the word.
           grep -qE '^[[:space:]]*Status:.*enabled' plugin-list.txt || {
-            echo "::error::phantom did not reach \"enabled\" from this checkout; see the plugin list output above"
+            echo "::error::gorkhali did not reach \"enabled\" from this checkout; see the plugin list output above"
             exit 1
           }

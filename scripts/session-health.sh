@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Author: Subash Karki
-# Verifies a Phantom session directory has the expected artifacts for its phase.
+# Verifies a Gorkhali session directory has the expected artifacts for its phase.
 # Usage: session-health.sh <session-dir> [--phase <phase>] [--fields a,b,c]
-#   <session-dir>: path to session directory (e.g., ~/.phantom/repos/myrepo/sessions/ENG-1234)
+#   <session-dir>: path to session directory (e.g., ~/.gorkhali/repos/myrepo/sessions/ENG-1234)
 #   --phase <phase>: expected phase (A, B, C, D, verify, wrap). Auto-detected from artifacts if omitted.
 #   --fields <list>: comma-separated subset of the "Found artifacts:" block to
 #     display (valid: context,intent,plan,execution,verification,wrap,pause,
@@ -79,7 +79,7 @@ if [[ -n "$FIELDS_ARG" ]]; then
   SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   FIELDS_JS="$SELF_DIR/lib/fields.js"
   if [[ ! -f "$FIELDS_JS" ]]; then
-    PR="$(ls -dt "$HOME/.claude/plugins/cache/phantom/phantom/"*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+    PR="$(ls -dt "$HOME/.claude/plugins/cache/gorkhali/gorkhali/"*/ 2>/dev/null | head -1)"; PR="${PR%/}"
     [[ -n "$PR" && -f "$PR/scripts/lib/fields.js" ]] && FIELDS_JS="$PR/scripts/lib/fields.js"
   fi
   if [[ -f "$FIELDS_JS" ]]; then

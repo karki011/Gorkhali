@@ -22,7 +22,7 @@ const path = require('path');
 // existing constant in scripts/lib/constants.js covers self-review, so it lives
 // here rather than adding a 7th file to this task's scope. Env-overridable.
 const SELF_REVIEW_THRESHOLD = (() => {
-  const raw = Number(process.env.PHANTOM_WAKE_SELF_REVIEW_THRESHOLD);
+  const raw = Number(process.env.GORKHALI_WAKE_SELF_REVIEW_THRESHOLD);
   return Number.isFinite(raw) && raw >= 0 ? raw : 7;
 })();
 
@@ -37,12 +37,12 @@ try {
 
 let stateDir;
 try {
-  ({ stateDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir } = require('../scripts/lib/gorkhali-paths'));
 } catch (_) {
   const os = require('os');
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
   stateDir = () => path.join(data, 'state');
 }
 
@@ -68,7 +68,7 @@ function readPayload() {
 // failed to load. mkdir is append's job.
 function resolveSessionDir() {
   if (resolveWakeDir) return resolveWakeDir();
-  const explicit = process.env.PHANTOM_WAKE_SESSION_DIR;
+  const explicit = process.env.GORKHALI_WAKE_SESSION_DIR;
   if (explicit && explicit.trim()) return explicit.trim();
   return stateDir();
 }
@@ -112,8 +112,8 @@ function readAgentRecordFile(payload, wakeDir) {
 function resolveStubRecord(payload, wakeDir) {
   let raw = null;
   const candidates = [
-    () => process.env.PHANTOM_EXECUTION_RECORD,
-    () => (process.env.PHANTOM_EXECUTION_FILE ? fs.readFileSync(process.env.PHANTOM_EXECUTION_FILE, 'utf-8') : null),
+    () => process.env.GORKHALI_EXECUTION_RECORD,
+    () => (process.env.GORKHALI_EXECUTION_FILE ? fs.readFileSync(process.env.GORKHALI_EXECUTION_FILE, 'utf-8') : null),
     () => readAgentRecordFile(payload, wakeDir),
   ];
   for (const get of candidates) {
@@ -322,7 +322,7 @@ function main() {
     return;
   }
 
-  // Resolve the wake dir AND which source produced it. Fix C: when no phantom
+  // Resolve the wake dir AND which source produced it. Fix C: when no gorkhali
   // session is pointed at this repo (source 'state' = fell through to the global
   // state dir with no pointer and no env override) there is no Chief consumer, so
   // appending would grow the global state dir unbounded with wakes nobody drains.
@@ -332,7 +332,7 @@ function main() {
     ({ dir: sessionDir, source } = resolveWakeSource());
   } else {
     sessionDir = resolveSessionDir();
-    source = process.env.PHANTOM_WAKE_SESSION_DIR && process.env.PHANTOM_WAKE_SESSION_DIR.trim() ? 'env' : 'state';
+    source = process.env.GORKHALI_WAKE_SESSION_DIR && process.env.GORKHALI_WAKE_SESSION_DIR.trim() ? 'env' : 'state';
   }
   if (source === 'state') return;
 

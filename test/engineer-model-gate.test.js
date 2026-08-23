@@ -2,7 +2,7 @@
 // engineer-model-gate.test.js — locks the PreToolUse gate that denies Engineer
 // spawns missing an explicit `model:`. FAIL-OPEN: any ambiguity, non-engineer
 // agent, non-Agent/Task tool, or unparseable stdin ALLOWS. Escape hatch:
-// PHANTOM_BLADE_MODEL_GATE=0 always allows. Always exits 0 — the decision
+// GORKHALI_BLADE_MODEL_GATE=0 always allows. Always exits 0 — the decision
 // rides the stdout JSON.
 //
 // Spawns the REAL hook process (seam-integration pattern), matching
@@ -71,7 +71,7 @@ const DEFAULT_NAMES = {
 };
 
 function agentSpawn(subagentType, toolInput = {}) {
-  const role = String(subagentType).replace(/^phantom:/i, '').toLowerCase();
+  const role = String(subagentType).replace(/^gorkhali:/i, '').toLowerCase();
   return {
     tool_name: 'Agent',
     tool_input: {
@@ -99,8 +99,8 @@ test('2. engineer spawn WITH model:"sonnet" → ALLOW', () => {
   assertAllow(res);
 });
 
-test('3. subagent_type:"phantom:engineer" (prefixed), no model → DENY (prefix stripping)', () => {
-  const res = runGate(agentSpawn('phantom:engineer'));
+test('3. subagent_type:"gorkhali:engineer" (prefixed), no model → DENY (prefix stripping)', () => {
+  const res = runGate(agentSpawn('gorkhali:engineer'));
   assertDeny(res);
 });
 
@@ -119,8 +119,8 @@ test('6. tool_name not Agent/Task (e.g. Edit) with engineer-ish input → ALLOW'
   assertAllow(res);
 });
 
-test('7. escape hatch PHANTOM_BLADE_MODEL_GATE=0 → ALLOW even without model', () => {
-  const res = runGate(bladeSpawn(), { PHANTOM_BLADE_MODEL_GATE: '0' });
+test('7. escape hatch GORKHALI_BLADE_MODEL_GATE=0 → ALLOW even without model', () => {
+  const res = runGate(bladeSpawn(), { GORKHALI_BLADE_MODEL_GATE: '0' });
   assertAllow(res, 'escape hatch disables the gate entirely');
 });
 
@@ -134,8 +134,8 @@ test('9. engineer + model:"fable" → DENY (implementer fable-deny)', () => {
   assertWorkerDeny(res);
 });
 
-test('10. subagent_type:"phantom:steward" + model:"fable" → DENY (prefix stripped, exact match)', () => {
-  const res = runGate(agentSpawn('phantom:steward', { model: 'fable' }));
+test('10. subagent_type:"gorkhali:steward" + model:"fable" → DENY (prefix stripped, exact match)', () => {
+  const res = runGate(agentSpawn('gorkhali:steward', { model: 'fable' }));
   assertWorkerDeny(res);
 });
 
@@ -165,8 +165,8 @@ test('14. auditor + model:"fable" → ALLOW (not an implementer agent)', () => {
   assertAllow(res);
 });
 
-test('15. subagent_type:"phantom:reference:engineer-conventions" + model:"fable" → ALLOW (exact-match guard, not substring)', () => {
-  const res = runGate(agentSpawn('phantom:reference:engineer-conventions', { model: 'fable' }));
+test('15. subagent_type:"gorkhali:reference:engineer-conventions" + model:"fable" → ALLOW (exact-match guard, not substring)', () => {
+  const res = runGate(agentSpawn('gorkhali:reference:engineer-conventions', { model: 'fable' }));
   assertAllow(res);
 });
 
@@ -175,8 +175,8 @@ test('16. subagent_type:"Engineer" (capitalized) + model:"fable" → DENY (case-
   assertWorkerDeny(res);
 });
 
-test('17. subagent_type:"PHANTOM:STEWARD" (uppercase) + model:"fable" → DENY (case-insensitive, prefix stripped)', () => {
-  const res = runGate(agentSpawn('PHANTOM:STEWARD', { model: 'fable' }));
+test('17. subagent_type:"GORKHALI:STEWARD" (uppercase) + model:"fable" → DENY (case-insensitive, prefix stripped)', () => {
+  const res = runGate(agentSpawn('GORKHALI:STEWARD', { model: 'fable' }));
   assertWorkerDeny(res);
 });
 
@@ -211,19 +211,19 @@ test('23. roster role with a non-string name → DENY (fail closed on the name, 
   assertNameDeny(runGate(agentSpawn('detective', { name: null })));
 });
 
-test('24. non-phantom agent types with no name → ALLOW (gate never touches them)', () => {
+test('24. non-gorkhali agent types with no name → ALLOW (gate never touches them)', () => {
   for (const type of ['general-purpose', 'Explore', 'statusline-setup', 'Plan', 'chief']) {
     assertAllow(runGate(agentSpawn(type, { name: undefined })), type + ' must stay unaffected');
   }
 });
 
-test('25. "phantom:reference:engineer-conventions" with no name → ALLOW (exact match, not substring)', () => {
-  const res = runGate(agentSpawn('phantom:reference:engineer-conventions', { name: undefined }));
+test('25. "gorkhali:reference:engineer-conventions" with no name → ALLOW (exact match, not substring)', () => {
+  const res = runGate(agentSpawn('gorkhali:reference:engineer-conventions', { name: undefined }));
   assertAllow(res);
 });
 
 test('26. valid roster names → ALLOW (prefixed + function-named + overflow forms)', () => {
-  assertAllow(runGate(agentSpawn('phantom:justice', { name: 'justice-scope' })));
+  assertAllow(runGate(agentSpawn('gorkhali:justice', { name: 'justice-scope' })));
   assertAllow(runGate(agentSpawn('clerk', { name: 'clerk-ledgett' })));
   assertAllow(runGate(agentSpawn('opposition', { name: 'opposition-parlow' })));
   assertAllow(runGate(agentSpawn('engineer', { name: 'engineer-24', model: 'opus' })));
@@ -239,8 +239,8 @@ test('28. fable-deny still wins over the name gate (both violated → implemente
   assertWorkerDeny(res);
 });
 
-test('29. escape hatch PHANTOM_BLADE_MODEL_GATE=0 disables the name gate too', () => {
-  const res = runGate(agentSpawn('auditor', { name: undefined }), { PHANTOM_BLADE_MODEL_GATE: '0' });
+test('29. escape hatch GORKHALI_BLADE_MODEL_GATE=0 disables the name gate too', () => {
+  const res = runGate(agentSpawn('auditor', { name: undefined }), { GORKHALI_BLADE_MODEL_GATE: '0' });
   assertAllow(res);
 });
 
@@ -401,7 +401,7 @@ test('35c. LIVE roster.md: every character in every roster row is a legal name f
   assert.ok(rows.length >= 10, 'roster table rows must parse — got ' + rows.length);
 
   // Only roles the gate actually fires on can be asserted through a spawn; the
-  // rest (explore/planner/hunter name non-Phantom agent types) are skipped.
+  // rest (explore/planner/hunter name non-Gorkhali agent types) are skipped.
   const GATED = new Set([
     'engineer', 'justice', 'auditor', 'inspector', 'detective', 'surveyor', 'steward',
     'opposition', 'advisor', 'clerk',
@@ -426,7 +426,7 @@ test('35c. LIVE roster.md: every character in every roster row is a legal name f
 test('36. unreadable roster.md → identity check SKIPPED, spawn ALLOWED (fail open)', () => {
   // Same isolation trick as test 19: copy the hook somewhere with no repo around
   // it, so reference/roster.md cannot be read.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-roster-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-roster-'));
   const isolated = path.join(dir, 'hooks');
   fs.mkdirSync(isolated);
   const hookCopy = path.join(isolated, 'engineer-model-gate.js');
@@ -456,7 +456,7 @@ test('18. deny reason names the role\'s model-policy.json profile, not a bare mo
   const res = runGate(bladeSpawn());
   const reason = JSON.parse(res.stdout).hookSpecificOutput.permissionDecisionReason;
   const policy = JSON.parse(
-    fs.readFileSync(path.join(__dirname, '..', 'skills', 'phantom', 'references', 'model-policy.json'), 'utf8')
+    fs.readFileSync(path.join(__dirname, '..', 'skills', 'gorkhali', 'references', 'model-policy.json'), 'utf8')
   );
   assert.match(reason, new RegExp(`profile "${policy.roles.engineer}"`), 'reason states the policy profile');
   assert.match(reason, /critical_elevation|risk "critical"/, 'reason points at the risk-elevation path');
@@ -464,7 +464,7 @@ test('18. deny reason names the role\'s model-policy.json profile, not a bare mo
 });
 
 test('19. unreadable policy → still DENY with a generic reason (advisory read never changes the decision)', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-gate-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-gate-'));
   const isolated = path.join(dir, 'hooks');
   fs.mkdirSync(isolated);
   const hookCopy = path.join(isolated, 'engineer-model-gate.js');

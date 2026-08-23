@@ -1,6 +1,6 @@
 # Evolution Check & Archive/Shutdown
 
-> **Context:** Called during `/phantom:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
+> **Context:** Called during `/gorkhali:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
 
 ## Evolution Check (Inspector sidecar, haiku-pinned)
 
@@ -55,15 +55,15 @@ Before writing, scan existing memory files for the same keyword.
 If exists -> update the existing file instead of creating a duplicate.
 
 ### Why this matters:
-Claude's auto-memory loads at session start regardless of whether the Phantom is invoked. Critical corrections and validated patterns survive even in quick sessions that don't load the full Phantom.
+Claude's auto-memory loads at session start regardless of whether the Gorkhali is invoked. Critical corrections and validated patterns survive even in quick sessions that don't load the full Gorkhali.
 
 ## Post-Archive Steps
 
 1. Update auto-memory (`project_*.md` in memory dir)
 
-2. **Core Discipline #13 audit report** — scan `${PHANTOM_DATA:-~/.phantom}/audit/chief-edits-$(date +%Y-%m-%d).jsonl` for this session:
+2. **Core Discipline #13 audit report** — scan `${GORKHALI_DATA:-~/.gorkhali}/audit/chief-edits-$(date +%Y-%m-%d).jsonl` for this session:
    ```bash
-   grep "\"session\":\"{SESSION_ID}\"" "${PHANTOM_DATA:-$HOME/.phantom}"/audit/chief-edits-*.jsonl 2>/dev/null
+   grep "\"session\":\"{SESSION_ID}\"" "${GORKHALI_DATA:-$HOME/.gorkhali}"/audit/chief-edits-*.jsonl 2>/dev/null
    ```
    - If no entries -> Core Discipline #13 held (subagent-driven was respected)
    - If entries found -> violations occurred. Report in wrap summary:
@@ -74,8 +74,8 @@ Claude's auto-memory loads at session start regardless of whether the Phantom is
 
 3. **Deactivate chief hook inspector:**
    ```
-   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.chief-active"
-   rm -f "${PHANTOM_DATA:-$HOME/.phantom}/.engineer-editing"
+   rm -f "${GORKHALI_DATA:-$HOME/.gorkhali}/.chief-active"
+   rm -f "${GORKHALI_DATA:-$HOME/.gorkhali}/.engineer-editing"
    ```
 
 4. **Clear native `/goal` if still active:**

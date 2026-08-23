@@ -1,6 +1,6 @@
 # Learnings Recording
 
-> **Context:** Called during `/phantom:wrap` after RPSL passes and before ship ceremony. Expects `{TEAM_DIR}/sessions/{TICKET}/` directory with session artifacts. Writes to `learnings/` domain files and `sessions/{TICKET}/`.
+> **Context:** Called during `/gorkhali:wrap` after RPSL passes and before ship ceremony. Expects `{TEAM_DIR}/sessions/{TICKET}/` directory with session artifacts. Writes to `learnings/` domain files and `sessions/{TICKET}/`.
 
 ## 1. Session File
 
@@ -15,7 +15,7 @@ Write new decisions to the correct file:
 
 ## 3. Shadows Evaluation
 
-Run shadows evaluation (see `/phantom:eval`) — record scores in session file.
+Run shadows evaluation (see `/gorkhali:eval`) — record scores in session file.
 
 ## 4. Update Learnings
 
@@ -36,13 +36,13 @@ Update `learnings/INDEX.md` quick reference with one-liners for any new entries 
 
 ## 7. Promotion Check
 
-For any pattern with `[validated:5+]` that is technology-generic (not repo-specific), offer to promote to `${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md` with `[scope:global] derived_from:{REPO_NAME}` tag. Global entry starts at `[validated:1]` regardless of source count.
+For any pattern with `[validated:5+]` that is technology-generic (not repo-specific), offer to promote to `${GORKHALI_DATA:-~/.gorkhali}/global/patterns/INDEX.md` with `[scope:global] derived_from:{REPO_NAME}` tag. Global entry starts at `[validated:1]` regardless of source count.
 
 ## 8. Caveman Compress
 
 For each learnings file that was modified this session, run:
 ```bash
-PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
 SCRIPTS="$PR/scripts"
 if [ -n "$PR" ] && command -v python3 >/dev/null 2>&1 && [ -d "$SCRIPTS/compress" ]; then
   (cd "$SCRIPTS" && python3 -m compress <absolute_path>) || echo "Skipping caveman compress: compression unavailable."

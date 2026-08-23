@@ -5,7 +5,7 @@ What the provider-neutral skill bundle contains, how it negotiates host capabili
 ## Portable Agent Skill
 
 The canonical product is one provider-neutral Agent Skill at
-`skills/phantom/`. Copy that directory unchanged into any Agent
+`skills/gorkhali/`. Copy that directory unchanged into any Agent
 Skills-compatible discovery path. It contains no provider paths, proprietary
 tool calls, or plugin manifests. Host-specific model identifiers are isolated
 in one data-only preset registry; the workflow remains provider-neutral.
@@ -21,22 +21,22 @@ are missing.
 
 Chief makes the delegation decision automatically after routing and dependency
 inspection. Users provide the goal; they do not need to request subagents,
-choose a worker count, or maintain per-worker model settings. Phantom uses the
+choose a worker count, or maintain per-worker model settings. Gorkhali uses the
 smallest useful topology, delegates only through native host capabilities, and
 falls back to labeled sequential role passes when spawning is unavailable or
 not worthwhile. It never recursively launches the current runtime through
 command execution to imitate a native worker.
 
-Phantom also applies a minimum-sufficient-solution ladder after it understands
+Gorkhali also applies a minimum-sufficient-solution ladder after it understands
 the real code path: omit what is unnecessary, then prefer repository reuse,
 the standard library, native platform capabilities, installed dependencies,
 and direct expressions before writing the smallest custom implementation. The
 same constraint is included in every delegated assignment and checked again by
 Steward. This policy is adapted from the ideas in
-[Ponytail](https://github.com/dietrichgebert/ponytail); Phantom does not bundle
+[Ponytail](https://github.com/dietrichgebert/ponytail); Gorkhali does not bundle
 Ponytail's hooks, modes, adapters, or runtime dependency.
 
-Phantom asks for semantic profiles - `inherit`, `economy`, `balanced`, `deep`,
+Gorkhali asks for semantic profiles - `inherit`, `economy`, `balanced`, `deep`,
 or `frontier` - and ships maintained defaults for Claude Code, Codex, and Kimi
 Code. The Kimi preset spreads across Kimi's own tiers (`kimi-for-coding`,
 `k3-256k`, `k3`) and maps K3's `reasoning_effort` onto the profile effort
@@ -44,7 +44,7 @@ field, so a Kimi-routed session never requests compute from another provider;
 only an explicit user choice can do that. Users do not need a `models.json`.
 An explicit user choice or optional external map can override the defaults;
 unknown hosts inherit the active model. See
-`skills/phantom/references/models.md`.
+`skills/gorkhali/references/models.md`.
 
 ## Independence
 

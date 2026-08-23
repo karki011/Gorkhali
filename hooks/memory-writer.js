@@ -4,7 +4,7 @@
 // and a locked write. Produces ZERO stdout. All output goes to files only.
 //
 // The read-modify-write of the shared learning files lives entirely in
-// skills/phantom/scripts/phantom-learning.mjs (the single write path shared with
+// skills/gorkhali/scripts/gorkhali-learning.mjs (the single write path shared with
 // memory-consolidator.js and portable workflows). That API takes the advisory
 // lock and NEVER writes unlocked; if it cannot take the lock within its budget it
 // throws, and this hook drops the capture rather than clobbering a concurrent
@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { observationsDir, learningsDir } = require('../scripts/lib/phantom-paths');
+const { observationsDir, learningsDir } = require('../scripts/lib/gorkhali-paths');
 
 let EXTRACT_TIMEOUT_MS = 5000;
 try {
@@ -26,7 +26,7 @@ try {
 const LEARNINGS_DIR = learningsDir();
 const OBS_DIR = observationsDir();
 const EXTRACT_SCRIPT = path.join(__dirname, '..', 'scripts', 'extract-learnings.js');
-const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
+const LEARNING_API = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-learning.mjs');
 const TURN_WINDOW = 90; // seconds - capture observations from this turn only
 
 try {

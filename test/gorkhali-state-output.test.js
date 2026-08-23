@@ -9,17 +9,17 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 
-const STATE = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+const STATE = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
 const MUTATION_RECEIPT_BYTES = 800;
 const STATUS_PROJECTION_BYTES = 2_000;
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-state-output-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-state-output-'));
   const workspace = path.join(root, 'workspace');
   const data = path.join(root, 'data');
   fs.mkdirSync(workspace);
   fs.writeFileSync(path.join(workspace, 'source.txt'), 'baseline\n');
-  return { root, workspace, data, env: { ...process.env, PHANTOM_DATA: data } };
+  return { root, workspace, data, env: { ...process.env, GORKHALI_DATA: data } };
 }
 
 function run(args, context) {

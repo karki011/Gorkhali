@@ -66,7 +66,7 @@ if (toolName !== 'Skill' || !/(^|:)fix$/.test(String(toolInput.skill || ''))) {
 // ---------------------------------------------------------------------------
 let stateDir, sessionsDir, detectRepo, loopController, execFileSync;
 try {
-  ({ stateDir, sessionsDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, sessionsDir, detectRepo } = require('../scripts/lib/gorkhali-paths'));
   loopController = require('./loop-controller');
   ({ execFileSync } = require('child_process'));
 } catch (_) {

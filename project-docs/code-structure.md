@@ -9,7 +9,7 @@ side-by-side. The portable directory is self-contained and never imports the
 native plugin tree:
 
 ```
-skills/phantom/          # canonical provider-neutral Agent Skill
+skills/gorkhali/          # canonical provider-neutral Agent Skill
 ├── SKILL.md             # intent router and invariant workflow
 ├── manifest.json        # bundle and portable contract versions
 ├── references/          # capabilities, profiles, roles, state, workflows, QA
@@ -33,7 +33,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── _base-agent.md     # Template for spawning new agent types
 │   └── ...
 ├── agents/            # 12 agent personas
-├── bin/               # thin executable entry shims; logic lives in scripts/ (e.g., bin/phantom-preflight → scripts/preflight.js)
+├── bin/               # thin executable entry shims; logic lives in scripts/ (e.g., bin/gorkhali-preflight → scripts/preflight.js)
 ├── scripts/           # deterministic helpers (no LLM needed)
 │   ├── validate-artifact.js   # JSON schema validation
 │   ├── check-learnings-index.js
@@ -41,7 +41,7 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 │   ├── preamble-tier.js   # canonical tier registry (command blockquotes + _shared.md table render from it)
 │   ├── repo-detect.js     # repo facts (id, stack, package manager, monorepo, has_ui, verify commands) as JSON
 │   ├── timing-report.js       # per-model agent timing (wall-clock by model)
-│   ├── phantom-config.js      # config CLI: get/set/list (see Configuration)
+│   ├── gorkhali-config.js      # config CLI: get/set/list (see Configuration)
 │   ├── baseline-report.js     # read-only retrospective miner: PR/merge rates, spawn counts, policy-vs-observed model
 │   ├── outcome-write.js       # writes the per-ticket outcome record (closed pr_state enum); called from wrap and close
 │   ├── route-report.js        # read-only route-effectiveness miner: per-session-route outcome aggregates with attribution caveats + priced cost join
@@ -57,11 +57,11 @@ skills/phantom/          # canonical provider-neutral Agent Skill
 ```
 
 Portable mutable state lives outside the skill under
-`${PHANTOM_DATA:-~/.phantom}`. Set `PHANTOM_DATA` to use an explicit root;
-otherwise every supported runtime uses `~/.phantom`:
+`${GORKHALI_DATA:-~/.gorkhali}`. Set `GORKHALI_DATA` to use an explicit root;
+otherwise every supported runtime uses `~/.gorkhali`:
 
 ```
-${PHANTOM_DATA:-~/.phantom}/
+${GORKHALI_DATA:-~/.gorkhali}/
 ├── state/current-session/{repo-id}.json
 ├── repos/{repo-id}/
 │   ├── sessions/{task-id}/       # active portable artifacts and run evidence

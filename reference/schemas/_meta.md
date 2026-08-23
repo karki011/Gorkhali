@@ -1,6 +1,6 @@
 # `_meta` Header Spec
 
-Every artifact JSON written by a Phantom SKILL must include a `_meta` object at
+Every artifact JSON written by a Gorkhali SKILL must include a `_meta` object at
 the top level. There is exactly one documented exception, below.
 
 ## The one exception: reviewer artifacts
@@ -35,7 +35,7 @@ exemption is from the requirement, not from the schema.
 | gitHead | string | yes | Git HEAD sha at write time |
 | gitBranch | string | yes | Current branch name |
 | phase | string | yes | Phase that wrote this (`A`, `B`, `C`, `D`, `verify`, `wrap`) |
-| skill | string | yes | Skill that wrote this (`phantom:start`, `phantom:pause`, etc.) |
+| skill | string | yes | Skill that wrote this (`gorkhali:start`, `gorkhali:pause`, etc.) |
 | version | number | yes | Schema version (start at `1`) |
 
 **Example:**
@@ -46,7 +46,7 @@ exemption is from the requirement, not from the schema.
     "gitHead": "abc1234",
     "gitBranch": "feat/my-ticket",
     "phase": "B",
-    "skill": "phantom:start",
+    "skill": "gorkhali:start",
     "version": 1
   }
 }

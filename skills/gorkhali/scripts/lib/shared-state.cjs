@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// shared-state.cjs -- the single, dependency-free codec that owns Phantom's
+// shared-state.cjs -- the single, dependency-free codec that owns Gorkhali's
 // mutable-state root resolution and repository identity. Every layer routes
 // through it so the CommonJS compatibility scripts, the portable ESM skill, the
 // shell resolver (via a small `node -e` call), and the runtime resolver adapter
@@ -10,7 +10,7 @@
 // own bundle.
 //
 // Two concerns live here:
-//   1. Data root      -- PHANTOM_DATA else $HOME/.phantom else <workspace>/.phantom.
+//   1. Data root      -- GORKHALI_DATA else $HOME/.gorkhali else <workspace>/.gorkhali.
 //   2. Repository id  -- a versioned, collision-resistant identity derived from
 //                        the normalized origin remote (or the Git common root
 //                        when there is no remote), with persisted aliases so a
@@ -28,10 +28,10 @@ const { execFileSync } = require('child_process');
 // so nothing is orphaned across a codec upgrade.
 const CODEC_VERSION = 1;
 
-// Canonical dirname for the neutral, provider-independent data root. PHANTOM_DATA
+// Canonical dirname for the neutral, provider-independent data root. GORKHALI_DATA
 // overrides the full path; this dirname is used only for the $HOME and workspace
 // fallbacks.
-const ROOT_DIRNAME = '.phantom';
+const ROOT_DIRNAME = '.gorkhali';
 
 // Default ports stripped per scheme so ssh://host:22 and ssh://host converge.
 // A non-default port is preserved because it distinguishes different remotes.
@@ -42,11 +42,11 @@ const DEFAULT_PORTS = { ssh: '22', https: '443', http: '80', git: '9418', ftp: '
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the Phantom data root. Precedence, all resolved against the workspace
+ * Resolve the Gorkhali data root. Precedence, all resolved against the workspace
  * (realpath'd when it exists so macOS /var -> /private/var symlinks agree):
- *   1. PHANTOM_DATA (absolute wins; relative resolves against the workspace).
- *   2. $HOME/.phantom.
- *   3. <workspace>/.phantom.
+ *   1. GORKHALI_DATA (absolute wins; relative resolves against the workspace).
+ *   2. $HOME/.gorkhali.
+ *   3. <workspace>/.gorkhali.
  * `env` is injectable so callers with their own environment map (the runtime
  * resolver adapter) resolve deterministically.
  */
@@ -54,7 +54,7 @@ function resolveDataRoot(workspace = process.cwd(), env = process.env) {
   const resolved = path.resolve(workspace || process.cwd());
   let base = resolved;
   try { base = fs.realpathSync(resolved); } catch (_) { /* nonexistent -> resolved */ }
-  if (env.PHANTOM_DATA) return path.resolve(base, env.PHANTOM_DATA);
+  if (env.GORKHALI_DATA) return path.resolve(base, env.GORKHALI_DATA);
   if (env.HOME) return path.resolve(base, env.HOME, ROOT_DIRNAME);
   return path.join(base, ROOT_DIRNAME);
 }
@@ -246,9 +246,9 @@ function remoteAliases(rawRemote, canonicalId, canonicalName) {
 /**
  * Resolve the repository identity for a workspace. Precedence -- first match
  * wins, never throws:
- *   1. cwd inside <data-root>/worktrees/<seg>/... -> that <seg> (Phantom-managed
+ *   1. cwd inside <data-root>/worktrees/<seg>/... -> that <seg> (Gorkhali-managed
  *      worktree; verbatim segment).
- *   2. PHANTOM_REPO override (verbatim, trimmed).
+ *   2. GORKHALI_REPO override (verbatim, trimmed).
  *   3. Origin remote -> normalized -> `<name>-<hash>` (collision-resistant;
  *      SSH/HTTPS/renamed-clone/worktree all converge here).
  *   4. No remote -> Git common-dir main root basename (worktree-safe: the
@@ -256,13 +256,13 @@ function remoteAliases(rawRemote, canonicalId, canonicalName) {
  *   5. Walk up to the first `.git` entry -> that dir's basename (git absent).
  *   6. `_default`.
  *
- * Options: { dataRoot, phantomRepo, gitRunner }. `dataRoot` enables step 1;
- * `phantomRepo` supplies step 2; `gitRunner(cwd, args)` is injectable for tests.
+ * Options: { dataRoot, gorkhaliRepo, gitRunner }. `dataRoot` enables step 1;
+ * `gorkhaliRepo` supplies step 2; `gitRunner(cwd, args)` is injectable for tests.
  */
 function repoIdentity(cwd = process.cwd(), options = {}) {
   const git = options.gitRunner || defaultGitRunner;
   const dataRoot = options.dataRoot;
-  const phantomRepo = options.phantomRepo;
+  const gorkhaliRepo = options.gorkhaliRepo;
 
   let resolvedCwd;
   try {
@@ -271,7 +271,7 @@ function repoIdentity(cwd = process.cwd(), options = {}) {
     return defaultIdentity();
   }
 
-  // (1) Phantom-managed worktree fast-path.
+  // (1) Gorkhali-managed worktree fast-path.
   if (dataRoot) {
     try {
       const realRoot = fs.realpathSync(path.join(dataRoot, 'worktrees'));
@@ -283,9 +283,9 @@ function repoIdentity(cwd = process.cwd(), options = {}) {
     } catch (_) { /* root or cwd unresolvable -> next step */ }
   }
 
-  // (2) PHANTOM_REPO override (deterministic, verbatim).
-  if (phantomRepo && String(phantomRepo).trim()) {
-    return literalIdentity(String(phantomRepo).trim(), 'env', resolvedCwd);
+  // (2) GORKHALI_REPO override (deterministic, verbatim).
+  if (gorkhaliRepo && String(gorkhaliRepo).trim()) {
+    return literalIdentity(String(gorkhaliRepo).trim(), 'env', resolvedCwd);
   }
 
   try {

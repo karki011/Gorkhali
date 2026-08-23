@@ -22,10 +22,10 @@ function tmpDir() {
 // Run the hook as a child process. Returns { code } — the hook must always exit 0.
 function runHook({ dir, record, stdin } = {}) {
   const env = { ...process.env };
-  delete env.PHANTOM_EXECUTION_RECORD;
-  delete env.PHANTOM_EXECUTION_FILE;
-  if (dir) env.PHANTOM_WAKE_SESSION_DIR = dir;
-  if (record !== undefined) env.PHANTOM_EXECUTION_RECORD = typeof record === 'string' ? record : JSON.stringify(record);
+  delete env.GORKHALI_EXECUTION_RECORD;
+  delete env.GORKHALI_EXECUTION_FILE;
+  if (dir) env.GORKHALI_WAKE_SESSION_DIR = dir;
+  if (record !== undefined) env.GORKHALI_EXECUTION_RECORD = typeof record === 'string' ? record : JSON.stringify(record);
 
   let code = 0;
   try {
@@ -152,23 +152,23 @@ test('hook: empty payload is a clean no-op — exit 0 and nothing written', () =
 });
 
 // ── HONEST e2e: production-shaped payload + pointer file + on-disk stub ──────
-// No PHANTOM_EXECUTION_RECORD injection. The record is resolved the way it is in
+// No GORKHALI_EXECUTION_RECORD injection. The record is resolved the way it is in
 // production: the pointer file (FIX 1) locates the session dir, and the agent's
 // record is read from an on-disk agent-records stub (FIX 2) keyed by tool_use_id
 // — the identity timing-capture.js actually reads off a SubagentStop payload.
 
-// The pointer is scoped per-repo (Fix B). Pin the repo with PHANTOM_REPO so the
+// The pointer is scoped per-repo (Fix B). Pin the repo with GORKHALI_REPO so the
 // pointer filename is deterministic and independent of the checkout's git remote.
 const TEST_REPO = 'testrepo';
 
-// Drive the real hook with only PHANTOM_DATA + PHANTOM_REPO set (pointer-based
-// resolution). PHANTOM_REPO makes detectRepo return TEST_REPO, so the hook reads
+// Drive the real hook with only GORKHALI_DATA + GORKHALI_REPO set (pointer-based
+// resolution). GORKHALI_REPO makes detectRepo return TEST_REPO, so the hook reads
 // the same per-repo pointer seedSession writes.
 function runHookProd({ data, stdin }) {
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: TEST_REPO };
-  delete env.PHANTOM_EXECUTION_RECORD;
-  delete env.PHANTOM_EXECUTION_FILE;
-  delete env.PHANTOM_WAKE_SESSION_DIR;
+  const env = { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: TEST_REPO };
+  delete env.GORKHALI_EXECUTION_RECORD;
+  delete env.GORKHALI_EXECUTION_FILE;
+  delete env.GORKHALI_WAKE_SESSION_DIR;
   let code = 0;
   try {
     execFileSync(process.execPath, [HOOK_PATH], { input: stdin ?? '', env, encoding: 'utf8' });
@@ -178,7 +178,7 @@ function runHookProd({ data, stdin }) {
   return { code };
 }
 
-// Lay out a PHANTOM_DATA root: state/ (with the per-repo pointer) + a session dir
+// Lay out a GORKHALI_DATA root: state/ (with the per-repo pointer) + a session dir
 // the pointer names.
 function seedSession(data) {
   const stateDir = path.join(data, 'state');
@@ -532,10 +532,10 @@ test('hook (Fix C): no live pointer for this repo and no env override → exit 0
   // through to the global state dir (source 'state'). With no env override, the
   // classifier must NOT append — otherwise the global state dir grows unbounded
   // with wakes no Chief is draining.
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: TEST_REPO };
-  delete env.PHANTOM_EXECUTION_RECORD;
-  delete env.PHANTOM_EXECUTION_FILE;
-  delete env.PHANTOM_WAKE_SESSION_DIR;
+  const env = { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: TEST_REPO };
+  delete env.GORKHALI_EXECUTION_RECORD;
+  delete env.GORKHALI_EXECUTION_FILE;
+  delete env.GORKHALI_WAKE_SESSION_DIR;
 
   let code = 0;
   try {
@@ -563,9 +563,9 @@ test('hook: a post-validation crash exits 0 and lands a classifier-error wake in
   fs.writeFileSync(blocker, 'not a directory');
   const poisoned = path.join(blocker, 'session');
 
-  const env = { ...process.env, PHANTOM_DATA: data, PHANTOM_WAKE_SESSION_DIR: poisoned };
-  delete env.PHANTOM_EXECUTION_RECORD;
-  delete env.PHANTOM_EXECUTION_FILE;
+  const env = { ...process.env, GORKHALI_DATA: data, GORKHALI_WAKE_SESSION_DIR: poisoned };
+  delete env.GORKHALI_EXECUTION_RECORD;
+  delete env.GORKHALI_EXECUTION_FILE;
 
   let code = 0;
   try {

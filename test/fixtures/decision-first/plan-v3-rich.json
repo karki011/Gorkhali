@@ -2,9 +2,9 @@
   "_meta": {
     "writtenAt": "2026-07-19T12:00:00Z",
     "gitHead": "50ca22f",
-    "gitBranch": "feat/ai-agnostic-phantom-skill",
+    "gitBranch": "feat/ai-agnostic-gorkhali-skill",
     "phase": "B",
-    "skill": "phantom:start",
+    "skill": "gorkhali:start",
     "version": 3
   },
   "contract_version": 3,
@@ -128,19 +128,19 @@
     },
     {
       "claim": "Decision-first review works best when the recommendation, evidence, options, and human gate are visually connected.",
-      "source": "skills/phantom/references/planning.md",
+      "source": "skills/gorkhali/references/planning.md",
       "status": "supported",
       "implication": "The top of the page should act as a compact executive decision brief."
     },
     {
       "claim": "Bundled guidance plus a stdlib validator is portable without a template or provider dependency.",
-      "source": "skills/phantom/references/review-html.md",
+      "source": "skills/gorkhali/references/review-html.md",
       "status": "inferred",
       "implication": "Keep presentation generation agent-owned and validate only safety and decision fidelity."
     },
     {
       "claim": "Every future host will support the same local-file preview behavior.",
-      "source": "skills/phantom/references/capabilities.md",
+      "source": "skills/gorkhali/references/capabilities.md",
       "status": "unknown",
       "implication": "HTML is an enhancement; JSON and Markdown guidance remain the durable fallback."
     }
@@ -305,12 +305,12 @@
       "id": "T1",
       "description": "Define the plan review authoring contract",
       "read_first": [
-        "skills/phantom/references/review-html.md",
-        "skills/phantom/scripts/lib/decision-contracts.mjs"
+        "skills/gorkhali/references/review-html.md",
+        "skills/gorkhali/scripts/lib/decision-contracts.mjs"
       ],
       "action": "Tell the active AI to lead with the decision brief and choose suitable HTML for outcome, scope, architecture, evidence, alternatives, risks, validation, and the execution appendix.",
       "files": [
-        "skills/phantom/references/review-html.md"
+        "skills/gorkhali/references/review-html.md"
       ],
       "dependsOn": [],
       "acceptance_criteria": [
@@ -332,12 +332,12 @@
       "id": "T2",
       "description": "Define the brainstorm review authoring contract",
       "read_first": [
-        "skills/phantom/references/review-html.md",
+        "skills/gorkhali/references/review-html.md",
         "reference/brainstorm.md"
       ],
       "action": "Tell the active AI to present a recommendation spine, decision frame, evidence, experiment, comparison, and approach dossiers.",
       "files": [
-        "skills/phantom/references/review-html.md"
+        "skills/gorkhali/references/review-html.md"
       ],
       "dependsOn": [
         "T1"
@@ -361,11 +361,11 @@
       "id": "T3",
       "description": "Add static review safety and fidelity validation",
       "read_first": [
-        "skills/phantom/references/review-html.md"
+        "skills/gorkhali/references/review-html.md"
       ],
       "action": "Validate bounded self-contained HTML, exact CSP, safe static markup, visible canonical decision text, and atomic promotion.",
       "files": [
-        "skills/phantom/scripts/validate-review-html.mjs"
+        "skills/gorkhali/scripts/validate-review-html.mjs"
       ],
       "dependsOn": [
         "T1",

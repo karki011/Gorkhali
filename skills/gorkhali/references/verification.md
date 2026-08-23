@@ -85,8 +85,8 @@ Enter the verification phase before running checks, then record the canonical
 payload once after those checks finish:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs verify --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type verification --status passed --input <json-file>
+node <skill-directory>/scripts/gorkhali-state.mjs verify --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type verification --status passed --input <json-file>
 ```
 
 If correctness fails, return to the smallest responsible execution scope. If
@@ -187,9 +187,9 @@ review. The state engine validates and binds that result so a caller-supplied
 role label cannot establish independence by itself:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-task --run <review-run> --status pending --input <auditor-task-json>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-result --run <review-run> --status passed --input <auditor-result-json>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type review --run <review-run> --role auditor --status passed --input <review-json>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type delegation-task --run <review-run> --status pending --input <auditor-task-json>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type delegation-result --run <review-run> --status passed --input <auditor-result-json>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type review --run <review-run> --role auditor --status passed --input <review-json>
 ```
 
 Do not manually select an older passing record. The engine treats the newest

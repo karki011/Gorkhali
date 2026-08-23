@@ -23,8 +23,8 @@ Ask for explicit authority to create the pull request and any required
 push. Record that scope separately:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-pr
-node <skill-directory>/scripts/phantom-state.mjs ship --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs authorize --workspace <path> --scope ship-pr
+node <skill-directory>/scripts/gorkhali-state.mjs ship --workspace <path>
 ```
 
 The `ship` transition means the deterministic preconditions are ready; it does
@@ -57,7 +57,7 @@ After authorized actions finish, record completion through the state helper
 without deleting the session:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs complete --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs complete --workspace <path>
 ```
 
 Return the pull request location and current evidence summary, or a clear blocked

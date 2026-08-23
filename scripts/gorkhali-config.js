@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// phantom-config.js - the config layer: closed schema, two files, per-repo wins,
+// gorkhali-config.js - the config layer: closed schema, two files, per-repo wins,
 // PROVENANCE on every resolved value.
 //
 // Why this exists: commands/close.md and commands/start.md both said "Honor config
@@ -12,25 +12,25 @@
 // Storage (created LAZILY - a fresh install needs no setup step):
 //   <data>/repos/<repo>/config.json   per-repo
 //   <data>/config.json                global default
-// Both paths come from lib/phantom-paths.js; nothing here hand-builds a path.
+// Both paths come from lib/gorkhali-paths.js; nothing here hand-builds a path.
 //
 // Resolution order, first hit wins:
 //   explicit (caller override) > per-repo > global > detect > unset
-// Every result carries `provenance` so a caller (and phantom-doctor) can explain
+// Every result carries `provenance` so a caller (and gorkhali-doctor) can explain
 // WHY a setting has its value. An unset key is reported unset with a reason - this
 // module never fabricates a default.
 //
-// UNATTENDED RULE: nothing here ever prompts, reads stdin, or blocks. `/phantom:loop`
+// UNATTENDED RULE: nothing here ever prompts, reads stdin, or blocks. `/gorkhali:loop`
 // runs with no human present (commands/loop.md: "Never ask the user a question"), so
 // an unset setting is INACTIVE, not an error. askPlan() reports that a value is unset
 // and what an interactive caller should ask; the asking itself belongs to that caller.
 'use strict';
 
 const path = require('path');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const { phantomData, repoDir, detectRepo } = require('./lib/phantom-paths');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
+const { gorkhaliData, repoDir, detectRepo } = require('./lib/gorkhali-paths');
 const { atomicUpdate, readFileSafe } = require('./lib/atomic');
-const { PhantomError, exitCodeForError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
 
 const SCHEMA_VERSION = 1;
 
@@ -48,7 +48,7 @@ const KEYS = {
   'jira.auto_transition': { type: 'boolean' },
   'review.external': { type: 'enum', values: ['greptile', 'none'] },
   'spend.ceiling_usd': { type: 'number' },
-  // `off` (or unset) still shapes every /phantom:* report, because commands load
+  // `off` (or unset) still shapes every /gorkhali:* report, because commands load
   // the contract from _shared.md. `always` extends it to every turn of the
   // session via hooks/response-shape.js, including replies that are not commands.
   'output.response_shape': { type: 'enum', values: ['off', 'always'] },
@@ -63,13 +63,13 @@ const DETECTED_KEYS = new Set(['tracker.provider']);
 // What an interactive caller should ask for a key that resolves to nothing. Text
 // only - the prompting lives in the caller, never here.
 const QUESTIONS = {
-  'tracker.provider': 'Which ticket tracker should Phantom use for this repo?',
-  'review.external': 'Which external reviewer should Phantom run on a PR?',
-  'output.response_shape': 'Should the response-shape contract apply to every turn of the session, not only /phantom:* reports?',
+  'tracker.provider': 'Which ticket tracker should Gorkhali use for this repo?',
+  'review.external': 'Which external reviewer should Gorkhali run on a PR?',
+  'output.response_shape': 'Should the response-shape contract apply to every turn of the session, not only /gorkhali:* reports?',
 };
 
 function invalid(message, suggestions = []) {
-  return new PhantomError('phantom-config: ' + message, VALIDATION_ERROR, suggestions);
+  return new GorkhaliError('gorkhali-config: ' + message, VALIDATION_ERROR, suggestions);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,10 +192,10 @@ function repoConfigPath(repo) {
 }
 
 function globalConfigPath() {
-  return path.join(phantomData(), 'config.json');
+  return path.join(gorkhaliData(), 'config.json');
 }
 
-// Per-process memoization, the way phantom-paths.js memoizes detectRepo: hooks are
+// Per-process memoization, the way gorkhali-paths.js memoizes detectRepo: hooks are
 // hot paths and a config read must not cost a stat per lookup. Keyed on the absolute
 // file path; invalidated on our own writes and by clearCache() (tests, long-lived
 // callers). A short-lived hook or CLI process never sees a stale layer.
@@ -256,7 +256,7 @@ function context(opts = {}) {
 }
 
 // The canonical origin remote for a workspace, or null. Deliberately resolved
-// WITHOUT dataRoot/PHANTOM_REPO: those change the repo ID, but detection wants the
+// WITHOUT dataRoot/GORKHALI_REPO: those change the repo ID, but detection wants the
 // git remote itself, which an id override must not hide.
 function originCanonical(cwd) {
   if (REMOTE_CACHE.has(cwd)) return REMOTE_CACHE.get(cwd);
@@ -397,9 +397,9 @@ function set(key, rawValue, opts = {}) {
 // ---------------------------------------------------------------------------
 
 // Matches scripts/run-guard.js: an unattended run announces itself with
-// PHANTOM_UNATTENDED=1. No human is present, so nothing may ask.
+// GORKHALI_UNATTENDED=1. No human is present, so nothing may ask.
 function isUnattended(env = process.env) {
-  return env.PHANTOM_UNATTENDED === '1';
+  return env.GORKHALI_UNATTENDED === '1';
 }
 
 /**
@@ -428,7 +428,7 @@ function askPlan(key, opts = {}) {
     choices: spec.type === 'enum' ? spec.values.slice() : null,
     inactive_message: unattended
       ? 'INACTIVE: ' + key + ' is not configured - nothing done. Set it with: ' +
-        'node scripts/phantom-config.js set ' + key + ' <value>'
+        'node scripts/gorkhali-config.js set ' + key + ' <value>'
       : null,
   };
 }
@@ -438,9 +438,9 @@ function askPlan(key, opts = {}) {
 // ---------------------------------------------------------------------------
 
 const USAGE =
-  'usage: phantom-config get [<key>] [--repo <path>] [--json]\n' +
-  '       phantom-config set <key> <value> [--global] [--chosen <asked|detected|explicit>] [--repo <path>] [--json]\n' +
-  '       phantom-config list [--repo <path>] [--json]\n' +
+  'usage: gorkhali-config get [<key>] [--repo <path>] [--json]\n' +
+  '       gorkhali-config set <key> <value> [--global] [--chosen <asked|detected|explicit>] [--repo <path>] [--json]\n' +
+  '       gorkhali-config list [--repo <path>] [--json]\n' +
   '\n' +
   'exit: 0 ok | 1 single-key get resolved nothing (empty stdout, reason on stderr) | 2 usage or validation error\n';
 
@@ -491,7 +491,7 @@ const LAYER_DETAIL = { repo: 'per-repo config.json', global: 'global config.json
 
 function printList(report) {
   const w = (s) => process.stdout.write(s);
-  w('phantom-config: ' + report.repo + '\n');
+  w('gorkhali-config: ' + report.repo + '\n');
   w('  per-repo: ' + report.paths.repo + '\n');
   w('  global:   ' + report.paths.global + '\n');
   for (const [key, r] of Object.entries(report.keys)) {
@@ -512,7 +512,7 @@ function runGet(opts) {
     if (!r.set) {
       // Empty stdout is the machine-readable half of "unset": a shell caller
       // comparing the output to a value can never mistake a reason line for one.
-      process.stderr.write('phantom-config: ' + r.key + ' ' + r.reason + '\n');
+      process.stderr.write('gorkhali-config: ' + r.key + ' ' + r.reason + '\n');
       return 1;
     }
     return 0;
@@ -524,7 +524,7 @@ function runGet(opts) {
     process.stdout.write(JSON.stringify({ repo: report.repo, effective }, null, 2) + '\n');
   } else {
     const entries = Object.entries(effective);
-    if (entries.length === 0) process.stdout.write('phantom-config: nothing configured for ' + report.repo + '\n');
+    if (entries.length === 0) process.stdout.write('gorkhali-config: nothing configured for ' + report.repo + '\n');
     for (const [key, value] of entries) process.stdout.write(key + ' = ' + String(value) + '\n');
   }
   return 0;
@@ -549,7 +549,7 @@ function main(argv = process.argv.slice(2)) {
     if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     else {
       process.stdout.write(
-        'phantom-config: ' + result.key + ' = ' + String(result.value) +
+        'gorkhali-config: ' + result.key + ' = ' + String(result.value) +
           ' (' + result.scope + ' -> ' + result.file + ')\n',
       );
     }

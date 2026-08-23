@@ -8,9 +8,9 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const START = path.join(ROOT, 'skills', 'start', 'SKILL.md');
-const PHANTOM = path.join(ROOT, 'skills', 'phantom');
-const ROUTER = path.join(PHANTOM, 'SKILL.md');
-const REFERENCES = path.join(PHANTOM, 'references');
+const GORKHALI = path.join(ROOT, 'skills', 'gorkhali');
+const ROUTER = path.join(GORKHALI, 'SKILL.md');
+const REFERENCES = path.join(GORKHALI, 'references');
 const PHASES = ['planning.md', 'execution.md', 'verification.md', 'shipping.md'];
 
 const read = (file) => fs.readFileSync(file, 'utf8');
@@ -55,8 +55,8 @@ test('router exposes exactly four direct one-hop phase references', () => {
 
 test('normal start adapter directly activates the portable router', () => {
   const adapter = read(START);
-  assert.match(adapter, /\.\.\/phantom\/SKILL\.md/);
-  assert.match(adapter, /\.\.\/phantom\/references\/planning\.md/);
+  assert.match(adapter, /\.\.\/gorkhali\/SKILL\.md/);
+  assert.match(adapter, /\.\.\/gorkhali\/references\/planning\.md/);
   assert.doesNotMatch(adapter, /resolve-codex-runtime|commands\/start\.md|_shared|preamble/i);
 });
 

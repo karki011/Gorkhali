@@ -247,7 +247,7 @@ module.exports = {
 // reflow that file, which must never happen on an unmodified document.
 if (require.main === module) {
   const fs = require('fs');
-  const { PhantomError, reportError } = require('./axi-error');
+  const { GorkhaliError, reportError } = require('./axi-error');
   const [, , cmd, file] = process.argv;
   const USAGE = 'Usage:\n  node md-grammar.js roundtrip <file>\n';
 
@@ -257,14 +257,14 @@ if (require.main === module) {
       return;
     }
     if (cmd !== 'roundtrip' || !file) {
-      throw new PhantomError(USAGE, 'VALIDATION_ERROR');
+      throw new GorkhaliError(USAGE, 'VALIDATION_ERROR');
     }
 
     let src;
     try {
       src = fs.readFileSync(file, 'utf8');
     } catch (error) {
-      throw new PhantomError(`[md-grammar] cannot read ${file}: ${error.message}`, 'IO_ERROR');
+      throw new GorkhaliError(`[md-grammar] cannot read ${file}: ${error.message}`, 'IO_ERROR');
     }
 
     const out = render(parse(src));
@@ -278,7 +278,7 @@ if (require.main === module) {
     const b = out.split('\n');
     let n = 0;
     while (n < a.length && n < b.length && a[n] === b[n]) n++;
-    throw new PhantomError(
+    throw new GorkhaliError(
       `[md-grammar] NOT byte-identical: ${file}\n` +
         `  first diff at line ${n + 1}:\n` +
         `    src: ${JSON.stringify(a[n])}\n` +

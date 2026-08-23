@@ -13,7 +13,7 @@ const richFixture = (type) => JSON.parse(
   fs.readFileSync(path.join(__dirname, `fixtures/decision-first/${type}-v3-rich.json`), 'utf8'),
 );
 const portableContracts = import(pathToFileURL(
-  path.resolve(__dirname, '../skills/phantom/scripts/lib/decision-contracts.mjs'),
+  path.resolve(__dirname, '../skills/gorkhali/scripts/lib/decision-contracts.mjs'),
 ).href);
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const removeFields = (value, fields) => {
@@ -34,16 +34,16 @@ const meta = (version = 3) => ({
   gitHead: 'abc1234',
   gitBranch: 'feat/decision-first',
   phase: 'B',
-  skill: 'phantom:start',
+  skill: 'gorkhali:start',
   version,
 });
 
 const planTask = {
   id: 'T1',
   description: 'Render a decision brief before execution mechanics',
-  read_first: ['skills/phantom/scripts/validate-review-html.mjs'],
+  read_first: ['skills/gorkhali/scripts/validate-review-html.mjs'],
   action: 'Reorder plan sections around the decision contract',
-  files: ['skills/phantom/scripts/validate-review-html.mjs'],
+  files: ['skills/gorkhali/scripts/validate-review-html.mjs'],
   new_files: [],
   dependsOn: [],
   acceptance_criteria: ['Decision brief appears before Waves'],
@@ -176,7 +176,7 @@ const validBrainstorm = () => ({
   evidence: [
     {
       claim: 'Recommendation currently renders after approaches',
-      source: 'skills/phantom/references/review-html.md',
+      source: 'skills/gorkhali/references/review-html.md',
       status: 'verified',
     },
   ],
@@ -230,7 +230,7 @@ const validBrainstorm = () => ({
     cost: 'One validated AI-authored review artifact',
   },
   directionGate: {
-    question: 'Which approach should Phantom use?',
+    question: 'Which approach should Gorkhali use?',
     options: ['decision-first', 'task-first'],
   },
 });
@@ -429,7 +429,7 @@ test('portable delegation contracts validate typed tasks and consistent results'
     constraints: ['Do not change unrelated files'],
     deliverables: ['Delegation validators'],
     acceptance_criteria: ['Focused tests pass'],
-    write_scope: ['skills/phantom/scripts/lib/decision-contracts.mjs'],
+    write_scope: ['skills/gorkhali/scripts/lib/decision-contracts.mjs'],
   };
   const taskDigest = delegationTaskDigest(task);
   assert.deepEqual(validateDelegationTaskContract(task), []);
@@ -441,7 +441,7 @@ test('portable delegation contracts validate typed tasks and consistent results'
     status: 'ok',
     output: {
       summary: 'Implemented and verified',
-      files_changed: ['skills/phantom/scripts/lib/decision-contracts.mjs'],
+      files_changed: ['skills/gorkhali/scripts/lib/decision-contracts.mjs'],
       checks: [{ name: 'focused tests', status: 'passed' }],
       findings: [],
       risks: [],

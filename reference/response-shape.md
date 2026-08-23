@@ -17,7 +17,7 @@ nothing after). This file owns the opening and the body.
 ## Scope and persistence
 
 These rules apply to **every response for the rest of the session**, not only the one being written
-now and not only to `/phantom:*` command reports. They do not expire after a few turns and they do
+now and not only to `/gorkhali:*` command reports. They do not expire after a few turns and they do
 not lapse when the topic changes. A follow-up question about a run — "why did it pick PLAN?", "what
 did Inspector actually run?" — is shaped exactly like the report that prompted it. If it is unclear
 whether they still apply, they do.
@@ -25,11 +25,11 @@ whether they still apply, they do.
 Two mechanisms carry them, because one is not enough:
 
 - **Per command.** `commands/_shared.md` § Response Shape is loaded by every preamble tier, so every
-  `/phantom:*` report is shaped whether or not anything else is configured. This is always on.
+  `/gorkhali:*` report is shaped whether or not anything else is configured. This is always on.
 - **Session-wide.** `hooks/response-shape.js` injects this contract at session start when
   `output.response_shape` is `always`, which extends it to ordinary conversational turns that load
   no command at all. Set it with
-  `node scripts/phantom-config.js set output.response_shape always`, and turn it off with the same
+  `node scripts/gorkhali-config.js set output.response_shape always`, and turn it off with the same
   command and `off`.
 
 The hook re-injects on `compact` as well as `startup`, `resume`, and `clear`. Compaction drops the
@@ -38,7 +38,7 @@ never enabled: the reader keeps expecting a shape that stopped arriving.
 
 ## Why orchestration output fails
 
-Phantom's reader is not reading a chat answer. They are supervising a long multi-agent run they
+Gorkhali's reader is not reading a chat answer. They are supervising a long multi-agent run they
 cannot see inside, and they dip in and out. Four things follow:
 
 1. **They lost the thread between turns.** Which gate, which phase, which agent, how many left — if
@@ -46,7 +46,7 @@ cannot see inside, and they dip in and out. Four things follow:
 2. **The decision is the payload.** The route taken, the verdict, the blocker. The reasoning that
    produced it is supporting evidence, not the headline.
 3. **Vague quantities read as zero information.** "This took a while" and "some findings" cost the
-   reader a follow-up question. Phantom already measures cost and duration — spend the number.
+   reader a follow-up question. Gorkhali already measures cost and duration — spend the number.
 4. **A buried blocker is a lost hour.** Anything that stops progress must surface before the prose
    that explains it.
 
@@ -76,7 +76,7 @@ coffee break. Restating it costs one line and is never wasted.
 
 ### 3. Quantities are measured, never adjectival
 
-Phantom records cost, duration, file counts, and finding counts. A response that says "a bit of
+Gorkhali records cost, duration, file counts, and finding counts. A response that says "a bit of
 work" is discarding data the system already holds.
 
 Bad: "That took a while and cost a fair amount."
@@ -172,7 +172,7 @@ Before the response goes out, delete:
 1. The opening sentence, if it announces what is about to happen instead of reporting what did.
 2. The closing sentence, if it recaps the body or asks "anything else?".
 3. Any "by the way" sidebar — move it to one line at the end, or drop it.
-4. Any adjective standing in for a number Phantom already measured.
+4. Any adjective standing in for a number Gorkhali already measured.
 5. Any hedge carrying no uncertainty ("perhaps", "it seems", "might possibly"). Keep hedges that
    carry real uncertainty — deleting those manufactures confidence the evidence does not support.
 

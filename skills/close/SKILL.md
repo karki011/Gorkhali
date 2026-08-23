@@ -8,4 +8,4 @@ Complete post-merge ticket closeout by finalizing Jira and session state, archiv
 
 Apply `../../host-support/compatibility.md` for workflow `close` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/close.md`.
 
-Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `phantom:<x>` operations to the corresponding plugin skill.
+Treat all invocation text as `$ARGUMENTS` and follow the resolved command as the canonical procedure. Translate Claude-specific tool names to the current host's equivalents while preserving every gate and artifact. Route chained `gorkhali:<x>` operations to the corresponding plugin skill.

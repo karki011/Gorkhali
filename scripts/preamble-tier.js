@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Given a Phantom command name, outputs which preamble tier it belongs to
+// Given a Gorkhali command name, outputs which preamble tier it belongs to
 // and which shared context files it loads — no LLM needed.
 // Usage: preamble-tier.js <command-name>
-//   command-name: e.g. "start", "verify", "status", "phantom:start", "/phantom:start"
+//   command-name: e.g. "start", "verify", "status", "gorkhali:start", "/gorkhali:start"
 // Exit 0 always (informational tool). Outputs JSON with --json flag.
 
 'use strict';
@@ -12,9 +12,9 @@ const [,, ...args] = process.argv;
 const jsonMode = args.includes('--json');
 const commandArg = args.find(a => !a.startsWith('--'));
 
-// Strip leading slash and "phantom:" prefix for matching
+// Strip leading slash and "gorkhali:" prefix for matching
 function normalize(cmd) {
-  return (cmd || '').replace(/^\//, '').replace(/^phantom:/, '').toLowerCase();
+  return (cmd || '').replace(/^\//, '').replace(/^gorkhali:/, '').toLowerCase();
 }
 
 // Tier definitions - THE canonical registry. _shared.md's Preamble Tiers table
@@ -96,7 +96,7 @@ function findTier(cmd) {
 }
 
 function printAll() {
-  console.log('Phantom Preamble Tiers\n');
+  console.log('Gorkhali Preamble Tiers\n');
   for (const [tierKey, tier] of Object.entries(TIERS)) {
     console.log(`${tier.label}`);
     console.log(`  Commands: ${tier.commands.join(', ')}`);

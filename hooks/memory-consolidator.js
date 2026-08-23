@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { observationsDir, learningsDir, stateDir } = require('../scripts/lib/phantom-paths');
+const { observationsDir, learningsDir, stateDir } = require('../scripts/lib/gorkhali-paths');
 
 let EXTRACT_TIMEOUT_MS = 5000;
 try {
@@ -54,11 +54,11 @@ try {
 }
 
 // The shared learning index is mutated only through the canonical learning API
-// (skills/phantom/scripts/phantom-learning.mjs). It takes the advisory lock, so
+// (skills/gorkhali/scripts/gorkhali-learning.mjs). It takes the advisory lock, so
 // this hook and memory-writer.js serialize against one lock and never write the
 // index unlocked. atomicWrite above is still used for the per-session snapshot,
 // which is single-writer and needs no lock.
-const LEARNING_API = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'phantom-learning.mjs');
+const LEARNING_API = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'gorkhali-learning.mjs');
 
 // ── Step 1: Read stdin and determine session ──────────────────────────────────
 

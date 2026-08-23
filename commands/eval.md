@@ -7,7 +7,7 @@ user-invocable: false
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:eval
+# /gorkhali:eval
 
 Evaluate shadows performance using the rubric from `.claude/evals/evaluation.md`.
 

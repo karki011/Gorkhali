@@ -1,6 +1,6 @@
 # Planning Protocol
 
-Canonical: `skills/phantom/references/planning.md`
+Canonical: `skills/gorkhali/references/planning.md`
 
 That portable reference owns the shared planning contract: establishing current
 truth, route classification, defect investigation, decision artifacts, plan
@@ -68,7 +68,7 @@ See `schemas/plan.md` for the full task template, field rules, and extended fiel
 
 Native session-file layout for the canonical decision-first plan:
 
-- **`plan.json`** — the machine source of truth. `phantom:execute`, `phantom:wire`, and `phantom:resume` all read this file, never `plan.html`. Every new plan sets `_meta.version: 3` and `depth` to `quick`, `standard`, or `deep`.
+- **`plan.json`** — the machine source of truth. `gorkhali:execute`, `gorkhali:wire`, and `gorkhali:resume` all read this file, never `plan.html`. Every new plan sets `_meta.version: 3` and `depth` to `quick`, `standard`, or `deep`.
 - **`plan.candidate.html`** — a disposable, self-contained review candidate authored by the active AI from `plan.json` and, when present, `plan-check.json`. It is never canonical and is never parsed back into anything.
 - **`plan.html`** — the accepted human gate surface. The review HTML validator promotes a valid `plan.candidate.html` to this file; see `commands/start.md` PLAN route, HUMAN GATE step.
 - **`plan-check.json`** (optional) — Opposition's verdict, written to the session directory by the Opposition agent (`agents/opposition.md`). When present, the active AI receives it with `plan.json` and includes its verdict in the review provenance. Absent means Opposition did not run, or was not required for this route.
@@ -82,7 +82,7 @@ During plan-gate chat feedback, apply material feedback to `plan.json`; presenta
 ### AI-authored review HTML
 
 `plan.json` remains the machine source of truth. The active AI authors
-`plan.candidate.html`; `node {PLUGIN_ROOT}/skills/phantom/scripts/validate-review-html.mjs plan
+`plan.candidate.html`; `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs plan
 --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out
 {SESSION_DIR}/plan.html` validates and promotes it. Never patch either HTML file by hand and never
 parse HTML back into the plan.

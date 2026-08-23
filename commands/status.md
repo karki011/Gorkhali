@@ -5,7 +5,7 @@ description: "Use when you want to check progress, view the task board, or get a
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:status $ARGUMENTS
+# /gorkhali:status $ARGUMENTS
 
 Task board from `{TEAM_DIR}/sessions/{TICKET}.json`. Fields: `assignments`, `contracts`, `verification`, `blockers`, `cost` — default is all five. `--fields a,b` in `$ARGUMENTS` narrows to just those; validate first (self-resolve `$PR` per `_shared.md`): `[ -f "$PR/scripts/lib/fields.js" ] && node "$PR/scripts/lib/fields.js" parse "<fields>" --valid assignments,contracts,verification,blockers,cost` — an unknown name reports the error and stops instead of rendering; a missing `scripts/lib/fields.js` in `$PR` (empty `$PR` or stale cache) skips validation and shows all five. Show:
 

@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// constants.js — single source of truth for Phantom runtime constants.
+// constants.js — single source of truth for Gorkhali runtime constants.
 // Dep-free (no requires) so any consumer can load it fail-open. Env overrides are
 // numeric-validated and fail open to the default on missing/garbage values.
 // Exception: check-learnings-index.js hard-requires its libs deliberately — it's a CLI checker, crash == failed check.
@@ -22,27 +22,27 @@ function intFromEnv(name, fallback) {
 
 module.exports = {
   // Verify/fix loop hard stop — enforced by hooks/loop-controller.js (loop authority).
-  FIX_LOOP_CEILING: intFromEnv('PHANTOM_FIX_LOOP_CEILING', 2),
+  FIX_LOOP_CEILING: intFromEnv('GORKHALI_FIX_LOOP_CEILING', 2),
 
   // auto-captures → domain-file graduation (validated:N+); also the validated-high
   // injection priority cutoff in memory-reader.
-  GRADUATION_THRESHOLD: numFromEnv('PHANTOM_GRADUATION_THRESHOLD', 5),
+  GRADUATION_THRESHOLD: numFromEnv('GORKHALI_GRADUATION_THRESHOLD', 5),
 
   // domain file → global patterns promotion (evolution-runner Tier 2).
-  PROMOTE_THRESHOLD: numFromEnv('PHANTOM_PROMOTE_THRESHOLD', 5),
+  PROMOTE_THRESHOLD: numFromEnv('GORKHALI_PROMOTE_THRESHOLD', 5),
 
   // extract-learnings.js subprocess kill timeout (memory-writer / memory-consolidator).
-  EXTRACT_TIMEOUT_MS: numFromEnv('PHANTOM_EXTRACT_TIMEOUT_MS', 5000),
+  EXTRACT_TIMEOUT_MS: numFromEnv('GORKHALI_EXTRACT_TIMEOUT_MS', 5000),
 
   // Legacy data-root dirname, retained ONLY as a migration source. The canonical
-  // mutable data root is now ~/.phantom (PHANTOM_DATA overrides the full path),
-  // resolved by the shared codec at skills/phantom/scripts/lib/shared-state.cjs.
-  PHANTOM_DATA_DIRNAME: 'phantom-data',
+  // mutable data root is now ~/.gorkhali (GORKHALI_DATA overrides the full path),
+  // resolved by the shared codec at skills/gorkhali/scripts/lib/shared-state.cjs.
+  GORKHALI_DATA_DIRNAME: 'gorkhali-data',
 
-  // Learning retention tiers (evolution-runner); tune via the PHANTOM_LEARNING_* env vars below.
-  LEARNING_STALE_DAYS: numFromEnv('PHANTOM_LEARNING_STALE_DAYS', 30),
-  LEARNING_REMOVE_DAYS: numFromEnv('PHANTOM_LEARNING_REMOVE_DAYS', 60),
-  LEARNING_DISTILL_CAP: numFromEnv('PHANTOM_LEARNING_DISTILL_CAP', 50),
+  // Learning retention tiers (evolution-runner); tune via the GORKHALI_LEARNING_* env vars below.
+  LEARNING_STALE_DAYS: numFromEnv('GORKHALI_LEARNING_STALE_DAYS', 30),
+  LEARNING_REMOVE_DAYS: numFromEnv('GORKHALI_LEARNING_REMOVE_DAYS', 60),
+  LEARNING_DISTILL_CAP: numFromEnv('GORKHALI_LEARNING_DISTILL_CAP', 50),
 
   // Injection budget PARTITION (hooks/memory-reader.js). Slots are partitioned, not
   // purely ranked, because a pure ranking cannot work on this corpus: it holds 14
@@ -52,9 +52,9 @@ module.exports = {
   // every prompt, 0 validated entries reachable at any prompt). The correction cap is
   // what makes a validated slot reachable; the validated floor is what claims it.
   // CORRECTION + VALIDATED must stay <= SLOTS or the floor cannot be honoured.
-  INJECTION_SLOTS: intFromEnv('PHANTOM_INJECTION_SLOTS', 5),
-  INJECTION_CORRECTION_SLOTS: intFromEnv('PHANTOM_INJECTION_CORRECTION_SLOTS', 3),
-  INJECTION_VALIDATED_SLOTS: intFromEnv('PHANTOM_INJECTION_VALIDATED_SLOTS', 1),
+  INJECTION_SLOTS: intFromEnv('GORKHALI_INJECTION_SLOTS', 5),
+  INJECTION_CORRECTION_SLOTS: intFromEnv('GORKHALI_INJECTION_CORRECTION_SLOTS', 3),
+  INJECTION_VALIDATED_SLOTS: intFromEnv('GORKHALI_INJECTION_VALIDATED_SLOTS', 1),
 
   // context.json field naming the learning entries a session actually recalled, by
   // `[keyword]`. Read by evolution-runner to DERIVE [validated:N] from artifacts
@@ -66,21 +66,21 @@ module.exports = {
   DEFAULT_HOOK_TIMEOUT_SECONDS: 10,
 
   // Preflight blast-radius ceiling: max unique plan.json files for an autonomous run.
-  PREFLIGHT_MAX_FILES: intFromEnv('PHANTOM_PREFLIGHT_MAX_FILES', 10),
+  PREFLIGHT_MAX_FILES: intFromEnv('GORKHALI_PREFLIGHT_MAX_FILES', 10),
 
   // Staleness window for the current-session collision marker (preflight's
   // checkSessionCollision). A marker older than this is treated as absent.
-  MARKER_FRESHNESS_MS: numFromEnv('PHANTOM_MARKER_FRESHNESS_MS', 12 * 60 * 60 * 1000),
+  MARKER_FRESHNESS_MS: numFromEnv('GORKHALI_MARKER_FRESHNESS_MS', 12 * 60 * 60 * 1000),
 
   // UNATTENDED-RUN spend ceiling, USD. Binds ONLY unattended runs (scripts/run-guard.js
-  // --unattended / PHANTOM_UNATTENDED=1); an interactive session is never capped because
+  // --unattended / GORKHALI_UNATTENDED=1); an interactive session is never capped because
   // the watching human IS the ceiling. Deliberately conservative: one autonomous ticket
   // run to a ready-for-review PR, not a day of them. Fractional is legal here (unlike the loop
   // ceilings above) — a $2.50 ceiling is still a meaningful ceiling.
-  SPEND_CEILING_USD: numFromEnv('PHANTOM_SPEND_CEILING_USD', 5),
+  SPEND_CEILING_USD: numFromEnv('GORKHALI_SPEND_CEILING_USD', 5),
 
   // Unattended stuck detection: N occurrences of the SAME failure class halt the run.
   // 2 matches the fix-loop rule it shares an authority with (hooks/loop-controller.js) —
   // "fails twice with the same error class → the approach is wrong".
-  STUCK_REPEAT_LIMIT: intFromEnv('PHANTOM_STUCK_REPEAT_LIMIT', 2),
+  STUCK_REPEAT_LIMIT: intFromEnv('GORKHALI_STUCK_REPEAT_LIMIT', 2),
 };

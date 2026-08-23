@@ -2,7 +2,7 @@
 // Author: Subash Karki
 // route-report.js - score the router: aggregate per-ticket outcome records by the
 // SESSION route (lite | direct | plan | brainstorm | full) so route effectiveness can be
-// read from the corpus. The route here is the one phantom-state.mjs records in
+// read from the corpus. The route here is the one gorkhali-state.mjs records in
 // session.json and outcome-write.js copies into outcome.json - it is NOT the
 // solo|shadows EXECUTION route in wrap.json/plan.json.
 //
@@ -29,7 +29,7 @@
 //
 // Usage: route-report.js [--json]
 //   --json  emit the stable machine shape instead of the human table
-// Data root: ${PHANTOM_DATA:-~/.phantom} via scripts/lib/phantom-paths.js.
+// Data root: ${GORKHALI_DATA:-~/.gorkhali} via scripts/lib/gorkhali-paths.js.
 //
 // Exit codes: 0 = report produced (including an empty corpus); 2 = unknown flag
 // or unexpected argument; 1 = unexpected internal error (via reportError).
@@ -38,15 +38,15 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
-const { phantomData } = require('./lib/phantom-paths');
+const { GorkhaliError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { gorkhaliData } = require('./lib/gorkhali-paths');
 const { spendForTicket } = require('./cost-report');
 
 // Label used when a field is absent, so distributions stay countable instead of
 // dropping records with an undefined key.
 const UNSET = '(unset)';
 
-// The closed route_source vocabulary written by phantom-state.mjs / outcome-write.js.
+// The closed route_source vocabulary written by gorkhali-state.mjs / outcome-write.js.
 const ROUTE_SOURCE = ['explicit', 'default', 'unknown'];
 
 // ── Corpus discovery ────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ const HELP =
   'execution route in wrap.json/plan.json).\n\n' +
   'Usage: node scripts/route-report.js [--json]\n\n' +
   '  --json  emit the stable machine shape instead of the human table\n\n' +
-  'Reads ${PHANTOM_DATA:-~/.phantom}/repos/*/{sessions,completed}/<ticket>/.\n' +
+  'Reads ${GORKHALI_DATA:-~/.gorkhali}/repos/*/{sessions,completed}/<ticket>/.\n' +
   'READ-ONLY: this script has NO side effects.\n';
 
 function parseArgs(argv) {
@@ -355,7 +355,7 @@ function parseArgs(argv) {
     } else if (arg === '--help' || arg === '-h') {
       return { help: true };
     } else {
-      throw new PhantomError(`ERROR: Unknown ${arg.startsWith('-') ? 'flag' : 'argument'}: ${arg}`, VALIDATION_ERROR, [
+      throw new GorkhaliError(`ERROR: Unknown ${arg.startsWith('-') ? 'flag' : 'argument'}: ${arg}`, VALIDATION_ERROR, [
         'Usage: route-report.js [--json]',
       ]);
     }
@@ -370,7 +370,7 @@ async function main(argv) {
     return;
   }
 
-  const dataRoot = phantomData();
+  const dataRoot = gorkhaliData();
   const dirs = findOutcomeDirs(dataRoot);
 
   // Cost join: price each record's ticket once (memoized - a ticket can hold

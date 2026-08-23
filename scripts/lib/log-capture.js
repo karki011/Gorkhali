@@ -9,7 +9,7 @@
 // The original truncates a `gh run view --log` tail to a single char budget and
 // stashes the full log via mkdtemp; this port adds a HEAD slice (general build/
 // test output often puts the first failure at the top, not just the tail like CI
-// logs do), resolves the full-log dir through phantom-paths.js stateDir() instead
+// logs do), resolves the full-log dir through gorkhali-paths.js stateDir() instead
 // of os.tmpdir(), and is a fail-open CLI filter rather than an in-process helper.
 'use strict';
 
@@ -19,12 +19,12 @@ const crypto = require('crypto');
 
 let stateDir;
 try {
-  ({ stateDir } = require('./phantom-paths'));
+  ({ stateDir } = require('./gorkhali-paths'));
 } catch (_) {
   const os = require('os');
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
   stateDir = () => path.join(data, 'state');
 }
 
@@ -41,13 +41,13 @@ function numFromEnv(name, fallback) {
 // constant in scripts/lib/constants.js covers log capture, so these stay local
 // rather than adding entries outside this task's scope (same call wake-classifier.js
 // made for SELF_REVIEW_THRESHOLD).
-const MAX_CHARS = numFromEnv('PHANTOM_LOG_CAPTURE_MAX_CHARS', 20000);
+const MAX_CHARS = numFromEnv('GORKHALI_LOG_CAPTURE_MAX_CHARS', 20000);
 
 // Line budgets, env-overridable like SELF_REVIEW_THRESHOLD (wake-classifier.js).
 // Tail gets the larger share: CI/build/test failures land at the end of output
 // far more often than the start - gh-axi's whole rationale for keeping the tail.
-const HEAD_LINES = numFromEnv('PHANTOM_LOG_CAPTURE_HEAD_LINES', 20);
-const DEFAULT_TAIL_LINES = numFromEnv('PHANTOM_LOG_CAPTURE_TAIL_LINES', 200);
+const HEAD_LINES = numFromEnv('GORKHALI_LOG_CAPTURE_HEAD_LINES', 20);
+const DEFAULT_TAIL_LINES = numFromEnv('GORKHALI_LOG_CAPTURE_TAIL_LINES', 200);
 
 const LOGS_SUBDIR = 'logs';
 const HINT_KEYWORDS = ['error', 'fail', 'exception', 'traceback'];

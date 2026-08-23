@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// Static gate for AI-authored Phantom review pages. This deliberately validates
+// Static gate for AI-authored Gorkhali review pages. This deliberately validates
 // safety and review coverage only; it never renders, sanitizes, or transforms
 // HTML beyond atomically promoting an accepted candidate.
 

@@ -43,14 +43,14 @@ function writePlan(dataDir, repoDir, files, ticket = TICKET) {
   );
 }
 
-// Spawn the real CLI. Env is isolated: PHANTOM_DATA pinned to the fixture,
-// ambient phantom overrides stripped so host state can't leak in.
+// Spawn the real CLI. Env is isolated: GORKHALI_DATA pinned to the fixture,
+// ambient gorkhali overrides stripped so host state can't leak in.
 function cli(args, dataDir, extraEnv = {}) {
-  const env = { ...process.env, PHANTOM_DATA: dataDir, ...extraEnv };
-  delete env.PHANTOM_REPO;
-  delete env.PHANTOM_PROTECTED_BRANCHES;
-  delete env.PHANTOM_JIRA_CHECK_CMD;
-  delete env.PHANTOM_PREFLIGHT_MAX_FILES;
+  const env = { ...process.env, GORKHALI_DATA: dataDir, ...extraEnv };
+  delete env.GORKHALI_REPO;
+  delete env.GORKHALI_PROTECTED_BRANCHES;
+  delete env.GORKHALI_JIRA_CHECK_CMD;
+  delete env.GORKHALI_PREFLIGHT_MAX_FILES;
   return spawnSync('node', [SCRIPT, ...args, '--json'], { encoding: 'utf-8', env });
 }
 
@@ -155,7 +155,7 @@ test('fresh repo-scoped editing marker collides; stale marker is report-only and
   const data = mkData();
   try {
     writePlan(data, repo, ['a.ts']);
-    const env = { PHANTOM_REPO: path.basename(repo) };
+    const env = { GORKHALI_REPO: path.basename(repo) };
     const dir = path.join(data, '.engineer-editing.d', path.basename(repo));
     fs.mkdirSync(dir, { recursive: true });
     const marker = path.join(dir, 'agent-1');

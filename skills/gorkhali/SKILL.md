@@ -1,17 +1,17 @@
 ---
-name: phantom
+name: gorkhali
 description: Plan, execute, verify, independently review, pause, resume, and safely ship software-development work. Use for features, fixes, refactors, investigations, planning, implementation, review, verification, recovery, or progress checks.
 ---
 
-# Phantom
+# Gorkhali
 
-Phantom is a thin progressive router over a deterministic lifecycle engine.
+Gorkhali is a thin progressive router over a deterministic lifecycle engine.
 Load this file on activation, then load only the phase reference needed for the
 current action.
 
 ## Authority and invariants
 
-`scripts/phantom-state.mjs` is the sole lifecycle authority. Its persisted
+`scripts/gorkhali-state.mjs` is the sole lifecycle authority. Its persisted
 state and gate results outrank conversational memory and procedural prose. Use
 compact output normally and add `--json` only for automation or diagnosis.
 
@@ -42,7 +42,7 @@ Resolve this skill directory from this file; do not assume an installation
 path. From the target workspace, inspect state first:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs status --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs status --workspace <path>
 ```
 
 Then inspect instructions, corrections, current behavior, dependency impact,
@@ -63,7 +63,7 @@ Choose the route from uncertainty, dependency, and risk evidence:
 Create state only after the route is known:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs start --workspace <path> --task <id> --intent <text> --route <route>
+node <skill-directory>/scripts/gorkhali-state.mjs start --workspace <path> --task <id> --intent <text> --route <route>
 ```
 
 `--mode to-plan` is permanently plan-only for that session. It may create and
@@ -114,9 +114,9 @@ suppresses a required disclosure, an authorization request, or a stated gap.
 ## Pause, resume, and finish
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs pause --workspace <path> --reason <text>
-node <skill-directory>/scripts/phantom-state.mjs resume --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs complete --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs pause --workspace <path> --reason <text>
+node <skill-directory>/scripts/gorkhali-state.mjs resume --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs complete --workspace <path>
 ```
 
 Finish with `done`, `done-with-caveat`, or `blocked`, naming the evidence that

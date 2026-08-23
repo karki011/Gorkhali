@@ -14,19 +14,19 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
-let stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir;
+let stateDir, detectRepo, gorkhaliData, learningsDir, sessionTelemetryDir;
 try {
-  ({ stateDir, detectRepo, phantomData, learningsDir, sessionTelemetryDir } = require('../scripts/lib/phantom-paths'));
+  ({ stateDir, detectRepo, gorkhaliData, learningsDir, sessionTelemetryDir } = require('../scripts/lib/gorkhali-paths'));
 } catch (_) {
   const base = process.cwd();
-  const data = process.env.PHANTOM_DATA
-    ? path.resolve(base, process.env.PHANTOM_DATA)
+  const data = process.env.GORKHALI_DATA
+    ? path.resolve(base, process.env.GORKHALI_DATA)
     : process.env.HOME
-      ? path.resolve(base, process.env.HOME, '.phantom')
-      : path.join(base, '.phantom');
+      ? path.resolve(base, process.env.HOME, '.gorkhali')
+      : path.join(base, '.gorkhali');
   stateDir = () => path.join(data, 'state');
-  detectRepo = () => (process.env.PHANTOM_REPO || '_default');
-  phantomData = () => data;
+  detectRepo = () => (process.env.GORKHALI_REPO || '_default');
+  gorkhaliData = () => data;
   learningsDir = (repo) => path.join(data, 'repos', repo, 'learnings');
   sessionTelemetryDir = () => path.join(data, 'state', 'session-telemetry');
 }
@@ -48,13 +48,13 @@ try {
 // cross-root knowledge; it only runs the in-root repo-dirs sweep.
 function maybeSweepRepoDirs() {
   try {
-    const dataRoot = phantomData();
+    const dataRoot = gorkhaliData();
     const repoMarker = path.join(dataRoot, '.repo-dirs-migrated');
     if (fs.existsSync(repoMarker)) return;
     const script = path.join(__dirname, '..', 'scripts', 'migrate-repo-dirs.js');
     if (!fs.existsSync(script)) return;
     const args = [script, '--apply'];
-    if (process.env.PHANTOM_MIGRATE_SYNC) {
+    if (process.env.GORKHALI_MIGRATE_SYNC) {
       spawnSync(process.execPath, args, { stdio: 'ignore', timeout: 30000 });
     } else {
       const child = spawn(process.execPath, args, { stdio: 'ignore', detached: true });
@@ -102,7 +102,7 @@ try {
     const repo = detectRepo(cwd);
     // Runtime telemetry lives under state/session-telemetry, NOT
     // state/current-session. The latter holds the durable portable task pointer
-    // written by phantom-state.mjs; keeping them on separate paths makes it
+    // written by gorkhali-state.mjs; keeping them on separate paths makes it
     // physically impossible for a per-prompt telemetry write to clobber the
     // active task pointer.
     const dir = sessionTelemetryDir();

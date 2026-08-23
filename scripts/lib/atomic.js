@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// atomic.js — atomic file writes + advisory locking for the phantom hooks.
+// atomic.js — atomic file writes + advisory locking for the gorkhali hooks.
 //
 // Adapted from tasks-axi lock.ts (MIT, © 2026 Kun Chen) —
 // github.com/kunchenguid/tasks-axi. The TypeScript original is async and throws a

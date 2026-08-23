@@ -86,7 +86,7 @@ cross-scope decisions after the plan.
 Record canonical artifacts through the engine:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type <brainstorm|plan|decisions> --status passed --input <json-file>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type <brainstorm|plan|decisions> --status passed --input <json-file>
 ```
 
 The input path is a transport into the canonical record, not a second durable
@@ -180,9 +180,9 @@ never lead the gate.
 Approvals follow the route and bind to the current passed decision artifacts:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate direction
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate plan
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate direction
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate plan
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate wiring
 ```
 
 `lite` and `direct` have no decision approval; `plan` requires plan approval;

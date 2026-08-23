@@ -1,6 +1,6 @@
 # PR Body
 
-> **Context:** Chief renders `{TEAM_DIR}/sessions/{TICKET}/pr-body.md` at `/phantom:wrap` Step 3, before the ship gate.
+> **Context:** Chief renders `{TEAM_DIR}/sessions/{TICKET}/pr-body.md` at `/gorkhali:wrap` Step 3, before the ship gate.
 > Clerk passes that file to `gh pr create --body-file` verbatim — see `reference/wrap/ship-ceremony.md` §4.
 > **This file is the single copy of the contract.** `commands/wrap.md` and `ship-ceremony.md` point here; they never restate it.
 

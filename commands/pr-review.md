@@ -6,13 +6,13 @@ allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
-# /phantom:pr-review
+# /gorkhali:pr-review
 
-Reviews someone else's pull request. `/phantom:review` reviews YOUR verified diff
+Reviews someone else's pull request. `/gorkhali:review` reviews YOUR verified diff
 and gates on an Inspector artifact bound to your worktree fingerprint; that gate cannot
 be satisfied for a branch you did not build, and `worktreeFingerprint(repo.root)`
 would describe your checkout rather than the PR head. So this command is
-**advisory only**: it never calls `phantom-state.mjs record`, never writes a
+**advisory only**: it never calls `gorkhali-state.mjs record`, never writes a
 lifecycle gate, and never claims a session outcome.
 
 It reviews from the **ticket**, not the diff. A change can be correct,
@@ -43,17 +43,17 @@ Then fetch metadata, the diff, and the head, without checking anything out:
 ```text
 gh pr view <PR_NUMBER> --json number,title,headRefName,headRepositoryOwner,baseRefName,url,body,author,additions,deletions,changedFiles
 gh pr diff <PR_NUMBER>
-git fetch origin refs/pull/<PR_NUMBER>/head:refs/phantom/pr/<PR_NUMBER> --force
+git fetch origin refs/pull/<PR_NUMBER>/head:refs/gorkhali/pr/<PR_NUMBER> --force
 ```
 
-Read post-change content with `git show refs/phantom/pr/<PR_NUMBER>:<path>` and
+Read post-change content with `git show refs/gorkhali/pr/<PR_NUMBER>:<path>` and
 pre-change with `git show <baseRefName>:<path>`.
 
 Both halves of that fetch are deliberate. `refs/pull/<PR_NUMBER>/head` is served by
 GitHub for every pull request including forks, whose head branch does not exist
 on `origin` at all - fetching `<headRefName>` resolves only for same-repo
 branches and silently excludes the most common external case. And the
-destination is under `refs/phantom/`, never `refs/heads/`: a ref outside
+destination is under `refs/gorkhali/`, never `refs/heads/`: a ref outside
 `refs/heads/` cannot be the checked-out branch, so the fetch can never be
 refused for that reason, and it cannot collide with or force-overwrite a local
 branch that happens to share the PR's name.
@@ -78,7 +78,7 @@ Never block on a missing ticket.
 Write the resolved intent to `{REVIEW_DIR}/intent.json` with `ticket`,
 `intentSource`, `acceptanceCriteria` (array, possibly empty), and `summary`.
 
-`{REVIEW_DIR}` is `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/pr-reviews/{PR_NUMBER}`.
+`{REVIEW_DIR}` is `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/pr-reviews/{PR_NUMBER}`.
 It is deliberately NOT a session directory: no session exists, and writing under
 `sessions/` would invite the lifecycle machinery to read this as one.
 
@@ -142,7 +142,7 @@ message. A missing or invalid artifact is `blocked`, never an approval.
 
 ```text
 {PR_BOOTSTRAP}
-[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+[ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
 node "$PR/scripts/review-round.js" close --reviews {REVIEW_DIR} --json
 ```
 
@@ -151,7 +151,7 @@ carried-over finding from a newly invented one across re-reviews of the same PR.
 Skip this when no valid artifact was written: an unrecorded round leaves the next
 pass at the same round number, so a truncated run cannot advance convergence.
 
-**Do not call `phantom-state.mjs record`.** There is no verification artifact to
+**Do not call `gorkhali-state.mjs record`.** There is no verification artifact to
 order against and no worktree whose fingerprint describes the reviewed code.
 Recording here would bind evidence to the wrong commit.
 

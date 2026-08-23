@@ -3,7 +3,7 @@
 // (and the first coverage of outcome-write.js at all).
 //
 // The router's chosen SESSION route (lite|direct|plan|brainstorm|full, recorded in
-// session.json by phantom-state.mjs) was never copied into the durable
+// session.json by gorkhali-state.mjs) was never copied into the durable
 // outcome.json, so route effectiveness could not be scored. What is pinned here,
 // watchable rather than "it passes":
 //
@@ -19,8 +19,8 @@
 //      an unresolved[] entry naming the illegal value, mirroring how pr_state
 //      handles unmappable gh states.
 //
-// Every case builds a real fake data root (PHANTOM_DATA) and pins the repo id
-// deterministically via PHANTOM_REPO (the per-spawn override detectRepo honors),
+// Every case builds a real fake data root (GORKHALI_DATA) and pins the repo id
+// deterministically via GORKHALI_REPO (the per-spawn override detectRepo honors),
 // then runs the CLI as a child process with --no-gh --dry-run so gh and the
 // filesystem are never touched. Assertions are dual-surface: regex on the human
 // stdout AND equality on the --json parse.
@@ -62,7 +62,7 @@ function runCli(fixture, extraArgs = []) {
     [SCRIPT, '--ticket', TICKET, '--repo-path', fixture.repoPath, '--no-gh', '--dry-run', ...extraArgs],
     {
       encoding: 'utf8',
-      env: { ...process.env, PHANTOM_DATA: fixture.dataRoot, PHANTOM_REPO: REPO },
+      env: { ...process.env, GORKHALI_DATA: fixture.dataRoot, GORKHALI_REPO: REPO },
     },
   );
   return { code: res.status, stdout: res.stdout, stderr: res.stderr };
@@ -216,7 +216,7 @@ function seedRounds(fixture, count) {
   fs.writeFileSync(
     path.join(dir, 'rounds.json'),
     JSON.stringify({
-      schema: 'phantom.review-rounds/1',
+      schema: 'gorkhali.review-rounds/1',
       rounds: Array.from({ length: count }, (_, i) => ({ round: i + 1, findings: [] })),
     }),
   );

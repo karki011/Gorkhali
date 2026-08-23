@@ -32,8 +32,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PhantomError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
-const { phantomData, learningsDir, detectRepo } = require('./lib/phantom-paths');
+const { GorkhaliError, reportError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { gorkhaliData, learningsDir, detectRepo } = require('./lib/gorkhali-paths');
 const { findOutcomeDirs, extractRecord } = require('./route-report');
 const { spendForTicket } = require('./cost-report');
 const { parseLearningEntries } = require('./lib/learning-grammar.cjs');
@@ -189,7 +189,7 @@ function renderHuman(result) {
 }
 
 function usageError(msg) {
-  return new PhantomError(`ERROR: ${msg}`, VALIDATION_ERROR, [
+  return new GorkhaliError(`ERROR: ${msg}`, VALIDATION_ERROR, [
     'Usage: route-bias.js [--json] [--apply] [--min-sample <n>] [--learnings <dir>]',
   ]);
 }
@@ -228,7 +228,7 @@ async function main(argv) {
     return;
   }
 
-  const dataRoot = phantomData();
+  const dataRoot = gorkhaliData();
   const learnings = opts.learnings || learningsDir(detectRepo());
   const shadows = path.join(learnings, 'shadows.md');
   let shadowsText = '';
@@ -241,7 +241,7 @@ async function main(argv) {
   const result = buildProposal(dataRoot, evidence, proposal, currentBias(shadowsText), opts.minSample);
 
   if (opts.apply && !result.sufficient) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `ERROR: refusing to apply: ${result.sample.explicit} explicit record(s) < min sample ${opts.minSample}.`,
       VALIDATION_ERROR,
     );

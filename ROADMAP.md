@@ -1,4 +1,4 @@
-# Phantom Roadmap
+# Gorkhali Roadmap
 
 **Author:** Subash karki
 **Date:** 2026-07-28
@@ -40,14 +40,14 @@ Same rule as above: this document does not restate those findings.
 | A1 | Unattended spend cap + stuck detection | DONE (uncommitted) | - | - |
 | - | Version manifest sync (0.2.7 at the time; all three now 0.3.11, `npm run version:check` in sync) | DONE | - | - |
 | B2 | Eval baseline | IN PROGRESS | 1d | blocks B7/B8 deletions |
-| C1 | Config layer (`scripts/phantom-config.js`) | IN PROGRESS | 2d | blocks T1, T2, T3, greploop fix |
+| C1 | Config layer (`scripts/gorkhali-config.js`) | IN PROGRESS | 2d | blocks T1, T2, T3, greploop fix |
 | B1 | Unify model routing on `model-policy.json` | PENDING | 2d | needs C1 for host config |
 | B3 | Memory decay + validation accounting | PENDING | 3d | - |
 | A2 | AC-triage eval cases | PENDING | 1d | needs B2 |
 | B7/B8 | Doctrine dedup + approved deletions | PENDING | 5d | needs B2 |
 | T1 | Tracker abstraction (loop providers) | PENDING | 3d | needs C1 |
-| T3 | phantom-doctor | PENDING | 2d | needs C1 |
-| T2 | phantom-setup + Terminal bundling | PENDING | 3d | needs C1, after B7/B8 |
+| T3 | gorkhali-doctor | PENDING | 2d | needs C1 |
+| T2 | gorkhali-setup + Terminal bundling | PENDING | 3d | needs C1, after B7/B8 |
 | T5 | Dev-link for local skill edits | PENDING | 0.5d | needs T2 |
 | B4 | Codex CLI hook adapter | PENDING | 3d | - |
 | T4 | De-CloudZero + license + CONTRIBUTING | PENDING | 2d | after B2, B7/B8 |
@@ -71,7 +71,7 @@ Same rule as above: this document does not restate those findings.
 | K5 | Verify per-spawn model selection on Kimi | PENDING | 0.5d | if the Agent tool gains a model param, apply the tiered preset at spawn and wire engineer-model-gate; until then `delegation.model_select` stays `unavailable` |
 | TD1 | Preamble restructure | DONE | 2d | shipped in 0.10.0: `scripts/repo-detect.js` emits repo facts as JSON, `_shared-repo-detection.md` is policy-only, `_shared.md` §Paths collapsed, tier registry unified in `scripts/preamble-tier.js` (blockquote + table drift pinned by `test/preamble-tier.test.js`) |
 | TD2 | Extract auditor/justice GENERATED blocks into `reference/review-standard.md` | DONE | 1d | shipped in 0.10.0: auditor.md 18.7KB→4.3KB, justice.md 14.9KB→5.3KB; agents cat the standard at runtime; temperature-review.md and justice-protocol.md stay generated inline (standalone mid-review reads) |
-| TD3 | Post-merge eval tripwire for the haiku downshift | PENDING | 0.5d | after this PR merges, re-run the review-precision baseline (`node scripts/run-evals.js` compare path) against the clerk/inspector→haiku change; SPENDS TOKENS - needs explicit operator go-ahead; if precision dropped, the revert knob is one line in `skills/phantom/references/model-policy.json` (inspector/clerk back to `balanced`) |
+| TD3 | Post-merge eval tripwire for the haiku downshift | PENDING | 0.5d | after this PR merges, re-run the review-precision baseline (`node scripts/run-evals.js` compare path) against the clerk/inspector→haiku change; SPENDS TOKENS - needs explicit operator go-ahead; if precision dropped, the revert knob is one line in `skills/gorkhali/references/model-policy.json` (inspector/clerk back to `balanced`) |
 
 C1 and B2 landed after this table was first written; the status column above is authoritative.
 
@@ -102,7 +102,7 @@ D1's N-runtime caution still stands: a fourth host needs the same evidence bar
 (native skills consumption plus a maintained preset), not enthusiasm.
 
 **D2. Agentic development stays bounded at a ready-for-review PR.**
-`/phantom:loop` already terminates at a ready-for-review PR and never opens a PR for a weak-AC ticket.
+`/gorkhali:loop` already terminates at a ready-for-review PR and never opens a PR for a weak-AC ticket.
 Auto-merge is explicitly rejected while verification quality is unmeasured.
 Revisit only after B2 plus A2 give the AC rubric and the eval suite real numbers.
 
@@ -126,11 +126,11 @@ That is the only reason portability, setup, and doctor work exist at all.
 It is also why B2 gates publication: shipping unmeasured effectiveness claims to a public audience is the one failure mode that cannot be walked back.
 
 **D6. Terminal bundling is layered, not merged.**
-The skills repo stays canonical and independently publishable; Phantom Terminal vendors a pinned built artifact at build time; a dev-link (T5) lets local skill edits apply immediately with no publish step.
+The skills repo stays canonical and independently publishable; Gorkhali Terminal vendors a pinned built artifact at build time; a dev-link (T5) lets local skill edits apply immediately with no publish step.
 This settles both readings of "stop juggling two repos": end users get all 29 skills with no separate clone (T2), and Subash stops hand-syncing two clones day to day (T5).
 Rejected: a monorepo merge.
 Moving skills into the internal app repo would make D5's open-sourcing require a permanent filtered export, and would graft 286 files / 44k lines / 49 test files into a Swift plus Rust app repo whose CI would then run both suites.
-Both `research-phantom-skills` and `project-phantom-teminal` are INTERNAL in the CloudZero org today, so this is not resolving a public/private conflict, it is preserving the option to open one of them later without the other blocking it.
+Both `research-gorkhali-skills` and `project-gorkhali-teminal` are INTERNAL in the CloudZero org today, so this is not resolving a public/private conflict, it is preserving the option to open one of them later without the other blocking it.
 
 ---
 
@@ -170,8 +170,8 @@ That is the honest starting point of the re-baseline: the number is UNMEASURABLE
 Things believed before measurement that measurement disproved.
 Recorded so nobody re-derives the wrong conclusion.
 
-- **"Outcomes are not recorded" was WRONG.** 201 `wrap.json` files exist. The earlier count measured `~/.phantom/sessions/` instead of `~/.phantom/repos/<repo>/{sessions,completed}/<ticket>/`. Outcomes were captured but UNSCHEMATIZED.
-- **"Routing policy is frequently not applied" was WRONG.** It was a reporting artifact that merged legacy records into an `inherited` bucket. Truth: `param` 997, `pinned` 626, `session` 441, and 1018 records predate the `modelSource` instrumentation entirely. Genuinely un-pinned spawns across all 12 phantom agents: 65. For engineer, 93.4% of attributable spawns carry an explicit model. **The Chief-picks-the-model rule IS being followed.**
+- **"Outcomes are not recorded" was WRONG.** 201 `wrap.json` files exist. The earlier count measured `~/.gorkhali/sessions/` instead of `~/.gorkhali/repos/<repo>/{sessions,completed}/<ticket>/`. Outcomes were captured but UNSCHEMATIZED.
+- **"Routing policy is frequently not applied" was WRONG.** It was a reporting artifact that merged legacy records into an `inherited` bucket. Truth: `param` 997, `pinned` 626, `session` 441, and 1018 records predate the `modelSource` instrumentation entirely. Genuinely un-pinned spawns across all 12 gorkhali agents: 65. For engineer, 93.4% of attributable spawns carry an explicit model. **The Chief-picks-the-model rule IS being followed.**
 - **"opposition and advisor are ceremony" was WRONG.** opposition 50 spawns, plan-checker 44, advisor 14. They are used. The only deletion candidates are `grill`, `health`, and the `eval` skill.
 - **"fix_loops data is essentially absent (2/191)" was WRONG.** `verification.json` carries `review.fixLoops` in **120/191**, which is 63% coverage. It was in a different file, not missing.
 - **There are 12 agents in `agents/`, not 13.** An earlier count included the `reference/` subdirectory.
@@ -251,9 +251,9 @@ One correction to F9 as written: it calls `review.temperature` a fifth vocabular
 They are orthogonal axes, both stay, and `reference/schemas/verification.md` now says so instead of leaving the overlap implied.
 
 **F10. Section 3's baseline is not reproducible on the author's machine.**
-A run on 2026-08-13 against `/Users/subash.karki/.phantom` reports **25** canonical wrap records, 24 distinct tickets, and 11 distinct PR urls.
+A run on 2026-08-13 against `/Users/subash.karki/.gorkhali` reports **25** canonical wrap records, 24 distinct tickets, and 11 distinct PR urls.
 Section 3 records 191, 152 and 112.
-The miner resolved 24 canonical plus 1 unmapped repo path, so it is reading the canonical location and this is not the `~/.phantom/sessions/` mistake already corrected in section 4.
+The miner resolved 24 canonical plus 1 unmapped repo path, so it is reading the canonical location and this is not the `~/.gorkhali/sessions/` mistake already corrected in section 4.
 Either the corpus was pruned (`scripts/session-cleanup.js`, a data migration) or section 3 was measured against a data root that no longer exists.
 Until that is explained, section 3's line "these are the starting numbers every future change is compared against" is FALSE — there is nothing to compare against, and no before/after claim may cite it.
 Resolve this before B7/B8, which are gated on exactly that baseline.
@@ -316,7 +316,7 @@ Zero side effects, mirrors `scripts/preflight.js` in shape.
 
 **R1 - report bucketing fix.**
 Model source buckets are now `param | pinned | session-inherited | legacy-no-field`.
-Non-phantom agent types (`general-purpose`, `Explore`, `coder`) moved out of the policy-drift table, because they have no policy row and no pin by design.
+Non-gorkhali agent types (`general-purpose`, `Explore`, `coder`) moved out of the policy-drift table, because they have no policy row and no pin by design.
 
 **A1 - unattended spend cap plus stuck detection.**
 `hooks/loop-controller.js` gains `unattendedHalt()` and `HALT_STATES`; `SPEND_CEILING_USD` defaults to $5 with env override; `scripts/run-guard.js` added.
@@ -424,37 +424,37 @@ Test: submit a prompt that matches a 60-day-old `[failed]` entry and watch the `
 
 What: eval coverage for the AC-solidity rubric at `commands/loop.md:48-55`.
 Why: that rubric is an unmeasured LLM classifier deciding whether it is safe to auto-implement a ticket with no human present, and it has ZERO eval coverage today.
-Test: run the eval suite and watch new AC-triage cases appear with pass/fail verdicts; hand a deliberately vague ticket body to `/phantom:loop --status` and watch it print WEAK.
+Test: run the eval suite and watch new AC-triage cases appear with pass/fail verdicts; hand a deliberately vague ticket body to `/gorkhali:loop --status` and watch it print WEAK.
 
 ### B7/B8 - Doctrine dedup + approved deletions. 5d.
 
-What: dedup role/routing/workflow doctrine onto `skills/phantom/references/` as canonical; execute the D4 deletions; fold the ponytail ladder into `steward`/`auditor` prose; archive `docs/team-skill-improvement-plan.md` plus the dated research notes and one-off HTML; remove the repo-root orphans.
+What: dedup role/routing/workflow doctrine onto `skills/gorkhali/references/` as canonical; execute the D4 deletions; fold the ponytail ladder into `steward`/`auditor` prose; archive `docs/team-skill-improvement-plan.md` plus the dated research notes and one-off HTML; remove the repo-root orphans.
 Why: per F4 this is now a COST item, not tidiness, because prompt overhead dominates per-call cost across 3088 lifetime spawns.
 Test: start a fresh session and watch the skill list come back with three fewer entries; run the same trivial task before and after and watch the reported cost drop.
 
 ### T1 - Tracker abstraction. 3d.
 
 See section 8 for the full design.
-Test: with `tracker: file`, add an unchecked line to `.phantom/backlog.md`, run `/phantom:loop --status`, and watch that line appear in the triage table with no network call and no auth prompt.
+Test: with `tracker: file`, add an unchecked line to `.gorkhali/backlog.md`, run `/gorkhali:loop --status`, and watch that line appear in the triage table with no network call and no auth prompt.
 
-### T3 - phantom-doctor. 2d.
+### T3 - gorkhali-doctor. 2d.
 
 What: one command that reports trigger collisions, hook conflicts, degraded capabilities, and unresolvable profiles.
 Why: it is the diagnostic surface for everything C1, B1, and the Tier rules make conditional, and it is the thing that becomes a Terminal panel (section 10).
 Test: deliberately break `hooks.json` registration for one hook, run the doctor, and watch it name that hook as unregistered.
 
-### T2 - phantom-setup + Terminal bundling. 3d.
+### T2 - gorkhali-setup + Terminal bundling. 3d.
 
 What: a setup path that writes the C1 config and reports what it detected; Terminal ships this repo as a version-pinned plugin.
-Why: the app already writes shims to `~/.phantom-terminal/bin/`, so the install path is the same shape of work.
+Why: the app already writes shims to `~/.gorkhali-terminal/bin/`, so the install path is the same shape of work.
 Lands AFTER B7/B8, because bundling multiplies the audience for whatever quality currently exists.
-Test: on a clean machine with no `~/.phantom`, run setup and watch it print each detected capability, then run `/phantom:status` successfully without editing a file by hand.
+Test: on a clean machine with no `~/.gorkhali`, run setup and watch it print each detected capability, then run `/gorkhali:status` successfully without editing a file by hand.
 
 ### T5 - Dev-link for local skill edits. 0.5d.
 
-What: a symlink or env var (`PHANTOM_SKILLS_DEV_PATH`) that makes Terminal's vendored skills bundle resolve to this repo's working tree instead of the pinned build artifact.
+What: a symlink or env var (`GORKHALI_SKILLS_DEV_PATH`) that makes Terminal's vendored skills bundle resolve to this repo's working tree instead of the pinned build artifact.
 Why: D6 settles the bundling shape as vendor-plus-dev-link; without this half, Subash is back to hand-copying files between two clones on every skill edit.
-Test: set the dev-link, edit one skill's `SKILL.md` in this repo, and watch Phantom Terminal pick up the edited text on next invocation with no build or publish step run.
+Test: set the dev-link, edit one skill's `SKILL.md` in this repo, and watch Gorkhali Terminal pick up the edited text on next invocation with no build or publish step run.
 Depends on T2.
 
 ### B9 - Review finding disposition. 1d.
@@ -467,7 +467,7 @@ Why: review effectiveness is unmeasured, and B2 gates B7/B8 and T4 on exactly th
 The data path is already half-built — `verification.json` carries `review.fixLoops` in 120/191 (63%) — what is missing is attributing an outcome to an INDIVIDUAL finding rather than to the review as a whole.
 Martian's Code Review Bench supplies a true-positive definition that needs no human labelling: a finding counts as a true positive if the code changed after it.
 Without this, every threshold in B10 and B11 is set by taste, and D4's "no untested behavior change to trigger routing" rule forbids setting them that way.
-Test: run `/phantom:review` on a diff with a known defect, apply the fix, then run the baseline miner and watch a per-finding table print one row per finding id with a `fixed`/`dismissed`/`deferred` column; hand-dismiss a finding and watch that row flip to `dismissed` without the review being re-run.
+Test: run `/gorkhali:review` on a diff with a known defect, apply the fix, then run the baseline miner and watch a per-finding table print one row per finding id with a `fixed`/`dismissed`/`deferred` column; hand-dismiss a finding and watch that row flip to `dismissed` without the review being re-run.
 
 ### B10 - Auditor finding schema + review standard. 2d. DONE - see section 6.
 
@@ -490,7 +490,7 @@ Landed as two mechanical tests rather than one prompt trial, because a prompt tr
 What: a bounded step between finding and artifact — re-read each cited `file:line`, confirm the claimed behavior is actually present, discard what cannot be confirmed — plus a `confidence` field (`confirmed` / `possible` / `needs-verification`) orthogonal to severity.
 Promote or revert on measured precision against the B9 baseline, the way B6 does on wall-clock.
 Why: this is the largest false-positive lever in the literature and Anthropic's own Code Review runs it as a distinct pipeline stage.
-Published first-line FP rates span 8-54%, which is far too wide to guess where Phantom sits — hence B9 first.
+Published first-line FP rates span 8-54%, which is far too wide to guess where Gorkhali sits — hence B9 first.
 The mechanism matters and is easy to get wrong: this must be independent re-checking AGAINST THE CODE, not same-context self-critique, which is shown to produce false negatives on the model's own output.
 Severity and confidence must stay separate axes; today `blocking`/`advisory` encodes only importance, so an author cannot tell a confident nit from an unsure bug and skims both.
 Test: replay a recorded review that produced a known false positive and watch the finding dropped with its reason recorded; then run the baseline miner and watch review precision print before and after with a promote or revert verdict.
@@ -507,8 +507,8 @@ Test: run a review that returns one blocking and two advisory findings, fix only
 
 What: a fixed template for the PR body Clerk writes — goal, approach, risk, verification evidence, what to look at first.
 Why: the MSR 2026 study of ~13k agent-authored PRs (including Claude Code) found more structured descriptions correlate with faster reviewer response and shorter completion time, and DORA 2026 puts median time in PR review up 441% — human review latency is the measured bottleneck.
-This is the only item in the W8 set that improves HUMAN review rather than machine review, and Phantom produces exactly the kind of PR the study measured.
-Test: run `/phantom:wrap` on a session and watch the created PR body come back with all five sections populated from session artifacts rather than free prose.
+This is the only item in the W8 set that improves HUMAN review rather than machine review, and Gorkhali produces exactly the kind of PR the study measured.
+Test: run `/gorkhali:wrap` on a session and watch the created PR body come back with all five sections populated from session artifacts rather than free prose.
 
 **Deferred from the same research, deliberately.**
 `REVIEW.md` support is public-interop differentiation and belongs with T4, which is already gated behind B2 and B7/B8.
@@ -518,19 +518,19 @@ Diff-size policy, widening cross-file context, and a low-risk fast path are all 
 
 What: per `agnostic-improvement-research.md` section 7 B4.
 Why: takes mechanical enforcement, the differentiating feature, to the second runtime target and validates D1 cheaply.
-Test: on Codex CLI in a phantom-known repo with no active session and `PHANTOM_ROUTING_ENFORCE=1`, attempt a file edit and watch the ROUTING GATE denial appear.
+Test: on Codex CLI in a gorkhali-known repo with no active session and `GORKHALI_ROUTING_ENFORCE=1`, attempt a file edit and watch the ROUTING GATE denial appear.
 
 ### T4 - De-CloudZero + license + CONTRIBUTING. 2d.
 
-What: remove CloudZero-specific defaults and references; add a license and CONTRIBUTING; rename `greploop` to `phantom:reviewloop` (section 9).
+What: remove CloudZero-specific defaults and references; add a license and CONTRIBUTING; rename `greploop` to `gorkhali:reviewloop` (section 9).
 Why: D5 publication prerequisite.
-Test: `grep -ri cloudzero` over the shipped plugin directories returns nothing, and a fresh clone's README walks a stranger to a first `/phantom:status`.
+Test: `grep -ri cloudzero` over the shipped plugin directories returns nothing, and a fresh clone's README walks a stranger to a first `/gorkhali:status`.
 
 ### B5 - Per-role cost attribution. 1d.
 
 What: per-role cost per ticket in the wrap output.
 Partly collapses into B0b, since the timing data it needs already exists and is already read.
-Test: run `/phantom:wrap` and watch a per-role cost table print (`engineer: $X, auditor: $Y, inspector: $Z`) whose rows sum to the existing Total line.
+Test: run `/gorkhali:wrap` and watch a per-role cost table print (`engineer: $X, auditor: $Y, inspector: $Z`) whose rows sum to the existing Total line.
 
 ### B6 - Down-pin measurement gate. 1d.
 
@@ -557,14 +557,14 @@ Test: after the fix or explanation, re-run the baseline and watch the route subs
 
 ### E4 - Roster-degradation drill. 2d.
 
-What: a `PHANTOM_POOL_DROP`-style test mode that makes one named model or agent unavailable, then runs each route (`direct`, `plan`, `brainstorm`, `full`) against the degraded roster and asserts every run either completes or pauses honestly — never a silent fallback, never a fabricated result.
-Why: the Conductor trains against randomized k-of-n agent pools precisely because a policy tuned to one fixed roster breaks the day a worker is missing (the Conductor paper, arXiv 2512.04388); Phantom's routing is deterministic but has never been PROVEN to degrade honestly, only assumed to.
+What: a `GORKHALI_POOL_DROP`-style test mode that makes one named model or agent unavailable, then runs each route (`direct`, `plan`, `brainstorm`, `full`) against the degraded roster and asserts every run either completes or pauses honestly — never a silent fallback, never a fabricated result.
+Why: the Conductor trains against randomized k-of-n agent pools precisely because a policy tuned to one fixed roster breaks the day a worker is missing (the Conductor paper, arXiv 2512.04388); Gorkhali's routing is deterministic but has never been PROVEN to degrade honestly, only assumed to.
 Test: set the drop flag for one implementer model, run a ticket through each route, and watch every session end in either a completed state or a pause record naming the unavailable roster member as the reason — with zero runs that report success while the dropped model's work is absent.
 
 ### E5 - Verifier-first escalation for direct routes. 2d.
 
 What: on a `direct`-route ticket, run deterministic verification (lint, build, focused tests) BEFORE any planning overhead, and escalate to the `plan` route only when verification surfaces breadth the router did not see; the escalation is recorded, never silent.
-Why: effort should scale with difficulty decided per request, and the cheapest honest difficulty probe Phantom owns is its existing mechanical verification, not more up-front classification (the Conductor paper, arXiv 2512.04388, adapts effort to difficulty per request); depends on the route field this PR adds to `outcome.json`, because an escalation that is not recorded cannot be scored.
+Why: effort should scale with difficulty decided per request, and the cheapest honest difficulty probe Gorkhali owns is its existing mechanical verification, not more up-front classification (the Conductor paper, arXiv 2512.04388, adapts effort to difficulty per request); depends on the route field this PR adds to `outcome.json`, because an escalation that is not recorded cannot be scored.
 Test: hand a direct-route ticket whose fix actually spans multiple files, and watch verification fail, the session escalate to `plan` with the escalation reason recorded, and the outcome record carry both the original and the escalated route; hand a genuinely trivial ticket and watch it ship with no plan artifact ever created.
 
 ---
@@ -587,7 +587,7 @@ So the provider interface is two functions.
 | `jira` | MCP search | MCP comment |
 | `linear` | `state:Ready` | comment |
 | `github` | `gh issue list --assignee @me --label ready` | `gh issue comment` |
-| `file` | unchecked items in `.phantom/backlog.md` | check the box |
+| `file` | unchecked items in `.gorkhali/backlog.md` | check the box |
 | `none` | inactive | n/a |
 
 Build `file` FIRST: zero dependencies, zero-config, proves the seam with no network or auth in the way.
@@ -624,7 +624,7 @@ Fix:
 - `greptile.status` becomes a closed enum: `pending | settled | unavailable | not_configured`;
 - keep fail-open as defense in depth, but stop DEPENDING on it.
 
-Rename to `phantom:reviewloop` at T4; `greploop` is vendor-branded, which is odd for a public repo.
+Rename to `gorkhali:reviewloop` at T4; `greploop` is vendor-branded, which is odd for a public repo.
 A `coderabbit` key already appears in one historical `wrap.json`, so per ponytail rung 1, gate now with a closed enum and add provider adapters only when a second provider is actually needed.
 
 **Standing principle: the ship path must never hard-depend on a paid third-party SaaS.**
@@ -645,15 +645,15 @@ A skill in the list that does not work is worse than one that is not there, and 
 
 ---
 
-## 11. Phantom Terminal integration
+## 11. Gorkhali Terminal integration
 
 Three layers.
 
-1. **Bundling.** Terminal ships this repo as a version-pinned plugin. The app already writes shims to `~/.phantom-terminal/bin/`, so the install path is the same shape of work.
+1. **Bundling.** Terminal ships this repo as a version-pinned plugin. The app already writes shims to `~/.gorkhali-terminal/bin/`, so the install path is the same shape of work.
    Bundling is settled as vendor-plus-dev-link, not a monorepo merge; see D6 (T2 for the vendored path, T5 for the dev-link).
-   Terminal-side integration points for whoever picks this up: `daemon/src/sessions.rs`, `daemon/src/bin/phantom-claude.rs`, `app/Sources/PhantomApp/GhosttyTerminalSurface.swift` (all verified in `project-phantom-teminal`).
-2. **The doctor as UI.** `phantom-doctor` output is better as a Terminal panel than as terminal text: trigger collisions, hook conflicts, degraded capabilities, and unresolvable profiles as a clickable checklist. No CLI-only peer can do this. It is what makes bundling more than convenience.
-3. **Terminal owns the durable record.** `phantomd` already has SQLite with 60 tables and an event journal. The reason `wrap.json` accumulated 89 ad-hoc keys is that the skills layer's persistence is unstructured files an LLM writes freehand.
+   Terminal-side integration points for whoever picks this up: `daemon/src/sessions.rs`, `daemon/src/bin/gorkhali-claude.rs`, `app/Sources/GorkhaliApp/GhosttyTerminalSurface.swift` (all verified in `project-gorkhali-teminal`).
+2. **The doctor as UI.** `gorkhali-doctor` output is better as a Terminal panel than as terminal text: trigger collisions, hook conflicts, degraded capabilities, and unresolvable profiles as a clickable checklist. No CLI-only peer can do this. It is what makes bundling more than convenience.
+3. **Terminal owns the durable record.** `gorkhalid` already has SQLite with 60 tables and an event journal. The reason `wrap.json` accumulated 89 ad-hoc keys is that the skills layer's persistence is unstructured files an LLM writes freehand.
 
 **The governing pattern: the portable artifact is the CONTRACT, the daemon is an OPTIONAL CONSUMER.**
 Never the reverse, or the open-source version becomes the degraded one.
@@ -668,11 +668,11 @@ Bundling lands AFTER the internal quality bar (after B7/B8), because bundling mu
 Each with the condition that would revive it.
 
 **The native Rust AI harness.**
-SHELVE the `feat/phantom-native-ai-harness` branch: roughly 62k inserted lines, cannot make an HTTPS call, no Swift integration, `db.rs` at 31k lines.
+SHELVE the `feat/gorkhali-native-ai-harness` branch: roughly 62k inserted lines, cannot make an HTTPS call, no Swift integration, `db.rs` at 31k lines.
 Do not delete it.
 Revive only if measurement shows the external harness is the actual bottleneck.
 The two genuine justifications, if it ever returns, are that a deterministic repo index only pays off if you control context assembly, and that replay-based routing calibration needs bounded assignments you can re-execute.
-Note that `docs/research/phantom-harness-build-plan.md` is a COST QUOTE for this path, not a plan to execute.
+Note that `docs/research/gorkhali-harness-build-plan.md` is a COST QUOTE for this path, not a plan to execute.
 
 **Full N-runtime agnosticism beyond Claude Code and Codex.**
 Revives when a specific runtime both ships blocking hooks plus model-pinned subagents AND becomes a runtime someone on the team uses daily.

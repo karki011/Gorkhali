@@ -27,7 +27,7 @@ function runHook(mode, payload, fixture, extraEnv = {}) {
     cwd: fixture.repo,
     input: JSON.stringify({ cwd: fixture.repo, ...payload }),
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: fixture.data, PHANTOM_REPO: 'repo-a', ...extraEnv },
+    env: { ...process.env, GORKHALI_DATA: fixture.data, GORKHALI_REPO: 'repo-a', ...extraEnv },
   });
 }
 
@@ -49,7 +49,7 @@ function runLaw(fixture, payload, extraEnv = {}) {
     cwd: fixture.repo,
     input: JSON.stringify({ cwd: fixture.repo, tool_name: 'Edit', tool_input: { file_path: path.join(fixture.repo, 'a.js') }, ...payload }),
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: fixture.data, PHANTOM_REPO: 'repo-a', PHANTOM_AUDIT_DIR: path.join(fixture.data, 'audit'), ...extraEnv },
+    env: { ...process.env, GORKHALI_DATA: fixture.data, GORKHALI_REPO: 'repo-a', GORKHALI_AUDIT_DIR: path.join(fixture.data, 'audit'), ...extraEnv },
   });
 }
 
@@ -107,7 +107,7 @@ test('a spawn denied before SubagentStart never creates a marker', () => {
         tool_input: { subagent_type: 'engineer', name: 'engineer-varek' },
       }),
       encoding: 'utf8',
-      env: { ...process.env, PHANTOM_DATA: f.data, PHANTOM_REPO: 'repo-a' },
+      env: { ...process.env, GORKHALI_DATA: f.data, GORKHALI_REPO: 'repo-a' },
     });
     assert.match(denied.stdout, /permissionDecision[^}]*deny/);
     assert.deepEqual(markerNames(f), []);
@@ -157,7 +157,7 @@ test('law requires fresh marker for the same repo and session', () => {
     runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f);
     assert.equal(runLaw(f, { session_id: 's1' }).status, 0);
     assert.equal(runLaw(f, { session_id: 's2' }).status, 2);
-    assert.equal(runLaw(f, { session_id: 's1' }, { PHANTOM_REPO: 'repo-b' }).status, 2);
+    assert.equal(runLaw(f, { session_id: 's1' }, { GORKHALI_REPO: 'repo-b' }).status, 2);
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });
 
@@ -165,10 +165,10 @@ test('stale markers fail closed without being deleted', () => {
   const f = sandbox();
   try {
     activateLaw(f);
-    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f, { PHANTOM_MARKER_FRESHNESS_MS: '10' });
+    runHook('start', { agent_id: 'a1', agent_type: 'engineer-varek', session_id: 's1' }, f, { GORKHALI_MARKER_FRESHNESS_MS: '10' });
     const file = path.join(markerDir(f), 'a1');
     fs.utimesSync(file, new Date(0), new Date(0));
-    assert.equal(runLaw(f, { session_id: 's1' }, { PHANTOM_MARKER_FRESHNESS_MS: '10' }).status, 2);
+    assert.equal(runLaw(f, { session_id: 's1' }, { GORKHALI_MARKER_FRESHNESS_MS: '10' }).status, 2);
     assert.equal(fs.existsSync(file), true);
   } finally { fs.rmSync(f.dir, { recursive: true, force: true }); }
 });

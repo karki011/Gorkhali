@@ -9,7 +9,7 @@ user-invocable: false
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:wire "$ARGUMENTS"
+# /gorkhali:wire "$ARGUMENTS"
 
 Dependency topology from plan.json. Main LLM = **coordinator**: validate prereqs → spawn Engineer for analysis → review + present.
 
@@ -82,7 +82,7 @@ After Engineer completes:
 4. FULL route: **HUMAN GATE** — user must approve wiring before execution
 5. PLAN route: informational, auto-continue
 
-If validation finds errors (circular deps, missing produces): report specific error → recommend re-running `/phantom:start` to re-plan with corrected deps.
+If validation finds errors (circular deps, missing produces): report specific error → recommend re-running `/gorkhali:start` to re-plan with corrected deps.
 
 </review_and_present>
 

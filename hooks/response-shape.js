@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // response-shape.js — SessionStart hook that makes the response-shape contract
-// apply to EVERY turn of a session, not only to /phantom:* command responses.
+// apply to EVERY turn of a session, not only to /gorkhali:* command responses.
 //
 // Why a hook and not prose. `commands/_shared.md` carries the contract, but it
 // is loaded per command, so it shapes a command's own report and then lapses:
@@ -38,31 +38,31 @@ function readContract() {
   return (start === -1 ? body : body.slice(start)).replace(/\s+$/, '');
 }
 
-// Reads the same layered config `scripts/phantom-config.js` writes, without
+// Reads the same layered config `scripts/gorkhali-config.js` writes, without
 // importing it: this runs at session start, where a module-load failure would
 // cost more than the feature is worth. Per-repo wins over global, matching the
 // resolution order that module documents.
 function enabled() {
-  if (process.env.PHANTOM_RESPONSE_SHAPE) {
-    return process.env.PHANTOM_RESPONSE_SHAPE === 'always';
+  if (process.env.GORKHALI_RESPONSE_SHAPE) {
+    return process.env.GORKHALI_RESPONSE_SHAPE === 'always';
   }
   // Repo directories are hashed ids (`<name>-<hash>`), not bare basenames, so
   // the per-repo config is only findable through the shared resolver. Matching
   // on basename(cwd) silently misses every per-repo setting.
-  let phantomData;
+  let gorkhaliData;
   let repoDir;
   let detectRepo;
   try {
-    ({ phantomData, repoDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+    ({ gorkhaliData, repoDir, detectRepo } = require('../scripts/lib/gorkhali-paths'));
   } catch (_) {
     // fail open: global config only, same fallback shape as hooks/router-nudge.js.
     const home = os.homedir();
-    const data = process.env.PHANTOM_DATA
-      || (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
-    phantomData = () => data;
+    const data = process.env.GORKHALI_DATA
+      || (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
+    gorkhaliData = () => data;
   }
 
-  // phantom-config.js stores `a.b` nested as {a: {b: value}} at the file root,
+  // gorkhali-config.js stores `a.b` nested as {a: {b: value}} at the file root,
   // with no wrapper object. Reading it as a flat dotted key silently resolves
   // to undefined, which would read as "off" and disable the mode for everyone.
   const [section, leaf] = CONFIG_KEY.split('.');
@@ -85,20 +85,20 @@ function enabled() {
     }
   } catch (_) { /* no per-repo config: fall through to global */ }
 
-  // Per-repo wins over global, matching phantom-config.js's resolution order.
+  // Per-repo wins over global, matching gorkhali-config.js's resolution order.
   const resolved = repoValue !== undefined
     ? repoValue
-    : readKey(path.join(phantomData(), 'config.json'));
+    : readKey(path.join(gorkhaliData(), 'config.json'));
   return resolved === 'always';
 }
 
 try {
   if (enabled()) {
     process.stdout.write(
-      'PHANTOM RESPONSE SHAPE ACTIVE (session-wide). The contract below applies to '
+      'GORKHALI RESPONSE SHAPE ACTIVE (session-wide). The contract below applies to '
       + 'every response for the rest of this session, including replies that are not '
-      + '/phantom:* commands. It does not lapse when the topic changes. Turn it off with '
-      + `\`phantom-config.js set ${CONFIG_KEY} off\`.\n\n${readContract()}\n`,
+      + '/gorkhali:* commands. It does not lapse when the topic changes. Turn it off with '
+      + `\`gorkhali-config.js set ${CONFIG_KEY} off\`.\n\n${readContract()}\n`,
     );
   }
 } catch (_) {

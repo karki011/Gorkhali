@@ -13,7 +13,7 @@
 //   3. [validated:N]. Derived from artifacts (cited + observed verification pass), not
 //      from an LLM deciding a pattern "was successfully used".
 //
-// Every test drives a REAL ENTRY POINT as a child process against a temp PHANTOM_DATA
+// Every test drives a REAL ENTRY POINT as a child process against a temp GORKHALI_DATA
 // root, so nothing here can pass by require()-ing an internal that the CLI never calls.
 // Dates are deliberately fixed in the far past/near present rather than mocked, so the
 // arithmetic under test is the production arithmetic.
@@ -35,7 +35,7 @@ const REPO = 'fixture-repo';
 const ANCIENT = '2020-01-01';
 
 function makeWorkspace(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-lifecycle-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-lifecycle-'));
   const learnings = path.join(root, 'repos', REPO, 'learnings');
   fs.mkdirSync(learnings, { recursive: true });
   fs.writeFileSync(path.join(learnings, 'INDEX.md'), '- [workflow](workflow.md) - fixture domain\n');
@@ -46,7 +46,7 @@ function makeWorkspace(files) {
 }
 
 function env(root, extra = {}) {
-  return { ...process.env, PHANTOM_DATA: root, PHANTOM_REPO: REPO, ...extra };
+  return { ...process.env, GORKHALI_DATA: root, GORKHALI_REPO: REPO, ...extra };
 }
 
 function runHook(root, prompt, extra = {}) {
@@ -130,9 +130,9 @@ test('an untagged entry does not count as validated and cannot claim the validat
   });
 
   const out = runHook(root, 'anything at all', {
-    PHANTOM_INJECTION_SLOTS: '1',
-    PHANTOM_INJECTION_CORRECTION_SLOTS: '0',
-    PHANTOM_INJECTION_VALIDATED_SLOTS: '1',
+    GORKHALI_INJECTION_SLOTS: '1',
+    GORKHALI_INJECTION_CORRECTION_SLOTS: '0',
+    GORKHALI_INJECTION_VALIDATED_SLOTS: '1',
   });
   assert.match(out, /p-real/, 'the reserve belongs to the entry with a real [validated:N]');
   assert.doesNotMatch(out, /p-untagged/, 'an untagged entry is validated:0, not validated');

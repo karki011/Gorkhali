@@ -146,26 +146,26 @@ test('resolveWakeSource scopes the pointer per-repo (Fix B)', () => {
   fs.writeFileSync(path.join(data, 'state', '.active-wake-session.repo-a'), sessionDir);
 
   const saved = {
-    data: process.env.PHANTOM_DATA,
-    repo: process.env.PHANTOM_REPO,
-    env: process.env.PHANTOM_WAKE_SESSION_DIR,
+    data: process.env.GORKHALI_DATA,
+    repo: process.env.GORKHALI_REPO,
+    env: process.env.GORKHALI_WAKE_SESSION_DIR,
   };
-  delete process.env.PHANTOM_WAKE_SESSION_DIR;
-  process.env.PHANTOM_DATA = data;
+  delete process.env.GORKHALI_WAKE_SESSION_DIR;
+  process.env.GORKHALI_DATA = data;
   try {
-    process.env.PHANTOM_REPO = 'repo-a';
+    process.env.GORKHALI_REPO = 'repo-a';
     const a = resolveWakeSource();
     assert.equal(a.source, 'pointer', 'repo-a resolves its own pointer');
     assert.equal(a.dir, sessionDir);
 
-    process.env.PHANTOM_REPO = 'repo-b';
+    process.env.GORKHALI_REPO = 'repo-b';
     const b = resolveWakeSource();
     assert.equal(b.source, 'state', "repo-b does not see repo-a's pointer — no cross-repo collision");
   } finally {
     for (const [k, v] of [
-      ['PHANTOM_DATA', saved.data],
-      ['PHANTOM_REPO', saved.repo],
-      ['PHANTOM_WAKE_SESSION_DIR', saved.env],
+      ['GORKHALI_DATA', saved.data],
+      ['GORKHALI_REPO', saved.repo],
+      ['GORKHALI_WAKE_SESSION_DIR', saved.env],
     ]) {
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;
@@ -175,15 +175,15 @@ test('resolveWakeSource scopes the pointer per-repo (Fix B)', () => {
 
 test('resolveWakeSource prefers the env override and reports source env (Fix B/C)', () => {
   const dir = tmpDir();
-  const prev = process.env.PHANTOM_WAKE_SESSION_DIR;
-  process.env.PHANTOM_WAKE_SESSION_DIR = dir;
+  const prev = process.env.GORKHALI_WAKE_SESSION_DIR;
+  process.env.GORKHALI_WAKE_SESSION_DIR = dir;
   try {
     const r = resolveWakeSource();
     assert.equal(r.source, 'env');
     assert.equal(r.dir, dir);
   } finally {
-    if (prev === undefined) delete process.env.PHANTOM_WAKE_SESSION_DIR;
-    else process.env.PHANTOM_WAKE_SESSION_DIR = prev;
+    if (prev === undefined) delete process.env.GORKHALI_WAKE_SESSION_DIR;
+    else process.env.GORKHALI_WAKE_SESSION_DIR = prev;
   }
 });
 
@@ -207,7 +207,7 @@ test('CLI: drain [dir] drains the given dir and prints {records,liveness} JSON (
 
 test('CLI: resolve prints the env-resolved wake dir (Fix A)', () => {
   const dir = tmpDir();
-  const env = { ...process.env, PHANTOM_WAKE_SESSION_DIR: dir };
+  const env = { ...process.env, GORKHALI_WAKE_SESSION_DIR: dir };
   const out = execFileSync(process.execPath, [CLI_PATH, 'resolve'], { encoding: 'utf8', env });
   assert.equal(out.trim(), dir);
 });

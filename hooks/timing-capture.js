@@ -19,15 +19,15 @@ const path = require('path');
 
 let timingDir, detectRepo;
 try {
-  ({ timingDir, detectRepo } = require('../scripts/lib/phantom-paths'));
+  ({ timingDir, detectRepo } = require('../scripts/lib/gorkhali-paths'));
 } catch (_) {
   // fail open: resolver unavailable — degrade gracefully, never crash a spawn
   const os = require('os');
   const home = os.homedir();
-  const data = process.env.PHANTOM_DATA ||
-    (home ? path.join(home, '.phantom') : path.join(process.cwd(), '.phantom'));
+  const data = process.env.GORKHALI_DATA ||
+    (home ? path.join(home, '.gorkhali') : path.join(process.cwd(), '.gorkhali'));
   timingDir = () => path.join(data, 'timing');
-  detectRepo = () => (process.env.PHANTOM_REPO || '_default');
+  detectRepo = () => (process.env.GORKHALI_REPO || '_default');
 }
 
 // Native Claude Code passes the hook payload as JSON on stdin; the internal router
@@ -67,10 +67,10 @@ try {
       model = input.model;
       modelSource = 'param';
     } else {
-      // Strip "phantom:" prefix to get bare agent name, then read its frontmatter.
+      // Strip "gorkhali:" prefix to get bare agent name, then read its frontmatter.
       try {
         const rawType = input.subagent_type || '';
-        const name = rawType.replace(/^phantom:/, '');
+        const name = rawType.replace(/^gorkhali:/, '');
         if (name) {
           const agentFile = path.join(__dirname, '..', 'agents', name + '.md');
           const content = fs.readFileSync(agentFile, 'utf-8');

@@ -12,7 +12,7 @@
 // already the loop authority). This file is only its I/O shell - observe spend,
 // read the failure-class history, record the halt. No decision logic lives here.
 //
-// BINDS UNATTENDED RUNS ONLY. Without --unattended (or PHANTOM_UNATTENDED=1) this
+// BINDS UNATTENDED RUNS ONLY. Without --unattended (or GORKHALI_UNATTENDED=1) this
 // script reports and exits 0 without writing anything: an interactive session has a
 // human watching and the human is the ceiling. Passing the flag is the same
 // authorization model as commands/loop.md:12 - invoking it IS the authorization.
@@ -38,9 +38,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { sessionsDir, detectRepo } = require('./lib/phantom-paths');
+const { sessionsDir, detectRepo } = require('./lib/gorkhali-paths');
 const { atomicWrite } = require('./lib/atomic');
-const { PhantomError, exitCodeForError, VALIDATION_ERROR } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, VALIDATION_ERROR } = require('./lib/axi-error');
 const loopController = require('../hooks/loop-controller');
 
 const USAGE =
@@ -158,7 +158,7 @@ function haltRecord(opts, result) {
 }
 
 function usageError(msg) {
-  return new PhantomError(msg, VALIDATION_ERROR);
+  return new GorkhaliError(msg, VALIDATION_ERROR);
 }
 
 function parseArgs(argv) {
@@ -166,7 +166,7 @@ function parseArgs(argv) {
     ticket: null,
     repo: null,
     repoPath: process.cwd(),
-    unattended: process.env.PHANTOM_UNATTENDED === '1',
+    unattended: process.env.GORKHALI_UNATTENDED === '1',
     spendUsd: null,
     ceilingUsd: loopController.SPEND_CEILING_USD,
     json: false,

@@ -32,7 +32,7 @@ test('the count is derived from recorded review rounds, not from a separate coun
 });
 
 test('a re-review of an UNCHANGED worktree is a round but not an attempt', () => {
-  // /phantom:review is read-only and re-runnable. Counting rounds alone would let
+  // /gorkhali:review is read-only and re-runnable. Counting rounds alone would let
   // three reviews of one untouched diff spend the whole ceiling and escalate the
   // first genuine fix. A fingerprint CHANGE is the evidence a fix happened.
   assert.equal(lc.fixLoopsFromLedger([round('fp-a'), round('fp-a'), round('fp-a')]), 0);

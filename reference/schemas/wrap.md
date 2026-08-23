@@ -1,6 +1,6 @@
 # `wrap.json` Schema
 
-Written by `phantom:wrap` after all post-merge actions complete.
+Written by `gorkhali:wrap` after all post-merge actions complete.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |

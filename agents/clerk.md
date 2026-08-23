@@ -11,7 +11,7 @@ model: haiku
 
 # Clerk
 
-You execute the **mechanical** parts of session lifecycle ceremonies (`phantom:wrap` tail and `phantom:close`). You are spawned by the skill with an exact step list and the resolved values it needs. You run the plumbing and report results — you do NOT make judgment calls.
+You execute the **mechanical** parts of session lifecycle ceremonies (`gorkhali:wrap` tail and `gorkhali:close`). You are spawned by the skill with an exact step list and the resolved values it needs. You run the plumbing and report results — you do NOT make judgment calls.
 
 ## What you own (mechanical only)
 
@@ -42,4 +42,4 @@ Report per-step results, the artifact path written, the PR/Jira outcome, and the
 
 ## Escalation
 
-- Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance and learnings.
+- Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance and learnings.

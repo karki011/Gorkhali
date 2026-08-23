@@ -1,13 +1,13 @@
 ---
 name: loop
-description: "Find your Jira tickets in 'Ready for Implementation', triage each, then run phantom to a PR (solid acceptance criteria) or plan and wait (weak). One pass per invocation. Alias: /phantom:q."
+description: "Find your Jira tickets in 'Ready for Implementation', triage each, then run gorkhali to a PR (solid acceptance criteria) or plan and wait (weak). One pass per invocation. Alias: /gorkhali:q."
 argument-hint: "[--status]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:loop
+# /gorkhali:loop
 
 One pass: find your ready Jira tickets → triage each → act. No config file, no enable flag — typing the command IS the authorization.
 
@@ -15,11 +15,11 @@ One pass: find your ready Jira tickets → triage each → act. No config file, 
 
 ## Contract
 
-ONE pass per invocation. This skill NEVER launches `/loop` itself (validated learning: skills cannot self-launch loops). To keep looping, the user runs `/loop /phantom:loop`. Every report ends with that recurrence line.
+ONE pass per invocation. This skill NEVER launches `/loop` itself (validated learning: skills cannot self-launch loops). To keep looping, the user runs `/loop /gorkhali:loop`. Every report ends with that recurrence line.
 
-`--status` in `$ARGUMENTS` → read-only: poll + triage-classify only, print the table, take NO action (no `/phantom:start`, no Jira writes). Then stop.
+`--status` in `$ARGUMENTS` → read-only: poll + triage-classify only, print the table, take NO action (no `/gorkhali:start`, no Jira writes). Then stop.
 
-The loop NEVER edits project source directly — all implementation goes through `/phantom:start`, which spawns Engineer agents. The loop is a coordinator: poll, triage, dispatch.
+The loop NEVER edits project source directly — all implementation goes through `/gorkhali:start`, which spawns Engineer agents. The loop is a coordinator: poll, triage, dispatch.
 
 ## Step 0: Gate
 
@@ -38,7 +38,7 @@ No project filter — any ticket assigned to you counts. Empty result → print 
 ## Step 2: Dedup
 
 Skip a ticket already in flight. A ticket is in flight if EITHER:
-- a session dir exists at `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}/`, OR
+- a session dir exists at `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}/`, OR
 - an open PR already exists for branch `feat/{ticket-lower}` (`gh pr list --head feat/{ticket-lower} --state open` — empty `gh`/non-repo → treat as not-in-flight, never crash).
 
 Every skip appears in the report with its reason + manual unblock (delete the session dir / close the PR).
@@ -56,14 +56,14 @@ Otherwise AC is WEAK.
 
 ## Step 4: Act
 
-**AC SOLID → autonomous to a PR.** Run the full phantom workflow unattended:
-`Skill(skill="phantom:start", args="{TICKET}")`. Because AC is solid and no human is present, run it autonomously end-to-end: the loop acts as the plan approver (treat the PLAN/FULL plan-gate as auto-approved — solid AC is the precondition that licenses this), auto-chain verify → fix → wrap, and finish at a **ready-for-review PR**. Record the PR URL for the report. Never ask the user a question — pick recommended defaults and record assumptions.
+**AC SOLID → autonomous to a PR.** Run the full gorkhali workflow unattended:
+`Skill(skill="gorkhali:start", args="{TICKET}")`. Because AC is solid and no human is present, run it autonomously end-to-end: the loop acts as the plan approver (treat the PLAN/FULL plan-gate as auto-approved — solid AC is the precondition that licenses this), auto-chain verify → fix → wrap, and finish at a **ready-for-review PR**. Record the PR URL for the report. Never ask the user a question — pick recommended defaults and record assumptions.
 
-**Run guard.** No human is watching, so the run-level ceiling is the only one there is. Before each unattended ticket and again before each `phantom:fix` chained from it:
+**Run guard.** No human is watching, so the run-level ceiling is the only one there is. Before each unattended ticket and again before each `gorkhali:fix` chained from it:
 
 ```text
 {PR_BOOTSTRAP}
-[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+[ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
 node "$PR/scripts/run-guard.js" --ticket {TICKET} --unattended
 ```
 
@@ -72,10 +72,10 @@ form on purpose: an unresolved plugin dir would otherwise make `node` exit 1 on
 MODULE_NOT_FOUND, and exit 1 is the halt code — a missing install would read as a
 confirmed budget overage.)
 
-Exit 0 continues. **Exit 1 halts THIS ticket** — it wrote `halt.json` in the session dir naming the state (`halted_budget` or `halted_stuck`); record that ticket as halted with the guard's reason and move to the next one. Exit 2 is a caller bug in the invocation above, not a halt. Invoking `/phantom:loop` IS the authorization for the `--unattended` flag; the guard is fail-open everywhere else, so it never traps a run it cannot read.
+Exit 0 continues. **Exit 1 halts THIS ticket** — it wrote `halt.json` in the session dir naming the state (`halted_budget` or `halted_stuck`); record that ticket as halted with the guard's reason and move to the next one. Exit 2 is a caller bug in the invocation above, not a halt. Invoking `/gorkhali:loop` IS the authorization for the `--unattended` flag; the guard is fail-open everywhere else, so it never traps a run it cannot read.
 
 **AC WEAK → plan + wait.** Run plan-only, no execution:
-`Skill(skill="phantom:start", args="{TICKET} --to-plan")` — produces `plan.json` in the session dir and stops before any implementation, verify, wrap, or git mutation. Then post ONE Jira comment to the ticket (Atlassian MCP) containing:
+`Skill(skill="gorkhali:start", args="{TICKET} --to-plan")` — produces `plan.json` in the session dir and stops before any implementation, verify, wrap, or git mutation. Then post ONE Jira comment to the ticket (Atlassian MCP) containing:
 - the triage verdict (`AC weak`) and which rubric checks failed,
 - a 2-4 line plan summary from `plan.json`,
 - the specific acceptance-criteria gaps to resolve before this can be auto-implemented.
@@ -93,10 +93,10 @@ Table — `ticket | verdict | action` — one row per ticket:
 
 End with:
 
-> Ran one pass. To keep looping: `/loop /phantom:loop`. This never self-launches `/loop`.
+> Ran one pass. To keep looping: `/loop /gorkhali:loop`. This never self-launches `/loop`.
 
-Plus one line pointing at the agents view (status bar `← for agents`) to watch live `/phantom:start` runs.
+Plus one line pointing at the agents view (status bar `← for agents`) to watch live `/gorkhali:start` runs.
 
-`/phantom:q` is the alias of this skill — identical behavior.
+`/gorkhali:q` is the alias of this skill — identical behavior.
 
 </instructions>

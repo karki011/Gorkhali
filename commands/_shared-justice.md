@@ -1,6 +1,6 @@
-# Phantom Shadows -- Justice Integration
+# Gorkhali Shadows -- Justice Integration
 
-> Opt-in: triggered by `/phantom:verify` when code-review-graph MCP is available.
+> Opt-in: triggered by `/gorkhali:verify` when code-review-graph MCP is available.
 
 **What it does:** Cross-file pre-PR review. Catches cache coherence bugs, regressions, semantic mismatches, dead code, convention deviations.
 

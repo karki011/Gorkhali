@@ -1,12 +1,12 @@
 // Author: Subash Karki
-// Evolution Runner — 3-tier distillation engine for Phantom learnings
+// Evolution Runner — 3-tier distillation engine for Gorkhali learnings
 // Usage: node evolution-runner.js [--dry-run]
 
 const fs = require('fs');
 const path = require('path');
 const {
   globalPatternsDir, learningsDir, stateDir, detectRepo, sessionsDir, completedDir,
-} = require('./lib/phantom-paths');
+} = require('./lib/gorkhali-paths');
 // The ONE parser. This file used to carry its own three regexes, all of which required
 // a separator or a leading list dash that the real files do not use, so every tier
 // scanned 0 of 54 real entries. Never re-add a private entry regex here.

@@ -1,14 +1,14 @@
 ---
 name: execute
-description: "Use when an APPROVED plan already exists and you want to run it — dispatch the plan's agents, execute its waves. Net-new work → phantom:start; continuing a prior session → phantom:resume."
+description: "Use when an APPROVED plan already exists and you want to run it — dispatch the plan's agents, execute its waves. Net-new work → gorkhali:start; continuing a prior session → gorkhali:resume."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Broad/imperative triggers ('go', 'let's do it') are intentionally muted by user-invocable:false — execute is dispatched by phantom:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety: a bare 'go' would auto-dispatch agents.
+# Broad/imperative triggers ('go', 'let's do it') are intentionally muted by user-invocable:false — execute is dispatched by gorkhali:start, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety: a bare 'go' would auto-dispatch agents.
 user-invocable: false
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:execute "$ARGUMENTS"
+# /gorkhali:execute "$ARGUMENTS"
 
 Execute a plan from artifacts. Used by start.md router or standalone.
 
@@ -19,8 +19,8 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
 1. **Detect ticket** from $ARGUMENTS or git branch
 
 2. **Load plan**: Read `{TEAM_DIR}/sessions/{TICKET}/plan.json`
-   - If missing: "No plan found. Run `/phantom:start` first."
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
+   - If missing: "No plan found. Run `/gorkhali:start` first."
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-loaded || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 3. **Load contracts**: Read `{TEAM_DIR}/sessions/{TICKET}/contracts/`
    - If missing: BLOCK. "No contracts. Run planning phase first."
@@ -50,7 +50,7 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
      from `plan.json` (task id, file targets, wave) and each task's roster-assigned `name` per
      `reference/roster.md`'s Execute-Wave Reservation (e.g. task 1 → `engineer-varek`).
    - All implementation tasks spawn `subagent_type: engineer` with the `model:` resolved by
-     `node "$PR/skills/phantom/scripts/resolve-profile.mjs" --role engineer --host claude-code`
+     `node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role engineer --host claude-code`
      (`{PR_BOOTSTRAP}` per `_shared.md` §Paths; `sonnet` on this host) passed explicitly
      per `reference/agents.md` → Model Routing; effort is the session's `high`, never a
      per-spawn param.
@@ -80,7 +80,7 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
      only a later aggregate suite as the per-scope independent result. A scope
      without its own `status: "passed"` record cannot be marked `done`.
 
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints dispatch-wave-complete || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 7. **Complete the wave**: wait for every dispatched Engineer and verifier result.
 
@@ -94,7 +94,7 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
        "gitHead": "{HEAD sha}",
        "gitBranch": "{branch}",
        "phase": "D",
-       "skill": "phantom:execute",
+       "skill": "gorkhali:execute",
        "version": 1
      },
      "tasks": [
@@ -137,7 +137,7 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
 
 <no_git_until_wrap>
 
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
+   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints execution-json-written || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
 9. **No git operations.** All work is local until wrap.
 

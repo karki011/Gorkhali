@@ -1,6 +1,6 @@
 ---
 name: validate
-description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy contracts/requirements. Code review → phantom:review; test/build → phantom:verify; repairs → phantom:fix."
+description: "Retroactive audit of a finished session — checks plan completeness and that outputs satisfy contracts/requirements. Code review → gorkhali:review; test/build → gorkhali:verify; repairs → gorkhali:fix."
 argument-hint: "[layer]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 # Generic affirm-check triggers ('sanity check', 'did we miss anything', 'is this complete') are intentionally muted by user-invocable:false — validate is an internal/orchestration step, not auto-selected from NL. Do not flip this flag without re-checking auto-dispatch safety against verify/review/approve.
@@ -9,11 +9,11 @@ user-invocable: false
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:validate $ARGUMENTS
+# /gorkhali:validate $ARGUMENTS
 
 Run validation scripts to check shadows guidance compliance. Layers: `plan`, `output`, `session`, `all`.
 
-**Scripts location:** `$PR/scripts/`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install; validation skipped"; exit 0; }` (the validate scripts ARE the skill; empty `$PR` aborts readable, never `$PR/scripts/...` with an empty `$PR`)
+**Scripts location:** `$PR/scripts/`, reached via `{PR_BOOTSTRAP}` (per `_shared.md` §Paths) plus its GATE-CRITICAL guard: `[ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install; validation skipped"; exit 0; }` (the validate scripts ARE the skill; empty `$PR` aborts readable, never `$PR/scripts/...` with an empty `$PR`)
 
 ---
 
@@ -24,7 +24,7 @@ Run validation scripts to check shadows guidance compliance. Layers: `plan`, `ou
 You are the coordinator. You do NOT run validation scripts directly. Instead:
 
 1. **Parse $ARGUMENTS** to determine which layer(s): `plan`, `output`, `session`, or `all`
-2. **Resolve paths**: session board JSON path (`${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json`), project root
+2. **Resolve paths**: session board JSON path (`${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}.json`), project root
 3. **Spawn an Inspector agent** to execute the validation scripts and collect results
 4. **Present findings** to the user with pass/fail summary and actionable items
 
@@ -59,7 +59,7 @@ Pass these to Inspector's prompt so it knows what to run and what each script ch
 ### Layer: `plan`
 
 ```bash
-$PR/scripts/validate-plan.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
+$PR/scripts/validate-plan.sh "${GORKHALI_DATA:-$HOME/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
 Checks: phase order (Auditor -> Inspector -> Auditor (gauntlet mode) -> User Feedback), user-verification inclusion for UI/Figma tasks, file ownership conflicts, task assignees, phase owners.
@@ -75,7 +75,7 @@ Checks: file ownership violations, copyright headers, inline hex/px values, barr
 ### Layer: `session`
 
 ```bash
-$PR/scripts/validate-session.sh "${PHANTOM_DATA:-$HOME/.phantom}/repos/{REPO_NAME}/sessions/{TICKET}.json"
+$PR/scripts/validate-session.sh "${GORKHALI_DATA:-$HOME/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}.json"
 ```
 
 Checks: required fields, phase/task status enums, verification block after verify phase, user-verification block when user verification is required, loop count bounds, board JSON freshness.

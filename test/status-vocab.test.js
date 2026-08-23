@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// status-vocab.test.js - guards Phantom's three status/verdict vocabularies
+// status-vocab.test.js - guards Gorkhali's three status/verdict vocabularies
 // against silent bleed, the mechanism adopted from fable-foreman's separation
 // of worker status / verifier verdict / ledger lifecycle state (research:
 // sessions/foreman-research-rename/research-foreman.md).
@@ -22,7 +22,7 @@
 // rename lands, deleting the allowlist entry makes full pairwise disjointness
 // enforced with no other change needed here.
 //
-// NOTE for future maintainers: `phantom-state.mjs`'s ARTIFACT_STATUSES
+// NOTE for future maintainers: `gorkhali-state.mjs`'s ARTIFACT_STATUSES
 // (pending/passed/failed/blocked/skipped) is a real, FOURTH status vocabulary
 // (recorded workflow/run-artifact outcomes) that already collides with both of
 // the vocabularies below. It is deliberately NOT part of this test - it is not
@@ -55,19 +55,19 @@ function parseInspectorVerdicts() {
 }
 
 // --- Session lifecycle vocabulary, parsed from its real definition site:
-// skills/phantom/references/state.md's "Session envelopes use ..." sentence.
+// skills/gorkhali/references/state.md's "Session envelopes use ..." sentence.
 // Deliberately NOT the ARTIFACT_STATUSES set (pending/passed/failed/blocked/
-// skipped) also defined in phantom-state.mjs - that set is itself a mix of
+// skipped) also defined in gorkhali-state.mjs - that set is itself a mix of
 // recorded workflow/run outcomes and already collides with both other
 // vocabularies, so it is not the disjoint "lifecycle" tier fable-foreman
 // describes. The session envelope's own active/paused/completed is. ---
 function parseLifecycleStates() {
   const content = fs.readFileSync(
-    path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'state.md'),
+    path.join(REPO_ROOT, 'skills', 'gorkhali', 'references', 'state.md'),
     'utf8',
   );
   const sentence = content.match(/Session envelopes use[^.]*\./);
-  assert.ok(sentence, 'skills/phantom/references/state.md: "Session envelopes use ..." sentence not found');
+  assert.ok(sentence, 'skills/gorkhali/references/state.md: "Session envelopes use ..." sentence not found');
   const tokens = [...sentence[0].matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
   assert.ok(tokens.length >= 3, `state.md: expected at least 3 lifecycle tokens, found ${tokens.length}`);
   return tokens;

@@ -2,11 +2,11 @@
 // router-nudge.test.js — proves the routing nudge's ADVISORY polarity: it only
 // ever adds additionalContext (never a permissionDecision), is one-shot per
 // session, skips interrogative prompts (precision over recall), and goes
-// silent only when PHANTOM_ROUTING_NUDGE=0.
+// silent only when GORKHALI_ROUTING_NUDGE=0.
 //
 // Spawns the REAL hook process (seam-integration pattern). Env is read at
-// INVOCATION time, so every spawn pins PHANTOM_DATA to a tmpdir and sets
-// PHANTOM_ROUTING_NUDGE only when the case under test silences the nudge.
+// INVOCATION time, so every spawn pins GORKHALI_DATA to a tmpdir and sets
+// GORKHALI_ROUTING_NUDGE only when the case under test silences the nudge.
 'use strict';
 
 const { test } = require('node:test');
@@ -21,7 +21,7 @@ const HOOK = path.join(__dirname, '..', 'hooks', 'router-nudge.js');
 function runHook(envOverrides, stdinText) {
   const env = { ...process.env, ...envOverrides };
   // Outer shell state must not leak the silence toggle into default cases.
-  if (!envOverrides.PHANTOM_ROUTING_NUDGE) delete env.PHANTOM_ROUTING_NUDGE;
+  if (!envOverrides.GORKHALI_ROUTING_NUDGE) delete env.GORKHALI_ROUTING_NUDGE;
   try {
     const stdout = execFileSync('node', [HOOK], {
       input: stdinText,
@@ -41,7 +41,7 @@ function setup(envExtra = {}) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'rn-data-'));
   return {
     data,
-    env: { PHANTOM_DATA: data, ...envExtra },
+    env: { GORKHALI_DATA: data, ...envExtra },
     cleanup: () => fs.rmSync(data, { recursive: true, force: true }),
   };
 }
@@ -65,7 +65,7 @@ function assertNudged(res, msg) {
   const out = JSON.parse(res.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit', msg);
   assert.match(out.hookSpecificOutput.additionalContext, /ROUTING:/);
-  assert.match(out.hookSpecificOutput.additionalContext, /phantom:start/);
+  assert.match(out.hookSpecificOutput.additionalContext, /gorkhali:start/);
   assert.equal(out.hookSpecificOutput.permissionDecision, undefined,
     'the nudge is advisory — it must never carry a permissionDecision');
 }
@@ -133,8 +133,8 @@ test('6. different host session_ids each receive one nudge', () => {
   }
 });
 
-test('7. PHANTOM_ROUTING_NUDGE=0 → silent', () => {
-  const { env, cleanup } = setup({ PHANTOM_ROUTING_NUDGE: '0' });
+test('7. GORKHALI_ROUTING_NUDGE=0 → silent', () => {
+  const { env, cleanup } = setup({ GORKHALI_ROUTING_NUDGE: '0' });
   try {
     const res = runHook(env, payload('fix the login bug'));
     assertSilent(res);

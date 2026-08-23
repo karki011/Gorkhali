@@ -18,8 +18,8 @@ const path = require('node:path');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const AGENTS_DIR = path.join(REPO_ROOT, 'agents');
-const POLICY = path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'model-policy.json');
-const ROLES_DOC = path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'roles.md');
+const POLICY = path.join(REPO_ROOT, 'skills', 'gorkhali', 'references', 'model-policy.json');
+const ROLES_DOC = path.join(REPO_ROOT, 'skills', 'gorkhali', 'references', 'roles.md');
 const REGISTRY_DOC = path.join(REPO_ROOT, 'reference', 'agents.md');
 
 // The one place the ladder is defined. Everything else derives from it.

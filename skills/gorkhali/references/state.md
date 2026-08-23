@@ -7,16 +7,16 @@ created it.
 
 Resolve the data root in this order:
 
-1. `PHANTOM_DATA` when set (absolute wins; a relative value resolves against the
+1. `GORKHALI_DATA` when set (absolute wins; a relative value resolves against the
    workspace).
-2. `$HOME/.phantom` when a home directory is available.
-3. `<workspace>/.phantom` as the final fallback.
+2. `$HOME/.gorkhali` when a home directory is available.
+3. `<workspace>/.gorkhali` as the final fallback.
 
 Do not use a provider-owned directory as the portable default. A runtime name
 may appear as optional diagnostic metadata but must never select behavior.
 
 Every layer resolves this through one shared codec so the value is identical
-across runtimes. `PHANTOM_DATA` is deterministic: the same value always yields
+across runtimes. `GORKHALI_DATA` is deterministic: the same value always yields
 the same root, and the codec never falls back to another root when it is set.
 
 ## Repository identity
@@ -29,9 +29,9 @@ change that alters an id keeps the previous ids discoverable as aliases.
 Precedence, first match wins, never throws:
 
 1. A working directory inside `<data-root>/worktrees/<segment>/…` resolves to
-   that `<segment>` verbatim. These are Phantom-managed worktrees only; user
+   that `<segment>` verbatim. These are Gorkhali-managed worktrees only; user
    worktrees elsewhere are not this root and resolve through the git steps.
-2. `PHANTOM_REPO`, when set, is used verbatim (trimmed). It is deterministic and
+2. `GORKHALI_REPO`, when set, is used verbatim (trimmed). It is deterministic and
    per-spawn; never export it globally.
 3. With an origin remote, the id is `<name>-<hash>`. The remote is normalized
    first so equivalent forms converge: the host is lowercased, credentials and
@@ -239,15 +239,15 @@ with it.
 Record decisions and cross lifecycle gates with the helper:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate direction
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate plan
-node <skill-directory>/scripts/phantom-state.mjs approve --workspace <path> --gate wiring
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope implementation
-node <skill-directory>/scripts/phantom-state.mjs fingerprint --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs execute --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs verify --workspace <path>
-node <skill-directory>/scripts/phantom-state.mjs authorize --workspace <path> --scope ship-pr
-node <skill-directory>/scripts/phantom-state.mjs ship --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate direction
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate plan
+node <skill-directory>/scripts/gorkhali-state.mjs approve --workspace <path> --gate wiring
+node <skill-directory>/scripts/gorkhali-state.mjs authorize --workspace <path> --scope implementation
+node <skill-directory>/scripts/gorkhali-state.mjs fingerprint --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs execute --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs verify --workspace <path>
+node <skill-directory>/scripts/gorkhali-state.mjs authorize --workspace <path> --scope ship-pr
+node <skill-directory>/scripts/gorkhali-state.mjs ship --workspace <path>
 ```
 
 The legacy form `--scope ship-draft-pr` still records the same `ship-pr` gate.
@@ -331,15 +331,15 @@ contract in [roles](roles.md) before the result can be synthesized.
 
 The learning files under `repos/<repo-id>/learnings/` (`INDEX.md`,
 `auto-captures.md`, and `<domain>.md`) are mutated through one concurrent-safe
-API, the bundled `scripts/phantom-learning.mjs`. Every mutation runs under a
+API, the bundled `scripts/gorkhali-learning.mjs`. Every mutation runs under a
 per-learnings-dir advisory lock; a contended writer waits and then fails rather
 than writing unlocked, so concurrent writers preserve every entry and leave a
 valid index. Both runtimes use it the same way:
 
 ```text
-node <skill-directory>/scripts/phantom-learning.mjs capture --learnings <dir>      # candidates JSON on stdin
-node <skill-directory>/scripts/phantom-learning.mjs consolidate --learnings <dir>  # candidates JSON on stdin
-node <skill-directory>/scripts/phantom-learning.mjs check --learnings <dir>        # validate; exit 1 on problems
+node <skill-directory>/scripts/gorkhali-learning.mjs capture --learnings <dir>      # candidates JSON on stdin
+node <skill-directory>/scripts/gorkhali-learning.mjs consolidate --learnings <dir>  # candidates JSON on stdin
+node <skill-directory>/scripts/gorkhali-learning.mjs check --learnings <dir>        # validate; exit 1 on problems
 ```
 
 There is intentionally no unlocked write path. A caller that cannot take the
@@ -352,8 +352,8 @@ Record typed delegation and observable routing diagnostics with the same
 helper:
 
 ```text
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-task --status pending --run <run-id> --input <task-json>
-node <skill-directory>/scripts/phantom-state.mjs record --workspace <path> --type delegation-result --status passed --run <run-id> --input <result-json> --actual-profile <profile> --wall-time-ms <ms> --tool-turns <count>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type delegation-task --status pending --run <run-id> --input <task-json>
+node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type delegation-result --status passed --run <run-id> --input <result-json> --actual-profile <profile> --wall-time-ms <ms> --tool-turns <count>
 ```
 
 Use `--fallback-reason <text>` only when routing fell back. Omit diagnostics the

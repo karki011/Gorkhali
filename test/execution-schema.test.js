@@ -24,7 +24,7 @@ const META = {
   gitHead: 'abc1234',
   gitBranch: 'main',
   phase: 'D',
-  skill: 'phantom:execute',
+  skill: 'gorkhali:execute',
   version: 1,
 };
 

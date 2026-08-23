@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { SCHEMAS } = require('./validate-artifact');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 const DEFAULT_DIR = path.join(__dirname, '..', 'reference', 'schemas');
 
@@ -53,14 +53,14 @@ function applyGeneratedBlock(content, fields, file) {
   if (bIdx !== -1) {
     const eIdx = lines.findIndex((l, i) => i > bIdx && l.trim() === END);
     if (eIdx === -1) {
-      throw new PhantomError(`ERROR: unterminated generated block in ${file}`, 'VALIDATION_ERROR');
+      throw new GorkhaliError(`ERROR: unterminated generated block in ${file}`, 'VALIDATION_ERROR');
     }
     return [...lines.slice(0, bIdx), ...block, ...lines.slice(eIdx + 1)].join('\n');
   }
 
   const first = lines.findIndex((l) => /^\s*\|/.test(l));
   if (first === -1) {
-    throw new PhantomError(`ERROR: no field table found in ${file}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: no field table found in ${file}`, 'IO_ERROR');
   }
   let last = first;
   while (last + 1 < lines.length && /^\s*\|/.test(lines[last + 1])) last++;
@@ -75,7 +75,7 @@ function ownedFile(dir, type) {
 function renderFile(dir, type) {
   const file = ownedFile(dir, type);
   if (!fs.existsSync(file)) {
-    throw new PhantomError(`ERROR: schema file not found: ${file}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: schema file not found: ${file}`, 'IO_ERROR');
   }
   const current = fs.readFileSync(file, 'utf8');
   return { file, current, next: applyGeneratedBlock(current, SCHEMAS[type].fields, file) };
@@ -103,7 +103,7 @@ function runCheck(dir) {
     if (next !== current) drifted.push(path.basename(file));
   }
   if (drifted.length) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       `Schema docs are out of date: ${drifted.join(', ')}`,
       'VALIDATION_ERROR',
       ['Run: node scripts/gen-schema-docs.js', 'Then commit the regenerated reference/schemas/*.md']
@@ -127,7 +127,7 @@ function parseArgs(argv) {
     if (a === '--check') args.check = true;
     else if (a === '--help') args.help = true;
     else if (a === '--dir') args.dir = argv[++i];
-    else throw new PhantomError(`ERROR: unknown option: ${a}`, 'USAGE');
+    else throw new GorkhaliError(`ERROR: unknown option: ${a}`, 'USAGE');
   }
   return args;
 }

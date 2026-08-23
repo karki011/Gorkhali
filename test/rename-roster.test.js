@@ -96,8 +96,8 @@ test('compound: subagent_type: "blade" -> subagent_type: "engineer"', () => {
   );
 });
 
-test('compound: phantom:blade -> phantom:engineer', () => {
-  assert.equal(mod.replaceLine('phantom:blade').text, 'phantom:engineer');
+test('compound: gorkhali:blade -> gorkhali:engineer', () => {
+  assert.equal(mod.replaceLine('gorkhali:blade').text, 'gorkhali:engineer');
 });
 
 test('compound: multi-token line sage-blade-kaze -> advisor-engineer-varek', () => {
@@ -187,7 +187,7 @@ test('FILE_EXEMPT: blade is never replaced in the .blade-editing legacy-sentinel
 
 test('FILE_EXEMPT: lens is never replaced in the brainstorm ideas[] schema-key file', () => {
   const line = "      requireTextFields(idea, `ideas[${index}]`, ['id', 'title', 'summary', 'lens', 'technique'], errors);";
-  const exempt = mod.replaceLine(line, 'skills/phantom/scripts/lib/decision-contracts.mjs');
+  const exempt = mod.replaceLine(line, 'skills/gorkhali/scripts/lib/decision-contracts.mjs');
   assert.equal(exempt.count, 0);
   assert.equal(exempt.text, line);
 

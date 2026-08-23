@@ -5,8 +5,8 @@
 # Chief (top-level orchestrator) MUST NOT call Edit/Write/MultiEdit/NotebookEdit
 # directly. All implementation must go through the Agent tool (spawned subagents).
 #
-# Active during phantom sessions only — controlled by sentinel at
-# $PHANTOM_DATA/.chief-active (written by /phantom:start, removed by /phantom:wrap).
+# Active during gorkhali sessions only — controlled by sentinel at
+# $GORKHALI_DATA/.chief-active (written by /gorkhali:start, removed by /gorkhali:wrap).
 #
 # Subagent detection uses one marker per live editing agent, created only by the
 # SubagentStart hook and cleared by SubagentStop. Markers are scoped to both the
@@ -16,18 +16,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../scripts/lib/phantom-paths.sh"
+source "$SCRIPT_DIR/../scripts/lib/gorkhali-paths.sh"
 
-SENTINEL="$PHANTOM_DATA/.chief-active"
+SENTINEL="$GORKHALI_DATA/.chief-active"
 # One-release upgrade shim: .apex-active was this marker's filename before the
 # apex->chief rename. New sessions only ever write .chief-active; this
 # fallback read keeps a session started by a not-yet-upgraded install
 # recognized. Remove once no install can still be carrying the old marker.
-LEGACY_SENTINEL="$PHANTOM_DATA/.apex-active"
-AUDIT_DIR="$PHANTOM_AUDIT_DIR"
+LEGACY_SENTINEL="$GORKHALI_DATA/.apex-active"
+AUDIT_DIR="$GORKHALI_AUDIT_DIR"
 AUDIT_LOG="$AUDIT_DIR/chief-edits-$(date +%Y-%m-%d).jsonl"
 
-# Only act when a phantom session is active
+# Only act when a gorkhali session is active
 if [ ! -f "$SENTINEL" ] && [ ! -f "$LEGACY_SENTINEL" ]; then
   exit 0
 fi

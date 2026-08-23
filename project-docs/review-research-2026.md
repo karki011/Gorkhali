@@ -1,6 +1,6 @@
 # Code Review Research — 2026 State of Practice
 
-Research notes comparing Phantom's review stack (`agents/auditor.md`, `agents/justice.md`,
+Research notes comparing Gorkhali's review stack (`agents/auditor.md`, `agents/justice.md`,
 `commands/review.md`, `reference/temperature-review.md`, `reference/wrap/rpsl.md`)
 against current industry practice and empirical literature.
 
@@ -29,10 +29,10 @@ The seven prompts are role-scoped variants: senior engineer (balanced), security
 regression hunter, test gap, maintainability (1–10 scoring), comment generator, and
 self-check (two-pass).
 
-**Assessment.** Steps 1–3 and 6 Phantom already does structurally — and does better,
+**Assessment.** Steps 1–3 and 6 Gorkhali already does structurally — and does better,
 because they're encoded in agent definitions and JSON artifacts rather than re-typed
 prose. Steps 4 and 5 are the real gaps, and prompt #7 (two-pass) points at the largest
-one. The seven "prompts" are mostly Phantom's specialist roster in prompt form; the
+one. The seven "prompts" are mostly Gorkhali's specialist roster in prompt form; the
 article is aimed at people without an agent framework. The parts worth stealing are
 narrow but genuinely valuable.
 
@@ -78,7 +78,7 @@ LLM review, and deterministic validation:
 - Relaxing the risk threshold from the 25th to the 50th percentile raised auto-approve
   to 60.31% — i.e. the risk score is a *tunable dial*, not a binary.
 
-This is strong production validation of the thing Phantom already does: route reviewer
+This is strong production validation of the thing Gorkhali already does: route reviewer
 depth by risk rather than reviewing everything the same way.
 
 ### 1.4 Empirical literature on review effectiveness
@@ -146,7 +146,7 @@ equally. If a team increases output but keeps reviewing changes the same way, wi
 limited context and few risk signals, the speed gained in development is lost in
 validation.
 
-The practical read for Phantom: throughput at the review stage is now the constrained
+The practical read for Gorkhali: throughput at the review stage is now the constrained
 resource, and diffs are getting bigger at the same time. That argues for the low-risk
 fast path (Gap 7) being worth more than I credited it in the first pass, and it makes
 diff-size handling (Gap 10 below) a first-order concern rather than a nicety.
@@ -179,7 +179,7 @@ Two norms worth naming because they're culturally load-bearing:
 - **"LGTM with comments"** — approve while leaving unresolved non-blocking comments when
   the reviewer is reasonably confident the author will handle them.
 
-The second point is a standard Phantom doesn't currently encode: Auditor reviews the diff
+The second point is a standard Gorkhali doesn't currently encode: Auditor reviews the diff
 against intent, but never against *the state of the code before the diff*. A change that
 improves a bad file but doesn't reach the repo's ideal has no defined verdict today.
 
@@ -198,7 +198,7 @@ In a head-to-head on 50 open-source PRs, **Greptile caught over 50% more bugs th
 CodeRabbit** — the difference attributed to full-codebase context vs. diff-level analysis.
 
 That is a direct argument about Justice. Cross-file coherence is where the bug density is,
-and in Phantom that capability is currently opt-in behind a risk trigger.
+and in Gorkhali that capability is currently opt-in behind a risk trigger.
 
 ### 1.11 Benchmark methodology — a usable definition of "true positive"
 
@@ -233,11 +233,11 @@ Two ready-made vocabularies worth borrowing rather than inventing:
 
 ---
 
-## 2. Where Phantom already matches or leads
+## 2. Where Gorkhali already matches or leads
 
 Worth stating plainly, because it bounds how much should change.
 
-| Practice | Phantom | Notes |
+| Practice | Gorkhali | Notes |
 |---|---|---|
 | Three-layer separation | ✅ | Inspector = mechanical gates, Auditor/Justice = AI, user verification = human. `agents/auditor.md` explicitly forbids repeating mechanically-enforced lint/style. |
 | Risk-based reviewer routing | ✅ Leading | `requiredSpecialists` persisted at verification, consumed by `commands/review.md`. Same shape as RADAR, decided earlier in the lifecycle. |
@@ -319,9 +319,9 @@ already does this via its `FILE:LINE` output format.
 
 ### Gap 6 — No `REVIEW.md` support.
 
-Phantom inherits project context via `reference/_base-agent.md` and `CLAUDE.md`.
+Gorkhali inherits project context via `reference/_base-agent.md` and `CLAUDE.md`.
 Supporting a repo-root `REVIEW.md` would give per-repo review tuning (severity
-calibration, skip paths, always-check rules) and make Phantom interoperate with
+calibration, skip paths, always-check rules) and make Gorkhali interoperate with
 Anthropic's managed Code Review, which reads the same file.
 
 **Proposal.** Have Auditor and Justice read `REVIEW.md` when present, as highest-priority
@@ -331,7 +331,7 @@ review-only instruction. Note that the local `/code-review` command deliberately
 ### Gap 7 — No low-risk fast path.
 
 RADAR's headline result is that ~60% of diffs can be auto-approved at a relaxed risk
-threshold while *lowering* revert and incident rates. Phantom runs full Auditor on every
+threshold while *lowering* revert and incident rates. Gorkhali runs full Auditor on every
 diff regardless of risk. We already compute `requiredSpecialists` — the machinery for a
 risk signal exists; we just never use it to make the review *cheaper*, only to make it
 deeper.
@@ -342,8 +342,8 @@ before designing this. Do not build it on intuition.
 
 ### Gap 8 — Feedback loop is open.
 
-Anthropic collects 👍/👎 on every finding and tunes the reviewer on it. Phantom has
-`evals/` and `/phantom:learn` but no record of which findings the user *accepted* versus
+Anthropic collects 👍/👎 on every finding and tunes the reviewer on it. Gorkhali has
+`evals/` and `/gorkhali:learn` but no record of which findings the user *accepted* versus
 *rejected* — which is the only signal that tells us whether the review is calibrated.
 
 **Proposal.** Record accept/reject per finding at fix time. This is the input to
@@ -357,7 +357,7 @@ Given the repo already has an evals harness, this is the highest-value cheap ins
 
 Clerk writes PR bodies from values handed to it. The MSR 2026 result says structured
 descriptions measurably speed up human review of agent-authored PRs — which is exactly
-what Phantom produces.
+what Gorkhali produces.
 
 **Proposal.** A fixed PR body template (goal / approach / risk / verification evidence /
 what to look at first). Cheap, and it's the only item here that improves *human* review
@@ -378,12 +378,12 @@ and what got a lighter pass. The Rephrase article gets to the same place from in
 numbers are the evidence for where the threshold goes.
 
 Note this composes with `observationGaps` — thin coverage on a low-risk chunk is exactly
-an observation gap, and Phantom already has a place to put it.
+an observation gap, and Gorkhali already has a place to put it.
 
 ### Gap 11 — Cross-file context is opt-in.
 
 Greptile's >50% bug-catch advantage over CodeRabbit is attributed to full-codebase
-context vs. diff-level analysis. In Phantom, Auditor is the always-on reviewer and Justice —
+context vs. diff-level analysis. In Gorkhali, Auditor is the always-on reviewer and Justice —
 the one that actually models the dependency graph — runs only on an explicit risk
 trigger from `requiredSpecialists`.
 
@@ -401,7 +401,7 @@ before committing — this is a question data can answer.
 > 2026-07-28 and PR #109 rewrote the whole review pipeline on 2026-08-11 — so they
 > describe an architecture that no longer exists (`ROADMAP.md` F8). Neither reading is
 > supported until B9 re-measures. Note also that Greptile *is* the full-codebase-index
-> architecture from §1.10, Phantom already integrates it, and it ran in 50/191 sessions —
+> architecture from §1.10, Gorkhali already integrates it, and it ran in 50/191 sessions —
 > so the cheapest version of this gap may be raising that number rather than changing
 > Justice at all.
 
@@ -428,13 +428,13 @@ checklist does.
 **Proposal.** Give the security dimension concrete named categories anchored to OWASP Top
 10:2025 — broken access control (now including SSRF), injection, cryptographic failures,
 secrets in code/config/logs, unsafe defaults, data exposure. Cheap, and it converts a
-category Phantom is probably weak at into one it's checkable at.
+category Gorkhali is probably weak at into one it's checkable at.
 
 ### Gap 8, revised — the metric already half-exists.
 
 Round 2 makes this concrete and cheaper than I first estimated. Martian's definition —
 *a finding is a true positive if the developer modified the code after it* — needs no
-human labeling, and Phantom is unusually well-positioned to capture it: fix loops already
+human labeling, and Gorkhali is unusually well-positioned to capture it: fix loops already
 run against review findings, and `ROADMAP.md` line 134 records that `verification.json`
 carries `review.fixLoops` in 120/191 sessions.
 
@@ -450,12 +450,12 @@ moved anything.
 
 ### Gap 14 — Output vocabulary is bespoke. *(low priority)*
 
-Phantom uses `blocking|advisory`, Justice uses P0/P1/P2, `temperature-review.md` uses
+Gorkhali uses `blocking|advisory`, Justice uses P0/P1/P2, `temperature-review.md` uses
 P0–P3. Three vocabularies for one concept across three files. Conventional Comments is an
 established standard with the label set and a blocking/non-blocking decorator that maps
 cleanly onto Gaps 2 and 3.
 
-**Proposal.** Worth doing only if Phantom starts posting findings to GitHub, where the
+**Proposal.** Worth doing only if Gorkhali starts posting findings to GitHub, where the
 interop matters. Internally, unifying the three existing scales is the more valuable half
 of this.
 

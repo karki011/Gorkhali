@@ -1,6 +1,6 @@
 # `decisions.json` Schema
 
-Written by `phantom:brainstorm`'s Converge phase once the human picks a direction. Records the locked decision and what was ruled out.
+Written by `gorkhali:brainstorm`'s Converge phase once the human picks a direction. Records the locked decision and what was ruled out.
 
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |

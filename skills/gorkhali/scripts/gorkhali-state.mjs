@@ -453,7 +453,7 @@ function acquireLifecycleLock(workspace) {
       if (error.code !== 'EEXIST') throw error;
       if (lockIsStale(file) && recoverStaleLock(file)) continue;
       if (Date.now() >= deadline) {
-        throw new Error('Another Phantom lifecycle mutation is already in progress for this repository.');
+        throw new Error('Another Gorkhali lifecycle mutation is already in progress for this repository.');
       }
       Atomics.wait(lockWaiter, 0, 0, LOCK_RETRY_MS);
     }
@@ -488,7 +488,7 @@ function currentSession(workspace) {
   if (!session) return null;
   if (session.schema_version !== 1) {
     throw new Error(
-      `Unsupported Phantom session schema version: ${JSON.stringify(session.schema_version)}.`,
+      `Unsupported Gorkhali session schema version: ${JSON.stringify(session.schema_version)}.`,
     );
   }
   const sessionHadWorkKind = session.work_kind !== undefined;
@@ -506,8 +506,8 @@ function currentSession(workspace) {
 
 function requireCurrent(workspace) {
   const current = currentSession(workspace);
-  if (!current) throw new Error('No active Phantom session for this workspace.');
-  if (current.session.status === 'completed') throw new Error('The current Phantom session is already completed.');
+  if (!current) throw new Error('No active Gorkhali session for this workspace.');
+  if (current.session.status === 'completed') throw new Error('The current Gorkhali session is already completed.');
   return current;
 }
 
@@ -840,14 +840,14 @@ function requireCurrentApproval(current, gate, action) {
     missingPrerequisite(
       action,
       `${gate} approval is missing for route ${current.session.route}`,
-      `phantom-state.mjs approve --gate ${gate} --workspace <path>`,
+      `gorkhali-state.mjs approve --gate ${gate} --workspace <path>`,
     );
   }
   if (assessment.approvalKind === 'unbound') {
     throw new Error(
       `Cannot ${action}: ${gate} approval has no artifact binding and cannot be safely recovered. `
       + `Record a fresh passed ${APPROVAL_ARTIFACTS[gate].join(' and ')} artifact, `
-      + `then run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
+      + `then run \`gorkhali-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
     );
   }
   if (assessment.invalid) {
@@ -859,7 +859,7 @@ function requireCurrentApproval(current, gate, action) {
   if (assessment.approvalKind === 'stale') {
     throw new Error(
       `Cannot ${action}: ${gate} approval is stale for the current passed artifact. `
-      + `Review it and run \`phantom-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
+      + `Review it and run \`gorkhali-state.mjs approve --gate ${gate} --workspace <path>\` again.`,
     );
   }
 }
@@ -876,7 +876,7 @@ function approve(workspace, args) {
   if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)
     && !granted(current.session.lifecycle.approvals.direction)) {
     missingPrerequisite('approve the plan', 'direction approval is missing',
-      'phantom-state.mjs approve --gate direction --workspace <path>');
+      'gorkhali-state.mjs approve --gate direction --workspace <path>');
   }
   if (args.gate === 'plan' && ['brainstorm', 'full'].includes(route)) {
     requireCurrentApproval(current, 'direction', 'approve the plan');
@@ -885,7 +885,7 @@ function approve(workspace, args) {
     missingPrerequisite(
       'approve wiring',
       'plan approval is missing',
-      'phantom-state.mjs approve --gate plan --workspace <path>',
+      'gorkhali-state.mjs approve --gate plan --workspace <path>',
     );
   }
   if (args.gate === 'wiring') requireCurrentApproval(current, 'plan', 'approve wiring');
@@ -935,7 +935,7 @@ function correctWorkKind(workspace, args) {
   if (errors.length) {
     throw new Error(
       `Cannot correct work kind: ${errors.join('; ')}. `
-      + 'Run `phantom-state.mjs correct-work-kind --work-kind <implementation|investigation> '
+      + 'Run `gorkhali-state.mjs correct-work-kind --work-kind <implementation|investigation> '
       + '--granted-by <who> --reason <why> --workspace <path>`.',
     );
   }
@@ -1062,14 +1062,14 @@ function prepareExecute(current) {
     missingPrerequisite(
       'execute',
       'implementation authorization is missing',
-      'phantom-state.mjs authorize --scope implementation --workspace <path>',
+      'gorkhali-state.mjs authorize --scope implementation --workspace <path>',
     );
   }
   const requiredApprovals = approvalsForRoute(current.session.route);
   if (!requiredApprovals) {
     throw new Error(
       'Cannot execute: the recovered session has no supported route. '
-      + 'Resume it with `phantom-state.mjs start --task <id> --intent <text> '
+      + 'Resume it with `gorkhali-state.mjs start --task <id> --intent <text> '
       + '--route <lite|direct|plan|brainstorm|full> --workspace <path>`.',
     );
   }
@@ -1097,7 +1097,7 @@ function prepareVerify(current) {
     missingPrerequisite(
       'verify',
       'execution has not started through the lifecycle gate',
-      'phantom-state.mjs execute --workspace <path>',
+      'gorkhali-state.mjs execute --workspace <path>',
     );
   }
   lifecycle.actions.verify = {
@@ -1736,14 +1736,14 @@ function ship(workspace) {
     missingPrerequisite(
       'ship',
       'execution has not started through the lifecycle gate',
-      'phantom-state.mjs execute --workspace <path>',
+      'gorkhali-state.mjs execute --workspace <path>',
     );
   }
   if (!granted(lifecycle.authorizations['ship-pr'])) {
     missingPrerequisite(
       'ship',
       'PR shipping authorization is missing',
-      'phantom-state.mjs authorize --scope ship-pr --workspace <path>',
+      'gorkhali-state.mjs authorize --scope ship-pr --workspace <path>',
     );
   }
   const fingerprint = requireCurrentPassedGates(current, 'ship');
@@ -1771,7 +1771,7 @@ function complete(workspace) {
       missingPrerequisite(
         'complete',
         'execution has not started through the lifecycle gate',
-        'phantom-state.mjs execute --workspace <path>',
+        'gorkhali-state.mjs execute --workspace <path>',
       );
     }
     requireCurrentPassedGates(current, 'complete');
@@ -1813,7 +1813,7 @@ function main() {
       if (command === 'ship') return ship(workspace);
       if (command === 'complete') return complete(workspace);
       throw new Error(
-        'Usage: phantom-state.mjs '
+        'Usage: gorkhali-state.mjs '
         + '<start|status|fingerprint|pause|resume|approve|authorize|correct-work-kind'
         + '|execute|verify|record|ship|complete> [options]',
       );

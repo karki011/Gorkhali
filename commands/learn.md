@@ -6,7 +6,7 @@ argument-hint: "<correction>"
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:learn "$ARGUMENTS"
+# /gorkhali:learn "$ARGUMENTS"
 
 Categorize the learning and route to the correct domain file:
 

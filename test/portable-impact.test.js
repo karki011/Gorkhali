@@ -8,10 +8,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const ANALYZER = path.join(__dirname, '..', 'skills', 'phantom', 'scripts', 'inspect-impact.mjs');
+const ANALYZER = path.join(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'inspect-impact.mjs');
 
 function workspace(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-impact-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-impact-'));
   for (const [name, content] of Object.entries(files)) {
     const file = path.join(root, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -218,7 +218,7 @@ test('edge and unresolved-warning collection stays bounded under dense input', (
 });
 
 test('symlinked module metadata is never read outside the workspace', () => {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-impact-module-'));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-impact-module-'));
   const root = path.join(parent, 'workspace');
   fs.mkdirSync(path.join(root, 'lib'), { recursive: true });
   fs.mkdirSync(path.join(root, 'cmd'), { recursive: true });
@@ -272,7 +272,7 @@ test('ripgrep remains optional when partial analysis needs supplemental referenc
   const root = workspace({
     'src/broken.ts': "import './missing';\n",
   });
-  const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-impact-path-'));
+  const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-impact-path-'));
   const output = parse(run(root, ['src/broken.ts'], [], {
     env: { ...process.env, PATH: emptyPath },
   }));
@@ -284,7 +284,7 @@ test('ripgrep remains optional when partial analysis needs supplemental referenc
 });
 
 test('targets cannot escape the workspace and invalid arguments fail clearly', () => {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-impact-boundary-'));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-impact-boundary-'));
   const root = path.join(parent, 'workspace');
   fs.mkdirSync(root);
   fs.writeFileSync(path.join(parent, 'outside.ts'), 'export const outside = true;\n');

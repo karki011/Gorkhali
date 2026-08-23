@@ -20,7 +20,7 @@ const { execFileSync, execSync } = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const HOOK = path.join(REPO_ROOT, 'hooks', 'memory-reader.js');
 const EVO_RUNNER = path.join(REPO_ROOT, 'scripts', 'evolution-runner.js');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
 
 const HAS_GIT = (() => {
   try { execSync('git --version', { stdio: 'ignore' }); return true; } catch (_) { return false; }
@@ -74,7 +74,7 @@ test('SEAM: hook surfaces a [failed] correction written to PER-REPO learnings', 
   try {
     seedRepoLearnings(data, REPO);
     const res = runHook(
-      { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: REPO },
+      { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: REPO },
       { prompt: 'how do I fetch the correct remote for a branch compare?' }
     );
 
@@ -112,7 +112,7 @@ test('SEAM REGRESSION GUARD: a FLAT-only learnings layout is NOT read (old bug s
     );
 
     const res = runHook(
-      { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: REPO },
+      { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: REPO },
       { prompt: 'how do I fetch the correct remote for a branch compare?' }
     );
 
@@ -129,7 +129,7 @@ test('SEAM REGRESSION GUARD: a FLAT-only learnings layout is NOT read (old bug s
 });
 
 test('SEAM: hook surfaces a correction sharded under the canonical codec repo id', { skip: !HAS_GIT }, () => {
-  // Prove the full chain works WITHOUT PHANTOM_REPO: the hook resolves the repo
+  // Prove the full chain works WITHOUT GORKHALI_REPO: the hook resolves the repo
   // through detectRepo -> shared codec -> `<name>-<hash>`, and reads learnings
   // from repos/<canonical-id>/. This is the real path a git repo takes.
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'seam-canonical-'));
@@ -141,9 +141,9 @@ test('SEAM: hook surfaces a correction sharded under the canonical codec repo id
     assert.match(canonicalId, /^seam-canonical-[0-9a-f]{10}$/, 'resolves to a canonical hashed id');
     seedRepoLearnings(data, canonicalId);
 
-    // Run the hook FROM the fixture cwd, no PHANTOM_REPO — pure codec resolution.
-    const env = { ...process.env, PHANTOM_DATA: data };
-    delete env.PHANTOM_REPO;
+    // Run the hook FROM the fixture cwd, no GORKHALI_REPO — pure codec resolution.
+    const env = { ...process.env, GORKHALI_DATA: data };
+    delete env.GORKHALI_REPO;
     const stdout = execFileSync('node', [HOOK], {
       input: JSON.stringify({ prompt: 'how do I fetch the correct remote for a branch compare?' }),
       env,
@@ -161,9 +161,9 @@ test('SEAM: hook surfaces a correction sharded under the canonical codec repo id
 test('SEAM: missing per-repo learnings dir -> hook exits cleanly, injects nothing', () => {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'seam-empty-'));
   try {
-    // PHANTOM_DATA exists but no repos/<repo>/learnings was ever created.
+    // GORKHALI_DATA exists but no repos/<repo>/learnings was ever created.
     const res = runHook(
-      { ...process.env, PHANTOM_DATA: data, PHANTOM_REPO: 'norepo' },
+      { ...process.env, GORKHALI_DATA: data, GORKHALI_REPO: 'norepo' },
       { prompt: 'how do I fetch the correct remote for a branch compare?' }
     );
     assert.equal(res.code, 0, 'no crash when learnings dir is absent (fails open)');
@@ -173,12 +173,12 @@ test('SEAM: missing per-repo learnings dir -> hook exits cleanly, injects nothin
   }
 });
 
-test('evolution-runner: non-existent PHANTOM_DATA -> exit 0, no throw', () => {
-  const ghost = path.join(os.tmpdir(), 'phantom-ghost-' + Date.now(), 'does-not-exist');
+test('evolution-runner: non-existent GORKHALI_DATA -> exit 0, no throw', () => {
+  const ghost = path.join(os.tmpdir(), 'gorkhali-ghost-' + Date.now(), 'does-not-exist');
   let code, stderr = '';
   try {
     execFileSync('node', [EVO_RUNNER], {
-      env: { ...process.env, PHANTOM_DATA: ghost },
+      env: { ...process.env, GORKHALI_DATA: ghost },
       encoding: 'utf-8',
     });
     code = 0;

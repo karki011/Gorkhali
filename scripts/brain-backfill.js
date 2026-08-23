@@ -27,7 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { phantomData, repoDir } = require('./lib/phantom-paths');
+const { gorkhaliData, repoDir } = require('./lib/gorkhali-paths');
 const { collectSessionIds, findTranscript, projectsRoot } = require('./lib/session-trace');
 const brain = require('./lib/brain-card');
 
@@ -315,7 +315,7 @@ function runTier3(repo, apply, projectsDir) {
 // --- repo enumeration + entry point ------------------------------------------
 
 function allRepos() {
-  const root = path.join(phantomData(), 'repos');
+  const root = path.join(gorkhaliData(), 'repos');
   let entries;
   try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch (_) { return []; }
   return entries

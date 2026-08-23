@@ -8,7 +8,7 @@
 // structurally unavailable is labeled "accepted under reduced assurance",
 // never a silent clean pass.
 //
-// In Phantom the delegated roles span two tiers on claude-code (economy runs
+// In Gorkhali the delegated roles span two tiers on claude-code (economy runs
 // haiku; balanced and deep both resolve to sonnet), so same-model review is
 // the NORM, not an edge case - `independence` states that evidence basis
 // honestly. The
@@ -416,11 +416,11 @@ function parseInspectorVerdicts() {
 
 function parseLifecycleStates() {
   const content = fs.readFileSync(
-    path.join(REPO_ROOT, 'skills', 'phantom', 'references', 'state.md'),
+    path.join(REPO_ROOT, 'skills', 'gorkhali', 'references', 'state.md'),
     'utf8',
   );
   const sentence = content.match(/Session envelopes use[^.]*\./);
-  assert.ok(sentence, 'skills/phantom/references/state.md: "Session envelopes use ..." sentence not found');
+  assert.ok(sentence, 'skills/gorkhali/references/state.md: "Session envelopes use ..." sentence not found');
   return [...sentence[0].matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Author: Subash Karki
-// Validates a Phantom JSON artifact against its canonical schema, and is the
+// Validates a Gorkhali JSON artifact against its canonical schema, and is the
 // single source of truth for the schema docs under reference/schemas/.
 //
 // Each entry in SCHEMAS carries two co-located halves:
@@ -25,7 +25,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PhantomError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, reportError } = require('./lib/axi-error');
 
 // --- _meta validation (required on every artifact) ---
 function validateMeta(obj, errors) {
@@ -92,7 +92,7 @@ const hasUnresolvedPlaceholder = (value) =>
 // would flow straight into that resolver otherwise. This is the shape-level
 // half of containment; the resolver itself re-checks by CANONICAL path
 // against the workspace root, which also catches a symlink escape this check
-// cannot see. Same rule skills/phantom/scripts/lib/decision-contracts.mjs's
+// cannot see. Same rule skills/gorkhali/scripts/lib/decision-contracts.mjs's
 // `validatePortablePath` already enforces for task paths ("must be a
 // normalized repository-relative path without traversal") - replicated
 // minimally here rather than imported: that module is ESM with no path-only
@@ -1242,7 +1242,7 @@ function main(argv) {
   const filePath = argv[3];
 
   if (!artifactType || !filePath) {
-    throw new PhantomError(
+    throw new GorkhaliError(
       'Usage: validate-artifact.js <artifact-type> <file-path>\n' +
         'Types: context intent brainstorm decisions plan execution verification review wrap pause-state',
       'USAGE'
@@ -1252,19 +1252,19 @@ function main(argv) {
   const resolvedPath = filePath.replace(/^~/, process.env.HOME);
 
   if (!fs.existsSync(resolvedPath)) {
-    throw new PhantomError(`ERROR: File not found: ${resolvedPath}`, 'IO_ERROR');
+    throw new GorkhaliError(`ERROR: File not found: ${resolvedPath}`, 'IO_ERROR');
   }
 
   let data;
   try {
     data = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
   } catch (e) {
-    throw new PhantomError(`ERROR: Invalid JSON in ${resolvedPath}: ${e.message}`, 'PARSE_ERROR');
+    throw new GorkhaliError(`ERROR: Invalid JSON in ${resolvedPath}: ${e.message}`, 'PARSE_ERROR');
   }
 
   if (!SCHEMAS[artifactType]) {
     const knownTypes = Object.keys(SCHEMAS);
-    throw new PhantomError(
+    throw new GorkhaliError(
       `ERROR: Unknown artifact type "${artifactType}". Known types: ${knownTypes.join(', ')}`,
       'USAGE'
     );

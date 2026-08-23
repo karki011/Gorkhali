@@ -1,6 +1,6 @@
 # Artifact Schemas
 
-Canonical schemas for all file-based artifacts in Phantom v2.
+Canonical schemas for all file-based artifacts in Gorkhali v2.
 A validation hook enforces these shapes at write time.
 
 Each artifact has its own schema file:

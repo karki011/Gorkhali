@@ -190,7 +190,7 @@ property that delete exists to protect cannot be violated through it.
 fable-foreman digest: a review that resolves to the same model as the work it
 checks must say so plainly rather than let the report imply an independent
 second opinion nobody obtained, and an acceptance with no legal independent
-check available is labeled reduced, never a silent clean pass. In Phantom this
+check available is labeled reduced, never a silent clean pass. In Gorkhali this
 is the norm rather than the exception - balanced and deep both resolve to
 sonnet on claude-code, so same-tier review pairs are common - so
 `independence` states that evidence basis honestly instead of dressing it up.

@@ -11,7 +11,7 @@ const { pathToFileURL } = require('node:url');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.join(__dirname, '..');
-const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'phantom');
+const SKILL_ROOT = path.join(REPO_ROOT, 'skills', 'gorkhali');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-portable-skill.mjs');
 const CODEX_MANIFEST = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
 const KIMI_MANIFEST = path.join(REPO_ROOT, '.kimi-plugin', 'plugin.json');
@@ -45,8 +45,8 @@ function runJson(file, args = []) {
 }
 
 function copySkill(label) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), `phantom-${label}-`));
-  const target = path.join(root, 'phantom');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `gorkhali-${label}-`));
+  const target = path.join(root, 'gorkhali');
   fs.cpSync(SKILL_ROOT, target, { recursive: true });
   return target;
 }
@@ -80,11 +80,11 @@ test('shared-state codec ships inside the skill and depends only on node built-i
   const isolated = require(path.join(copied, 'scripts', 'lib', 'shared-state.cjs'));
   assert.equal(typeof isolated.repoId, 'function');
   assert.equal(typeof isolated.resolveDataRoot, 'function');
-  assert.equal(isolated.ROOT_DIRNAME, '.phantom');
+  assert.equal(isolated.ROOT_DIRNAME, '.gorkhali');
 });
 
 test('command adapter validation rejects blank descriptions and orphaned adapters', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-adapters-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-adapters-'));
   const commands = path.join(root, 'commands');
   const skills = path.join(root, 'skills');
   fs.mkdirSync(commands);
@@ -97,7 +97,7 @@ test('command adapter validation rejects blank descriptions and orphaned adapter
     'description:',
     '---',
     '',
-    'Read `../phantom/SKILL.md` and `../phantom/references/planning.md`.',
+    'Read `../gorkhali/SKILL.md` and `../gorkhali/references/planning.md`.',
     '',
   ].join('\n'));
   fs.writeFileSync(path.join(skills, 'orphan', 'SKILL.md'), '---\nname: orphan\ndescription: Orphan.\n---\n');
@@ -114,7 +114,7 @@ test('skill-plugin manifests discover every public workflow skill', () => {
     .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
     .map((entry) => entry.slice(0, -3))
     .sort();
-  const expected = [...commands, 'phantom'].sort();
+  const expected = [...commands, 'gorkhali'].sort();
 
   for (const manifestFile of [CODEX_MANIFEST, KIMI_MANIFEST]) {
     const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
@@ -156,7 +156,7 @@ test('kimi manifest ships the roster and the model-agnostic gates', () => {
 
 test('kimi manifest validation rejects a broken hook wiring', async () => {
   const validator = await import(pathToFileURL(VALIDATOR).href);
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-kimi-manifest-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-kimi-manifest-'));
   for (const directory of ['.claude-plugin', '.codex-plugin', '.kimi-plugin']) {
     fs.mkdirSync(path.join(root, directory), { recursive: true });
     for (const file of fs.readdirSync(path.join(REPO_ROOT, directory))) {
@@ -214,7 +214,7 @@ test('public Claude command frontmatter names match filename stems', () => {
     const name = frontmatter[1].match(/^name:\s*(\S+)\s*$/m);
     assert.ok(name, `${entry} frontmatter is missing a name`);
     assert.equal(name[1], stem, `${entry} frontmatter name must match filename stem`);
-    assert.doesNotMatch(name[1], /^phantom:/, `${entry} frontmatter name must not use the phantom namespace`);
+    assert.doesNotMatch(name[1], /^gorkhali:/, `${entry} frontmatter name must not use the gorkhali namespace`);
   }
 });
 
@@ -245,7 +245,7 @@ test('documented checkpoint writes provide JSON stdin and fail open', () => {
 
   for (const { entry, line } of checkpointWrites) {
     assert.ok(
-      line.includes('PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)}"; PR="${PR%/}";'),
+      line.includes('PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}";'),
       `${entry} checkpoint write must resolve and normalize PR inline`,
     );
     assert.match(line, /if \[ -n "\$PR" \]; then/, `${entry} must skip when PR is empty`);
@@ -260,16 +260,16 @@ test('documented checkpoint writes provide JSON stdin and fail open', () => {
 });
 
 test('Codex runtime shim still resolves package-relative roots and neutral state', () => {
-  const dataRoot = path.join(os.tmpdir(), 'phantom-codex-state');
+  const dataRoot = path.join(os.tmpdir(), 'gorkhali-codex-state');
   const output = execFileSync(process.execPath, [CODEX_RUNTIME_RESOLVER], {
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: dataRoot },
+    env: { ...process.env, GORKHALI_DATA: dataRoot },
   });
   const runtime = JSON.parse(output);
 
   assert.equal(runtime.host, 'codex');
   assert.equal(runtime.plugin_root, REPO_ROOT);
-  assert.equal(runtime.portable_skill_root, path.join(REPO_ROOT, 'skills', 'phantom'));
+  assert.equal(runtime.portable_skill_root, path.join(REPO_ROOT, 'skills', 'gorkhali'));
   assert.equal(runtime.compatibility_scripts_root, path.join(REPO_ROOT, 'scripts'));
   assert.equal(runtime.data_root, dataRoot);
 });
@@ -284,8 +284,8 @@ test('host runtime resolver accepts an explicit host key', () => {
 });
 
 test('installed-cache resolver loads deterministic preambles for every workflow', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-cache-'));
-  const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-codex-cache-'));
+  const cachedPlugin = path.join(root, 'cache', 'gorkhali', 'gorkhali', '0.2.1');
   for (const directory of ['.codex-plugin', 'host-support', 'codex-support', 'commands', 'scripts', 'skills']) {
     fs.cpSync(path.join(REPO_ROOT, directory), path.join(cachedPlugin, directory), { recursive: true });
   }
@@ -339,15 +339,15 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
 });
 
 test('installed-cache portable lifecycle keeps Codex state out of .claude', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-codex-lifecycle-'));
-  const cachedPlugin = path.join(root, 'cache', 'phantom', 'phantom', '0.2.1');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-codex-lifecycle-'));
+  const cachedPlugin = path.join(root, 'cache', 'gorkhali', 'gorkhali', '0.2.1');
   fs.cpSync(path.join(REPO_ROOT, 'skills'), path.join(cachedPlugin, 'skills'), { recursive: true });
-  const state = path.join(cachedPlugin, 'skills', 'phantom', 'scripts', 'phantom-state.mjs');
+  const state = path.join(cachedPlugin, 'skills', 'gorkhali', 'scripts', 'gorkhali-state.mjs');
   const workspace = path.join(root, 'workspace');
-  const dataRoot = path.join(root, 'phantom-data');
+  const dataRoot = path.join(root, 'gorkhali-data');
   const fakeHome = path.join(root, 'home');
   fs.mkdirSync(workspace);
-  const environment = { ...process.env, HOME: fakeHome, PHANTOM_DATA: dataRoot };
+  const environment = { ...process.env, HOME: fakeHome, GORKHALI_DATA: dataRoot };
   const run = (...args) => execFileSync(process.execPath, [state, ...args, '--workspace', workspace], {
     encoding: 'utf8',
     env: environment,
@@ -366,7 +366,7 @@ test('installed-cache portable lifecycle keeps Codex state out of .claude', () =
 test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
-    name: 'phantom',
+    name: 'gorkhali',
     bundle_version: '2.6.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
@@ -478,11 +478,11 @@ test('official skill validator accepts the canonical skill when available', (con
 });
 
 test('one unchanged skill tree installs byte-identically in three discovery layouts', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-portability-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-portability-'));
   const targets = [
-    path.join(fixture, '.claude', 'skills', 'phantom'),
-    path.join(fixture, '.agents', 'skills', 'phantom'),
-    path.join(fixture, 'third-host', '.agents', 'skills', 'phantom'),
+    path.join(fixture, '.claude', 'skills', 'gorkhali'),
+    path.join(fixture, '.agents', 'skills', 'gorkhali'),
+    path.join(fixture, 'third-host', '.agents', 'skills', 'gorkhali'),
   ];
   const expected = treeDigest(SKILL_ROOT);
   const expectedManifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
@@ -664,7 +664,7 @@ test('bundled presets cover every profile and resolve each role tier', () => {
 });
 
 test('model resolution honors user choice, external map, bundled preset, then inheritance', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-models-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-models-'));
   const mapFile = path.join(fixture, 'models.json');
   fs.writeFileSync(mapFile, JSON.stringify({
     profiles: { balanced: { model: 'runtime-balanced', effort: 'custom' } },
@@ -740,8 +740,8 @@ test('delegated profiles downshift semantically while Chief stays frontier', () 
 });
 
 test('portable CLI entrypoints execute through a symlinked skill installation', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'phantom-linked-install-'));
-  const linkedSkill = path.join(fixture, 'phantom');
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-linked-install-'));
+  const linkedSkill = path.join(fixture, 'gorkhali');
   fs.symlinkSync(SKILL_ROOT, linkedSkill, process.platform === 'win32' ? 'junction' : 'dir');
 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
@@ -751,17 +751,17 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   assert.equal(resolver.model, null);
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [
-    'inspect', '--workspace', REPO_ROOT, 'skills/phantom/scripts/lib/portable.mjs',
+    'inspect', '--workspace', REPO_ROOT, 'skills/gorkhali/scripts/lib/portable.mjs',
   ]);
   assert.ok(['complete', 'partial'].includes(impact.status));
   assert.equal(impact.source, 'bundled-local-analysis');
 
   const stateResult = spawnSync(process.execPath, [
-    path.join(linkedSkill, 'scripts', 'phantom-state.mjs'),
+    path.join(linkedSkill, 'scripts', 'gorkhali-state.mjs'),
     'status', '--workspace', REPO_ROOT,
   ], {
     encoding: 'utf8',
-    env: { ...process.env, PHANTOM_DATA: path.join(fixture, 'state') },
+    env: { ...process.env, GORKHALI_DATA: path.join(fixture, 'state') },
   });
   assert.equal(stateResult.status, 0, stateResult.stderr);
   assert.equal(JSON.parse(stateResult.stdout).status, 'none');
@@ -940,7 +940,7 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
   assert.match(start, /no implicit PR lifecycle/i);
   assert.match(start, /PR shipping requires separate, explicit authorization/i);
   assert.doesNotMatch(start, /codex-compatibility|commands\/start|_shared/i);
-  assert.match(skill, /scripts\/phantom-state\.mjs` is the sole lifecycle authority/i);
+  assert.match(skill, /scripts\/gorkhali-state\.mjs` is the sole lifecycle authority/i);
   assert.match(skill, /`direct`.*None; implementation authorization is still required/is);
   assert.match(skill, /`plan`.*Approved plan/is);
   assert.match(skill, /`brainstorm`.*Approved direction, then approved plan/is);

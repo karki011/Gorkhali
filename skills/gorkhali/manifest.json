@@ -1,7 +1,7 @@
 {
-  "name": "phantom",
+  "name": "gorkhali",
   "bundle_version": "2.6.0",
-  "contract_resource_digest": "sha256:6465943632b0e62fd0ec10cd481a8582cf091f7d1e33f3ddaf4a67e286a58d47",
+  "contract_resource_digest": "sha256:462645fe6bc783dec60089d1810b49b61aae943ef3c1b1d4ce48c1ca20c9edc6",
   "contract_versions": {
     "capability_ledger": 1,
     "state_envelope": 1,

@@ -1,13 +1,13 @@
 ---
 name: recruit
-description: "Use when you need a specialist agent for a one-off implementation, research, or audit job. Spawns an Engineer with a ROLE FOCUS directive ('React specialist'). Net-new work → phantom:start."
+description: "Use when you need a specialist agent for a one-off implementation, research, or audit job. Spawns an Engineer with a ROLE FOCUS directive ('React specialist'). Net-new work → gorkhali:start."
 argument-hint: "<role-focus>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
-# /phantom:recruit $ARGUMENTS
+# /gorkhali:recruit $ARGUMENTS
 
 > **Note:** The previous ally recruitment system has been replaced. Chief now spawns Engineer agents with specific ROLE FOCUS directives for specialized work.
 

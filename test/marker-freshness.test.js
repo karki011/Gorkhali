@@ -14,7 +14,7 @@ const CONSTANTS_PATH = require.resolve('../scripts/lib/constants');
 
 // Bust the cache + clear the override env, then load fresh.
 function freshConstants(overrides = {}) {
-  const ENV_KEY = 'PHANTOM_MARKER_FRESHNESS_MS';
+  const ENV_KEY = 'GORKHALI_MARKER_FRESHNESS_MS';
   const saved = Object.prototype.hasOwnProperty.call(process.env, ENV_KEY)
     ? process.env[ENV_KEY]
     : undefined;
@@ -44,7 +44,7 @@ test('MARKER_FRESHNESS_MS env override applies', () => {
     process.execPath,
     [
       '-e',
-      `process.env.PHANTOM_MARKER_FRESHNESS_MS='7200000';` +
+      `process.env.GORKHALI_MARKER_FRESHNESS_MS='7200000';` +
         `const C=require(${JSON.stringify(CONSTANTS_PATH)});` +
         `process.stdout.write(String(C.MARKER_FRESHNESS_MS));`,
     ],
@@ -55,7 +55,7 @@ test('MARKER_FRESHNESS_MS env override applies', () => {
 });
 
 test('garbage env value for MARKER_FRESHNESS_MS fails open to default', () => {
-  const C = freshConstants({ PHANTOM_MARKER_FRESHNESS_MS: 'banana' });
+  const C = freshConstants({ GORKHALI_MARKER_FRESHNESS_MS: 'banana' });
   assert.equal(C.MARKER_FRESHNESS_MS, 43200000);
 });
 

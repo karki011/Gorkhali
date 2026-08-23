@@ -1,6 +1,6 @@
 # Defense Brief
 
-> **Context:** Called during `/phantom:wrap` Step 2, on every wrap - no file-count threshold, no skip flag. Authored by Chief (session-model judgment work, never clerk). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 4 ship - see the clerk preflight grep in `commands/wrap.md` Step 2.
+> **Context:** Called during `/gorkhali:wrap` Step 2, on every wrap - no file-count threshold, no skip flag. Authored by Chief (session-model judgment work, never clerk). Writes `{TEAM_DIR}/sessions/{TICKET}/defense-brief.md`. A missing brief, or a brief missing any of the six section headings, blocks Step 4 ship - see the clerk preflight grep in `commands/wrap.md` Step 2.
 
 ## Purpose
 

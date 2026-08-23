@@ -1,4 +1,4 @@
-# Phantom Shadows -- Discipline Enforcement Context
+# Gorkhali Shadows -- Discipline Enforcement Context
 
 > Loaded by commands that benefit from discipline enforcement at workflow phases.
 > Always load `_shared.md` first.
@@ -7,7 +7,7 @@
 
 ## Discipline Integration Map
 
-These disciplines are enforced at specific workflow phases by the Phantom's own agents and references.
+These disciplines are enforced at specific workflow phases by the Gorkhali's own agents and references.
 No external plugins required.
 
 | Phase | Discipline | Enforced By | Reference |

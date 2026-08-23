@@ -1,6 +1,6 @@
-# Phantom Shadows -- Shared Context (Core)
+# Gorkhali Shadows -- Shared Context (Core)
 
-> **Every `/phantom:*` subcommand MUST load this file first.**
+> **Every `/gorkhali:*` subcommand MUST load this file first.**
 
 ## Governance
 
@@ -14,35 +14,35 @@
 ```
 PLUGIN_ROOT = self-resolved, env-free (deterministic). The CANONICAL Bash bootstrap - the ONE copy;
               every commands/ site cites it as {PR_BOOTSTRAP} rather than restating it:
-              PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
+              PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
               then: node "$PR/scripts/..."  (or node -p "require('$PR/scripts/...')", etc.)
 
               Rules (each is load-bearing; sites cite this section, never restate it):
               - $PR never survives across Bash calls (each is a FRESH shell): a site needing $PR
                 PREPENDS {PR_BOOTSTRAP} in the SAME command, then uses bare "$PR/scripts/...".
                 Always re-resolve from disk, never an inherited $PR — pure self-resolve.
-                NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/phantom}
+                NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/gorkhali}
                 (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it at
                 hook-exec — the one reliable surface).
               - EMPTY-GUARD (REQUIRED — a fresh machine / dev clone has no cache dir, so $PR resolves
                 EMPTY and an unguarded `node "$PR/scripts/..."` becomes `node "/scripts/..."` → crash).
                 By context:
                 • GATE-CRITICAL (path resolution that must succeed) — fail READABLE, never crash:
-                    [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+                    [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
                 • ADVISORY (checkpoints, cost-link, cost-report, compress — already 'never error / never blocks') — SKIP SILENTLY:
                     [ -n "$PR" ] && node "$PR/scripts/..."
               - The 8 checkpoint one-liners in start.md/execute.md/resume.md predate this form and carry
                 their own literal `PR="${PR:-...}"` shape — pinned verbatim by test/portable-skill.test.js.
 
 Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
-{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in skills/phantom/references/verification.md
+{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in skills/gorkhali/references/verification.md
 {PKG_MGR}  = repo-detect.js `package_manager` fact (§_shared-repo-detection.md)
 {DEV_PORT} = repo dev-server config
 
-REPO_NAME = resolved by detectRepo()/phantom_detect_repo() through the ONE shared codec; the codec
+REPO_NAME = resolved by detectRepo()/gorkhali_detect_repo() through the ONE shared codec; the codec
             comment owns the precedence — do NOT restate it (it drifted before).
             `node "$PR/scripts/repo-detect.js" --json` prints it (plus aliases and data_root).
-TEAM_DIR  = ${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}   # default ~/.phantom; override with PHANTOM_DATA env
+TEAM_DIR  = ${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}   # default ~/.gorkhali; override with GORKHALI_DATA env
 SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
 CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
 DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md
@@ -50,8 +50,8 @@ DECISIONS_SESSION  = {TEAM_DIR}/sessions/{TICKET}/decisions.md
 LEARNINGS       = {TEAM_DIR}/learnings/
 LEARNINGS_INDEX = {TEAM_DIR}/learnings/INDEX.md
 LEARNINGS_EDGES = {TEAM_DIR}/learnings/EDGES.md
-GLOBAL_PATTERNS = ${PHANTOM_DATA:-~/.phantom}/global/patterns/INDEX.md
-GLOBAL_EDGES    = ${PHANTOM_DATA:-~/.phantom}/global/patterns/EDGES.md
+GLOBAL_PATTERNS = ${GORKHALI_DATA:-~/.gorkhali}/global/patterns/INDEX.md
+GLOBAL_EDGES    = ${GORKHALI_DATA:-~/.gorkhali}/global/patterns/EDGES.md
 ```
 
 </context>
@@ -75,7 +75,7 @@ by `test/portable-skill.test.js` - the sites stay verbatim and change only toget
 
 15 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
 
-1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `PHANTOM_PROTECTED_BRANCHES`)
+1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `GORKHALI_PROTECTED_BRANCHES`)
 2. **Verify** — run commands, read output, confirm
 3. **Anti-repetition** — scan INDEX.md before planning
 4. **Opposition** — the one plan critic; challenges every plan and writes `plan-check.json`
@@ -123,7 +123,7 @@ disclosure, an authorization request, or a stated gap.
 
 ## Final Status Block
 
-Every `/phantom:*` skill ENDS its response with one single-line work-state signal — last line, nothing after it:
+Every `/gorkhali:*` skill ENDS its response with one single-line work-state signal — last line, nothing after it:
 
 - 🟢 = done & verified
 - 🟡 = done but needs a specific non-routine follow-up — name it
@@ -136,7 +136,7 @@ One line, one color. Examples:
 - `🔴 Blocked: missing DB credential, cannot run migration`
 
 ## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${PHANTOM_DATA:-~/.phantom}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
+- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
 - Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
 - If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
 - After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.

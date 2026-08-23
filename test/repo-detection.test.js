@@ -2,11 +2,11 @@
 // repo-detection.test.js — EXECUTED tests for the shared identity codec's git
 // resolution. Per [executed-review]: every git-backed branch RUNS real detection
 // in real fixture repos (git init / remote add / worktree add) and asserts the
-// JS resolver (detectRepo) and the sh mirror (phantom_detect_repo) AGREE — both
-// route through skills/phantom/scripts/lib/shared-state.cjs. Remote-backed repos
+// JS resolver (detectRepo) and the sh mirror (gorkhali_detect_repo) AGREE — both
+// route through skills/gorkhali/scripts/lib/shared-state.cjs. Remote-backed repos
 // resolve to a canonical `<name>-<hash>` id (normalized remote); no-remote repos
-// keep their plain main-root basename. The pure-path branches (PHANTOM_REPO,
-// walk-up, no-git, worktrees fast-path) also live in phantom-paths.test.js.
+// keep their plain main-root basename. The pure-path branches (GORKHALI_REPO,
+// walk-up, no-git, worktrees fast-path) also live in gorkhali-paths.test.js.
 'use strict';
 
 const { test } = require('node:test');
@@ -18,10 +18,10 @@ const path = require('path');
 const { execSync, execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
-const { detectRepo, learningsDir, resolveRepoSubdir } = require('../scripts/lib/phantom-paths');
-const codec = require('../skills/phantom/scripts/lib/shared-state.cjs');
-const SH_LIB = path.resolve(__dirname, '..', 'scripts', 'lib', 'phantom-paths.sh');
-const PORTABLE = path.resolve(__dirname, '..', 'skills', 'phantom', 'scripts', 'lib', 'portable.mjs');
+const { detectRepo, learningsDir, resolveRepoSubdir } = require('../scripts/lib/gorkhali-paths');
+const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
+const SH_LIB = path.resolve(__dirname, '..', 'scripts', 'lib', 'gorkhali-paths.sh');
+const PORTABLE = path.resolve(__dirname, '..', 'skills', 'gorkhali', 'scripts', 'lib', 'portable.mjs');
 // Plugin root the shell mirror needs to find the codec. In production a bash
 // caller sets this via BASH_SOURCE self-location; strict POSIX sh (dash on
 // Ubuntu CI) cannot self-locate a *sourced* file, so the caller must export it.
@@ -47,24 +47,24 @@ function git(cwd, args) {
 // Run the sh mirror exactly as a sourced shell would, for the given cwd/env.
 function shDetect(cwd, { data, repo } = {}) {
   const env = { ...process.env };
-  env.PHANTOM_DATA = data || path.join(mkTmp('sh-nodata-'), 'empty');
-  env.PHANTOM_PLUGIN_ROOT = PLUGIN_ROOT;
-  if (repo === undefined) delete env.PHANTOM_REPO;
-  else env.PHANTOM_REPO = repo;
-  const script = '. "' + SH_LIB + '"; phantom_detect_repo "' + cwd + '"';
+  env.GORKHALI_DATA = data || path.join(mkTmp('sh-nodata-'), 'empty');
+  env.GORKHALI_PLUGIN_ROOT = PLUGIN_ROOT;
+  if (repo === undefined) delete env.GORKHALI_REPO;
+  else env.GORKHALI_REPO = repo;
+  const script = '. "' + SH_LIB + '"; gorkhali_detect_repo "' + cwd + '"';
   return execFileSync('sh', ['-c', script], { env, encoding: 'utf8' }).trim();
 }
 
-// JS detection with a scoped env (PHANTOM_DATA/PHANTOM_REPO), always restored.
+// JS detection with a scoped env (GORKHALI_DATA/GORKHALI_REPO), always restored.
 function jsDetect(cwd, { data, repo } = {}) {
-  const saved = { d: process.env.PHANTOM_DATA, r: process.env.PHANTOM_REPO };
+  const saved = { d: process.env.GORKHALI_DATA, r: process.env.GORKHALI_REPO };
   try {
-    if (data === undefined) delete process.env.PHANTOM_DATA; else process.env.PHANTOM_DATA = data;
-    if (repo === undefined) delete process.env.PHANTOM_REPO; else process.env.PHANTOM_REPO = repo;
+    if (data === undefined) delete process.env.GORKHALI_DATA; else process.env.GORKHALI_DATA = data;
+    if (repo === undefined) delete process.env.GORKHALI_REPO; else process.env.GORKHALI_REPO = repo;
     return detectRepo(cwd);
   } finally {
-    if (saved.d === undefined) delete process.env.PHANTOM_DATA; else process.env.PHANTOM_DATA = saved.d;
-    if (saved.r === undefined) delete process.env.PHANTOM_REPO; else process.env.PHANTOM_REPO = saved.r;
+    if (saved.d === undefined) delete process.env.GORKHALI_DATA; else process.env.GORKHALI_DATA = saved.d;
+    if (saved.r === undefined) delete process.env.GORKHALI_REPO; else process.env.GORKHALI_REPO = saved.r;
   }
 }
 
@@ -72,8 +72,8 @@ function jsDetect(cwd, { data, repo } = {}) {
 // its env resolution is exercised end-to-end.
 function esmDetect(cwd, { data, repo } = {}) {
   const env = { ...process.env };
-  if (data === undefined) delete env.PHANTOM_DATA; else env.PHANTOM_DATA = data;
-  if (repo === undefined) delete env.PHANTOM_REPO; else env.PHANTOM_REPO = repo;
+  if (data === undefined) delete env.GORKHALI_DATA; else env.GORKHALI_DATA = data;
+  if (repo === undefined) delete env.GORKHALI_REPO; else env.GORKHALI_REPO = repo;
   const url = pathToFileURL(PORTABLE).href;
   return execFileSync(process.execPath, [
     '--input-type=module',
@@ -310,7 +310,7 @@ test('worktree WITHOUT remote: step 4 returns MAIN-root basename, not branch dir
   }
 });
 
-test('PHANTOM_REPO (step 2) beats git remote (step 3), verbatim', { skip: !HAS_GIT }, () => {
+test('GORKHALI_REPO (step 2) beats git remote (step 3), verbatim', { skip: !HAS_GIT }, () => {
   const repoDir = mkTmp('rd-envwins-');
   const data = isolatedData();
   try {
@@ -329,12 +329,12 @@ test('worktrees fast-path (step 1) beats git remote (step 3), verbatim segment',
   try {
     // cwd is under <data>/worktrees/<seg>/... AND is a git repo with a DIFFERENT
     // remote. Step 1 must win over step 3.
-    const inside = path.join(data, 'worktrees', 'phantom-repo', 'T-9');
+    const inside = path.join(data, 'worktrees', 'gorkhali-repo', 'T-9');
     fs.mkdirSync(inside, { recursive: true });
     git(inside, 'init -q');
     git(inside, 'remote add origin git@github.com:org/some-other-name.git');
-    assert.equal(jsDetect(inside, { data }), 'phantom-repo', 'js: fast-path wins');
-    assert.equal(shDetect(inside, { data }), 'phantom-repo', 'sh: fast-path wins');
+    assert.equal(jsDetect(inside, { data }), 'gorkhali-repo', 'js: fast-path wins');
+    assert.equal(shDetect(inside, { data }), 'gorkhali-repo', 'sh: fast-path wins');
   } finally {
     fs.rmSync(data, { recursive: true, force: true });
   }
@@ -366,8 +366,8 @@ test('git RUN fails -> degrades to walk-up basename without throwing (js + sh; [
     }
     assert.equal(jsResult, path.basename(repoDir), 'js: walk-up when every git RUN fails');
 
-    const out = execFileSync('/bin/sh', ['-c', '. "' + SH_LIB + '"; phantom_detect_repo "' + sub + '"'], {
-      env: { ...process.env, PATH: shimPath, PHANTOM_DATA: data, PHANTOM_PLUGIN_ROOT: PLUGIN_ROOT },
+    const out = execFileSync('/bin/sh', ['-c', '. "' + SH_LIB + '"; gorkhali_detect_repo "' + sub + '"'], {
+      env: { ...process.env, PATH: shimPath, GORKHALI_DATA: data, GORKHALI_PLUGIN_ROOT: PLUGIN_ROOT },
       encoding: 'utf8',
     }).trim();
     assert.equal(out, path.basename(repoDir), 'sh: walk-up when every git RUN fails');
@@ -455,17 +455,17 @@ test('detectRepo and the portable resolver PERSIST aliases as a side effect of r
 });
 
 // Alias-aware learnings resolution. No git fixture: the repo id is supplied
-// explicitly, and only PHANTOM_DATA has to be scoped so the pure path fns read the
+// explicitly, and only GORKHALI_DATA has to be scoped so the pure path fns read the
 // temp root. Env is saved/restored the same way jsDetect does.
 function withData(data, fn) {
-  const saved = { d: process.env.PHANTOM_DATA, r: process.env.PHANTOM_REPO };
+  const saved = { d: process.env.GORKHALI_DATA, r: process.env.GORKHALI_REPO };
   try {
-    process.env.PHANTOM_DATA = data;
-    delete process.env.PHANTOM_REPO;
+    process.env.GORKHALI_DATA = data;
+    delete process.env.GORKHALI_REPO;
     return fn();
   } finally {
-    if (saved.d === undefined) delete process.env.PHANTOM_DATA; else process.env.PHANTOM_DATA = saved.d;
-    if (saved.r === undefined) delete process.env.PHANTOM_REPO; else process.env.PHANTOM_REPO = saved.r;
+    if (saved.d === undefined) delete process.env.GORKHALI_DATA; else process.env.GORKHALI_DATA = saved.d;
+    if (saved.r === undefined) delete process.env.GORKHALI_REPO; else process.env.GORKHALI_REPO = saved.r;
   }
 }
 
@@ -478,8 +478,8 @@ function seedLearnings(data, repoId) {
 
 test('alias-aware learningsDir: a legacy plain-named dir with learnings RESOLVES when the canonical dir is absent', () => {
   const data = isolatedData();
-  const CANON = 'research-phantom-skills-490f3d276e';
-  const LEGACY = 'research-phantom-skills';
+  const CANON = 'research-gorkhali-skills-490f3d276e';
+  const LEGACY = 'research-gorkhali-skills';
   try {
     const legacyLearnings = seedLearnings(data, LEGACY);
     codec.recordAliases(data, { id: CANON, aliases: [LEGACY] });
@@ -496,8 +496,8 @@ test('alias-aware learningsDir: a legacy plain-named dir with learnings RESOLVES
 
 test('alias-aware learningsDir: the CANONICAL dir WINS when both are populated (never serve stale knowledge)', () => {
   const data = isolatedData();
-  const CANON = 'research-phantom-skills-490f3d276e';
-  const LEGACY = 'research-phantom-skills';
+  const CANON = 'research-gorkhali-skills-490f3d276e';
+  const LEGACY = 'research-gorkhali-skills';
   try {
     const canonicalLearnings = seedLearnings(data, CANON);
     seedLearnings(data, LEGACY);
@@ -514,8 +514,8 @@ test('alias-aware learningsDir: the CANONICAL dir WINS when both are populated (
 test('alias-aware learningsDir: an orphan id with NO alias-map entry does NOT resolve', () => {
   const data = isolatedData();
   // 0 references in the production alias map, so nothing maps this id to a legacy dir.
-  const CANON = 'research-phantom-skills-7be68ce7fa';
-  const LEGACY = 'research-phantom-skills';
+  const CANON = 'research-gorkhali-skills-7be68ce7fa';
+  const LEGACY = 'research-gorkhali-skills';
   try {
     seedLearnings(data, LEGACY); // populated, but unclaimed by CANON
     codec.recordAliases(data, { id: CANON, aliases: [] }); // no-op: no aliases recorded
@@ -532,9 +532,9 @@ test('alias-aware learningsDir: an orphan id with NO alias-map entry does NOT re
 
 test('alias-aware learningsDir: a malformed .aliases.json does not throw and falls back to the canonical path', () => {
   const data = isolatedData();
-  const CANON = 'research-phantom-skills-490f3d276e';
+  const CANON = 'research-gorkhali-skills-490f3d276e';
   try {
-    seedLearnings(data, 'research-phantom-skills');
+    seedLearnings(data, 'research-gorkhali-skills');
     fs.mkdirSync(path.join(data, 'repos'), { recursive: true });
     fs.writeFileSync(path.join(data, 'repos', '.aliases.json'), '{not json at all');
 

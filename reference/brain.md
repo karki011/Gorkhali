@@ -2,7 +2,7 @@
 
 The **Repo Brain** is a per-repo, monotonically growing store of distilled
 knowledge cards. One card per session (and, later, per backfilled artifact).
-Cards live in **PHANTOM_DATA**, never in the plugin dir:
+Cards live in **GORKHALI_DATA**, never in the plugin dir:
 
 ```
 <data>/repos/{repo}/brain/cards/{id}.md
@@ -35,7 +35,7 @@ edges:
   - relates_to: rb-9f0e1d
   - supersedes: rb-000abc
 trace:
-  session: /Users/x/.phantom/repos/research-team-skills/sessions/repo-brain
+  session: /Users/x/.gorkhali/repos/research-team-skills/sessions/repo-brain
   transcript: /Users/x/.claude/projects/-Users-x-.../<session>.jsonl
   pr: https://github.com/org/repo/pull/62
   commit: 34b3690
@@ -105,4 +105,4 @@ node scripts/lib/brain-card.js parse <file>            # -> card JSON
   not transcript dumps.
 - **Never blocks the ship**: a card-write failure in wrap/close degrades silently
   (the caller guards the RUN, not the precondition).
-- **Lives in PHANTOM_DATA**, never in the (immutable) plugin cache dir.
+- **Lives in GORKHALI_DATA**, never in the (immutable) plugin cache dir.

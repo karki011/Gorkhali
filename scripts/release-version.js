@@ -36,7 +36,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PhantomError, exitCodeForError, reportError } = require('./lib/axi-error');
+const { GorkhaliError, exitCodeForError, reportError } = require('./lib/axi-error');
 const { atomicWrite } = require('./lib/atomic');
 
 const REPO_ROOT = path.join(__dirname, '..');
@@ -54,7 +54,7 @@ const USAGE =
   'usage: release-version.js [--check] [--set <semver>] [--json] [--root <dir>]\n';
 
 function usageError(msg) {
-  return new PhantomError(msg, 'VALIDATION_ERROR');
+  return new GorkhaliError(msg, 'VALIDATION_ERROR');
 }
 
 function validateSemver(version) {
@@ -98,7 +98,7 @@ function findVersionLineIndex(lines, within, label) {
   if (within) {
     const range = findBlockRange(lines, within);
     if (!range) {
-      throw new PhantomError(label + ': could not find "' + within + '" block', 'IO_ERROR');
+      throw new GorkhaliError(label + ': could not find "' + within + '" block', 'IO_ERROR');
     }
     start = range.start;
     end = range.end;
@@ -106,7 +106,7 @@ function findVersionLineIndex(lines, within, label) {
   for (let i = start; i < end; i++) {
     if (VERSION_LINE_RE.test(lines[i])) return i;
   }
-  throw new PhantomError(
+  throw new GorkhaliError(
     label + ': could not find a "version" field' + (within ? ' inside "' + within + '"' : ''),
     'IO_ERROR'
   );
@@ -117,17 +117,17 @@ function readVersion(manifest) {
   try {
     raw = fs.readFileSync(manifest.file, 'utf-8');
   } catch (err) {
-    throw new PhantomError(manifest.label + ': ' + err.message, 'IO_ERROR');
+    throw new GorkhaliError(manifest.label + ': ' + err.message, 'IO_ERROR');
   }
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    throw new PhantomError(manifest.label + ': invalid JSON - ' + err.message, 'IO_ERROR');
+    throw new GorkhaliError(manifest.label + ': invalid JSON - ' + err.message, 'IO_ERROR');
   }
   const version = manifest.within ? parsed[manifest.within] && parsed[manifest.within].version : parsed.version;
   if (typeof version !== 'string') {
-    throw new PhantomError(
+    throw new GorkhaliError(
       manifest.label + ': no "version" string found' + (manifest.within ? ' under "' + manifest.within + '"' : ''),
       'IO_ERROR'
     );

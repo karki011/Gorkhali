@@ -25,7 +25,7 @@ const metaFor = (overrides = {}) => ({
   gitHead: 'abc1234',
   gitBranch: 'main',
   phase: 'B',
-  skill: 'phantom:start',
+  skill: 'gorkhali:start',
   version: 1,
   ...overrides,
 });

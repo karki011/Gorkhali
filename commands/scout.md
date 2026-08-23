@@ -1,13 +1,13 @@
 ---
 name: scout
-description: "Use when you need context before planning — explore the codebase, understand an implementation, map dependencies ('how is X implemented', 'gather context'). Implementation → phantom:start."
+description: "Use when you need context before planning — explore the codebase, understand an implementation, map dependencies ('how is X implemented', 'gather context'). Implementation → gorkhali:start."
 argument-hint: "[area]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS"]
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
 
-# /phantom:scout $ARGUMENTS
+# /gorkhali:scout $ARGUMENTS
 
 Parallel codebase exploration via scout agents. Main LLM = **coordinator**: picks areas, spawns parallel scouts, synthesizes.
 
@@ -84,7 +84,7 @@ After ALL background scouts complete:
 - All scouts `subagent_type: "engineer"` with read-only ROLE FOCUS: scout directive — named from the `scout` roster row, not `engineer` (see `reference/roster.md`); routing per Step 2.
 - All agents `mode: "bypassPermissions"`.
 - Only 1 area requested → still spawn as background agent (consistent pattern).
-- Scout results feed planning — write `scout-results.json` so `/phantom:start` can consume it.
+- Scout results feed planning — write `scout-results.json` so `/gorkhali:start` can consume it.
 - Do not implement. Scouts observe and report only.
 
 </constraints>

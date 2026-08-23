@@ -64,7 +64,7 @@ export function repoIdentity(workspace) {
   const root = codec.resolveDataRoot(workspace);
   const identity = codec.repoIdentity(workspace, {
     dataRoot: root,
-    phantomRepo: process.env.PHANTOM_REPO,
+    gorkhaliRepo: process.env.GORKHALI_REPO,
   });
   // Persist this repo's aliases (legacy plain name, raw-hash, codec-upgrade ids)
   // so its earlier ids stay discoverable through <data>/repos/.aliases.json.
@@ -89,7 +89,7 @@ function isPopulated(dir) {
   }
 }
 
-// Mirrors scripts/lib/phantom-paths.js resolveRepoSubdir, which owns the
+// Mirrors scripts/lib/gorkhali-paths.js resolveRepoSubdir, which owns the
 // rationale: fresh canonical data ALWAYS wins, an aliased dir answers only when
 // the canonical one is absent or empty, and a missing or malformed alias map
 // degrades to the canonical path. Alias keys become path segments, so the shape

@@ -1,19 +1,19 @@
 ---
 name: fix
-description: "Use when verification failed in a phantom session — broken tests, failed build, lint, red CI — and the failing step is KNOWN. Cold-start fixes → phantom:start; unknown causes → phantom:detective."
+description: "Use when verification failed in a gorkhali session — broken tests, failed build, lint, red CI — and the failing step is KNOWN. Cold-start fixes → gorkhali:start; unknown causes → gorkhali:detective."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
 
-# /phantom:fix
+# /gorkhali:fix
 
 Fix loop from latest failed verification.
 
 > **Loop authority:** the attempt count, the hard stop, and the same-finding-class
 > escalation are OWNED by `hooks/loop-controller.js`, NOT by this prose. The ceiling
 > (`FIX_LOOP_CEILING`, sourced from `scripts/lib/constants.js`; env override
-> `PHANTOM_FIX_LOOP_CEILING`) is not restated here. The controller counts from the
+> `GORKHALI_FIX_LOOP_CEILING`) is not restated here. The controller counts from the
 > review round ledger `{SESSION_DIR}/reviews/rounds.json` — how many times the
 > reviewed worktree fingerprint CHANGED between consecutive rounds, so
 > re-reviewing an unchanged diff adds a round but not an attempt, while step
@@ -29,12 +29,12 @@ Fix loop from latest failed verification.
 
 Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
 
-1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/phantom:verify` first).
+1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/gorkhali:verify` first).
 2. **Check loop count** — read the standing the ledger already holds:
 
    ```text
    {PR_BOOTSTRAP}
-   [ -z "$PR" ] && { echo "phantom: plugin dir not found under ~/.claude/plugins/cache/phantom — run /plugin to install"; exit 0; }
+   [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
    node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR} --json
    ```
 
@@ -54,7 +54,7 @@ Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STAN
 4. **Triage** — spawn triage agent (`subagent_type: "auditor"`, `name: "auditor-ledgard"`, `mode: "bypassPermissions"`): classify failures (build/type/contract/ui/test/etc.) and write the ordered fix packet with assigned owners to `{SESSION_DIR}/fix-packet.json`. (effort = session `high`; model per `reference/agents.md` → Model Routing)
 5. Show fix packet. **CHAINED (`--chained` present) → AUTO-PROCEED past approval (the loop ceiling + step-9 exhaustion escalation is the safety net). STANDALONE (token absent) → wait for user approval.**
 6. Per-spawn Engineer lifecycle state is owned by validated hooks.
-7. Spawn scoped repair Engineer(s) (`subagent_type: "engineer"`, `name:` per `reference/roster.md`'s reserved fix-packet range (its Spawn-Site Slot Table `fix.md` row), assigned in the order each owner entry appears in `{SESSION_DIR}/fix-packet.json`, `mode: "bypassPermissions"`) → re-verify: CHAINED → `Skill(skill="phantom:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="phantom:verify")` (no args).
+7. Spawn scoped repair Engineer(s) (`subagent_type: "engineer"`, `name:` per `reference/roster.md`'s reserved fix-packet range (its Spawn-Site Slot Table `fix.md` row), assigned in the order each owner entry appears in `{SESSION_DIR}/fix-packet.json`, `mode: "bypassPermissions"`) → re-verify: CHAINED → `Skill(skill="gorkhali:verify", args="--chained")` (keeps the loop autonomous); STANDALONE → `Skill(skill="gorkhali:verify")` (no args).
 8. **If re-verify passes** → exit, proceed to wrap.
    **If fails:** same class → scrap-and-redo (step 8.5) + write correction. Different class → increment loop, return to step 1.
 

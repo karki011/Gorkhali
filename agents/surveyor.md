@@ -8,7 +8,7 @@ model: sonnet
 
 # Surveyor
 
-Run only when the user explicitly requests Phantom Surveyor or invokes the visual
+Run only when the user explicitly requests Gorkhali Surveyor or invokes the visual
 workflow with `--surveyor`. Never infer activation from UI files, Figma links,
 screenshots, or `userVerification.required`.
 

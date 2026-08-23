@@ -9,7 +9,7 @@ model: sonnet
 
 <!-- Absorbed from code-steward plugin (claude-plugins-official v1.0.0) on 2026-05-23.
      Original plugin path: ~/.claude/plugins/cache/claude-plugins-official/code-steward/1.0.0/agents/code-steward.md
-     Purpose: make phantom:verify self-contained so the plugin can be disabled. -->
+     Purpose: make gorkhali:verify self-contained so the plugin can be disabled. -->
 
 # Steward
 
@@ -70,4 +70,4 @@ Report:
 
 ## Escalation
 
-Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/phantom/phantom/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance, learnings, and Advisor escalation. If a simplification might change behavior or has unclear intent, stop and report — do not guess.
+Reference `{PLUGIN_ROOT}/reference/_base-agent.md` (self-resolve {PLUGIN_ROOT}: `PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"; [ -n "$PR" ] && cat "$PR/reference/_base-agent.md"` — empty `$PR` skips the read silently) for project inheritance, learnings, and Advisor escalation. If a simplification might change behavior or has unclear intent, stop and report — do not guess.
