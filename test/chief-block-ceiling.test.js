@@ -1,7 +1,9 @@
 // Author: Subash Karki
 // chief-block-ceiling.test.js — core behavior of the bounded escape hatch:
 // recordAndCheck stays false below the ceiling, fires at the ceiling, resets
-// after firing, and keeps independent counters per (session, file) key.
+// after firing, keeps independent counters per (session, file) key, and
+// clear() resolves a block streak so a successful delegated edit does not
+// leave leftover count for a later, unrelated stall episode on the same key.
 'use strict';
 
 const { test } = require('node:test');
@@ -136,6 +138,43 @@ test('a different session (same file) has an independent counter', () => {
       const other = recordAndCheck(payload(f, { sessionId: 's2' }));
       assert.equal(other.escapeHatch, false);
       assert.equal(other.count, 1);
+    });
+  } finally {
+    delete process.env.GORKHALI_DATA;
+    f.cleanup();
+  }
+});
+
+test('clear() after a resolved block streak makes the next attempt start fresh, not carry the old count', () => {
+  const f = sandbox();
+  process.env.GORKHALI_DATA = f.data;
+  try {
+    withCeiling(3, ({ recordAndCheck, clear }) => {
+      // Two blocks (not yet at the ceiling of 3) — this episode gets resolved
+      // by a successful delegated edit before it ever escalates.
+      assert.equal(recordAndCheck(payload(f)).count, 1);
+      assert.equal(recordAndCheck(payload(f)).count, 2);
+
+      clear(payload(f));
+
+      // A later, unrelated block on the SAME key must not inherit count=2.
+      const r = recordAndCheck(payload(f));
+      assert.equal(r.escapeHatch, false);
+      assert.equal(r.count, 1, 'resolved episode must not leak count into a fresh one');
+    });
+  } finally {
+    delete process.env.GORKHALI_DATA;
+    f.cleanup();
+  }
+});
+
+test('clear() on a key with no counter file is a no-op', () => {
+  const f = sandbox();
+  process.env.GORKHALI_DATA = f.data;
+  try {
+    withCeiling(3, ({ clear, recordAndCheck }) => {
+      assert.doesNotThrow(() => clear(payload(f)));
+      assert.equal(recordAndCheck(payload(f)).count, 1);
     });
   } finally {
     delete process.env.GORKHALI_DATA;
