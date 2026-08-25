@@ -8,6 +8,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -88,4 +89,29 @@ test('a guarded command still runs the underlying hook when CLAUDE_PLUGIN_ROOT i
     0,
     `memory-reader.js did not exit 0 with CLAUDE_PLUGIN_ROOT set: ${result.stderr}`
   );
+});
+
+test('a guarded command survives a plugin root path containing a space', () => {
+  const commands = allCommands();
+  const memoryReader = commands.find((c) => c.command.includes('memory-reader.js'));
+  assert.ok(memoryReader, 'expected a memory-reader.js command in hooks.json');
+
+  const spacedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali space test'));
+  try {
+    fs.cpSync(path.join(REPO_ROOT, 'hooks'), path.join(spacedRoot, 'hooks'), { recursive: true });
+
+    const env = { ...process.env, CLAUDE_PLUGIN_ROOT: spacedRoot };
+    const result = spawnSync('sh', ['-c', memoryReader.command], {
+      env,
+      input: '{}',
+      encoding: 'utf-8',
+    });
+    assert.equal(
+      result.status,
+      0,
+      `memory-reader.js did not exit 0 with a spaced CLAUDE_PLUGIN_ROOT: ${result.stderr}`
+    );
+  } finally {
+    fs.rmSync(spacedRoot, { recursive: true, force: true });
+  }
 });
