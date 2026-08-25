@@ -68,7 +68,14 @@ function setup({ wrap, active = true, repo = 'myrepo', ticket = 'PROJ-1', resolv
   if (resolvable) {
     const csDir = path.join(data, 'state', 'current-session');
     fs.mkdirSync(csDir, { recursive: true });
-    fs.writeFileSync(path.join(csDir, repo + '.json'), JSON.stringify({ ticket }));
+    // Version-2 multi-task pointer shape: the gate resolves the FOCUS task id
+    // (here, the ticket itself) rather than a dedicated `ticket` field.
+    fs.writeFileSync(path.join(csDir, repo + '.json'), JSON.stringify({
+      schema_version: 2,
+      repo_id: repo,
+      focus_task_id: ticket,
+      tasks: { [ticket]: { session_dir: path.join(data, 'repos', repo, 'sessions', ticket), updated_at: new Date().toISOString() } },
+    }));
   }
 
   const sessDir = path.join(data, 'repos', repo, 'sessions', ticket);

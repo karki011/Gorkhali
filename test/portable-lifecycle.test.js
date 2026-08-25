@@ -324,10 +324,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.6.0');
+  assert.equal(started.bundle_version, '2.7.0');
   assert.deepEqual(started.producer, { role: 'chief', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.6.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.7.0');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -340,7 +340,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.6.0');
+  assert.equal(resumed.bundle_version, '2.7.0');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -363,7 +363,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.6.0');
+  assert.equal(recorded.artifact.bundle_version, '2.7.0');
   assert.deepEqual(recorded.artifact.producer, { role: 'inspector', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -400,7 +400,13 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   const completed = parse(await run(['complete', ...common], context.env));
   assert.equal(completed.status, 'completed');
 
-  const status = parse(await run(['status', ...common], context.env));
+  // Completed tasks are dropped from the active-task set: with nothing else
+  // active, a bare status call now reports none rather than the completed task.
+  const bareStatus = parse(await run(['status', ...common], context.env));
+  assert.equal(bareStatus.status, 'none');
+
+  // It remains independently readable via an explicit --task.
+  const status = parse(await run(['status', ...common, '--task', 'TASK-42'], context.env));
   assert.equal(status.status, 'completed');
   assert.equal(status.task_id, 'TASK-42');
 });
@@ -1182,7 +1188,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.6.0');
+  assert.equal(task.artifact.bundle_version, '2.7.0');
   assert.deepEqual(task.artifact.producer, { role: 'engineer', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -1876,19 +1882,204 @@ test('new decision artifacts invalidate approvals that depended on older content
   assert.match(blocked.stderr, /plan approval is missing.*approve --gate plan/s);
 });
 
-test('starting a different task does not orphan the current active session', async () => {
+test('starting a different task does not block or discard the current active session', async () => {
   const context = fixture();
   const common = ['--workspace', context.workspace];
-  parse(await run([
+  const first = parse(await run([
     'start', ...common, '--task', 'FIRST', '--intent', 'Keep this task current', '--route', 'plan',
   ], context.env));
+  assert.equal(first.status, 'active');
 
   const second = await run([
     'start', ...common, '--task', 'SECOND', '--intent', 'Do not orphan the first task', '--route', 'direct',
   ], context.env);
-  assert.equal(second.code, 1);
-  assert.match(second.stderr, /Cannot start task SECOND while current task FIRST is active/);
+  assert.equal(second.code, 0);
+  const secondSession = parse(second);
+  assert.equal(secondSession.status, 'active');
+  assert.equal(secondSession.task_id, 'SECOND');
+
+  // The new task becomes focus: a bare status call now reports SECOND.
+  assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'SECOND');
+
+  // FIRST is untouched and independently inspectable via an explicit --task.
+  const firstStatus = parse(await run(['status', ...common, '--task', 'FIRST'], context.env));
+  assert.equal(firstStatus.task_id, 'FIRST');
+  assert.equal(firstStatus.status, 'active');
+
+  // Re-starting FIRST (same intent/route) reactivates it as focus without error.
+  const resumedFirst = await run([
+    'start', ...common, '--task', 'FIRST', '--intent', 'Keep this task current', '--route', 'plan',
+  ], context.env);
+  assert.equal(resumedFirst.code, 0);
   assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'FIRST');
+});
+
+test('--task targets a specific non-focus task on mutating commands, not just status', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  parse(await run([
+    'start', ...common, '--task', 'FIRST', '--intent', 'First task work', '--route', 'direct',
+  ], context.env));
+  parse(await run([
+    'start', ...common, '--task', 'SECOND', '--intent', 'Second task work', '--route', 'direct',
+  ], context.env));
+  // SECOND is focus.
+  assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'SECOND');
+
+  // pause --task FIRST must pause FIRST, never the focus task.
+  const paused = parse(await run(['pause', ...common, '--task', 'FIRST', '--reason', 'targeted pause'], context.env));
+  assert.equal(paused.task_id, 'FIRST');
+  assert.equal(paused.status, 'paused');
+  assert.equal(parse(await run(['status', ...common, '--task', 'FIRST'], context.env)).status, 'paused');
+  const focusAfterPause = parse(await run(['status', ...common], context.env));
+  assert.equal(focusAfterPause.task_id, 'SECOND');
+  assert.equal(focusAfterPause.status, 'active', 'pausing FIRST must not touch the focus task SECOND');
+
+  // resume --task FIRST must reactivate FIRST specifically.
+  const resumed = parse(await run(['resume', ...common, '--task', 'FIRST'], context.env));
+  assert.equal(resumed.task_id, 'FIRST');
+  assert.equal(resumed.status, 'active');
+
+  // authorize --task FIRST must authorize FIRST, never the focus task SECOND.
+  const authorized = parse(await run([
+    'authorize', ...common, '--task', 'FIRST', '--scope', 'implementation',
+  ], context.env));
+  assert.equal(authorized.task_id, 'FIRST');
+  assert.equal(authorized.lifecycle.authorizations.implementation.status, 'authorized');
+  const secondUntouched = parse(await run(['status', ...common, '--task', 'SECOND'], context.env));
+  assert.equal(secondUntouched.lifecycle.authorizations.implementation.status, 'pending');
+
+  // execute --task FIRST must execute FIRST, never the focus task SECOND.
+  const executed = parse(await run(['execute', ...common, '--task', 'FIRST'], context.env));
+  assert.equal(executed.task_id, 'FIRST');
+  assert.equal(executed.lifecycle.actions.execute.status, 'started');
+  const secondStillNotExecuted = parse(await run(['status', ...common, '--task', 'SECOND'], context.env));
+  assert.equal(secondStillNotExecuted.lifecycle.actions.execute.status, 'pending');
+});
+
+test('an active session untouched for over 24h is auto-abandoned and releases focus', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'STALE-1', '--intent', 'Go stale while active', '--route', 'direct',
+  ], context.env));
+
+  const sessionFile = path.join(context.data, 'repos', started.repo_id, 'sessions', 'STALE-1', 'session.json');
+  const stale = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  stale.updated_at = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(sessionFile, JSON.stringify(stale));
+
+  const status = parse(await run(['status', ...common], context.env));
+  assert.equal(status.status, 'abandoned');
+
+  // Abandoned and dropped from the active set: nothing left to hold focus.
+  const after = parse(await run(['status', ...common], context.env));
+  assert.equal(after.status, 'none');
+});
+
+test('a paused session untouched for over 24h is never auto-abandoned', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'PAUSED-STALE', '--intent', 'Stay paused a long time', '--route', 'direct',
+  ], context.env));
+  parse(await run(['pause', ...common, '--reason', 'Stepping away'], context.env));
+
+  const sessionFile = path.join(context.data, 'repos', started.repo_id, 'sessions', 'PAUSED-STALE', 'session.json');
+  const stale = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  stale.updated_at = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(sessionFile, JSON.stringify(stale));
+
+  const status = parse(await run(['status', ...common], context.env));
+  assert.equal(status.status, 'paused', 'a paused session never ages into abandoned');
+});
+
+test('restarting a task whose session was auto-abandoned reactivates it', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'REACTIVATE-1', '--intent', 'Come back later', '--route', 'direct',
+  ], context.env));
+
+  const sessionFile = path.join(context.data, 'repos', started.repo_id, 'sessions', 'REACTIVATE-1', 'session.json');
+  const stale = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  stale.updated_at = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(sessionFile, JSON.stringify(stale));
+
+  assert.equal(parse(await run(['status', ...common], context.env)).status, 'abandoned');
+
+  const restarted = await run([
+    'start', ...common, '--task', 'REACTIVATE-1', '--intent', 'Come back later', '--route', 'direct',
+  ], context.env);
+  assert.equal(restarted.code, 0);
+  assert.equal(parse(restarted).status, 'active');
+  assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'REACTIVATE-1');
+});
+
+test('completing one of two active tasks drops it from the pointer and the other becomes focus', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const alphaStart = parse(await run([
+    'start', ...common, '--task', 'ALPHA', '--intent', 'Alpha task', '--route', 'direct',
+  ], context.env));
+  parse(await run([
+    'start', ...common, '--task', 'BETA', '--intent', 'Beta task', '--route', 'direct',
+  ], context.env));
+  assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'BETA');
+
+  // Refocus ALPHA (a no-op reactivation - same intent/route) and drive it to
+  // completion through the ordinary bare-focus commands.
+  parse(await run([
+    'start', ...common, '--task', 'ALPHA', '--intent', 'Alpha task', '--route', 'direct',
+  ], context.env));
+  assert.equal(parse(await run(['status', ...common], context.env)).task_id, 'ALPHA');
+
+  parse(await run(['authorize', ...common, '--scope', 'implementation'], context.env));
+  parse(await run(['execute', ...common], context.env));
+  parse(await run(['verify', ...common], context.env));
+  await recordGate(context, 'verification');
+  await recordGate(context, 'review');
+  parse(await run(['authorize', ...common, '--scope', 'ship-pr'], context.env));
+  parse(await run(['ship', ...common], context.env));
+  const completed = parse(await run(['complete', ...common], context.env));
+  assert.equal(completed.task_id, 'ALPHA');
+  assert.equal(completed.status, 'completed');
+
+  // BETA becomes focus again; a bare status call never reports the completed task.
+  const afterComplete = parse(await run(['status', ...common], context.env));
+  assert.equal(afterComplete.task_id, 'BETA');
+  assert.equal(afterComplete.status, 'active');
+
+  // ALPHA is off the pointer but remains separately readable via --task, and
+  // its archived session data is still on disk.
+  const alphaStatus = parse(await run(['status', ...common, '--task', 'ALPHA'], context.env));
+  assert.equal(alphaStatus.status, 'completed');
+  const completedDir = path.join(context.data, 'repos', alphaStart.repo_id, 'completed', 'ALPHA');
+  assert.ok(fs.existsSync(completedDir), 'ALPHA archived to completed');
+});
+
+test('status stays a pure read on a write-protected data root: reports abandoned without crashing', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const started = parse(await run([
+    'start', ...common, '--task', 'READONLY-STALE', '--intent', 'Go stale on a locked-down root', '--route', 'direct',
+  ], context.env));
+
+  const sessionDir = path.join(context.data, 'repos', started.repo_id, 'sessions', 'READONLY-STALE');
+  const sessionFile = path.join(sessionDir, 'session.json');
+  const stale = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+  stale.updated_at = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(sessionFile, JSON.stringify(stale));
+
+  // Read-only session directory: session.json can still be read, but the
+  // opportunistic auto-abandon write-back cannot land.
+  fs.chmodSync(sessionDir, 0o500);
+  try {
+    const result = parse(await run(['status', ...common], context.env));
+    assert.equal(result.status, 'abandoned', 'status must still report the correct state');
+  } finally {
+    fs.chmodSync(sessionDir, 0o700);
+  }
 });
 
 test('same-task restarts preserve immutable route and material intent', async () => {

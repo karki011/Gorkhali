@@ -68,6 +68,21 @@ function sessionActive() {
   }
 }
 
+// A repo may now have several concurrently-active tasks (see gorkhali-state.mjs
+// multi-task pointer); this resolves the FOCUS task (the one a bare command
+// without --task would act on), same as this hook's single-task behavior
+// before that change.
+function focusTaskFromPointer(sessionFile) {
+  const pointer = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
+  if (pointer && pointer.schema_version === 2 && typeof pointer.focus_task_id === 'string') {
+    return pointer.focus_task_id;
+  }
+  if (pointer && pointer.schema_version === 1 && typeof pointer.task_id === 'string') {
+    return pointer.task_id;
+  }
+  return null;
+}
+
 // Resolve the ticket for an active session, mirroring fix-loop-gate.js
 // resolveTicket() MINUS the toolInput.args branch (a Stop hook has no tool
 // args): current-session/<repo>.json first, then the git branch name. Returns
@@ -75,9 +90,9 @@ function sessionActive() {
 function resolveTicket(repo, cwd) {
   try {
     const sessionFile = path.join(stateDir(), 'current-session', repo + '.json');
-    const session = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
-    if (typeof session.ticket === 'string' && TICKET_RE.test(session.ticket)) {
-      return session.ticket.match(TICKET_RE)[0];
+    const focusTaskId = focusTaskFromPointer(sessionFile);
+    if (typeof focusTaskId === 'string' && TICKET_RE.test(focusTaskId)) {
+      return focusTaskId.match(TICKET_RE)[0];
     }
   } catch (_) { /* fall through to git */ }
 

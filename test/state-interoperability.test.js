@@ -256,9 +256,10 @@ test('portable-written lifecycle envelopes are readable by a Claude-side JSON re
 
   // durable task pointer (portable pointer, not telemetry)
   const pointer = JSON.parse(fs.readFileSync(path.join(ctx.data, 'state', 'current-session', `${repoId}.json`), 'utf8'));
-  assert.equal(pointer.schema_version, 1);
-  assert.equal(pointer.task_id, taskId);
+  assert.equal(pointer.schema_version, 2);
+  assert.equal(pointer.focus_task_id, taskId);
   assert.equal(pointer.repo_id, repoId);
+  assert.equal(pointer.tasks[taskId].session_dir, sessionDir);
 
   // context
   await recordArtifact(ctx, 'context', {}, { status: 'pending' });
@@ -358,11 +359,14 @@ test('legacy completed sessions remain readable without mutation', async () => {
   fs.writeFileSync(sessionFile, JSON.stringify(legacy));
   fs.mkdirSync(path.dirname(completedDirectory), { recursive: true });
   fs.renameSync(activeDirectory, completedDirectory);
-  const pointer = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
+  // A genuine version-1 scalar pointer, as an older (pre-multi-task) install
+  // would have left behind - not the current version-2 shape.
   fs.writeFileSync(pointerFile, JSON.stringify({
-    ...pointer,
-    status: 'completed',
+    schema_version: 1,
+    repo_id: started.repo_id,
+    task_id: 'LEGACY-COMPLETE',
     session_dir: completedDirectory,
+    updated_at: new Date().toISOString(),
   }));
 
   const before = treeSnapshot(ctx.data);
@@ -403,7 +407,8 @@ test('Claude session telemetry cannot overwrite the durable portable task pointe
   const repoId = started.repo_id;
   const pointerFile = path.join(ctx.data, 'state', 'current-session', `${repoId}.json`);
   const before = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
-  assert.equal(before.task_id, 'POINTER-1');
+  assert.equal(before.focus_task_id, 'POINTER-1');
+  assert.ok(before.tasks['POINTER-1'], 'pointer tracks the started task');
 
   // Fire the UserPromptSubmit hook the way Claude Code does: session_id on stdin.
   await new Promise((resolve, reject) => {
@@ -416,7 +421,7 @@ test('Claude session telemetry cannot overwrite the durable portable task pointe
   // The durable pointer is byte-for-byte unchanged: telemetry landed elsewhere.
   const after = JSON.parse(fs.readFileSync(pointerFile, 'utf8'));
   assert.deepEqual(after, before, 'durable task pointer untouched by telemetry write');
-  assert.equal(after.task_id, 'POINTER-1');
+  assert.equal(after.focus_task_id, 'POINTER-1');
 
   const telemetry = JSON.parse(fs.readFileSync(
     path.join(ctx.data, 'state', 'session-telemetry', `${repoId}.json`), 'utf8',

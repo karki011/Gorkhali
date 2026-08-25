@@ -733,8 +733,12 @@ test('valid current-session pointers are reconstructed to the canonical root; in
     // Reconstructed pointer lands at the canonical root, remapped to the dest dir.
     const destPointer = path.join(w.DEST, 'state', 'current-session', `${started.repo_id}.json`);
     const pointer = JSON.parse(fs.readFileSync(destPointer, 'utf8'));
-    assert.equal(pointer.task_id, 'MIG-1');
-    assert.equal(pointer.session_dir, path.join(w.DEST, 'repos', started.repo_id, 'sessions', 'MIG-1'));
+    assert.equal(pointer.schema_version, 2);
+    assert.equal(pointer.focus_task_id, 'MIG-1');
+    assert.equal(
+      pointer.tasks['MIG-1'].session_dir,
+      path.join(w.DEST, 'repos', started.repo_id, 'sessions', 'MIG-1'),
+    );
 
     // The session is resumable from the canonical root.
     const status = runPortable({ ...w.env, GORKHALI_DATA: w.DEST }, ['status', '--workspace', workspace]);

@@ -87,6 +87,13 @@ const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;
 const lockWaiter = new Int32Array(new SharedArrayBuffer(4));
+// An 'active' session untouched for this long is lazily flipped to 'abandoned'
+// the next time anything reads it. 'paused' sessions never age out this way -
+// only a session nobody is actively driving goes stale.
+const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000;
+// Durable pointer file shape: a repo-scoped set of concurrently-active tasks
+// plus a focus_task_id used when a caller does not name a task explicitly.
+const POINTER_SCHEMA_VERSION = 2;
 
 function approvalsForRoute(route) {
   return Object.hasOwn(ROUTE_APPROVALS, route) ? ROUTE_APPROVALS[route] : null;
@@ -431,8 +438,26 @@ function recoverStaleLock(file) {
   }
 }
 
+// Reentrant within one process: a single CLI invocation is single-threaded, so
+// a nested withLifecycleLock (e.g. an opportunistic auto-abandon write while a
+// mutation command already holds the lock) must not deadlock against itself.
+// The underlying file lock is still acquired and released exactly once per
+// outermost call, so cross-process serialization is unchanged.
+let heldLock = null;
+let lockDepth = 0;
+
 function acquireLifecycleLock(workspace) {
   const file = lockFile(workspace);
+  if (heldLock) {
+    if (heldLock.file !== file) {
+      throw new Error(
+        'Internal error: nested Gorkhali lifecycle lock requested for a different workspace '
+        + `(held: ${heldLock.file}, requested: ${file}). Reentrancy assumes one workspace per process.`,
+      );
+    }
+    lockDepth += 1;
+    return heldLock;
+  }
   const token = randomUUID();
   const deadline = Date.now() + LOCK_WAIT_MS;
   mkdirSync(dirname(file), { recursive: true });
@@ -444,7 +469,9 @@ function acquireLifecycleLock(workspace) {
       writeFileSync(descriptor, `${JSON.stringify({ pid: process.pid, token, created_at: now() })}\n`, 'utf8');
       closeSync(descriptor);
       descriptor = undefined;
-      return { file, token };
+      heldLock = { file, token };
+      lockDepth = 1;
+      return heldLock;
     } catch (error) {
       if (descriptor !== undefined) {
         closeSync(descriptor);
@@ -461,11 +488,16 @@ function acquireLifecycleLock(workspace) {
 }
 
 function releaseLifecycleLock(lock) {
+  if (lock !== heldLock) return;
+  lockDepth -= 1;
+  if (lockDepth > 0) return;
   try {
     const owner = JSON.parse(readFileSync(lock.file, 'utf8'));
     if (owner.token === lock.token) unlinkSync(lock.file);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
+  } finally {
+    heldLock = null;
   }
 }
 
@@ -478,18 +510,160 @@ function withLifecycleLock(workspace, action) {
   }
 }
 
-function currentSession(workspace) {
-  const pointer = readJson(currentSessionFile(workspace));
-  if (!pointer?.task_id) return null;
-  const paths = sessionPaths(workspace, pointer.task_id);
-  const sessionDirectory = pointer.session_dir || paths.sessionDir;
-  const session = readJson(join(sessionDirectory, 'session.json'));
+// Reads the durable pointer file and normalizes it to { tasks, focusTaskId },
+// regardless of whether it is a current version-2 multi-task record or a
+// version-1 scalar record left behind by an older install.
+function normalizePointerTasks(raw) {
+  if (!isObject(raw)) return {};
+  if (raw.schema_version === POINTER_SCHEMA_VERSION && isObject(raw.tasks)) {
+    const tasks = {};
+    for (const [taskId, entry] of Object.entries(raw.tasks)) {
+      if (isObject(entry) && typeof entry.session_dir === 'string') {
+        tasks[taskId] = {
+          session_dir: entry.session_dir,
+          updated_at: typeof entry.updated_at === 'string' ? entry.updated_at : now(),
+        };
+      }
+    }
+    return tasks;
+  }
+  if (raw.schema_version === 1 && typeof raw.task_id === 'string' && raw.task_id
+    && typeof raw.session_dir === 'string') {
+    return {
+      [raw.task_id]: {
+        session_dir: raw.session_dir,
+        updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : now(),
+      },
+    };
+  }
+  return {};
+}
+
+function normalizePointerFocus(raw, tasks) {
+  if (raw?.schema_version === POINTER_SCHEMA_VERSION
+    && typeof raw.focus_task_id === 'string' && Object.hasOwn(tasks, raw.focus_task_id)) {
+    return raw.focus_task_id;
+  }
+  if (raw?.schema_version === 1
+    && typeof raw.task_id === 'string' && Object.hasOwn(tasks, raw.task_id)) {
+    return raw.task_id;
+  }
+  return null;
+}
+
+function readPointer(currentFile) {
+  const raw = readJson(currentFile);
+  const tasks = normalizePointerTasks(raw);
+  return { tasks, focusTaskId: normalizePointerFocus(raw, tasks) };
+}
+
+function writePointer(currentFile, repoId, tasks, focusTaskId) {
+  atomicWriteJson(currentFile, {
+    schema_version: POINTER_SCHEMA_VERSION,
+    repo_id: repoId,
+    focus_task_id: focusTaskId,
+    tasks,
+  });
+}
+
+// Adds or refreshes one task's entry. `forceFocus` (used by `start`, where an
+// explicit --task is always the thing the caller is now working on) always
+// makes it focus. Otherwise focus is left alone unless there was none, or this
+// task already held it - so an explicit --task mutation on a task other than
+// the current focus (e.g. `pause --task <other>` while a different task is
+// focus) never silently steals focus out from under the caller's real work.
+function touchPointerTask(paths, sessionDir, { forceFocus = false } = {}) {
+  const pointer = readPointer(paths.currentFile);
+  pointer.tasks[paths.task] = { session_dir: sessionDir, updated_at: now() };
+  const focusTaskId = forceFocus || !pointer.focusTaskId ? paths.task : pointer.focusTaskId;
+  writePointer(paths.currentFile, paths.repo.id, pointer.tasks, focusTaskId);
+}
+
+// Drops one task from the active set (used when a session is auto-abandoned).
+// If it held focus, focus falls to the most-recently-updated survivor, or null.
+function dropPointerTask(paths) {
+  const pointer = readPointer(paths.currentFile);
+  if (!Object.hasOwn(pointer.tasks, paths.task)) return;
+  const tasks = { ...pointer.tasks };
+  delete tasks[paths.task];
+  let focusTaskId = pointer.focusTaskId === paths.task ? null : pointer.focusTaskId;
+  if (focusTaskId === null) {
+    const survivors = Object.entries(tasks).sort(
+      (a, b) => (Date.parse(b[1].updated_at) || 0) - (Date.parse(a[1].updated_at) || 0),
+    );
+    focusTaskId = survivors.length ? survivors[0][0] : null;
+  }
+  writePointer(paths.currentFile, paths.repo.id, tasks, focusTaskId);
+}
+
+function isStaleActive(session) {
+  if (session.status !== 'active') return false;
+  const updatedAt = Date.parse(session.updated_at);
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > ABANDON_AFTER_MS;
+}
+
+// Lazily flips a stale active session to 'abandoned' and drops it from the
+// active-task set, under the lifecycle lock (reentrant, so this is safe to call
+// from within a mutation that already holds it). Re-checks staleness under the
+// lock in case another process already made this transition.
+function abandonStaleSession(workspace, paths, session) {
+  return withLifecycleLock(workspace, () => {
+    const latest = readJson(join(paths.sessionDir, 'session.json')) || session;
+    if (!isStaleActive(latest)) return latest;
+    const abandoned = { ...latest, status: 'abandoned', updated_at: now() };
+    atomicWriteJson(join(paths.sessionDir, 'session.json'), abandoned);
+    dropPointerTask(paths);
+    return abandoned;
+  });
+}
+
+// Extracts an explicit --task value, if one was passed, for every command
+// that accepts args - resolving no value at all defers to currentSession's
+// own focus fallback.
+function taskIdFromArgs(args) {
+  return typeof args.task === 'string' && args.task ? args.task : undefined;
+}
+
+// taskId selects a specific task's session; omitted, it resolves to the
+// current focus (the most-recently-touched active task) - this preserves
+// existing single-task behavior for every caller that does not pass one.
+function currentSession(workspace, taskId, { bestEffortAbandon = false } = {}) {
+  const currentFile = currentSessionFile(workspace);
+  const pointer = readPointer(currentFile);
+  const effectiveTaskId = taskId || pointer.focusTaskId;
+  if (!effectiveTaskId) return null;
+  const entry = pointer.tasks[effectiveTaskId];
+  const paths = sessionPaths(workspace, effectiveTaskId);
+  // A pointer entry (active, or a legacy/paused one a mutation hasn't dropped)
+  // is authoritative. With no entry - most commonly an explicit --task naming
+  // a task `complete` has since dropped from the active set - fall back to
+  // the active session dir, then the archived one, so a completed task stays
+  // independently readable purely from its deterministic directory layout.
+  const sessionDirectory = entry?.session_dir
+    || (existsSync(join(paths.sessionDir, 'session.json')) ? paths.sessionDir : paths.completedDir);
   paths.sessionDir = sessionDirectory;
+  let session = readJson(join(sessionDirectory, 'session.json'));
   if (!session) return null;
   if (session.schema_version !== 1) {
     throw new Error(
       `Unsupported Gorkhali session schema version: ${JSON.stringify(session.schema_version)}.`,
     );
+  }
+  if (isStaleActive(session)) {
+    if (bestEffortAbandon) {
+      // The plain `status` read path runs outside withLifecycleLock and must
+      // stay pure-read on a read-only or permission-restricted data root: a
+      // failed opportunistic write-back must never turn a read into a crash.
+      // Report the correct status regardless; the next command with write
+      // access (any of which already runs under the lock) retries the write.
+      try {
+        session = abandonStaleSession(workspace, paths, session);
+      } catch {
+        session = { ...session, status: 'abandoned' };
+      }
+    } else {
+      session = abandonStaleSession(workspace, paths, session);
+    }
   }
   const sessionHadWorkKind = session.work_kind !== undefined;
   session.lifecycle = lifecycleFor(session);
@@ -498,16 +672,22 @@ function currentSession(workspace) {
   }
   return {
     paths,
-    pointer,
     session,
     sessionHadWorkKind,
   };
 }
 
-function requireCurrent(workspace) {
-  const current = currentSession(workspace);
+function requireCurrent(workspace, taskId) {
+  const current = currentSession(workspace, taskId);
   if (!current) throw new Error('No active Gorkhali session for this workspace.');
   if (current.session.status === 'completed') throw new Error('The current Gorkhali session is already completed.');
+  if (current.session.status === 'abandoned') {
+    throw new Error(
+      'The current Gorkhali session was automatically abandoned after 24 hours without activity. '
+      + 'Start a new task, or reactivate this one with `gorkhali-state.mjs start --task <id> --intent <text> '
+      + '--workspace <path>`.',
+    );
+  }
   return current;
 }
 
@@ -527,13 +707,10 @@ function start(workspace, args) {
   }
   const requestedMode = args['to-plan'] === true || args.mode === 'to-plan' ? 'to-plan' : 'standard';
   const paths = sessionPaths(workspace, args.task);
-  const current = currentSession(workspace);
-  if (current && current.session.status !== 'completed' && current.paths.task !== paths.task) {
-    throw new Error(
-      `Cannot start task ${paths.task} while current task ${current.paths.task} is ${current.session.status}. `
-      + 'Complete the current task before starting another one.',
-    );
-  }
+  // Multiple tasks may be active for the same repo at once - starting a new
+  // task_id never blocks on another task's status. It joins the active set and
+  // becomes focus (see touchPointerTask below). Resuming the SAME task_id still
+  // goes through the immutability checks below, unchanged.
   mkdirSync(paths.sessionDir, { recursive: true });
   const existing = readJson(join(paths.sessionDir, 'session.json'));
   const correction = existing?.work_kind_correction ?? null;
@@ -596,18 +773,12 @@ function start(workspace, args) {
     route_source: session.route_source,
     work_kind: session.work_kind,
   }));
-  atomicWriteJson(paths.currentFile, {
-    schema_version: 1,
-    repo_id: paths.repo.id,
-    task_id: paths.task,
-    session_dir: paths.sessionDir,
-    updated_at: now(),
-  });
+  touchPointerTask(paths, paths.sessionDir, { forceFocus: true });
   return session;
 }
 
-function status(workspace) {
-  const current = currentSession(workspace);
+function status(workspace, taskId) {
+  const current = currentSession(workspace, taskId, { bestEffortAbandon: true });
   return current?.session || { schema_version: 1, status: 'none', workspace };
 }
 
@@ -617,11 +788,12 @@ function decisionStatuses(decisions) {
   );
 }
 
-function statusNext(result, lifecycle, workspace) {
+function statusNext(result, lifecycle, workspace, taskId) {
   if (result.status === 'none') return 'start';
   if (result.status === 'completed') return null;
+  if (result.status === 'abandoned') return 'start';
   if (result.status === 'paused') return 'resume';
-  const current = currentSession(workspace);
+  const current = currentSession(workspace, taskId);
   if (lifecycle.mode === 'to-plan') {
     const plan = readJson(join(current.paths.sessionDir, 'plan.json'));
     return approvalArtifactErrors('plan', plan, current).length > 0 ? 'record:plan' : null;
@@ -667,7 +839,7 @@ function statusNext(result, lifecycle, workspace) {
   return 'complete-or-request-shipping';
 }
 
-function statusProjection(result, workspace) {
+function statusProjection(result, workspace, taskId) {
   if (result.status === 'none') {
     return { schema_version: 1, ok: true, command: 'status', status: 'none', next: 'start' };
   }
@@ -683,7 +855,7 @@ function statusProjection(result, workspace) {
     approvals: decisionStatuses(lifecycle.approvals),
     authorizations: decisionStatuses(lifecycle.authorizations),
     actions: decisionStatuses(lifecycle.actions),
-    next: statusNext(result, lifecycle, workspace),
+    next: statusNext(result, lifecycle, workspace, taskId),
   };
 }
 
@@ -706,8 +878,8 @@ function receiptNext(command, result) {
   return 'status';
 }
 
-function compactProjection(command, result, workspace) {
-  if (command === 'status') return statusProjection(result, workspace);
+function compactProjection(command, result, workspace, taskId) {
+  if (command === 'status') return statusProjection(result, workspace, taskId);
   if (command === 'fingerprint') {
     return { ...result, ok: true, command: 'fingerprint' };
   }
@@ -749,7 +921,7 @@ function updateStatus(workspace, nextStatus, extra = {}, current = requireCurren
     updated_at: now(),
   };
   atomicWriteJson(join(current.paths.sessionDir, 'session.json'), session);
-  atomicWriteJson(current.paths.currentFile, { ...current.pointer, updated_at: now() });
+  touchPointerTask(current.paths, current.paths.sessionDir);
   return session;
 }
 
@@ -868,7 +1040,7 @@ function approve(workspace, args) {
   if (!APPROVAL_GATES.has(args.gate)) {
     throw new Error('approve requires --gate direction, --gate plan, or --gate wiring.');
   }
-  const current = requireCurrent(workspace);
+  const current = requireCurrent(workspace, taskIdFromArgs(args));
   const { route } = current.session;
   if (!approvalsForRoute(route)?.includes(args.gate)) {
     throw new Error(`Cannot approve ${args.gate}: route ${route} does not use that approval gate.`);
@@ -905,7 +1077,7 @@ function authorize(workspace, args) {
   if (!scope) {
     throw new Error('authorize requires --scope implementation or --scope ship-pr.');
   }
-  const current = requireCurrent(workspace);
+  const current = requireCurrent(workspace, taskIdFromArgs(args));
   const lifecycle = lifecycleFor(current.session);
   lifecycle.authorizations[scope] = {
     status: 'authorized',
@@ -916,7 +1088,7 @@ function authorize(workspace, args) {
 }
 
 function correctWorkKind(workspace, args) {
-  const current = requireCurrent(workspace);
+  const current = requireCurrent(workspace, taskIdFromArgs(args));
   if (lifecycleFor(current.session).actions.execute.status === 'started') {
     throw new Error(
       'Cannot correct work kind: execution has already started through the lifecycle gate. '
@@ -1085,8 +1257,8 @@ function prepareExecute(current) {
   return lifecycle;
 }
 
-function execute(workspace) {
-  const current = requireCurrent(workspace);
+function execute(workspace, taskId) {
+  const current = requireCurrent(workspace, taskId);
   const lifecycle = prepareExecute(current);
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
@@ -1108,8 +1280,8 @@ function prepareVerify(current) {
   return lifecycle;
 }
 
-function verify(workspace) {
-  const current = requireCurrent(workspace);
+function verify(workspace, taskId) {
+  const current = requireCurrent(workspace, taskId);
   const lifecycle = prepareVerify(current);
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
@@ -1519,7 +1691,7 @@ function record(workspace, args) {
   if (!args.type || !args.status) throw new Error('record requires --type and --status.');
   if (!Object.hasOwn(ARTIFACTS, args.type)) throw new Error(`Unsupported artifact type: ${args.type}`);
   if (!ARTIFACT_STATUSES.has(args.status)) throw new Error(`Unsupported artifact status: ${args.status}`);
-  const current = requireCurrent(workspace);
+  const current = requireCurrent(workspace, taskIdFromArgs(args));
   if (args.type === 'review' && args.role !== 'auditor') {
     const received = args.role === undefined ? 'no explicit role' : args.role;
     throw new Error(
@@ -1728,8 +1900,8 @@ function requireCurrentPassedGates(current, action) {
   return fingerprint;
 }
 
-function ship(workspace) {
-  const current = requireCurrent(workspace);
+function ship(workspace, taskId) {
+  const current = requireCurrent(workspace, taskId);
   requireStandardMode(current, 'ship');
   const lifecycle = lifecycleFor(current.session);
   if (lifecycle.actions.execute.status !== 'started') {
@@ -1755,8 +1927,8 @@ function ship(workspace) {
   return updateStatus(workspace, current.session.status, { lifecycle }, current);
 }
 
-function complete(workspace) {
-  const current = requireCurrent(workspace);
+function complete(workspace, taskId) {
+  const current = requireCurrent(workspace, taskId);
   if (current.session.lifecycle.mode === 'to-plan') {
     const plan = readJson(join(current.paths.sessionDir, 'plan.json'));
     const errors = approvalArtifactErrors('plan', plan, current);
@@ -1782,12 +1954,12 @@ function complete(workspace) {
   const session = updateStatus(workspace, 'completed', { completed_at: now() }, current);
   mkdirSync(join(current.paths.repoRoot, 'completed'), { recursive: true });
   renameSync(current.paths.sessionDir, current.paths.completedDir);
-  atomicWriteJson(current.paths.currentFile, {
-    ...current.pointer,
-    status: 'completed',
-    session_dir: current.paths.completedDir,
-    updated_at: now(),
-  });
+  // A completed task is done, not "in flight" - it never blocks anything (see
+  // start()) and must never linger as focus_task_id, so it is dropped from the
+  // active-task set entirely. session.json under completedDir remains the
+  // durable, separately-readable record; the pointer only tracks what is
+  // currently active.
+  dropPointerTask(current.paths);
   return session;
 }
 
@@ -1796,22 +1968,30 @@ function main() {
   const command = args._[0];
   const workspace = workspacePath(args.workspace);
 
+  const taskId = taskIdFromArgs(args);
+
   try {
     let result;
-    if (command === 'status') result = status(workspace);
+    if (command === 'status') result = status(workspace, taskId);
     else if (command === 'fingerprint') result = fingerprint(workspace);
     else result = withLifecycleLock(workspace, () => {
       if (command === 'start') return start(workspace, args);
-      if (command === 'pause') return updateStatus(workspace, 'paused', { pause_reason: args.reason || 'Paused by user.' });
-      if (command === 'resume') return updateStatus(workspace, 'active', { resumed_at: now() });
+      if (command === 'pause') {
+        return updateStatus(
+          workspace, 'paused', { pause_reason: args.reason || 'Paused by user.' }, requireCurrent(workspace, taskId),
+        );
+      }
+      if (command === 'resume') {
+        return updateStatus(workspace, 'active', { resumed_at: now() }, requireCurrent(workspace, taskId));
+      }
       if (command === 'approve') return approve(workspace, args);
       if (command === 'authorize') return authorize(workspace, args);
       if (command === 'correct-work-kind') return correctWorkKind(workspace, args);
-      if (command === 'execute') return execute(workspace);
-      if (command === 'verify') return verify(workspace);
+      if (command === 'execute') return execute(workspace, taskId);
+      if (command === 'verify') return verify(workspace, taskId);
       if (command === 'record') return record(workspace, args);
-      if (command === 'ship') return ship(workspace);
-      if (command === 'complete') return complete(workspace);
+      if (command === 'ship') return ship(workspace, taskId);
+      if (command === 'complete') return complete(workspace, taskId);
       throw new Error(
         'Usage: gorkhali-state.mjs '
         + '<start|status|fingerprint|pause|resume|approve|authorize|correct-work-kind'
@@ -1820,7 +2000,7 @@ function main() {
     });
     const output = args.json === true
       ? JSON.stringify(result, null, 2)
-      : JSON.stringify(compactProjection(command, result, workspace));
+      : JSON.stringify(compactProjection(command, result, workspace, taskId));
     process.stdout.write(`${output}\n`);
   } catch (error) {
     fail(error.message);

@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const codec = require('../../skills/gorkhali/scripts/lib/shared-state.cjs');
+const { SESSION_ABANDON_AFTER_MS } = require('./constants');
 
 const ACTIVE = 'active';
 const INACTIVE = 'inactive';
@@ -43,6 +44,35 @@ function within(target, root) {
   return target === root || target.startsWith(root + path.sep);
 }
 
+// Mirrors gorkhali-state.mjs's isStaleActive(): an unparseable updated_at is
+// treated as NOT stale (fail-safe, matching the write-side reader exactly) so
+// the two never disagree about the same session. This module is read-only by
+// design (a hook helper) - it never performs the lock-guarded write-back that
+// currentSession() does on the write side; it only stops COUNTING a session
+// that has aged past the threshold as currently active.
+function isStaleActive(session) {
+  const updatedAt = Date.parse(session?.updated_at);
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > SESSION_ABANDON_AFTER_MS;
+}
+
+// Pointer task ids to check for this repo: every entry of a version-2
+// multi-task record, or the single implicit task of a version-1 scalar record
+// left behind by an older install. Malformed/foreign records yield none.
+function pointerTaskIds(pointer, repo) {
+  if (!pointer || pointer.repo_id !== repo) return [];
+  if (pointer.schema_version === 2 && pointer.tasks && typeof pointer.tasks === 'object'
+    && !Array.isArray(pointer.tasks)) {
+    return Object.keys(pointer.tasks);
+  }
+  if (pointer.schema_version === 1 && pointer.task_id) return [pointer.task_id];
+  return [];
+}
+
+function pointerSessionDir(pointer, taskId) {
+  if (pointer.schema_version === 2) return pointer.tasks[taskId]?.session_dir;
+  return pointer.session_dir;
+}
+
 function routingState(workspace) {
   try {
     const root = path.resolve(codec.resolveDataRoot(workspace));
@@ -56,25 +86,40 @@ function routingState(workspace) {
     if (pointerResult.state !== ACTIVE) return pointerResult.state;
 
     const pointer = pointerResult.value;
-    if (pointer?.schema_version !== 1 || pointer.repo_id !== repo || !pointer.task_id) return INACTIVE;
-    if (typeof pointer.session_dir !== 'string' || !path.isAbsolute(pointer.session_dir)) return INACTIVE;
+    const taskIds = pointerTaskIds(pointer, repo);
+    if (taskIds.length === 0) return INACTIVE;
 
     const sessionsRootResult = realpath(path.join(root, 'repos', repo, 'sessions'));
-    const sessionDirResult = realpath(pointer.session_dir);
     if (sessionsRootResult.state !== ACTIVE) return sessionsRootResult.state;
-    if (sessionDirResult.state !== ACTIVE) return sessionDirResult.state;
-    if (!within(sessionDirResult.value, sessionsRootResult.value)) return INACTIVE;
 
-    const sessionResult = readJson(path.join(sessionDirResult.value, 'session.json'));
-    if (sessionResult.state !== ACTIVE) return sessionResult.state;
-    const session = sessionResult.value;
-    return session?.schema_version === 1
-      && session.repo_id === repo
-      && session.task_id === pointer.task_id
-      && session.status === 'active'
-      && session.workspace === identity.root
-      ? ACTIVE
-      : INACTIVE;
+    // ACTIVE as soon as one task in the set is genuinely active. A genuinely
+    // ambiguous (non-ENOENT/structural) filesystem error on any one of them
+    // aborts the scan as UNKNOWN rather than being silently skipped; anything
+    // else about that task just means it is not the active one, and the scan
+    // continues to the next candidate.
+    for (const taskId of taskIds) {
+      const sessionDir = pointerSessionDir(pointer, taskId);
+      if (typeof sessionDir !== 'string' || !path.isAbsolute(sessionDir)) continue;
+      const sessionDirResult = realpath(sessionDir);
+      if (sessionDirResult.state !== ACTIVE) {
+        if (sessionDirResult.state === UNKNOWN) return UNKNOWN;
+        continue;
+      }
+      if (!within(sessionDirResult.value, sessionsRootResult.value)) continue;
+
+      const sessionResult = readJson(path.join(sessionDirResult.value, 'session.json'));
+      if (sessionResult.state === UNKNOWN) return UNKNOWN;
+      if (sessionResult.state !== ACTIVE) continue;
+      const session = sessionResult.value;
+      const isActive = session?.schema_version === 1
+        && session.repo_id === repo
+        && session.task_id === taskId
+        && session.status === 'active'
+        && session.workspace === identity.root
+        && !isStaleActive(session);
+      if (isActive) return ACTIVE;
+    }
+    return INACTIVE;
   } catch (_) {
     return UNKNOWN;
   }

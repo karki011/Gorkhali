@@ -230,7 +230,9 @@ node -e '
     const repo=pp.detectRepo();
     let ticket=null;
     try{ const s=JSON.parse(fs.readFileSync(path.join(pp.stateDir(),"current-session",repo+".json"),"utf8"));
-      if(typeof s.ticket==="string"&&TICKET_RE.test(s.ticket)) ticket=s.ticket.match(TICKET_RE)[0]; }catch(_){}
+      const focusTaskId=(s&&s.schema_version===2&&typeof s.focus_task_id==="string")?s.focus_task_id
+        :(s&&s.schema_version===1&&typeof s.task_id==="string")?s.task_id:null;
+      if(typeof focusTaskId==="string"&&TICKET_RE.test(focusTaskId)) ticket=focusTaskId.match(TICKET_RE)[0]; }catch(_){}
     if(!ticket){ try{ const b=require("child_process").execFileSync("git",["branch","--show-current"],{encoding:"utf8"});
       const m=b.match(TICKET_RE); if(m) ticket=m[0]; }catch(_){ } }
     if(!repo||!ticket) process.exit(0);
