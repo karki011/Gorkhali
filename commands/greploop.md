@@ -30,7 +30,7 @@ Never merge. Never ask whether to run.
    - E. Fix actionable comments (skip under `--no-fix`). Substantial multi-file change: spawn `subagent_type: "engineer"`, `name: "engineer-vosler"`.
    - F. Commit + push (push BEFORE replying).
    - G. Reply in-thread tagging the author (`@greptileai` when Greptile; otherwise `@<login>`), resolve threads, loop back to A.
-2. **Phase 2 — arm watch** — write `{SESSION_DIR}/pr-watch.json` (`status: watching`) and run the first `CHIEF_PING` tick per `reference/pr-watch.md` (`subagent_type: "clerk"`, `name: "clerk-herald"`).
+2. **Phase 2 — arm watch** — write `{SESSION_DIR}/pr-watch.json` (`status: watching`) and run the first `CHIEF_PING` tick per `reference/pr-watch.md` (`subagent_type: "clerk"`, `name: "clerk-herald"`). Clerk emits the ping only via `{PR_BOOTSTRAP}; printf '%s\n' "$PING_JSON" | node "$PR/scripts/lib/chief-ping.js" format` (empty `$PR` or non-zero CLI → failed tick; no hand-typed block).
 3. **Report** — PR, iterations, remaining, watch status.
 
 On Phase 1 exit (success or Greptile unavailable), **release the wrap gate** by writing `greptile.status` to the session `wrap.json` (`done` | `skipped`) — greploop is the SOLE writer; `hooks/greploop-gate.js` blocks the session until it lands. Never merges the PR — merging stays a human action.

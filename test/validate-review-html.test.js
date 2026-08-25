@@ -27,6 +27,11 @@ const plan = () => ({
 });
 
 const brainstorm = () => ({
+  briefing: {
+    tackling: 'Which review approach to use',
+    problem: 'Reviewers need a comparable set of approaches.',
+    how: 'Lead with What, Problem, and How, then a comparison table.',
+  },
   decision: { question: 'Which review approach should we use?' },
   approaches: [{ id: 'direct-html', name: 'Direct AI HTML' }],
   recommendedDefault: { id: 'direct-html', reason: 'It removes the renderer layer.' },
@@ -41,8 +46,9 @@ ${CSP_META}<title>Review</title>${extraHead}</head>
 const planLead = (source = plan()) => `<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.briefing.how}</p><p>${source.decision.question}</p><p>${source.decision.recommendation}</p><p>${source.outcome.goal}</p>`;
 const planAppendix = '<details><summary>Implementation</summary><p>Task details</p></details>';
 const planPage = (extra = '', extraHead = '') => page(`${planLead()}${planAppendix}${extra}`, extraHead);
+const brainstormLead = (source = brainstorm()) => `<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.briefing.how}</p><p>${source.decision.question}</p><p>Direct AI HTML</p><p>${source.recommendedDefault.reason}</p><p>${source.directionGate.question}</p>`;
 const brainstormTable = '<table><thead><tr><th>Approach</th><th>Why</th></tr></thead><tbody><tr><td>Direct AI HTML</td><td>Removes the renderer</td></tr></tbody></table>';
-const brainstormPage = () => page(`<p>${brainstorm().decision.question}</p><p>Direct AI HTML</p><p>${brainstorm().recommendedDefault.reason}</p><p>${brainstorm().directionGate.question}</p>${brainstormTable}`);
+const brainstormPage = () => page(`${brainstormLead()}${brainstormTable}`);
 const fixtureDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-review-html-'));
 
 const run = (dir, type, source, candidate, output = 'accepted.html') => {
@@ -260,7 +266,7 @@ test('rejects an expanded details element in the plan main', () => {
 });
 
 test('requires a brainstorm comparison table before details', () => {
-  const strings = `<p>${brainstorm().decision.question}</p><p>Direct AI HTML</p><p>${brainstorm().recommendedDefault.reason}</p><p>${brainstorm().directionGate.question}</p>`;
+  const strings = brainstormLead();
   const missing = run(fixtureDir(), 'brainstorm', brainstorm(), page(strings + '<details><summary>Cards</summary><p>Detail</p></details>'));
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /brainstorm review must include a table in main/);
@@ -279,11 +285,18 @@ test('rejects a plan candidate whose details have an open attribute', () => {
 });
 
 test('rejects a brainstorm candidate whose details after the table have an open attribute', () => {
-  const strings = `<p>${brainstorm().decision.question}</p><p>Direct AI HTML</p><p>${brainstorm().recommendedDefault.reason}</p><p>${brainstorm().directionGate.question}</p>`;
-  const html = page(`${strings}${brainstormTable}<details open><summary>Cards</summary><p>Detail</p></details>`);
+  const html = page(`${brainstormLead()}${brainstormTable}<details open><summary>Cards</summary><p>Detail</p></details>`);
   const result = run(fixtureDir(), 'brainstorm', brainstorm(), html);
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /details must not have an open attribute/);
+});
+
+test('rejects a brainstorm candidate missing briefing.how', () => {
+  const source = brainstorm();
+  const html = page(`<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.decision.question}</p><p>Direct AI HTML</p><p>${source.recommendedDefault.reason}</p><p>${source.directionGate.question}</p>${brainstormTable}`);
+  const result = run(fixtureDir(), 'brainstorm', source, html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /missing canonical review text|briefing\.how/);
 });
 
 test('accepts a valid planPage whose details have no open attribute', () => {

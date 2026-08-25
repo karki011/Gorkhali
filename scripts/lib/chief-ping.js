@@ -293,3 +293,70 @@ module.exports = {
   validateWatchState,
   looksLikeBooleanOnly,
 };
+
+// CLI: node chief-ping.js format|parse|ack|validate-watch
+// stdin JSON/text → stdout result; exit 0 ok / 1 invalid / 2 usage.
+if (require.main === module) {
+  const cmd = process.argv[2];
+  const COMMANDS = ['format', 'parse', 'ack', 'validate-watch'];
+
+  function usage() {
+    process.stderr.write(
+      'Usage:\n' +
+      '  node chief-ping.js format          # JSON ping on stdin → CHIEF_PING block\n' +
+      '  node chief-ping.js parse           # Clerk turn on stdin → ping JSON\n' +
+      '  node chief-ping.js ack             # JSON {tick,kind} on stdin → CHIEF_ACK line\n' +
+      '  node chief-ping.js validate-watch  # JSON watch state on stdin → {"ok":true}\n'
+    );
+    process.exit(2);
+  }
+
+  if (!COMMANDS.includes(cmd)) usage();
+
+  function failCli(message) {
+    process.stderr.write(`[chief-ping] ${message}\n`);
+    process.exit(1);
+  }
+
+  function parseStdinJson(raw) {
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      failCli(`invalid JSON on stdin: ${err.message}`);
+    }
+  }
+
+  let raw = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => { raw += chunk; });
+  process.stdin.on('end', () => {
+    try {
+      if (cmd === 'format') {
+        const ping = parseStdinJson(raw);
+        process.stdout.write(formatChiefPing(ping) + '\n');
+        process.exit(0);
+      }
+      if (cmd === 'parse') {
+        const result = parseChiefPing(raw);
+        if (!result.ok) failCli(result.errors.join('; '));
+        process.stdout.write(JSON.stringify(result.ping) + '\n');
+        process.exit(0);
+      }
+      if (cmd === 'ack') {
+        const body = parseStdinJson(raw);
+        const ack = { tick: body.tick, kind: body.kind };
+        const result = validateAck(ack, body.ping);
+        if (!result.ok) failCli(result.errors.join('; '));
+        process.stdout.write(formatChiefAck(result.ack) + '\n');
+        process.exit(0);
+      }
+      const state = parseStdinJson(raw);
+      const result = validateWatchState(state);
+      if (!result.ok) failCli(result.errors.join('; '));
+      process.stdout.write('{"ok":true}\n');
+      process.exit(0);
+    } catch (err) {
+      failCli(err.message);
+    }
+  });
+}

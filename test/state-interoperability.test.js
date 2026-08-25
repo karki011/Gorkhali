@@ -195,6 +195,13 @@ const portableApproach = (id, name, lens = 'decision clarity', effort = 'low', r
 const portableBrainstorm = () => ({
   contract_version: 3,
   depth: 'quick',
+  briefing: {
+    tackling: 'How review output should be organized',
+    problem: 'Reviewers need the recommendation before execution mechanics',
+    how: 'Lead with What, Problem, and How, then a comparison of distinct approaches',
+    scope: 'Review presentation for portable artifacts',
+    risks: 'A task-first layout hides the recommendation',
+  },
   stance: { mode: 'creative-partner', reason: 'The user owns the outcome while the agent develops alternatives' },
   phase: 'decision',
   decision: {

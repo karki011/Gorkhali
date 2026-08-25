@@ -165,6 +165,13 @@ const validBrainstorm = () => ({
   _meta: meta(),
   depth: 'standard',
   title: 'Planning output options',
+  briefing: {
+    tackling: 'Planning output options',
+    problem: 'Users see tasks and waves instead of a researched recommendation',
+    how: 'Lead with What, Problem, and How, then a comparison of distinct approaches',
+    scope: 'Review presentation for planning results',
+    risks: 'A task-first review delays informed approval',
+  },
   problem: 'Users see tasks and waves instead of a researched recommendation',
   stance: {
     mode: 'creative-partner',
@@ -251,6 +258,17 @@ test('plan v3 requires a briefing with tackling, problem, and how', async () => 
   delete portable._meta;
   delete portable.briefing;
   assert.match(validateDecisionContract('plan', portable).join('\n'), /briefing: required object/);
+});
+
+test('brainstorm v3 requires a briefing with tackling, problem, how, scope, and risks', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const missing = validBrainstorm();
+  delete missing.briefing;
+  assert.match(validate('brainstorm', missing).join('\n'), /briefing: required object/);
+  const portable = { ...validBrainstorm(), contract_version: 3 };
+  delete portable._meta;
+  delete portable.briefing;
+  assert.match(validateDecisionContract('brainstorm', portable).join('\n'), /briefing: required object/);
 });
 
 test('standard plan v3 requires an implication on verified or supported evidence', async () => {

@@ -69,6 +69,10 @@ test('reference/pr-watch.md pins CHIEF_PING, illegal {new:false}, never merge', 
   assert.match(content, /illegal/);
   assert.match(content, /never merge/i);
   assert.ok(content.includes('clerk-herald'));
+  assert.ok(
+    content.includes('scripts/lib/chief-ping.js" format'),
+    'pr-watch.md must require the production chief-ping.js format CLI'
+  );
 });
 
 test('resume.md continues an armed pr-watch without asking', () => {
@@ -95,4 +99,7 @@ test('brainstorm.md converges with Pick A/B/C, a table, and assumption language'
   assert.ok(content.includes('Pick A / B / C'));
   assert.match(content, /comparison table|<table>/);
   assert.ok(content.includes('How without supporting evidence is an assumption'));
+  assert.ok(content.includes('briefing.tackling'));
+  assert.ok(content.includes('briefing.scope'));
+  assert.ok(content.includes('briefing.risks'));
 });

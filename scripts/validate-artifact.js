@@ -399,6 +399,12 @@ const SCHEMAS = {
 
   brainstorm: {
     fields: [
+      { field: 'briefing', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Plain-English What/Problem/How the human gate leads with' },
+      { field: 'briefing.tackling', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What this decision is tackling, in one sentence' },
+      { field: 'briefing.problem', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The pain the approaches address, in plain language' },
+      { field: 'briefing.how', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'How the recommendation solves it; a How without evidence is an assumption' },
+      { field: 'briefing.scope', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What is in and out of this decision, in plain language' },
+      { field: 'briefing.risks', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Material risks of the recommended direction, in plain language' },
       { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Decision frame shown before approaches' },
       { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The choice the user is being asked to make' },
       { field: 'decision.outcome', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Desired observable outcome' },
@@ -470,6 +476,12 @@ const SCHEMAS = {
         }
       }
       if (brainstormVersion >= 3) {
+        if (!isObject(d.briefing)) errors.push('briefing: required object');
+        else {
+          for (const field of ['tackling', 'problem', 'how', 'scope', 'risks']) {
+            if (!isNonEmptyString(d.briefing[field])) errors.push(`briefing.${field}: required string`);
+          }
+        }
         if (!isObject(d.decision)) errors.push('decision: required object (schema v3+)');
         else {
           if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');

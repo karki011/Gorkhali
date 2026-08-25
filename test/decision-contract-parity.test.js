@@ -34,6 +34,13 @@ const OVERLAPPING_NEW_RULES = [
   /duplicate thesis/,
   /effort, risk, and reversibility must not all be identical/,
 ];
+const BRAINSTORM_OVERLAPPING_NEW_RULES = [
+  /briefing: required object/,
+  /briefing\.how/,
+  /duplicate whyLens/,
+  /duplicate thesis/,
+  /effort, risk, and reversibility must not all be identical/,
+];
 
 async function runBoth(type, mutator) {
   const payload = clone(loadRich(type));
@@ -73,7 +80,7 @@ test('unmodified rich fixtures pass overlapping new-rule checks on both validato
     assert.deepEqual(brainstorm.native, []);
     assert.deepEqual(brainstorm.portable, []);
   } else {
-    for (const re of OVERLAPPING_NEW_RULES.slice(4)) {
+    for (const re of BRAINSTORM_OVERLAPPING_NEW_RULES) {
       assert.doesNotMatch(brainstorm.native.join('\n'), re, `brainstorm native extra ${re}`);
       assert.doesNotMatch(brainstorm.portable.join('\n'), re, `brainstorm portable extra ${re}`);
     }
@@ -89,6 +96,20 @@ test('plan: missing briefing fails both validators', async () => {
 
 test('plan: missing briefing.how fails both validators', async () => {
   const { native, portable } = await runBoth('plan', (payload) => {
+    delete payload.briefing.how;
+  });
+  assertBothFailWith(native, portable, /briefing\.how/, 'missing briefing.how');
+});
+
+test('brainstorm: missing briefing fails both validators', async () => {
+  const { native, portable } = await runBoth('brainstorm', (payload) => {
+    delete payload.briefing;
+  });
+  assertBothFailWith(native, portable, /briefing: required object/, 'missing briefing');
+});
+
+test('brainstorm: missing briefing.how fails both validators', async () => {
+  const { native, portable } = await runBoth('brainstorm', (payload) => {
     delete payload.briefing.how;
   });
   assertBothFailWith(native, portable, /briefing\.how/, 'missing briefing.how');

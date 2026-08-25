@@ -7,6 +7,12 @@ choice is locked into `decisions.json`.
 <!-- BEGIN GENERATED FIELDS - regenerate with scripts/gen-schema-docs.js; do not edit by hand -->
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| briefing | object | _meta.version >= 3: yes; older: no | Plain-English What/Problem/How the human gate leads with |
+| briefing.tackling | string | _meta.version >= 3: yes; older: no | What this decision is tackling, in one sentence |
+| briefing.problem | string | _meta.version >= 3: yes; older: no | The pain the approaches address, in plain language |
+| briefing.how | string | _meta.version >= 3: yes; older: no | How the recommendation solves it; a How without evidence is an assumption |
+| briefing.scope | string | _meta.version >= 3: yes; older: no | What is in and out of this decision, in plain language |
+| briefing.risks | string | _meta.version >= 3: yes; older: no | Material risks of the recommended direction, in plain language |
 | decision | object | _meta.version >= 3: yes; older: no | Decision frame shown before approaches |
 | decision.question | string | _meta.version >= 3: yes; older: no | The choice the user is being asked to make |
 | decision.outcome | string | _meta.version >= 3: yes; older: no | Desired observable outcome |
@@ -38,6 +44,13 @@ choice is locked into `decisions.json`.
 ```json
 {
   "_meta": { "version": 3, "...": "..." },
+  "briefing": {
+    "tackling": "How planning results should be presented",
+    "problem": "Users see tasks and waves instead of a researched recommendation",
+    "how": "Lead with What, Problem, and How, then a comparison of distinct approaches",
+    "scope": "Review presentation for planning results",
+    "risks": "A task-first review delays informed approval"
+  },
   "decision": {
     "question": "How should planning results be presented?",
     "outcome": "Users understand and can approve the direction before execution",

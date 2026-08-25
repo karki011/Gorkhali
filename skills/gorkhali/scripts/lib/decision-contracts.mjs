@@ -49,9 +49,13 @@ const duplicateIds = (items, path, errors) => {
 
 const hasAnyField = (value, fields) => fields.some((field) => value[field] !== undefined);
 
-const validatePlanBriefing = (payload, errors) => {
+const validateBriefing = (payload, errors, fields) => {
   if (!isObject(payload.briefing)) errors.push('briefing: required object');
-  else requireTextFields(payload.briefing, 'briefing', ['tackling', 'problem', 'how'], errors);
+  else requireTextFields(payload.briefing, 'briefing', fields, errors);
+};
+
+const validatePlanBriefing = (payload, errors) => {
+  validateBriefing(payload, errors, ['tackling', 'problem', 'how']);
 };
 
 const validateEvidenceImplications = (evidence, depth, errors) => {
@@ -611,6 +615,7 @@ const validatePlan = (
 };
 
 const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false } = {}) => {
+  validateBriefing(payload, errors, ['tackling', 'problem', 'how', 'scope', 'risks']);
   const enriched = hasAnyField(payload, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
   const depth = payload.depth;
   const phase = payload.phase;

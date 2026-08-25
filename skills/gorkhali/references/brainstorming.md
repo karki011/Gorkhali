@@ -130,6 +130,7 @@ phase. Legacy v3 decision records without phase fields remain readable.
 
 Use these exact JSON field shapes so every host produces the same contract:
 
+- `briefing`: `{ tackling, problem, how, scope, risks }`.
 - `decision`: `{ question, outcome, audience: [], nonGoals: [], constraints: [],
   evaluationCriteria: [] }`.
 - `evidence[]`: `{ claim, source, status, observed_at, confidence, conflicts? }`,

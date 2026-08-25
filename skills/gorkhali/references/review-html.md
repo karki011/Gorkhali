@@ -31,7 +31,8 @@ collapsed `<details>` appendix with no `open` attribute. Do not make task or
 file inventories the main page. A How without supporting evidence is an
 assumption.
 
-For a brainstorm, lead with What, Problem, and How, then the recommendation
+For a brainstorm, lead with What (`briefing.tackling`), Problem
+(`briefing.problem`), and How (`briefing.how`), then the recommendation
 and a comparison `<table>` of the distinct approaches. Put detailed cards in
 collapsed `<details>` with no `open` attribute. The comparison table must
 appear in `<main>` before any `<details>`.

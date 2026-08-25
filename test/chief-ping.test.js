@@ -6,6 +6,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 
 const {
   PING_SENTINEL,
@@ -18,6 +20,8 @@ const {
   validateWatchState,
   looksLikeBooleanOnly,
 } = require('../scripts/lib/chief-ping');
+
+const CHIEF_PING_CLI = path.join(__dirname, '..', 'scripts', 'lib', 'chief-ping.js');
 
 const WATERMARK = '2026-08-25T21:40:00Z';
 
@@ -220,4 +224,59 @@ test('validateWatchState allows only pr, status, tick, watermark, lastPingAt', (
 test('formatChiefPing throws on an illegal ping rather than emitting a quiet idle', () => {
   assert.throws(() => formatChiefPing({ new: false }), /boolean-only|invalid CHIEF_PING/);
   assert.throws(() => formatChiefPing(idlePing({ next_action: 'ack_stop' })), /invalid CHIEF_PING/);
+});
+
+function runCli(cmd, input) {
+  return spawnSync(process.execPath, [CHIEF_PING_CLI, cmd], {
+    input,
+    encoding: 'utf8',
+  });
+}
+
+test('CLI format of a valid idle ping exits 0 and starts with CHIEF_PING', () => {
+  const result = runCli('format', JSON.stringify(idlePing()));
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^CHIEF_PING/);
+});
+
+test('CLI format of {"new":false} exits 1', () => {
+  const result = runCli('format', '{"new":false}');
+  assert.equal(result.status, 1);
+});
+
+test('CLI parse of a formatted block exits 0 JSON with verdict idle', () => {
+  const block = formatChiefPing(idlePing());
+  const result = runCli('parse', block);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).verdict, 'idle');
+});
+
+test('CLI parse of {new:false} exits 1', () => {
+  const result = runCli('parse', '{new:false}');
+  assert.equal(result.status, 1);
+});
+
+test('CLI validate-watch of a 5-key valid state exits 0', () => {
+  const state = {
+    pr: 1234,
+    status: 'watching',
+    tick: 12,
+    watermark: WATERMARK,
+    lastPingAt: '2026-08-25T21:42:00Z',
+  };
+  const result = runCli('validate-watch', JSON.stringify(state));
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('CLI validate-watch with extra key comments exits 1', () => {
+  const state = {
+    pr: 1234,
+    status: 'watching',
+    tick: 12,
+    watermark: WATERMARK,
+    lastPingAt: '2026-08-25T21:42:00Z',
+    comments: [],
+  };
+  const result = runCli('validate-watch', JSON.stringify(state));
+  assert.equal(result.status, 1);
 });

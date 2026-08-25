@@ -214,6 +214,9 @@ const requiredStrings = (type, artifact) => {
   return {
     errors,
     values: [
+      required(data.briefing?.tackling, 'briefing.tackling'),
+      required(data.briefing?.problem, 'briefing.problem'),
+      required(data.briefing?.how, 'briefing.how'),
       required(data.decision?.question, 'decision.question'),
       required(selected?.name, 'recommended approach name'),
       required(data.recommendedDefault?.reason, 'recommendedDefault.reason'),

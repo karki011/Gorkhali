@@ -66,25 +66,39 @@ It does not keep polling.
 ```text
 every tick:
   Clerk (Haiku) checks GitHub
-  Clerk ALWAYS sends CHIEF_PING   ← even if zero new comments
-  Chief MUST ack
+  Clerk ALWAYS emits CHIEF_PING via the codec CLI   ← even if zero new comments
+  Chief MUST parse then ack via the codec CLI
     idle     → re-arm next tick
     new work → pull those comments → push back OR Engineer
     exit     → stop the loop
 ```
 
-Clerk returns exactly this (and nothing else that matters):
+Clerk emits the ping **only** by running the codec CLI — never by hand-typing the
+block. Resolve `$PR` the same way commands do (`commands/_shared.md` §Paths). If
+`$PR` is empty or the CLI exits non-zero, the tick **failed** (illegal ping /
+missing codec). Do not fall back to `{new:false}` or a hand-typed block.
+
+`$PING_JSON` is this shape (Clerk fills values, then pipes to `format`):
+
+```json
+{
+  "pr": 1234,
+  "tick": 12,
+  "verdict": "idle",
+  "exit_reason": "none",
+  "new_count": 0,
+  "new_ids": [],
+  "watermark": "2026-08-25T21:40:00Z",
+  "next_action": "ack_rearm"
+}
+```
+
+`verdict` is `idle | new_work | exit`. `exit_reason` is
+`none | merged | closed | approved_clean | ceiling | user_stop`.
+`next_action` is `ack_rearm | ack_assess | ack_stop`.
 
 ```text
-CHIEF_PING
-pr: 1234
-tick: 12
-verdict: idle | new_work | exit
-exit_reason: none | merged | closed | approved_clean | ceiling | user_stop
-new_count: 0
-new_ids: []
-watermark: 2026-08-25T21:40:00Z
-next_action: ack_rearm | ack_assess | ack_stop
+printf '%s\n' "$PING_JSON" | node "$PR/scripts/lib/chief-ping.js" format
 ```
 
 - `verdict: idle` → `new_count` is 0, `new_ids` empty, `exit_reason: none`, **still a ping**. `next_action` is `ack_rearm`.
@@ -94,12 +108,27 @@ next_action: ack_rearm | ack_assess | ack_stop
 Critical exits (any one → `verdict: exit`): merged, closed, user says stop,
 approved with nothing unresolved (`approved_clean`), ceiling (ticks / spend).
 
+Chief **must** parse Clerk's turn with:
+
+```text
+printf '%s\n' "$CLERK_TURN" | node "$PR/scripts/lib/chief-ping.js" parse
+```
+
+Non-zero parse → failed tick, same as missing sentinel. Then ack with:
+
+```text
+printf '%s\n' '{"tick":12,"kind":"idle"}' | node "$PR/scripts/lib/chief-ping.js" ack
+```
+
+(`kind` matching `next_action` as already documented: `ack_rearm` → `idle`,
+`ack_assess` → `assess`, `ack_stop` → `stop`).
+
 ---
 
 ## Chief's job on every ping (mandatory)
 
-1. Read `verdict` and `next_action`. Do not infer.
-2. **Ack in the open** with one line: `CHIEF_ACK tick=12 idle|assess|stop` matching `next_action` (`ack_rearm` → `idle`, `ack_assess` → `assess`, `ack_stop` → `stop`).
+1. Read `verdict` and `next_action` from the CLI `parse` JSON. Do not infer.
+2. **Ack in the open** with one line from the CLI: `CHIEF_ACK tick=12 idle|assess|stop` matching `next_action` (`ack_rearm` → `idle`, `ack_assess` → `assess`, `ack_stop` → `stop`).
 3. Then only:
    - `ack_rearm` — schedule the next tick. No GitHub body fetch. No Engineer.
    - `ack_assess` — pull **those** `new_ids` only. Push back in-thread (`@author`) **or** write a short candidate and spawn Engineer → Inspector on touched files → Clerk replies and resolves.
