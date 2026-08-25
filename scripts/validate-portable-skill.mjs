@@ -255,6 +255,8 @@ function parseFrontmatter(content) {
   if (!match) throw new Error('SKILL.md must start with YAML frontmatter.');
   const fields = {};
   for (const line of match[1].split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
     const separator = line.indexOf(':');
     if (separator < 0) throw new Error(`Invalid frontmatter line: ${line}`);
     fields[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
@@ -323,8 +325,13 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
     try {
       const fields = parseFrontmatter(content);
       const keys = Object.keys(fields).sort();
-      if (keys.join(',') !== 'description,name') {
+      const allowed = keys.join(',') === 'description,name'
+        || keys.join(',') === 'description,name,user-invocable';
+      if (!allowed) {
         errors.push(`skills/${command}/SKILL.md frontmatter must contain exactly name and description.`);
+      }
+      if (Object.hasOwn(fields, 'user-invocable') && fields['user-invocable'] !== 'false') {
+        errors.push(`skills/${command}/SKILL.md user-invocable must be false.`);
       }
       if (fields.name !== command) {
         errors.push(`skills/${command}/SKILL.md must declare name: ${command}.`);

@@ -1,6 +1,8 @@
 ---
 name: learn
 description: Record a correction, reusable pattern, habit, or gotcha for Gorkhali to remember in future sessions.
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/learn.md) is the single menu surface and stays user-invocable so typed /gorkhali:learn works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

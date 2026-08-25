@@ -1,6 +1,8 @@
 ---
 name: visualflow
 description: Plan a NEW screen or flow as a reviewable HTML artifact before writing code, especially with no Figma design.
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/visualflow.md) is the single menu surface and stays user-invocable so typed /gorkhali:visualflow works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

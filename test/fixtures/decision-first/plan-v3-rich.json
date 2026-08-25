@@ -11,6 +11,11 @@
   "depth": "deep",
   "title": "AI-agnostic decision review pipeline",
   "summary": "Planning reviews currently force people to reconstruct the proposed direction from task-heavy output. We chose to keep JSON as the source of truth while giving plans and brainstorms separate, self-contained review experiences. This plan puts a plain-language overview first, connects requirements to observable behavior and proof, and keeps implementation dossiers collapsed until someone is ready to execute. The result is a reviewer who can understand the problem, the chosen direction, what will change, and the expected outcome before opening a single task.",
+  "briefing": {
+    "tackling": "AI-authored decision review for plans and brainstorms",
+    "problem": "Planning output is technically valid but too sparse and task-centric for a reviewer to understand the recommendation without reconstructing it from execution waves.",
+    "how": "Keep JSON as the source of truth, let the active AI design each review page, and lead with What, Problem, and How before a collapsed implementation appendix."
+  },
   "problem": "Planning output is technically valid but too sparse and task-centric for a reviewer to understand the recommendation, evidence, tradeoffs, and approval gates without reconstructing the reasoning from execution waves.",
   "decision": {
     "question": "Approve direct AI-authored HTML as the default review experience?",

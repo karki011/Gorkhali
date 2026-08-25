@@ -1,6 +1,8 @@
 ---
 name: scout
 description: Explore the codebase to map dependencies and gather context before planning; NOT for implementation (use start).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/scout.md) is the single menu surface and stays user-invocable so typed /gorkhali:scout works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

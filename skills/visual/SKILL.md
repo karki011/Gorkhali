@@ -1,6 +1,8 @@
 ---
 name: visual
 description: Prepare a human UI-verification checklist for UI changes; optionally run read-only Gorkhali Surveyor inspection only when explicitly requested.
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/visual.md) is the single menu surface and stays user-invocable so typed /gorkhali:visual works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

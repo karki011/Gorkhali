@@ -3,8 +3,7 @@ name: loop
 description: "Find your Jira tickets in 'Ready for Implementation', triage each, then run gorkhali to a PR (solid acceptance criteria) or plan and wait (weak). One pass per invocation. Alias: /gorkhali:q."
 argument-hint: "[--status]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-invocable (default) - typed /gorkhali:loop resolves here. The same-named skill (skills/loop/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

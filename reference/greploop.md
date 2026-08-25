@@ -1,27 +1,33 @@
 # Greploop Protocol
 
-Loaded by `/gorkhali:greploop`. Iteratively fix a GitHub PR until Greptile gives a perfect review:
-**5/5 confidence, zero unresolved comments.**
+Loaded by `/gorkhali:greploop`. Two phases after wrap creates a ready-for-review PR:
+
+1. **Phase 1 — all-author classify / tag / resolve.** Fetch review comments from
+   every author, classify them, fix or push back, tag the author, resolve threads.
+   Greptile comments still end with `@greptileai`.
+2. **Phase 2 — arm watch.** Write `{SESSION_DIR}/pr-watch.json` and run the first
+   `CHIEF_PING` tick (`reference/pr-watch.md`). Idle still pings Chief.
 
 Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only;
 multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are
-intentional mechanics; reply tone is configurable via env `GORKHALI_GREPTILE_TONE` (`neutral` default,
+intentional mechanics; reply tone for Greptile is configurable via env `GORKHALI_GREPTILE_TONE` (`neutral` default,
 `roast` for CZ-style replies).
 
 ---
 
 ## Always on
 
-Greploop always runs — there is no opt-out. Repos that lack the Greptile bot are handled gracefully by
-the Availability guard below (they don't need to opt out). Always-on, fail-open, bounded.
+Greploop always runs — there is no opt-out, and wrap never asks. Repos that lack the Greptile bot are handled
+gracefully by the Availability guard below (they don't need to opt out). Always-on, fail-open, bounded.
+Never merge. Merging stays a human action.
 
 ---
 
 ## Inputs
 
 - **PR number** (optional): if omitted, detect the PR for the current branch.
-- `--max N` (optional): max loop iterations (default **5**). Loop ceiling reference is owned by
-  `hooks/loop-controller.js`.
+- `--max N` (optional): max Phase 1 loop iterations (default **`REVIEW_LOOP_MAX`**, 5, from
+  `scripts/lib/constants.js`).
 - `--no-fix` (optional): triage + report only; do not edit/commit.
 
 ---
@@ -30,10 +36,15 @@ the Availability guard below (they don't need to opt out). Always-on, fail-open,
 
 - Greptile **auto-reviews every PR on creation** (drafts included) — never post an initial trigger
   comment. Fallback only: `@greptileai review` (NOT `@greptile-apps[bot]`, NOT bare `/review`).
-- **Reply tone** — read env `GORKHALI_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
+- **All-author.** Phase 1 does not filter to Greptile. Human reviewers, other bots, and Greptile
+  are classified with the same rules. Only the **tag** differs:
+  - Greptile (login matches `greptile`): always end the reply with **`@greptileai`**.
+  - Every other author: tag **`@<login>`**.
+- **Reply tone (Greptile only)** — read env `GORKHALI_GREPTILE_TONE` (default `neutral`, also accepts `roast`):
   - `neutral`: factual acknowledgment + fix reference. Fix: "Fixed in `abc1234` — take another look @greptileai". Pushback: "Intentional — matches the backend contract, no churn needed @greptileai".
   - `roast`: self-deprecating humor (CZ style). Fix: "classic speedrun — I really shipped that null deref and called it a day. Fixed in `abc1234`, take another look @greptileai". Pushback: "intentional here — matches the backend contract, no churn needed on this one @greptileai".
   - Whatever the tone: include the fix reference and **always end with `@greptileai`** so re-review triggers.
+- **Other authors** use a factual acknowledgment + fix reference, ending with `@<login>`.
 - **Push before you reply.** Always `git push` before posting replies so they reference code that exists on the remote.
 
 ---
@@ -50,9 +61,9 @@ If no PR exists, stop and tell the user. Switch to the PR branch if not already 
 
 ---
 
-## 1. Loop (max `--max`, default 5 iterations)
+## Phase 1. All-author classify / tag / resolve (max `--max`, default `REVIEW_LOOP_MAX`)
 
-### A. Push and let Greptile review
+### A. Push and let reviews land
 
 Push pending local changes; Greptile auto-reviews on push. On later iterations, re-review is triggered by in-thread replies ending in `@greptileai` (section G). **Fallback only:** if poll B times out on a stale run, post `@greptileai review` once, guarded against an already-running review:
 
@@ -97,45 +108,58 @@ done
 
 If the wait expires with no check-run on this head SHA (e.g., a PR that predates Greptile auto-review, or a missed auto-trigger), apply the **fallback trigger from A** (`@greptileai review`, guarded), then re-enter this poll.
 
-### C. Fetch review results — check ALL sources
+If Greptile is not installed, skip this poll and continue — Phase 1 still classifies every other author.
 
-Greptile surfaces its score in more than one place and **edits a single summary comment in place**, so always select the most-recently-`updated_at` Greptile comment, not the most-recently-created:
+### C. Fetch review results — ALL authors, ALL sources
+
+Do **not** filter to Greptile. Collect every unresolved item, then classify.
 
 ```bash
-# 1. Latest edited general (issue) comment from Greptile — the usual home of the score + "Prompt to fix all with AI"
-gh api --paginate "repos/{owner}/{repo}/issues/{PR}/comments?per_page=100" \
-  | jq -s 'add | map(select(.user.login | test("greptile"; "i")))
-           | sort_by(.updated_at) | last | {updated_at, body}'
+# 1. Issue comments (all authors)
+gh api --paginate "repos/{owner}/{repo}/issues/{PR}/comments?per_page=100"
 
-# 2. PR reviews (most recent greptile-apps[bot] / greptile-apps-staging[bot] entry)
+# 2. PR reviews (all authors)
 gh api repos/{owner}/{repo}/pulls/{PR}/reviews
 
-# 3. Unresolved inline diff comments
+# 3. Inline diff comments (all authors)
 gh api repos/{owner}/{repo}/pulls/{PR}/comments
 
 # 4. Comments Outside Diff — parse the most-recent Greptile summary comment body for
-#    <details><summary><h3>Comments Outside Diff</h3> block. Extract each numbered item:
-#    file path, line(s), title, description. These have NO comment ID — they live only in
-#    the summary comment body and can only be addressed via a top-level PR comment.
-#    Mark extracted items source: "outside-diff".
+#    <details><summary><h3>Comments Outside Diff</h3> block when that block exists.
+#    Extract each numbered item: file path, line(s), title, description. These have
+#    NO comment ID — they live only in the summary comment body. Mark source: "outside-diff".
 ```
 
+For Greptile's summary specifically, Greptile **edits a single summary comment in place**, so select the most-recently-`updated_at` Greptile comment, not the most-recently-created.
+
 Parse for:
-- **Confidence score** — pattern like `4/5` or `Confidence: 5/5`.
-- **Unresolved inline comments** — plus any actionable items in the summary's "Prompt to fix all with AI" section, **even if the inline endpoint returns zero**.
+- **Unresolved inline comments** from every author — plus any actionable items in a Greptile summary's "Prompt to fix all with AI" section, **even if the inline endpoint returns zero**.
 - **Outside-diff items** — numbered items extracted from the `<details>...Comments Outside Diff...` block; treat as unresolved until addressed.
+- **Greptile confidence** (when present) — pattern like `4/5` or `Confidence: 5/5`. Informational; Phase 1 exits on unresolved-item count, not on score alone.
 
-### D. Exit conditions
+Skip our own replies and already-resolved threads.
 
-Stop the loop if **either** holds:
-- Confidence is **5/5 AND zero unresolved comments AND zero outside-diff items remaining**, or
+### D. Classify and exit conditions
+
+For each unresolved item, classify:
+
+| Class | Action |
+| --- | --- |
+| actionable | code change |
+| informational / false-positive | push back in-thread; do not churn |
+| already-fixed | reply with the sha; resolve |
+
+Stop Phase 1 if **either** holds:
+- zero unresolved items remain (every author), or
 - iteration count reached `--max` (report remaining).
 
-On exit, **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "done"` into the session `wrap.json`. greploop is the SOLE writer of `greptile.status` — the Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing until this is recorded.
+On Phase 1 exit, **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "done"` into the session `wrap.json` when the loop settled (including "no Greptile, other authors clean"), or `"skipped"` when Greptile is unavailable **and** there were no other-author items to handle. greploop is the SOLE writer of `greptile.status` — the Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing until this is recorded.
+
+Then proceed to **Phase 2**.
 
 ### E. Fix actionable comments
 
-For each unresolved comment — inline and outside-diff — (skip this whole step under `--no-fix`):
+For each unresolved actionable comment — inline and outside-diff — (skip this whole step under `--no-fix`):
 1. Read the file and understand the comment in context (read the full file, not just the diff).
 2. Decide: actionable (code change) vs informational / false-positive.
 3. If actionable, make the fix. For a substantial multi-file change, prefer spawning an `engineer` (`subagent_type: "engineer"`, `name: "engineer-vosler"` per `reference/roster.md`, `mode: "bypassPermissions"`) rather than editing inline.
@@ -144,13 +168,13 @@ For each unresolved comment — inline and outside-diff — (skip this whole ste
 
 ```bash
 git add -A
-git commit -m "{TICKET}: address greptile review (greploop iter N)"   # no AI co-author trailer
+git commit -m "{TICKET}: address review comments (greploop iter N)"   # no AI co-author trailer
 git push
 ```
 
 ### G. Reply in-thread + resolve
 
-**Inline comments** — post an in-thread reply in the configured tone (`GORKHALI_GREPTILE_TONE`), ending with `@greptileai`:
+**Inline comments** — post an in-thread reply tagging the author. Greptile → `@greptileai` (tone from `GORKHALI_GREPTILE_TONE`). Anyone else → `@<login>`:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{PR}/comments/{COMMENT_ID}/replies \
@@ -172,7 +196,7 @@ EOF
 )"
 ```
 
-Use the same tone rules as inline (`GORKHALI_GREPTILE_TONE`), always end each entry with `@greptileai`.
+Use the same tag rules as inline. Always end each Greptile entry with `@greptileai`.
 
 **Resolve inline threads** via GraphQL. Fetch unresolved thread IDs:
 
@@ -206,18 +230,18 @@ Then `sleep 5` and return to **A**.
 
 ## Availability guard
 
-After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — greploop is on by default, but Greptile app coverage is per-repo. Stop the loop gracefully: report "Greptile unavailable on this repo — skipping greploop" and include a one-line note in the wrap output. Do **not** keep re-triggering. Then **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "skipped"` into the session `wrap.json`.
+After posting the fallback `@greptileai review` (section A), if poll B still finds **no Greptile check-run and no Greptile comment** after ~5 additional minutes, Greptile is not installed on this repo — greploop is on by default, but Greptile app coverage is per-repo. Do **not** keep re-triggering. Continue Phase 1 for every other author. If there are no other-author items either, report "Greptile unavailable on this repo — skipping greploop" and **release the wrap gate** (see "Release the gate" below) by writing `greptile.status: "skipped"` into the session `wrap.json`. Then still proceed to Phase 2 if the PR is open.
 
 ---
 
 ## Release the gate (write `greptile.status` to wrap.json)
 
-The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is missing/`pending`. At **both** exit points above, patch the session `wrap.json` to release it: `done` on successful completion (5/5, zero unresolved), `skipped` when Greptile is unavailable on the repo.
+The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is missing/`pending`. At **both** Phase 1 exit points above, patch the session `wrap.json` to release it: `done` on successful completion (zero unresolved), `skipped` when Greptile is unavailable on the repo and there was nothing else to handle.
 
 The wrap.json path MUST be resolved with the SAME gorkhali-paths helpers the gate reads with (`detectRepo` + `current-session/<repo>.json` ticket precedence + `sessionsDir`) so the write lands in the byte-identical file the gate checks — a hand-built `basename $(git rev-parse --show-toplevel)` path shards under the ticket name inside worktrees and the gate never releases. Non-blocking and fail-soft — a write failure must not error the loop:
 
 ```bash
-# STATUS = "done" (5/5 exit) or "skipped" (Greptile unavailable)
+# STATUS = "done" (Phase 1 settled) or "skipped" (Greptile unavailable, nothing else)
 STATUS="done"
 node -e '
   const fs=require("fs"), path=require("path");
@@ -246,23 +270,33 @@ node -e '
 
 ---
 
-## 2. Report
+## Phase 2. Arm CHIEF_PING watch
+
+After Phase 1 releases the gate, arm the standing watch. Do not ask.
+
+1. Write `{SESSION_DIR}/pr-watch.json` with keys **only** `pr`, `status` (`watching`), `tick` (`0`), `watermark` (RFC3339, newest seen comment timestamp or now), `lastPingAt` (now). See `reference/schemas/pr-watch.md`. Extra keys are illegal.
+2. Run **one** watch tick per `reference/pr-watch.md`. Spawn Watch Clerk (`subagent_type: "clerk"`, `name: "clerk-herald"`). Clerk MUST emit `CHIEF_PING` — including `verdict: idle`. Boolean `{new:false}` is illegal. Missing sentinel is a failed tick, not quiet.
+3. Chief MUST `CHIEF_ACK` then `ack_rearm` / `ack_assess` / `ack_stop`.
+
+Host interval: `PR_WATCH_INTERVAL_SECONDS` (120). Tick ceiling: `PR_WATCH_TICK_CEILING` (60). Never merge.
+
+---
+
+## 3. Report
 
 | Field | Value |
 | --- | --- |
 | PR | #{number} |
-| Iterations | N |
-| Final confidence | X/5 |
-| Comments resolved | N |
+| Phase 1 iterations | N |
 | Remaining comments | N (if any) |
+| Watch | watching / paused / stopped |
 
 ```
 Greploop complete.
   PR:          #1234
   Iterations:  2
-  Confidence:  5/5
-  Resolved:    7 comments
   Remaining:   0
+  Watch:       watching
 ```
 
 If stopped at `--max` with work left, list the remaining items (`path:line — "comment"`) and suggest next steps. greploop never merges the PR — merging stays a human action.

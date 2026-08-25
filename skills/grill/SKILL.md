@@ -1,6 +1,8 @@
 ---
 name: grill
 description: Run a Socratic self-challenge on your own changes to stress-test understanding before shipping; NOT for code review (use review).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/grill.md) is the single menu surface and stays user-invocable so typed /gorkhali:grill works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

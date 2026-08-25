@@ -1,6 +1,8 @@
 ---
 name: loop
 description: "Run one Mission Control pass over ready Jira tickets, triaging and dispatching or planning each; alias: q."
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/loop.md) is the single menu surface and stays user-invocable so typed /gorkhali:loop works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

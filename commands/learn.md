@@ -2,8 +2,7 @@
 name: learn
 description: "Use when you discover something worth remembering — record a correction, save a pattern, note a gotcha ('remember this', 'don't do that again'). Captures learnings to the domain knowledge files."
 argument-hint: "<correction>"
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-invocable (default) - typed /gorkhali:learn resolves here. The same-named skill (skills/learn/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

@@ -18,6 +18,9 @@ const OVERRIDE_ENVS = [
   'GORKHALI_LEARNING_REMOVE_DAYS',
   'GORKHALI_LEARNING_DISTILL_CAP',
   'GORKHALI_MARKER_FRESHNESS_MS',
+  'GORKHALI_PR_WATCH_INTERVAL_SECONDS',
+  'GORKHALI_PR_WATCH_TICK_CEILING',
+  'GORKHALI_REVIEW_LOOP_MAX',
 ];
 
 // Env is read at require time — bust the cache around each load, clearing all
@@ -53,6 +56,9 @@ test('defaults match the pre-centralization literals exactly', () => {
   assert.equal(C.LEARNING_DISTILL_CAP, 50);
   assert.equal(C.DEFAULT_HOOK_TIMEOUT_SECONDS, 10);
   assert.equal(C.MARKER_FRESHNESS_MS, 12 * 60 * 60 * 1000);
+  assert.equal(C.PR_WATCH_INTERVAL_SECONDS, 120);
+  assert.equal(C.PR_WATCH_TICK_CEILING, 60);
+  assert.equal(C.REVIEW_LOOP_MAX, 5);
 });
 
 test('GORKHALI_DATA_DIRNAME is legacy-only; the canonical data-root dirname is codec-owned', () => {
@@ -74,6 +80,9 @@ test('env overrides apply to every numeric constant', () => {
     GORKHALI_LEARNING_STALE_DAYS: '14',
     GORKHALI_LEARNING_REMOVE_DAYS: '90',
     GORKHALI_LEARNING_DISTILL_CAP: '25',
+    GORKHALI_PR_WATCH_INTERVAL_SECONDS: '90',
+    GORKHALI_PR_WATCH_TICK_CEILING: '30',
+    GORKHALI_REVIEW_LOOP_MAX: '7',
   });
   assert.equal(C.FIX_LOOP_CEILING, 4);
   assert.equal(C.GRADUATION_THRESHOLD, 7);
@@ -82,6 +91,9 @@ test('env overrides apply to every numeric constant', () => {
   assert.equal(C.LEARNING_STALE_DAYS, 14);
   assert.equal(C.LEARNING_REMOVE_DAYS, 90);
   assert.equal(C.LEARNING_DISTILL_CAP, 25);
+  assert.equal(C.PR_WATCH_INTERVAL_SECONDS, 90);
+  assert.equal(C.PR_WATCH_TICK_CEILING, 30);
+  assert.equal(C.REVIEW_LOOP_MAX, 7);
 });
 
 test('garbage env values fail open to the defaults', () => {
@@ -99,9 +111,13 @@ test('loop ceilings reject floats while non-ceiling floats remain valid', () => 
   const C = freshConstants({
     GORKHALI_FIX_LOOP_CEILING: '2.5',
     GORKHALI_EXTRACT_TIMEOUT_MS: '2500.5',
+    GORKHALI_PR_WATCH_TICK_CEILING: '60.5',
+    GORKHALI_REVIEW_LOOP_MAX: '5.5',
   });
   assert.equal(C.FIX_LOOP_CEILING, 2);
   assert.equal(C.EXTRACT_TIMEOUT_MS, 2500.5);
+  assert.equal(C.PR_WATCH_TICK_CEILING, 60);
+  assert.equal(C.REVIEW_LOOP_MAX, 5);
 });
 
 test('loop-controller sources its ceiling from constants (env overridable, default 2)', () => {

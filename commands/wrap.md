@@ -2,8 +2,7 @@
 name: wrap
 description: "Validate current portable quality evidence, create a ready-for-review pull request, and record the release summary and lifecycle outcome."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-invocable (default) - typed /gorkhali:wrap resolves here. The same-named skill (skills/wrap/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
@@ -128,9 +127,10 @@ Use the existing ship-ceremony mechanics for mechanical git operations only:
    body is `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Clerk
    does not author, fill, or re-order any section of that body.
 
-Do not merge the PR, transition unrelated tickets, or start an automatic
-review/fix loop. Any destructive or newly external action beyond the authorized
-PR requires separate authority.
+After the PR is created, always invoke `Skill(skill="gorkhali:greploop")` with
+the PR number. Do not ask. Do not merge the PR — merging stays a human action.
+Do not transition unrelated tickets. Any destructive or newly external action
+beyond the authorized PR requires separate authority.
 
 ## Step 6: Record the outcome
 

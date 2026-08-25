@@ -3,8 +3,7 @@ name: start
 description: "Use when starting any new feature, bug fix, refactor, or task — a Jira ticket key (e.g., PROJ-123), 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-invocable (default) - typed /gorkhali:start resolves here. The same-named skill (skills/start/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
@@ -190,9 +189,18 @@ Trivial scope only — the router picks LITE (per `reference/router/algorithm.md
 
 ## Route: PLAN (1 gate)
 
-1. Intent → research → decision-first plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 3`. The decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts required by `reference/schemas/plan.md` must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate.
+1. Intent → research → decision-first plan (per `reference/planning.md`, `reference/agents.md`); `plan.json` sets `_meta.version: 3`. The briefing (`tackling`, `problem`, `how`), decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts required by `reference/schemas/plan.md` must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate. A How without supporting evidence is an assumption. A refuted or stale premise still stops planning.
 2. Deliberation: Planner (Chief) ↔ Opposition (`opposition-parlow`, the one plan critic, writes `plan-check.json`), 2 rounds per `reference/router/deliberation.md`
-3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with the approval question, recommendation, evidence, architecture, risks, and validation, with files/tasks/waves in an execution appendix. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat. Material feedback updates `plan.json` and reruns Opposition before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same decision-first hierarchy in chat and state the capability failure. Never degrade to a task-only gate.
+3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). Validate `plan.json`, then have the active AI author `{SESSION_DIR}/plan.candidate.html` from the canonical JSON and any sibling `plan-check.json`. The AI chooses the information design; the page must be self-contained and lead with What (`briefing.tackling`), Problem (`briefing.problem`), and How (`briefing.how`), then evidence, scope, risks, and open questions. Implementation (files, tasks, waves) lives in a collapsed `<details>` appendix with no `open` attribute. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs plan --source {SESSION_DIR}/plan.json --candidate {SESSION_DIR}/plan.candidate.html --out {SESSION_DIR}/plan.html`. `plan.json` stays the machine SSoT; HTML is disposable, never parsed back, and never manually patched or repaired. Open `plan.html` directly, then collect approval and feedback in chat using this brief — never tasks:
+   - **What** — `briefing.tackling`
+   - **Problem** — `briefing.problem`
+   - **How** — `briefing.how` (a How without supporting evidence is an assumption; record it in `assumptions`)
+   - **Evidence**
+   - **Scope**
+   - **Risks**
+   - **Open questions**
+   - **Approve?**
+   Material feedback updates `plan.json` and reruns Opposition before fresh generation; presentation-only feedback leaves JSON unchanged and regenerates from the same source plus that feedback. Validate/promote the fresh candidate and reopen only when the user asks to review it again. If candidate generation, validation, or opening is unavailable, present the same What/Problem/How brief in chat and state the capability failure. Never degrade to a task-only gate.
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 4. Contracts. >5 files → `Skill(skill="gorkhali:wire")`.
 5. **Spawn Engineer(s)** via `Skill(skill="gorkhali:execute")`: execute rechecks

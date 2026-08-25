@@ -459,3 +459,45 @@ test('wrap.md carries the same preflight as ship-ceremony', () => {
     );
   }
 });
+
+// ── wrap always starts greploop and never merges ─────────────────────────────
+
+test('wrap.md always starts greploop and never merges', () => {
+  const content = read('commands/wrap.md');
+  assert.ok(
+    content.includes('Skill(skill="gorkhali:greploop")'),
+    'wrap.md must invoke Skill(skill="gorkhali:greploop")'
+  );
+  assert.ok(content.includes('Do not ask'), 'wrap.md must say Do not ask');
+  assert.ok(
+    content.includes('Do not merge the PR'),
+    'wrap.md must say Do not merge the PR'
+  );
+  assert.ok(
+    !/look at the reviews/i.test(content),
+    'wrap.md must not tell the operator to look at the reviews'
+  );
+});
+
+test('ship-ceremony always runs all-author review and never merges', () => {
+  const content = read('reference/wrap/ship-ceremony.md');
+  assert.ok(
+    content.includes('## 5. All-author review + CHIEF_PING watch (always runs)'),
+    'ship-ceremony.md must keep the always-runs section 5 heading'
+  );
+  assert.ok(
+    content.includes('Skill(skill="gorkhali:greploop"'),
+    'ship-ceremony.md must invoke Skill(skill="gorkhali:greploop"'
+  );
+  assert.ok(
+    content.includes('{new:false}` is illegal'),
+    'ship-ceremony.md must keep `{new:false}` is illegal'
+  );
+  assert.ok(content.includes('Never merge'), 'ship-ceremony.md must say Never merge');
+});
+
+test('greploop.md never merges and covers all-author review', () => {
+  const content = read('commands/greploop.md');
+  assert.ok(content.includes('Never merge'), 'greploop.md must say Never merge');
+  assert.ok(content.includes('all-author'), 'greploop.md must cover all-author review');
+});

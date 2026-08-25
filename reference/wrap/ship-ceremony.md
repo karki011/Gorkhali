@@ -74,22 +74,22 @@ If `gh` not available: print branch name + "run `gh pr create` when ready"
 
 If skipped: log reason to wrap.json, print "PR skipped ({reason}). Branch pushed — create manually when ready."
 
-## 5. Greptile Review Loop (always runs)
+## 5. All-author review + CHIEF_PING watch (always runs)
 
-The loop **always runs**. Greptile auto-reviews the PR on creation; we poll it, fix what it finds, and loop until it's happy.
-
-After the PR is created, hand off to the greploop skill:
+The loop **always runs**. Do not ask. After the PR is created, hand off to greploop:
 
 ```
 Skill(skill="gorkhali:greploop", args="{PR_NUMBER}")
 ```
 
-This triggers Greptile (`@greptileai review`), polls the check-run, fixes actionable comments, replies in-thread (tone from `GORKHALI_GREPTILE_TONE`: `neutral` default, `roast` opt-in), resolves threads, and re-reviews — looping until **5/5 confidence with zero unresolved comments** or the iteration ceiling (default 5).
+**Phase 1** classifies, tags, and resolves review comments from **all authors** (`reference/greploop.md`). Greptile comments still end with `@greptileai`; every other author is tagged `@<login>`. Bounded by `REVIEW_LOOP_MAX` (default 5).
+
+**Phase 2** arms the standing watch (`reference/pr-watch.md`): every tick Clerk emits `CHIEF_PING` — including idle. `{new:false}` is illegal. Chief must `CHIEF_ACK`. Never merge.
 
 - Skip if section 4 skipped the PR (no PR → no greploop).
-- If `gh`/Greptile unavailable or greploop errors: log a warning and tell the user "Greptile loop not run — request manually with `@greptileai review`." Do not block the wrap.
+- If `gh` unavailable or greploop errors: log a warning. Do not block the wrap. A tick without `CHIEF_PING` is failure, not quiet.
 
-Record greploop's final confidence + remaining-comment count into `wrap.json` `greptile`. greploop is the SOLE owner of writing `greptile.status` (`done`/`skipped`) back to `wrap.json` — wrap leaves it as `pending` after pinging and does not separately set it. The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is still `pending`/missing, which is what forces greploop to run.
+Record greploop's remaining-comment count into `wrap.json` `greptile`. greploop is the SOLE owner of writing `greptile.status` (`done`/`skipped`) back to `wrap.json` — wrap leaves it as `pending` after pinging and does not separately set it. The Stop-hook gate (`hooks/greploop-gate.js`) blocks the session from finishing while a live PR's `greptile.status` is still `pending`/missing, which is what forces greploop to run.
 
 ## 6. Jira Transition (non-blocking)
 

@@ -160,12 +160,17 @@ After validating the portable JSON, generate full-width, self-contained HTML
 using `<skill-directory>/references/review-html.md` and run
 `<skill-directory>/scripts/validate-review-html.mjs` against
 it. Order the page as:
-current direction; frame and stance; evidence; divergence lanes; connections
-and clusters; convergence funnel and shortlist; dissent; cheapest experiment;
-open questions; direction gate. Treat this as an exploration workbench, not a
-plan dossier. JSON remains the source of truth and generated HTML is never
-parsed back. If HTML generation or opening is unavailable, present the same hierarchy
-in chat. The input may be a direct v3 payload or the portable state envelope.
+What, Problem, and How first; then current direction; a comparison table of
+the distinct approaches; frame and stance; evidence; divergence lanes;
+connections and clusters; convergence funnel and shortlist; dissent; cheapest
+experiment; open questions; direction gate. Put detailed approach cards in
+collapsed `<details>` with no `open` attribute; the comparison table must
+appear in `<main>` before any details. Treat this as an exploration workbench,
+not a plan dossier. JSON remains the source of truth and generated HTML is
+never parsed back. If HTML generation or opening is unavailable, present the
+same What/Problem/How brief in chat, then Pick A/B/C. A How without supporting
+evidence is an assumption. The input may be a direct v3 payload or the
+portable state envelope.
 
 ## Anti-Patterns
 

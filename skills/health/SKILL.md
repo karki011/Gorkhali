@@ -1,6 +1,8 @@
 ---
 name: health
 description: Diagnose the Gorkhali SYSTEM ITSELF - stale learnings index, corrupted sessions, missing artifacts; NOT for broken user code (use fix or detective).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/health.md) is the single menu surface and stays user-invocable so typed /gorkhali:health works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

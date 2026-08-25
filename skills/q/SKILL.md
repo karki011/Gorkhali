@@ -1,6 +1,8 @@
 ---
 name: q
 description: "Alias of loop: start the Mission Control queue loop from any session."
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/q.md) is the single menu surface and stays user-invocable so typed /gorkhali:q works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

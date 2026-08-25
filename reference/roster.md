@@ -136,7 +136,7 @@ Slot number = position in the ordered list.
 | surveyor | meridan, gantrey *(explicit visual inspection; gantrey reserve)* |
 | steward | ordwin, tessle |
 | opposition | contrell, parlow |
-| clerk | ledgett, scrivet |
+| clerk | ledgett, scrivet, herald |
 | explore | farwick |
 | planner | drafton |
 | hunter | quarrick |
@@ -200,6 +200,7 @@ One row per non-execute spawn site in `commands/*.md`.
 | `brainstorm.md` | Council Mode Step 3 - Chairman synthesis | engineer | function (Rule 2) | `council-chairman` |
 | `brainstorm.md` | Opposition Pass - adversarial challenge on the approach spine, before Convergence | opposition | 1 | `opposition-contrell` |
 | `greploop.md` | Step E - substantial multi-file comment fix, prefer spawning an Engineer | engineer | 23 | `engineer-vosler` |
+| `greploop.md` / `reference/pr-watch.md` | Phase 2 watch tick Clerk (`CHIEF_PING` every tick, including idle) | clerk | 3 | `clerk-herald` |
 | `fix.md` | Step 8.5 - scrap-and-redo: a fresh agent replacing a repair Engineer whose fix failed the same-class check, spawned with synthesized learnings instead of the failed code | engineer | derived from the failed packet position (see Scrap-and-Redo below) | `engineer-redo-{N}` |
 
 ## Spawn-Site Slot Table: Reference-Level / Cross-Cutting Sites

@@ -1,6 +1,8 @@
 ---
 name: fix
 description: Repair a KNOWN failing check (test/build/lint/CI) inside an active session; NOT for cold-start fixes (start) or unknown causes (detective).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/fix.md) is the single menu surface and stays user-invocable so typed /gorkhali:fix works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

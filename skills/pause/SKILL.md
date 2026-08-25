@@ -1,6 +1,8 @@
 ---
 name: pause
 description: Checkpoint and save in-progress session state before a break, with no git operations; NOT for shipping (use wrap).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/pause.md) is the single menu surface and stays user-invocable so typed /gorkhali:pause works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

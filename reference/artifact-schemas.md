@@ -14,6 +14,7 @@ Each artifact has its own schema file:
 - [review.json](schemas/review.md) --- Reviewer artifact (auditor / specialist), findings + disposition
 - [wrap.json](schemas/wrap.md) --- Post-merge wrap record
 - [pause-state.json](schemas/pause-state.md) --- Pause/resume state
+- [pr-watch.json](schemas/pr-watch.md) --- Standing PR watch (CHIEF_PING loop)
 - [review-panel.json](schemas/review-panel.md) --- Pre-ship review panel
 - [run-artifacts](schemas/run-artifacts.md) --- Per-run artifact directory layout
 

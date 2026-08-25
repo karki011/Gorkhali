@@ -1,6 +1,8 @@
 ---
 name: sessions
 description: List and inspect past Gorkhali sessions - status, dates, tickets - read-only; NOT to continue one (use resume).
+# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/sessions.md) is the single menu surface and stays user-invocable so typed /gorkhali:sessions works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 ## Triggers
 

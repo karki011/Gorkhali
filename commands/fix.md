@@ -2,8 +2,7 @@
 name: fix
 description: "Use when verification failed in a gorkhali session — broken tests, failed build, lint, red CI — and the failing step is KNOWN. Cold-start fixes → gorkhali:start; unknown causes → gorkhali:detective."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-invocable (default) - typed /gorkhali:fix resolves here. The same-named skill (skills/fix/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger
