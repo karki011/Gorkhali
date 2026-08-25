@@ -72,6 +72,14 @@ module.exports = {
   // checkSessionCollision). A marker older than this is treated as absent.
   MARKER_FRESHNESS_MS: numFromEnv('GORKHALI_MARKER_FRESHNESS_MS', 12 * 60 * 60 * 1000),
 
+  // Lazy 24h auto-abandon threshold for an 'active' Gorkhali session, used by
+  // scripts/lib/routing-state.js's read-only staleness check. MUST be kept in
+  // sync with ABANDON_AFTER_MS in skills/gorkhali/scripts/gorkhali-state.mjs,
+  // which cannot import this file: the portable skill bundle stays standalone
+  // and never reaches outside itself. Not env-overridable, for the same
+  // reason - an override here alone would silently diverge the two readers.
+  SESSION_ABANDON_AFTER_MS: 24 * 60 * 60 * 1000,
+
   // UNATTENDED-RUN spend ceiling, USD. Binds ONLY unattended runs (scripts/run-guard.js
   // --unattended / GORKHALI_UNATTENDED=1); an interactive session is never capped because
   // the watching human IS the ceiling. Deliberately conservative: one autonomous ticket

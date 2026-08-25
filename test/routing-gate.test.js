@@ -93,6 +93,7 @@ function writePortableSession(data, repoRoot, status = 'active', options = {}) {
     task_id: task,
     status,
     workspace: options.workspace || fs.realpathSync(repoRoot),
+    ...(options.updatedAt ? { updated_at: options.updatedAt } : {}),
   }));
   const pointerDir = path.join(data, 'state', 'current-session');
   fs.mkdirSync(pointerDir, { recursive: true });
@@ -246,6 +247,28 @@ for (const status of ['paused', 'completed']) {
     }
   });
 }
+
+test('a status:active session untouched for over 24h reads as INACTIVE, not ACTIVE', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  try {
+    const staleUpdatedAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    writePortableSession(data, repoRoot, 'active', { updatedAt: staleUpdatedAt });
+    assertDeny(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a status:active session updated within the last 24h still reads as ACTIVE', () => {
+  const { data, env, repoRoot, target, cleanup } = setup();
+  try {
+    const freshUpdatedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    writePortableSession(data, repoRoot, 'active', { updatedAt: freshUpdatedAt });
+    assertAllow(runGate(env, editPayload(target, repoRoot)));
+  } finally {
+    cleanup();
+  }
+});
 
 test('corrupt portable pointer does not satisfy routing', () => {
   const { data, env, repoRoot, target, cleanup } = setup();

@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const codec = require('../../skills/gorkhali/scripts/lib/shared-state.cjs');
+const { SESSION_ABANDON_AFTER_MS } = require('./constants');
 
 const ACTIVE = 'active';
 const INACTIVE = 'inactive';
@@ -41,6 +42,17 @@ function realpath(file) {
 
 function within(target, root) {
   return target === root || target.startsWith(root + path.sep);
+}
+
+// Mirrors gorkhali-state.mjs's isStaleActive(): an unparseable updated_at is
+// treated as NOT stale (fail-safe, matching the write-side reader exactly) so
+// the two never disagree about the same session. This module is read-only by
+// design (a hook helper) - it never performs the lock-guarded write-back that
+// currentSession() does on the write side; it only stops COUNTING a session
+// that has aged past the threshold as currently active.
+function isStaleActive(session) {
+  const updatedAt = Date.parse(session?.updated_at);
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > SESSION_ABANDON_AFTER_MS;
 }
 
 // Pointer task ids to check for this repo: every entry of a version-2
@@ -103,7 +115,8 @@ function routingState(workspace) {
         && session.repo_id === repo
         && session.task_id === taskId
         && session.status === 'active'
-        && session.workspace === identity.root;
+        && session.workspace === identity.root
+        && !isStaleActive(session);
       if (isActive) return ACTIVE;
     }
     return INACTIVE;
