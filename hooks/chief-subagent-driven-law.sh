@@ -58,10 +58,26 @@ esac
 mkdir -p "$AUDIT_DIR"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# A fresh legacy marker or a live marker for this exact repo and session allows edits.
+# A fresh legacy marker or a live marker for this exact repo and session allows
+# edits. Each check also clears this exact (repo, session, file) key's block-
+# ceiling counter in-process when it passes (see engineer-marker-state.js's
+# main()), so a resolved block streak cannot carry leftover count into a
+# later, unrelated stall episode — no extra process spawn on this hot path.
 if printf '%s' "$INPUT" | node "$SCRIPT_DIR/engineer-marker-state.js" active \
   || printf '%s' "$INPUT" | node "$SCRIPT_DIR/engineer-marker-state.js" legacy; then
   printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"engineer"}\n' \
+    "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \
+    >> "$AUDIT_LOG"
+  exit 0
+fi
+
+# Bounded escape hatch: N consecutive blocked attempts on this exact
+# (repo, session, file) within a time window allow the write through once,
+# audited distinctly, so a genuinely stuck delegation attempt cannot loop
+# forever. A single blocked attempt, or attempts against a different file,
+# are unaffected — the discipline below still applies.
+if printf '%s' "$INPUT" | node "$SCRIPT_DIR/chief-block-ceiling.js" record-and-check; then
+  printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"escape-hatch-ceiling"}\n' \
     "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \
     >> "$AUDIT_LOG"
   exit 0
