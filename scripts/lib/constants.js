@@ -103,4 +103,10 @@ module.exports = {
   // restarts from 0 — an old stall episode should not carry into an unrelated
   // later one on the same file.
   CHIEF_BLOCK_WINDOW_MS: numFromEnv('GORKHALI_CHIEF_BLOCK_WINDOW_MS', 10 * 60 * 1000),
+
+  // Throttle for chief-block-ceiling.js's opportunistic expired-counter sweep:
+  // a repo's counter directory is rescanned at most once per this interval,
+  // not on every blocked attempt, so heavy concurrent load (many distinct
+  // session/file keys) doesn't pay a full readdir+parse scan per call.
+  CHIEF_BLOCK_SWEEP_INTERVAL_MS: numFromEnv('GORKHALI_CHIEF_BLOCK_SWEEP_INTERVAL_MS', 60 * 1000),
 };

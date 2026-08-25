@@ -133,6 +133,14 @@ function main() {
     else if (command === 'stop') result = stop(payload);
     else if (command === 'legacy') result = legacyActive(payload.cwd || process.cwd());
     else result = active(payload);
+    // The 'active'/'legacy' checks are chief-subagent-driven-law.sh's success
+    // path: a passing check means this exact (repo, session, file) edit is
+    // about to be authorized. Clear its block-ceiling counter in-process here
+    // (same already-running node, no extra spawn) rather than the law script
+    // shelling out a second process for it on every single delegated edit.
+    if (command !== 'start' && command !== 'stop' && result) {
+      try { require('./chief-block-ceiling').clear(payload); } catch (_) { /* best-effort */ }
+    }
     process.exitCode = command === 'start' || command === 'stop' ? 0 : result ? 0 : 1;
   } catch (_) {
     process.exitCode = 1;

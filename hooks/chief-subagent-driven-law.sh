@@ -58,13 +58,13 @@ esac
 mkdir -p "$AUDIT_DIR"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# A fresh legacy marker or a live marker for this exact repo and session allows edits.
+# A fresh legacy marker or a live marker for this exact repo and session allows
+# edits. Each check also clears this exact (repo, session, file) key's block-
+# ceiling counter in-process when it passes (see engineer-marker-state.js's
+# main()), so a resolved block streak cannot carry leftover count into a
+# later, unrelated stall episode — no extra process spawn on this hot path.
 if printf '%s' "$INPUT" | node "$SCRIPT_DIR/engineer-marker-state.js" active \
   || printf '%s' "$INPUT" | node "$SCRIPT_DIR/engineer-marker-state.js" legacy; then
-  # A successful delegated edit resolves any block streak on this exact
-  # (repo, session, file) key, so it cannot carry leftover count into a later,
-  # unrelated stall episode. Best-effort side effect — never fails the hook.
-  printf '%s' "$INPUT" | node "$SCRIPT_DIR/chief-block-ceiling.js" clear >/dev/null 2>&1 || true
   printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"engineer"}\n' \
     "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \
     >> "$AUDIT_LOG"

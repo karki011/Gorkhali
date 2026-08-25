@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { gorkhaliData, detectRepo } = require('../scripts/lib/gorkhali-paths');
-const { CHIEF_BLOCK_CEILING, CHIEF_BLOCK_WINDOW_MS } = require('../scripts/lib/constants');
+const { CHIEF_BLOCK_CEILING, CHIEF_BLOCK_WINDOW_MS, CHIEF_BLOCK_SWEEP_INTERVAL_MS } = require('../scripts/lib/constants');
 const { atomicWrite } = require('../scripts/lib/atomic');
 
 // session_id + file_path are untrusted and filesystem-unsafe; a stable hash
@@ -68,7 +68,7 @@ function sweepExpired(dir, now, exceptFile) {
   }
   for (const name of names) {
     const full = path.join(dir, name);
-    if (full === exceptFile) continue;
+    if (full === exceptFile || name === SWEEP_MARKER_NAME) continue;
     try {
       const data = JSON.parse(fs.readFileSync(full, 'utf8'));
       if (!data || typeof data.lastBlockedAt !== 'number' || now - data.lastBlockedAt >= CHIEF_BLOCK_WINDOW_MS) {
@@ -80,6 +80,28 @@ function sweepExpired(dir, now, exceptFile) {
   }
 }
 
+// Throttle marker for sweepExpired: an empty file whose MTIME is the last
+// sweep time. Under heavy concurrent load (many distinct session/file keys),
+// sweeping the full directory on every single blocked attempt is an O(n)
+// readdir+parse per call; this caps it to once per CHIEF_BLOCK_SWEEP_INTERVAL_MS
+// regardless of call volume. Best-effort in both directions: a marker read/
+// write failure means "sweep anyway" (shouldSweep) or "skip touching it, the
+// next call decides again" (touchSweepMarker) — never lets the marker itself
+// throw and break recordAndCheck.
+const SWEEP_MARKER_NAME = '.last-swept';
+
+function shouldSweep(dir, now) {
+  try {
+    return now - fs.statSync(path.join(dir, SWEEP_MARKER_NAME)).mtimeMs >= CHIEF_BLOCK_SWEEP_INTERVAL_MS;
+  } catch (_) {
+    return true; // no marker yet (or unreadable) — sweep now and lay one down
+  }
+}
+
+function touchSweepMarker(dir) {
+  try { fs.writeFileSync(path.join(dir, SWEEP_MARKER_NAME), ''); } catch (_) { /* best-effort */ }
+}
+
 function recordAndCheck(payload = {}) {
   const { sessionId, filePath, cwd } = keyInputs(payload);
   const now = Date.now();
@@ -87,7 +109,10 @@ function recordAndCheck(payload = {}) {
   const file = path.join(dir, counterKey(sessionId, filePath));
 
   fs.mkdirSync(dir, { recursive: true });
-  sweepExpired(dir, now, file);
+  if (shouldSweep(dir, now)) {
+    sweepExpired(dir, now, file);
+    touchSweepMarker(dir);
+  }
 
   const existing = readCounter(file, now);
   const count = (existing ? existing.count : 0) + 1;
