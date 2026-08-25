@@ -55,8 +55,16 @@ function runLaw(fixture, payload, extraEnv = {}) {
 
 test('hooks register marker lifecycle on SubagentStart and SubagentStop', () => {
   const hooks = JSON.parse(fs.readFileSync(HOOKS, 'utf8')).hooks;
-  assert.match(JSON.stringify(hooks.SubagentStart), /engineer-marker-state\.js start/);
-  assert.match(JSON.stringify(hooks.SubagentStop), /engineer-marker-state\.js stop/);
+  const startCommand = hooks.SubagentStart[0].hooks.find((h) => h.command.includes('engineer-marker-state.js')).command;
+  const stopCommand = hooks.SubagentStop[0].hooks.find((h) => h.command.includes('engineer-marker-state.js')).command;
+  assert.equal(
+    startCommand,
+    '[ -n "${CLAUDE_PLUGIN_ROOT:-}" ] || exit 0; exec node "${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js" start'
+  );
+  assert.equal(
+    stopCommand,
+    '[ -n "${CLAUDE_PLUGIN_ROOT:-}" ] || exit 0; exec node "${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js" stop'
+  );
 });
 
 test('concurrent Engineer and Steward starts get independent markers', () => {
