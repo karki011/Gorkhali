@@ -106,6 +106,8 @@ test('exit rejects exit_reason none and a non-stop next_action', () => {
 test('watermark must be RFC3339', () => {
   assert.equal(validatePing(idlePing({ watermark: 'not-a-date' })).ok, false);
   assert.equal(validatePing(idlePing({ watermark: '2026-08-25 21:40:00' })).ok, false);
+  // Shape-valid (regex) but calendar-impossible — Date.parse is NaN.
+  assert.equal(validatePing(idlePing({ watermark: '2026-13-45T99:99:99Z' })).ok, false);
   assert.equal(validatePing(idlePing({ watermark: '2026-08-25T21:40:00.123Z' })).ok, true);
   assert.equal(validatePing(idlePing({ watermark: '2026-08-25T21:40:00+00:00' })).ok, true);
 });
@@ -212,6 +214,7 @@ test('validateWatchState allows only pr, status, tick, watermark, lastPingAt', (
   assert.equal(validateWatchState(missing).ok, false);
   assert.equal(validateWatchState({ ...state, status: 'paused-ceiling' }).ok, false);
   assert.equal(validateWatchState({ ...state, watermark: 'soon' }).ok, false);
+  assert.equal(validateWatchState({ ...state, lastPingAt: '2026-13-45T99:99:99Z' }).ok, false);
 });
 
 test('formatChiefPing throws on an illegal ping rather than emitting a quiet idle', () => {

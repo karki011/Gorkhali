@@ -43,7 +43,8 @@ function isNonNegInt(n) {
 }
 
 function isRfc3339(s) {
-  return typeof s === 'string' && RFC3339_RE.test(s);
+  // Date.parse is the semantic guard (regex is shape only).
+  return typeof s === 'string' && RFC3339_RE.test(s) && Number.isFinite(Date.parse(s));
 }
 
 function isIdOnly(value) {
