@@ -1,8 +1,6 @@
 ---
 name: detective
 description: Investigate an UNKNOWN cause behind a bug or regression and produce a forensic report; NOT for known failures (use fix).
-# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/detective.md) is the single menu surface and stays user-invocable so typed /gorkhali:detective works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
-user-invocable: false
 ---
 ## Triggers
 

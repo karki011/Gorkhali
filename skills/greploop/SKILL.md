@@ -1,8 +1,6 @@
 ---
 name: greploop
 description: Iterate a pull request against ALL review comments (humans and bots), tag authors, resolve, then arm CHIEF_PING watch. Auto-invoked by wrap.
-# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/greploop.md) is the single menu surface and stays user-invocable so typed /gorkhali:greploop works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
-user-invocable: false
 ---
 ## Triggers
 

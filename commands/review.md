@@ -2,7 +2,8 @@
 name: review
 description: "Run one independent Auditor review of the current verified diff. Adds Justice only for explicit risk triggers; UI confirmation remains a user verification step."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# User-invocable (default) - typed /gorkhali:review resolves here. The same-named skill (skills/review/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)

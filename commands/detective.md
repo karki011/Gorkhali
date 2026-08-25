@@ -3,7 +3,8 @@ name: detective
 description: "Use when investigating an UNKNOWN cause — bug, regression, wrong behavior with no error, failing since a deploy. HTML forensic reports. Known failures → gorkhali:fix; Gorkhali itself → gorkhali:health."
 argument-hint: "<symptoms or file paths>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob"]
-# User-invocable (default) - typed /gorkhali:detective resolves here. The same-named skill (skills/detective/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

@@ -2,7 +2,8 @@
 name: greploop
 description: "Use when driving a PR through all-author review — classify, tag, resolve, then arm CHIEF_PING watch. Auto-invoked by gorkhali:wrap after PR creation."
 allowed-tools: ["Agent", "Read", "Edit", "Bash", "Grep", "Glob", "LS"]
-# User-invocable (default) - typed /gorkhali:greploop resolves here. The same-named skill (skills/greploop/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

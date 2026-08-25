@@ -3,7 +3,8 @@ name: start
 description: "Use when starting any new feature, bug fix, refactor, or task — a Jira ticket key (e.g., PROJ-123), 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# User-invocable (default) - typed /gorkhali:start resolves here. The same-named skill (skills/start/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)

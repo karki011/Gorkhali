@@ -1,8 +1,6 @@
 ---
 name: evolve
 description: "Maintain Gorkhali's knowledge system: distill oversized learnings, promote validated patterns, and clean stale entries."
-# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/evolve.md) is the single menu surface and stays user-invocable so typed /gorkhali:evolve works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
-user-invocable: false
 ---
 ## Triggers
 

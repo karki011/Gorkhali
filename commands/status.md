@@ -1,7 +1,8 @@
 ---
 name: status
 description: "Use when you want to check progress, view the task board, or get a status update — 'what are we working on', 'where are we'. Shows active session, running agents, pending items."
-# User-invocable (default) - typed /gorkhali:status resolves here. The same-named skill (skills/status/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

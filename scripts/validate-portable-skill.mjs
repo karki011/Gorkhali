@@ -325,13 +325,8 @@ export function validateCommandAdapters(commandRoot = commandsDirectory, skillRo
     try {
       const fields = parseFrontmatter(content);
       const keys = Object.keys(fields).sort();
-      const allowed = keys.join(',') === 'description,name'
-        || keys.join(',') === 'description,name,user-invocable';
-      if (!allowed) {
+      if (keys.join(',') !== 'description,name') {
         errors.push(`skills/${command}/SKILL.md frontmatter must contain exactly name and description.`);
-      }
-      if (Object.hasOwn(fields, 'user-invocable') && fields['user-invocable'] !== 'false') {
-        errors.push(`skills/${command}/SKILL.md user-invocable must be false.`);
       }
       if (fields.name !== command) {
         errors.push(`skills/${command}/SKILL.md must declare name: ${command}.`);

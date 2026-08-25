@@ -1,8 +1,6 @@
 ---
 name: wrap
 description: "Ship completed work: verify, create a ready-for-review PR, and record the release/lifecycle outcome; NOT for post-merge steps (use close)."
-# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/wrap.md) is the single menu surface and stays user-invocable so typed /gorkhali:wrap works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
-user-invocable: false
 ---
 ## Triggers
 

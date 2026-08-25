@@ -1,7 +1,8 @@
 ---
 name: sessions
 description: "Use when you want to see past work — list sessions, check history, find one to resume. Read-only: status (active/paused/completed), dates, ticket IDs. Continuing a session → gorkhali:resume."
-# User-invocable (default) - typed /gorkhali:sessions resolves here. The same-named skill (skills/sessions/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)

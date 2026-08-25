@@ -1,7 +1,8 @@
 ---
 name: pause
 description: "Use when stepping away or saving progress mid-session — 'pause', 'checkpoint', 'done for today'. Saves artifacts only, no git ops. Ship → gorkhali:wrap; continue → gorkhali:resume."
-# User-invocable (default) - typed /gorkhali:pause resolves here. The same-named skill (skills/pause/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)

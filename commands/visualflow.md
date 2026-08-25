@@ -3,7 +3,8 @@ name: visualflow
 description: "Use when building a NEW screen, feature, or flow — especially with NO Figma or design — to nail the flow BEFORE writing code. Produces a human-gated HTML flow artifact (screens, states, transitions)."
 argument-hint: "<screen/feature description or ticket>"
 allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob", "LS", "Skill"]
-# User-invocable (default) - typed /gorkhali:visualflow resolves here. The same-named skill (skills/visualflow/SKILL.md) carries user-invocable: false to stay off the / menu; this command remains the canonical procedure and the single menu surface. Do not flip without re-checking menu duplication.
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)

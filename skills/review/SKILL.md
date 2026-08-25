@@ -1,8 +1,6 @@
 ---
 name: review
 description: Independent read-only review of the current verified diff for quality, duplication, and architecture; NOT for test runs (verify) or self-quizzing (grill).
-# Hidden from the Claude Code / menu via user-invocable: false - the same-named command (commands/review.md) is the single menu surface and stays user-invocable so typed /gorkhali:review works. Claude's Skill tool can still invoke this skill; user-invocable: false only blocks direct typing, not model invocation. Do not flip without re-checking menu duplication.
-user-invocable: false
 ---
 ## Triggers
 
