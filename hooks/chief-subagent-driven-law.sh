@@ -67,6 +67,18 @@ if printf '%s' "$INPUT" | node "$SCRIPT_DIR/engineer-marker-state.js" active \
   exit 0
 fi
 
+# Bounded escape hatch: N consecutive blocked attempts on this exact
+# (repo, session, file) within a time window allow the write through once,
+# audited distinctly, so a genuinely stuck delegation attempt cannot loop
+# forever. A single blocked attempt, or attempts against a different file,
+# are unaffected — the discipline below still applies.
+if printf '%s' "$INPUT" | node "$SCRIPT_DIR/chief-block-ceiling.js" record-and-check; then
+  printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"escape-hatch-ceiling"}\n' \
+    "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \
+    >> "$AUDIT_LOG"
+  exit 0
+fi
+
 # No engineer marker = Chief trying to edit directly = BLOCK
 printf '{"ts":"%s","tool":"%s","file":"%s","session":"%s","source":"chief-blocked"}\n' \
   "$TIMESTAMP" "$TOOL_NAME" "$FILE_PATH" "$SESSION_ID" \

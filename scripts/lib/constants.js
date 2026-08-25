@@ -91,4 +91,16 @@ module.exports = {
   // 2 matches the fix-loop rule it shares an authority with (hooks/loop-controller.js) —
   // "fails twice with the same error class → the approach is wrong".
   STUCK_REPEAT_LIMIT: intFromEnv('GORKHALI_STUCK_REPEAT_LIMIT', 2),
+
+  // chief-subagent-driven-law.sh bounded escape hatch: consecutive blocked Chief
+  // edit attempts on the exact same (repo, session, file) before the block is
+  // allowed through once (audited distinctly). Prevents an infinite block loop
+  // when delegation is genuinely stuck, without weakening the block for the
+  // normal single-attempt case.
+  CHIEF_BLOCK_CEILING: intFromEnv('GORKHALI_CHIEF_BLOCK_CEILING', 3),
+
+  // Gap after which a (repo, session, file) block streak is considered stale and
+  // restarts from 0 — an old stall episode should not carry into an unrelated
+  // later one on the same file.
+  CHIEF_BLOCK_WINDOW_MS: numFromEnv('GORKHALI_CHIEF_BLOCK_WINDOW_MS', 10 * 60 * 1000),
 };
