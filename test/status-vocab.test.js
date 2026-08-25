@@ -109,9 +109,9 @@ test('inspector verdict vocabulary carries the extended token', () => {
   assert.ok(verdicts.includes('not-applicable'));
 });
 
-test('lifecycle vocabulary parses to active/paused/completed', () => {
+test('lifecycle vocabulary parses to active/paused/completed/abandoned', () => {
   const lifecycle = parseLifecycleStates();
-  assert.deepEqual([...lifecycle].sort(), ['active', 'completed', 'paused']);
+  assert.deepEqual([...lifecycle].sort(), ['abandoned', 'active', 'completed', 'paused']);
 });
 
 test('the three vocabularies are pairwise disjoint except KNOWN_COLLISIONS', () => {

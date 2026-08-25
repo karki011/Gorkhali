@@ -513,7 +513,15 @@ function inventory(context) {
 // baseline pointer always wins a collision (a live pointer is never parked).
 // --------------------------------------------------------------------------
 
+// Version 2 is the current multi-task-plus-focus pointer shape (see
+// skills/gorkhali/references/state.md "Pointer contract"); version 1 is the
+// single-scalar shape an older install may still have on disk. Both are
+// reconstructed into the current version-2 shape at the destination.
 function classifyPointerSchema(pointer) {
+  if (pointer && pointer.schema_version === 2 && typeof pointer.repo_id === 'string'
+    && pointer.tasks && typeof pointer.tasks === 'object' && !Array.isArray(pointer.tasks)) {
+    return 'portable-v2';
+  }
   if (pointer && pointer.schema_version === 1
     && typeof pointer.repo_id === 'string' && typeof pointer.task_id === 'string') {
     return 'portable-v1';
@@ -531,11 +539,29 @@ function isSafeSegment(value) {
     && value.length <= 120;
 }
 
-function validateSourceSession(session, pointer) {
+// The raw { taskId: { session_dir, updated_at } } candidates a pointer names,
+// regardless of which schema version wrote it.
+function pointerTaskEntries(pointer, schema) {
+  if (schema === 'portable-v2') {
+    const entries = {};
+    for (const [taskId, entry] of Object.entries(pointer.tasks)) {
+      if (entry && typeof entry === 'object' && typeof entry.session_dir === 'string') {
+        entries[taskId] = { session_dir: entry.session_dir, updated_at: entry.updated_at };
+      }
+    }
+    return entries;
+  }
+  if (schema === 'portable-v1') {
+    return { [pointer.task_id]: { session_dir: pointer.session_dir, updated_at: pointer.updated_at } };
+  }
+  return {};
+}
+
+function validateSourceSession(session, repoId, taskId) {
   if (!session || session.schema_version !== 1 || session.artifact_type !== 'session') {
     return 'invalid-session-envelope';
   }
-  if (session.repo_id !== pointer.repo_id || session.task_id !== pointer.task_id) {
+  if (session.repo_id !== repoId || session.task_id !== taskId) {
     return 'session-identity-mismatch';
   }
   if (!['active', 'paused'].includes(session.status)) return 'session-is-not-current';
@@ -546,7 +572,7 @@ function validateSourceSession(session, pointer) {
   } catch (_) {
     identity = null;
   }
-  if (!identity || identity.id !== pointer.repo_id) return 'workspace-repo-identity-mismatch';
+  if (!identity || identity.id !== repoId) return 'workspace-repo-identity-mismatch';
   return null;
 }
 
@@ -561,34 +587,58 @@ function describePointer(source, file, context) {
     digest: sha256File(file),
   };
   const schema = classifyPointerSchema(pointer);
-  if (schema !== 'portable-v1') {
+  if (schema !== 'portable-v1' && schema !== 'portable-v2') {
     return { ...base, class: 'skipped-live-state', reason: `unsupported-${schema}-pointer` };
   }
-  if (!isSafeSegment(pointer.repo_id) || !isSafeSegment(pointer.task_id)) {
+  if (!isSafeSegment(pointer.repo_id)) {
     return { ...base, class: 'skipped-live-state', reason: 'unsafe-pointer-segment' };
   }
   if (path.basename(file) !== `${pointer.repo_id}.json`) {
     return { ...base, class: 'skipped-live-state', reason: 'pointer-filename-mismatch' };
   }
-  const sourceSession = readJson(path.join(source.root, 'repos', pointer.repo_id, 'sessions', pointer.task_id, 'session.json'));
-  const sessionReason = validateSourceSession(sourceSession, pointer);
-  if (sessionReason) return { ...base, class: 'skipped-live-state', reason: `source-${sessionReason}` };
 
   const canonicalRepoId = codec.resolveCanonical(context.dest, pointer.repo_id);
-  const destSessionDir = path.join(context.dest, 'repos', canonicalRepoId, 'sessions', pointer.task_id);
+  // Validate every candidate task independently; a task that fails validation
+  // (unsafe segment, stale/foreign backing session) is dropped rather than
+  // invalidating the whole pointer, so one bad task never orphans the others.
+  const survivors = {};
+  let firstReason = null;
+  for (const [taskId, entry] of Object.entries(pointerTaskEntries(pointer, schema))) {
+    if (!isSafeSegment(taskId)) {
+      firstReason = firstReason || 'unsafe-pointer-segment';
+      continue;
+    }
+    const sourceSession = readJson(
+      path.join(source.root, 'repos', pointer.repo_id, 'sessions', taskId, 'session.json'),
+    );
+    const sessionReason = validateSourceSession(sourceSession, pointer.repo_id, taskId);
+    if (sessionReason) {
+      firstReason = firstReason || `source-${sessionReason}`;
+      continue;
+    }
+    survivors[taskId] = {
+      session_dir: path.join(context.dest, 'repos', canonicalRepoId, 'sessions', taskId),
+      updated_at: entry.updated_at || new Date().toISOString(),
+    };
+  }
+  const survivorIds = Object.keys(survivors);
+  if (survivorIds.length === 0) {
+    return { ...base, class: 'skipped-live-state', reason: firstReason || 'source-session-is-not-current' };
+  }
+
+  const requestedFocus = schema === 'portable-v2' ? pointer.focus_task_id : pointer.task_id;
+  const focusTaskId = Object.hasOwn(survivors, requestedFocus) ? requestedFocus : survivorIds[0];
   const destPointer = path.join(context.dest, 'state', 'current-session', `${canonicalRepoId}.json`);
   const reconstructed = {
-    schema_version: 1,
+    schema_version: 2,
     repo_id: canonicalRepoId,
-    task_id: pointer.task_id,
-    session_dir: destSessionDir,
-    updated_at: pointer.updated_at || new Date().toISOString(),
+    focus_task_id: focusTaskId,
+    tasks: survivors,
   };
   const item = {
     ...base,
     dest: destPointer,
     repoId: canonicalRepoId,
-    destSessionDir,
     pointerContent: reconstructed,
   };
   const existing = readJson(destPointer);
@@ -1054,9 +1104,21 @@ function executePointer(item) {
   const stub = actionStub(item);
   if (item.class === 'deduplicated') return { ...stub, applied: 'deduplicated' };
   if (item.class !== 'imported') return { ...stub, applied: 'skipped', reason: item.reason };
-  if (!isDir(item.destSessionDir)) return { ...stub, applied: 'skipped', reason: 'session-data-not-present' };
+  // Re-check each task's destination session dir at apply time (the pointer
+  // never dangles): a task whose data was not actually copied is dropped
+  // rather than failing the whole pointer.
+  const tasks = {};
+  for (const [taskId, entry] of Object.entries(item.pointerContent.tasks)) {
+    if (isDir(entry.session_dir)) tasks[taskId] = entry;
+  }
+  if (Object.keys(tasks).length === 0) {
+    return { ...stub, applied: 'skipped', reason: 'session-data-not-present' };
+  }
   if (fs.existsSync(item.dest)) return { ...stub, applied: 'skipped', reason: 'destination-pointer-exists' };
-  atomicWriteJson(item.dest, item.pointerContent);
+  const focusTaskId = Object.hasOwn(tasks, item.pointerContent.focus_task_id)
+    ? item.pointerContent.focus_task_id
+    : Object.keys(tasks)[0];
+  atomicWriteJson(item.dest, { ...item.pointerContent, focus_task_id: focusTaskId, tasks });
   return { ...stub, applied: 'imported' };
 }
 

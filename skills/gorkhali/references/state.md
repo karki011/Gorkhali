@@ -87,10 +87,45 @@ segments.
 
 ## Pointer contract
 
-The durable task pointer at `state/current-session/<repo-id>.json` is the only
-authority on which task is current. It is a version-1 record
-(`{ schema_version, repo_id, task_id, session_dir, updated_at }`) written solely
-by the lifecycle helper on `start`, `record`, and `complete`.
+The durable pointer at `state/current-session/<repo-id>.json` is the only
+authority on which tasks are current for a repository. It is a version-2 record
+holding a repo-scoped set of concurrently-active tasks plus a `focus_task_id`:
+
+```json
+{
+  "schema_version": 2,
+  "repo_id": "project-0123456789",
+  "focus_task_id": "TASK-2",
+  "tasks": {
+    "TASK-1": { "session_dir": "/…/repos/project-0123456789/sessions/TASK-1", "updated_at": "2026-01-01T00:00:00.000Z" },
+    "TASK-2": { "session_dir": "/…/repos/project-0123456789/sessions/TASK-2", "updated_at": "2026-01-02T00:00:00.000Z" }
+  }
+}
+```
+
+Multiple tasks may be active for the same repository at once. `focus_task_id`
+is what every command acts on when it is not told otherwise; every lifecycle
+command (`status`, `pause`, `resume`, `approve`, `authorize`, `execute`,
+`verify`, `record`, `ship`, `complete`, `correct-work-kind`, as well as
+`start`) accepts an explicit `--task <id>` to target a specific task instead.
+`start` on a new `task_id` adds it to `tasks` and always makes it focus,
+without disturbing any other task already in the set; `start` on an existing
+`task_id` still enforces the immutability rules below and re-touches that
+task's entry, making it focus again - starting is always "the thing I am now
+working on." Every OTHER mutation refreshes its target task's `updated_at`
+and takes focus only if that task already held it (or nothing did); an
+explicit `--task` naming a task other than the current focus never silently
+steals focus out from under whatever the caller is actually focused on -
+`pause --task <other>` pauses `<other>` and leaves focus exactly where it
+was. `complete` keeps the completed task's entry (remapped to its archived
+`completed/<task-id>` directory) rather than removing it, so it remains
+resolvable - as focus if it already was - until another task takes focus.
+
+An install that predates this multi-task shape may still have a version-1
+scalar pointer on disk (`{ schema_version: 1, repo_id, task_id, session_dir,
+updated_at }`); readers treat it as a set of exactly one task and it is
+lazily rewritten to version 2 the next time anything touches that repo's
+state.
 
 Runtime telemetry (the host session id captured per prompt) is written to a
 physically separate path, `state/session-telemetry/<repo-id>.json`
@@ -136,12 +171,27 @@ The envelope persists enriched fields unchanged;
 generated plan and brainstorm HTML are distinct projections of the same
 canonical JSON.
 
-Session envelopes use `active`, `paused`, or `completed`. Recorded workflow and
-run artifacts use `pending`, `passed`, `failed`, `blocked`, or `skipped`.
-For plan and brainstorm artifacts, `passed` means the artifact validated and its
-review pass completed; it never means the user approved the recommendation.
-Approval remains in the decision record. Session completion specifically
-requires `passed` verification and review artifacts.
+Session envelopes use `active`, `paused`, `completed`, or `abandoned`. Recorded
+workflow and run artifacts use `pending`, `passed`, `failed`, `blocked`, or
+`skipped`. For plan and brainstorm artifacts, `passed` means the artifact
+validated and its review pass completed; it never means the user approved the
+recommendation. Approval remains in the decision record. Session completion
+specifically requires `passed` verification and review artifacts.
+
+`abandoned` is lazily assigned, not something any command sets directly: an
+`active` session whose `updated_at` is more than 24 hours old is flipped to
+`abandoned` the next time anything reads it (no daemon or cron required), and
+it is dropped from the pointer's active-task set so it no longer occupies
+focus or blocks a new task from starting. `paused` sessions are exempt at any
+age — an explicit pause (`gorkhali:pause`) can legitimately sit for days before
+`gorkhali:resume`, so only a session nobody is actively driving ages out.
+`abandoned` is terminal the same way `completed` is for `start`'s per-task
+immutability checks: it never blocks starting a different task, and `start`ing
+the SAME `task_id` again simply reactivates it (status returns to `active`)
+through the ordinary resume path rather than needing a special case.
+`requireCurrent`-style commands (`execute`, `verify`, `ship`, `complete`, …)
+refuse an abandoned session with the same failure shape as an already-completed
+one, naming `start` as the way back in.
 
 ## Defect-proof gate
 
@@ -289,8 +339,12 @@ contract in [roles](roles.md) before the result can be synthesized.
   artifact write must leave those lifecycle actions unchanged; if the later
   state write fails, restore the prior artifact, session, and pointer values.
 - Serialize lifecycle mutations with the per-repository advisory lock under
-  `locks/`. Recover a lock whose owning process no longer exists, and reject a
-  second active task rather than silently replacing the current-session pointer.
+  `locks/`. Recover a lock whose owning process no longer exists. Multiple
+  tasks may be active for the same repository at once; starting a distinct
+  `task_id` adds it to the pointer's task set rather than being rejected or
+  silently replacing another task's entry. Resuming the SAME `task_id` still
+  never silently replaces its recorded route, work kind, or material intent -
+  those remain immutable and a mismatch fails closed exactly as before.
 - Preserve `created_at` and update `updated_at` on mutation.
 - Treat session artifacts as source of truth, not conversation memory.
 - Pause with the exact next action, dirty-worktree state, decisions, incomplete
