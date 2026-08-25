@@ -117,9 +117,15 @@ and takes focus only if that task already held it (or nothing did); an
 explicit `--task` naming a task other than the current focus never silently
 steals focus out from under whatever the caller is actually focused on -
 `pause --task <other>` pauses `<other>` and leaves focus exactly where it
-was. `complete` keeps the completed task's entry (remapped to its archived
-`completed/<task-id>` directory) rather than removing it, so it remains
-resolvable - as focus if it already was - until another task takes focus.
+was. `complete` is the one exception to "refresh, don't remove": a completed
+task is done, not in-flight work, so it is dropped from `tasks` entirely
+(falling focus to the most-recently-updated survivor, or to nothing) rather
+than lingering as a candidate `focus_task_id` or inflating the active set
+forever. Its `session.json` under `completed/<task-id>` remains the durable
+record and stays independently readable via an explicit `--task` - resolved
+by falling back to the deterministic `sessions/<task-id>` and then
+`completed/<task-id>` directory layout once a task has no pointer entry -
+it is simply no longer a candidate for the bare, no-`--task` commands above.
 
 An install that predates this multi-task shape may still have a version-1
 scalar pointer on disk (`{ schema_version: 1, repo_id, task_id, session_dir,

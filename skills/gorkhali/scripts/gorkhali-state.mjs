@@ -447,11 +447,17 @@ let heldLock = null;
 let lockDepth = 0;
 
 function acquireLifecycleLock(workspace) {
+  const file = lockFile(workspace);
   if (heldLock) {
+    if (heldLock.file !== file) {
+      throw new Error(
+        'Internal error: nested Gorkhali lifecycle lock requested for a different workspace '
+        + `(held: ${heldLock.file}, requested: ${file}). Reentrancy assumes one workspace per process.`,
+      );
+    }
     lockDepth += 1;
     return heldLock;
   }
-  const file = lockFile(workspace);
   const token = randomUUID();
   const deadline = Date.now() + LOCK_WAIT_MS;
   mkdirSync(dirname(file), { recursive: true });
@@ -621,14 +627,20 @@ function taskIdFromArgs(args) {
 // taskId selects a specific task's session; omitted, it resolves to the
 // current focus (the most-recently-touched active task) - this preserves
 // existing single-task behavior for every caller that does not pass one.
-function currentSession(workspace, taskId) {
+function currentSession(workspace, taskId, { bestEffortAbandon = false } = {}) {
   const currentFile = currentSessionFile(workspace);
   const pointer = readPointer(currentFile);
   const effectiveTaskId = taskId || pointer.focusTaskId;
   if (!effectiveTaskId) return null;
   const entry = pointer.tasks[effectiveTaskId];
   const paths = sessionPaths(workspace, effectiveTaskId);
-  const sessionDirectory = entry?.session_dir || paths.sessionDir;
+  // A pointer entry (active, or a legacy/paused one a mutation hasn't dropped)
+  // is authoritative. With no entry - most commonly an explicit --task naming
+  // a task `complete` has since dropped from the active set - fall back to
+  // the active session dir, then the archived one, so a completed task stays
+  // independently readable purely from its deterministic directory layout.
+  const sessionDirectory = entry?.session_dir
+    || (existsSync(join(paths.sessionDir, 'session.json')) ? paths.sessionDir : paths.completedDir);
   paths.sessionDir = sessionDirectory;
   let session = readJson(join(sessionDirectory, 'session.json'));
   if (!session) return null;
@@ -638,7 +650,20 @@ function currentSession(workspace, taskId) {
     );
   }
   if (isStaleActive(session)) {
-    session = abandonStaleSession(workspace, paths, session);
+    if (bestEffortAbandon) {
+      // The plain `status` read path runs outside withLifecycleLock and must
+      // stay pure-read on a read-only or permission-restricted data root: a
+      // failed opportunistic write-back must never turn a read into a crash.
+      // Report the correct status regardless; the next command with write
+      // access (any of which already runs under the lock) retries the write.
+      try {
+        session = abandonStaleSession(workspace, paths, session);
+      } catch {
+        session = { ...session, status: 'abandoned' };
+      }
+    } else {
+      session = abandonStaleSession(workspace, paths, session);
+    }
   }
   const sessionHadWorkKind = session.work_kind !== undefined;
   session.lifecycle = lifecycleFor(session);
@@ -753,7 +778,7 @@ function start(workspace, args) {
 }
 
 function status(workspace, taskId) {
-  const current = currentSession(workspace, taskId);
+  const current = currentSession(workspace, taskId, { bestEffortAbandon: true });
   return current?.session || { schema_version: 1, status: 'none', workspace };
 }
 
@@ -1929,7 +1954,12 @@ function complete(workspace, taskId) {
   const session = updateStatus(workspace, 'completed', { completed_at: now() }, current);
   mkdirSync(join(current.paths.repoRoot, 'completed'), { recursive: true });
   renameSync(current.paths.sessionDir, current.paths.completedDir);
-  touchPointerTask(current.paths, current.paths.completedDir);
+  // A completed task is done, not "in flight" - it never blocks anything (see
+  // start()) and must never linger as focus_task_id, so it is dropped from the
+  // active-task set entirely. session.json under completedDir remains the
+  // durable, separately-readable record; the pointer only tracks what is
+  // currently active.
+  dropPointerTask(current.paths);
   return session;
 }
 
