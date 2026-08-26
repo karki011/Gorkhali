@@ -10,6 +10,13 @@
   "contract_version": 3,
   "depth": "deep",
   "title": "How should planning results become a reviewable decision?",
+  "briefing": {
+    "tackling": "How planning results become a reviewable decision",
+    "problem": "Current output exposes tasks and waves but does not give the reviewer enough context to compare directions or understand why one should be approved.",
+    "how": "Lead with What, Problem, and How, then a comparison of distinct approaches",
+    "scope": "Review presentation and the decision-first brainstorm contract",
+    "risks": "A generic or task-first review hides the recommendation until too late"
+  },
   "problem": "Current output exposes tasks and waves but does not give the reviewer enough context to compare directions or understand why one should be approved.",
   "stance": {
     "mode": "creative-partner",

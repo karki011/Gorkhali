@@ -133,6 +133,11 @@ const portablePlan = () => ({
   contract_version: 3,
   depth: 'quick',
   summary: 'Reviewers need the decision before its execution details. Lead with the researched direction, preserve the compact evidence, and generate the offline review from canonical JSON. The result is a decision-useful review without architecture-grade filler.',
+  briefing: {
+    tackling: 'Decision-first review output',
+    problem: 'Reviewers need to understand the decision before execution tasks',
+    how: 'Lead with the researched direction and generate the offline review from canonical JSON',
+  },
   problem: 'Reviewers need to understand the decision before execution tasks',
   decision: {
     question: 'Use decision-first review output?',
@@ -174,15 +179,15 @@ const portablePlan = () => ({
   }],
 });
 
-const portableApproach = (id, name) => ({
+const portableApproach = (id, name, lens = 'decision clarity', effort = 'low', risk = 'low', reversibility = 'high') => ({
   id,
   name,
   thesis: `${name} thesis`,
   description: `${name} description`,
-  whyLens: 'decision clarity',
-  effort: 'low',
-  risk: 'low',
-  reversibility: 'high',
+  whyLens: lens,
+  effort,
+  risk,
+  reversibility,
   whatBreaks: ['The review contract must be revised'],
   whenToPick: 'Pick when it best meets the criteria',
 });
@@ -190,6 +195,13 @@ const portableApproach = (id, name) => ({
 const portableBrainstorm = () => ({
   contract_version: 3,
   depth: 'quick',
+  briefing: {
+    tackling: 'How review output should be organized',
+    problem: 'Reviewers need the recommendation before execution mechanics',
+    how: 'Lead with What, Problem, and How, then a comparison of distinct approaches',
+    scope: 'Review presentation for portable artifacts',
+    risks: 'A task-first layout hides the recommendation',
+  },
   stance: { mode: 'creative-partner', reason: 'The user owns the outcome while the agent develops alternatives' },
   phase: 'decision',
   decision: {
@@ -214,7 +226,7 @@ const portableBrainstorm = () => ({
     { id: 'I2', title: 'Task-first review', summary: 'Lead with execution mechanics', lens: 'implementer', technique: 'simplest-path', evidence: ['Tasks are directly actionable'], assumptions: [] },
   ],
   clusters: [],
-  approaches: [portableApproach('decision-first', 'Decision first'), portableApproach('task-first', 'Task first')],
+  approaches: [portableApproach('decision-first', 'Decision first', 'reviewer', 'low', 'low', 'high'), portableApproach('task-first', 'Task first', 'implementer', 'medium', 'medium', 'medium')],
   recommendedDefault: { id: 'decision-first', reason: 'It supports informed approval' },
   shortlist: [
     { approachId: 'decision-first', drivers: ['Decision clarity'], reservation: 'More review structure' },

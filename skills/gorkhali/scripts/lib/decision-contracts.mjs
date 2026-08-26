@@ -49,6 +49,72 @@ const duplicateIds = (items, path, errors) => {
 
 const hasAnyField = (value, fields) => fields.some((field) => value[field] !== undefined);
 
+const validateBriefing = (payload, errors, fields) => {
+  if (!isObject(payload.briefing)) errors.push('briefing: required object');
+  else requireTextFields(payload.briefing, 'briefing', fields, errors);
+};
+
+const validatePlanBriefing = (payload, errors) => {
+  validateBriefing(payload, errors, ['tackling', 'problem', 'how']);
+};
+
+const validateEvidenceImplications = (evidence, depth, errors) => {
+  if (depth === 'quick') return;
+  evidence.forEach((item, index) => {
+    if (!isObject(item)) return;
+    if ((item.status === 'verified' || item.status === 'supported') && !isText(item.implication)) {
+      errors.push(`evidence[${index}].implication: required string for verified|supported evidence`);
+    }
+  });
+};
+
+const validateAlternativeReasons = (alternatives, errors) => {
+  const seen = new Set();
+  alternatives.forEach((item, index) => {
+    if (!isObject(item)) {
+      errors.push(`alternatives[${index}]: required object`);
+      return;
+    }
+    requireTextFields(item, `alternatives[${index}]`, ['name'], errors);
+    const reason = isText(item.reasonNotSelected)
+      ? item.reasonNotSelected
+      : (isText(item.reason) ? item.reason : '');
+    if (!isText(reason)) {
+      errors.push(`alternatives[${index}]: required unique reasonNotSelected or reason`);
+      return;
+    }
+    if (seen.has(reason)) errors.push(`alternatives[${index}]: reasonNotSelected or reason must be unique`);
+    seen.add(reason);
+  });
+};
+
+const validateApproachDistinctness = (approaches, errors) => {
+  const lenses = new Set();
+  const theses = new Set();
+  const triples = [];
+  let duplicateLens = false;
+  let duplicateThesis = false;
+  for (const approach of approaches) {
+    if (!isObject(approach)) continue;
+    if (isText(approach.whyLens)) {
+      if (lenses.has(approach.whyLens)) duplicateLens = true;
+      lenses.add(approach.whyLens);
+    }
+    if (isText(approach.thesis)) {
+      if (theses.has(approach.thesis)) duplicateThesis = true;
+      theses.add(approach.thesis);
+    }
+    if (isText(approach.effort) && isText(approach.risk) && isText(approach.reversibility)) {
+      triples.push(`${approach.effort}\n${approach.risk}\n${approach.reversibility}`);
+    }
+  }
+  if (duplicateLens) errors.push('approaches[].whyLens: duplicate whyLens');
+  if (duplicateThesis) errors.push('approaches[].thesis: duplicate thesis');
+  if (triples.length >= 2 && triples.every((triple) => triple === triples[0])) {
+    errors.push('approaches: effort, risk, and reversibility must not all be identical');
+  }
+};
+
 const isWithin = (root, candidate) => {
   const offset = relative(root, candidate);
   return offset === '' || (!offset.startsWith(`..${sep}`) && offset !== '..' && !isAbsolute(offset));
@@ -442,6 +508,7 @@ const validatePlan = (
       errors.push('decision.status: must be pending|delegated');
     }
   }
+  validatePlanBriefing(payload, errors);
   if (isObject(payload.outcome)) {
     requireTextFields(payload.outcome, 'outcome', ['goal'], errors);
     requireArray(payload.outcome.doneWhen, 'outcome.doneWhen', errors, true);
@@ -470,8 +537,10 @@ const validatePlan = (
   const scenarioIds = duplicateIds(scenarios, 'scenarios', errors);
   const evidence = requireArray(payload.evidence, 'evidence', errors, true);
   validateEvidence(evidence, errors, { requireFreshness: enforceEvidenceFreshness });
+  validateEvidenceImplications(evidence, depth, errors);
   const alternatives = requireArray(payload.alternatives, 'alternatives', errors);
   if (depth !== 'quick' && alternatives.length === 0) errors.push('alternatives: required non-empty array');
+  validateAlternativeReasons(alternatives, errors);
   requireArray(payload.assumptions, 'assumptions', errors);
   requireArray(payload.open_questions, 'open_questions', errors);
   requireArray(payload.risks, 'risks', errors);
@@ -546,6 +615,7 @@ const validatePlan = (
 };
 
 const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false } = {}) => {
+  validateBriefing(payload, errors, ['tackling', 'problem', 'how', 'scope', 'risks']);
   const enriched = hasAnyField(payload, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
   const depth = payload.depth;
   const phase = payload.phase;
@@ -635,6 +705,7 @@ const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false 
     if (isText(approach.id)) ids.push(approach.id);
   });
   if (new Set(ids).size !== ids.length) errors.push('approaches[].id: duplicate approach id');
+  validateApproachDistinctness(approaches, errors);
   if (enriched && ideas.length < approaches.length) {
     errors.push('ideas: divergence must contain at least as many ideas as shortlisted approaches');
   }

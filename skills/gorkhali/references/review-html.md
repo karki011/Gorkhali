@@ -24,14 +24,18 @@ Treat all strings from JSON as data: HTML-escape them. Do not invent facts,
 scope, dependencies, approvals, or research. Preserve the approval question,
 recommendation, selected approach (where applicable), and outcome verbatim.
 
-For a plan, lead with the problem, recommendation, approval question, evidence
-and rationale. Then show outcome and scope, risks, validation, and only then a
-collapsed execution appendix. Do not make task or file inventories the main
-page.
+For a plan, lead with What (`briefing.tackling`), Problem (`briefing.problem`),
+and How (`briefing.how`). Then show evidence, scope, risks, and open questions,
+then the approval question. Put implementation (files, tasks, waves) in a
+collapsed `<details>` appendix with no `open` attribute. Do not make task or
+file inventories the main page. A How without supporting evidence is an
+assumption.
 
-For a brainstorm, lead with the decision frame, recommendation, and direction
-gate; then compare distinct approaches, evidence, uncertainty, experiment, and
-dissent when present.
+For a brainstorm, lead with What (`briefing.tackling`), Problem
+(`briefing.problem`), and How (`briefing.how`), then the recommendation
+and a comparison `<table>` of the distinct approaches. Put detailed cards in
+collapsed `<details>` with no `open` attribute. The comparison table must
+appear in `<main>` before any `<details>`.
 
 Use one h1, semantic sections and headings, responsive CSS, and an accessible
 reading order. Put the required CSP meta before the title and inline styles, and keep the
@@ -72,9 +76,11 @@ default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'non
 The validator rejects executable or network-capable constructs: scripts,
 embedded frames or objects, forms and controls, SVG, event-handler attributes,
 refresh metas, non-fragment links, URL-bearing attributes, and CSS imports or
-URL/image-set values. The canonical approval question, recommendation, outcome,
+URL/image-set values. The canonical briefing strings, approval question, recommendation, outcome,
 and selected approach must appear in the visible `<main>` lead before any
-collapsed `<details>` appendix. Explicit hidden attributes, dialogs, and CSS
+collapsed `<details>` appendix. Plan reviews require that details appendix in
+`<main>`. Brainstorm reviews require a comparison table in `<main>` before any
+details. Explicit hidden attributes, dialogs, and CSS
 display/visibility hiding are rejected.
 
 ## Recovery and review

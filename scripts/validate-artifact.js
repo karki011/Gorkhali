@@ -399,6 +399,12 @@ const SCHEMAS = {
 
   brainstorm: {
     fields: [
+      { field: 'briefing', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Plain-English What/Problem/How the human gate leads with' },
+      { field: 'briefing.tackling', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What this decision is tackling, in one sentence' },
+      { field: 'briefing.problem', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The pain the approaches address, in plain language' },
+      { field: 'briefing.how', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'How the recommendation solves it; a How without evidence is an assumption' },
+      { field: 'briefing.scope', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What is in and out of this decision, in plain language' },
+      { field: 'briefing.risks', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Material risks of the recommended direction, in plain language' },
       { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Decision frame shown before approaches' },
       { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The choice the user is being asked to make' },
       { field: 'decision.outcome', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Desired observable outcome' },
@@ -470,6 +476,12 @@ const SCHEMAS = {
         }
       }
       if (brainstormVersion >= 3) {
+        if (!isObject(d.briefing)) errors.push('briefing: required object');
+        else {
+          for (const field of ['tackling', 'problem', 'how', 'scope', 'risks']) {
+            if (!isNonEmptyString(d.briefing[field])) errors.push(`briefing.${field}: required string`);
+          }
+        }
         if (!isObject(d.decision)) errors.push('decision: required object (schema v3+)');
         else {
           if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');
@@ -495,6 +507,32 @@ const SCHEMAS = {
         }
         const uniqueIds = new Set(ids);
         if (uniqueIds.size !== ids.length) errors.push('approaches[].id: duplicate approach id');
+        if (Array.isArray(d.approaches) && d.approaches.length >= 2) {
+          const lenses = new Set();
+          const theses = new Set();
+          const triples = [];
+          let duplicateLens = false;
+          let duplicateThesis = false;
+          d.approaches.forEach((approach) => {
+            if (!isObject(approach)) return;
+            if (isNonEmptyString(approach.whyLens)) {
+              if (lenses.has(approach.whyLens)) duplicateLens = true;
+              lenses.add(approach.whyLens);
+            }
+            if (isNonEmptyString(approach.thesis)) {
+              if (theses.has(approach.thesis)) duplicateThesis = true;
+              theses.add(approach.thesis);
+            }
+            if (isNonEmptyString(approach.effort) && isNonEmptyString(approach.risk) && isNonEmptyString(approach.reversibility)) {
+              triples.push(approach.effort + '\n' + approach.risk + '\n' + approach.reversibility);
+            }
+          });
+          if (duplicateLens) errors.push('approaches[].whyLens: duplicate whyLens');
+          if (duplicateThesis) errors.push('approaches[].thesis: duplicate thesis');
+          if (triples.length >= 2 && triples.every((triple) => triple === triples[0])) {
+            errors.push('approaches: effort, risk, and reversibility must not all be identical');
+          }
+        }
         if (Array.isArray(d.approaches)) {
           d.approaches.forEach((approach, i) => {
             if (!isObject(approach) || !Array.isArray(approach.mutualExclusivity)) return;
@@ -578,6 +616,10 @@ const SCHEMAS = {
     fields: [
       { field: 'depth', type: '`"quick"` | `"standard"` | `"deep"`', required: '_meta.version >= 3: yes; older: no', description: 'Adaptive planning depth; controls optional architecture and research breadth' },
       { field: 'problem', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Problem the plan resolves' },
+      { field: 'briefing', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Plain-English What/Problem/How the human gate leads with' },
+      { field: 'briefing.tackling', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What this plan is tackling, in one sentence' },
+      { field: 'briefing.problem', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The pain this plan resolves, in plain language' },
+      { field: 'briefing.how', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'How the recommendation solves it; a How without evidence is an assumption' },
       { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Recommendation and approval question shown first' },
       { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'What the user is approving' },
       { field: 'decision.recommendation', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Recommended direction in one sentence' },
@@ -587,7 +629,10 @@ const SCHEMAS = {
       { field: 'scope', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'In-scope, out-of-scope, and constraints' },
       { field: 'solution_shape', type: 'object', required: 'v3 standard/deep: yes; v3 quick and older: no', description: 'Architecture summary, components, and data flow' },
       { field: 'evidence', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Claims, sources, and evidence states' },
+      { field: 'evidence[].implication', type: 'string', required: 'v3 standard/deep when status is verified or supported', description: 'What the claim implies for the recommendation' },
       { field: 'alternatives', type: 'object[]', required: '_meta.version >= 3: array; standard/deep non-empty', description: 'Considered alternatives and why they were not selected' },
+      { field: 'alternatives[].name', type: 'string', required: 'when an alternative is present', description: 'Short label for the considered option' },
+      { field: 'alternatives[].reasonNotSelected', type: 'string', required: 'unique reasonNotSelected or reason per alternative', description: 'Why this option was not chosen; must be unique across alternatives' },
       { field: 'assumptions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Explicit assumptions rather than hidden guesses' },
       { field: 'open_questions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Unresolved questions and whether they block execution' },
       { field: 'risks', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Risks, mitigations, reversibility, and recovery' },
@@ -669,6 +714,12 @@ const SCHEMAS = {
           errors.push('depth: must be quick|standard|deep (schema v3+)');
         }
         if (!isNonEmptyString(d.problem)) errors.push('problem: required string (schema v3+)');
+        if (!isObject(d.briefing)) errors.push('briefing: required object');
+        else {
+          for (const field of ['tackling', 'problem', 'how']) {
+            if (!isNonEmptyString(d.briefing[field])) errors.push(`briefing.${field}: required string`);
+          }
+        }
         if (!isObject(d.decision)) errors.push('decision: required object (schema v3+)');
         else {
           if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');
@@ -719,11 +770,31 @@ const SCHEMAS = {
           if (!isObject(item) || !evidenceStates.includes(item.status)) {
             errors.push(`evidence[${i}].status: must be ${evidenceStates.join('|')} (schema v3+)`);
           }
+          if (planDepth !== 'quick' && isObject(item) && (item.status === 'verified' || item.status === 'supported') && !isNonEmptyString(item.implication)) {
+            errors.push(`evidence[${i}].implication: required string for verified|supported evidence`);
+          }
         });
         const alternatives = requireArray(d, 'alternatives', errors);
         if (planDepth !== 'quick' && alternatives.length === 0) {
           errors.push('alternatives: required non-empty array for standard/deep plans (schema v3+)');
         }
+        const seenReasons = new Set();
+        alternatives.forEach((item, i) => {
+          if (!isObject(item)) {
+            errors.push(`alternatives[${i}]: required object`);
+            return;
+          }
+          if (!isNonEmptyString(item.name)) errors.push(`alternatives[${i}].name: required string`);
+          const reason = isNonEmptyString(item.reasonNotSelected)
+            ? item.reasonNotSelected
+            : (isNonEmptyString(item.reason) ? item.reason : '');
+          if (!isNonEmptyString(reason)) {
+            errors.push(`alternatives[${i}]: required unique reasonNotSelected or reason`);
+            return;
+          }
+          if (seenReasons.has(reason)) errors.push(`alternatives[${i}]: reasonNotSelected or reason must be unique`);
+          seenReasons.add(reason);
+        });
         requireArray(d, 'assumptions', errors);
         requireArray(d, 'open_questions', errors);
         requireArray(d, 'risks', errors);

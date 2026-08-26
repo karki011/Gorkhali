@@ -54,4 +54,10 @@ Resume from a paused session by reading the state artifact.
    - Phase C → create remaining contracts
    - Phase D → dispatch pending tasks
    - Verify → re-run verification
+
+7. **PR watch tick** (no prompt): if `{SESSION_DIR}/pr-watch.json` exists, `status`
+   is `watching`, and the PR is still open, run **one** watch tick per
+   `reference/pr-watch.md` (`CHIEF_PING` / `CHIEF_ACK`; spawn
+   `subagent_type: "clerk"`, `name: "clerk-herald"`). Do not ask the user.
+   Skip if status is `paused`/`stopped` or the PR is merged/closed.
 </instructions>

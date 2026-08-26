@@ -255,6 +255,8 @@ function parseFrontmatter(content) {
   if (!match) throw new Error('SKILL.md must start with YAML frontmatter.');
   const fields = {};
   for (const line of match[1].split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
     const separator = line.indexOf(':');
     if (separator < 0) throw new Error(`Invalid frontmatter line: ${line}`);
     fields[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();

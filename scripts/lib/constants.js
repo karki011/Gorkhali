@@ -109,4 +109,15 @@ module.exports = {
   // not on every blocked attempt, so heavy concurrent load (many distinct
   // session/file keys) doesn't pay a full readdir+parse scan per call.
   CHIEF_BLOCK_SWEEP_INTERVAL_MS: numFromEnv('GORKHALI_CHIEF_BLOCK_SWEEP_INTERVAL_MS', 60 * 1000),
+
+  // Standing PR watch tick interval (reference/pr-watch.md). Clerk glances at
+  // GitHub this often and MUST emit CHIEF_PING even when idle.
+  PR_WATCH_INTERVAL_SECONDS: intFromEnv('GORKHALI_PR_WATCH_INTERVAL_SECONDS', 120),
+
+  // Phase 2 watch hard stop: max ticks before verdict: exit / exit_reason: ceiling.
+  // 60 ticks × 120s is two hours of idle watch.
+  PR_WATCH_TICK_CEILING: intFromEnv('GORKHALI_PR_WATCH_TICK_CEILING', 60),
+
+  // Phase 1 all-author review loop ceiling (`gorkhali:greploop` --max default).
+  REVIEW_LOOP_MAX: intFromEnv('GORKHALI_REVIEW_LOOP_MAX', 5),
 };

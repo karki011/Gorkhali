@@ -9,6 +9,10 @@ after the human or delegated approval is recorded separately.
 | --- | --- | --- | --- |
 | depth | `"quick"` \| `"standard"` \| `"deep"` | _meta.version >= 3: yes; older: no | Adaptive planning depth; controls optional architecture and research breadth |
 | problem | string | _meta.version >= 3: yes; older: no | Problem the plan resolves |
+| briefing | object | _meta.version >= 3: yes; older: no | Plain-English What/Problem/How the human gate leads with |
+| briefing.tackling | string | _meta.version >= 3: yes; older: no | What this plan is tackling, in one sentence |
+| briefing.problem | string | _meta.version >= 3: yes; older: no | The pain this plan resolves, in plain language |
+| briefing.how | string | _meta.version >= 3: yes; older: no | How the recommendation solves it; a How without evidence is an assumption |
 | decision | object | _meta.version >= 3: yes; older: no | Recommendation and approval question shown first |
 | decision.question | string | _meta.version >= 3: yes; older: no | What the user is approving |
 | decision.recommendation | string | _meta.version >= 3: yes; older: no | Recommended direction in one sentence |
@@ -18,7 +22,10 @@ after the human or delegated approval is recorded separately.
 | scope | object | _meta.version >= 3: yes; older: no | In-scope, out-of-scope, and constraints |
 | solution_shape | object | v3 standard/deep: yes; v3 quick and older: no | Architecture summary, components, and data flow |
 | evidence | object[] | _meta.version >= 3: yes; older: no | Claims, sources, and evidence states |
+| evidence[].implication | string | v3 standard/deep when status is verified or supported | What the claim implies for the recommendation |
 | alternatives | object[] | _meta.version >= 3: array; standard/deep non-empty | Considered alternatives and why they were not selected |
+| alternatives[].name | string | when an alternative is present | Short label for the considered option |
+| alternatives[].reasonNotSelected | string | unique reasonNotSelected or reason per alternative | Why this option was not chosen; must be unique across alternatives |
 | assumptions | object[] | _meta.version >= 3: yes; older: no | Explicit assumptions rather than hidden guesses |
 | open_questions | object[] | _meta.version >= 3: yes; older: no | Unresolved questions and whether they block execution |
 | risks | object[] | _meta.version >= 3: yes; older: no | Risks, mitigations, reversibility, and recovery |

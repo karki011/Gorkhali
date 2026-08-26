@@ -195,6 +195,11 @@ const portablePlan = () => ({
   contract_version: 3,
   depth: 'quick',
   summary: 'Reviewers need the decision before its execution details. Lead with the researched direction, preserve the compact evidence, and generate the offline review from canonical JSON. The result is a decision-useful review without architecture-grade filler.',
+  briefing: {
+    tackling: 'Decision-first review output',
+    problem: 'Reviewers need to understand the decision before execution tasks',
+    how: 'Lead with the researched direction and generate the offline review from canonical JSON',
+  },
   problem: 'Reviewers need to understand the decision before execution tasks',
   decision: {
     question: 'Use decision-first review output?',
@@ -236,15 +241,15 @@ const portablePlan = () => ({
   }],
 });
 
-const portableApproach = (id, name) => ({
+const portableApproach = (id, name, lens = 'decision clarity', effort = 'low', risk = 'low', reversibility = 'high') => ({
   id,
   name,
   thesis: `${name} thesis`,
   description: `${name} description`,
-  whyLens: 'decision clarity',
-  effort: 'low',
-  risk: 'low',
-  reversibility: 'high',
+  whyLens: lens,
+  effort,
+  risk,
+  reversibility,
   whatBreaks: ['The review contract must be revised'],
   whenToPick: 'Pick when it best meets the criteria',
 });
@@ -252,6 +257,13 @@ const portableApproach = (id, name) => ({
 const portableBrainstorm = () => ({
   contract_version: 3,
   depth: 'quick',
+  briefing: {
+    tackling: 'How review output should be organized',
+    problem: 'Reviewers need the recommendation before execution mechanics',
+    how: 'Lead with What, Problem, and How, then a comparison of distinct approaches',
+    scope: 'Review presentation for portable artifacts',
+    risks: 'A task-first layout hides the recommendation',
+  },
   stance: {
     mode: 'creative-partner',
     reason: 'The user owns the outcome while the agent develops alternatives',
@@ -295,7 +307,7 @@ const portableBrainstorm = () => ({
     },
   ],
   clusters: [],
-  approaches: [portableApproach('decision-first', 'Decision first'), portableApproach('task-first', 'Task first')],
+  approaches: [portableApproach('decision-first', 'Decision first', 'reviewer', 'low', 'low', 'high'), portableApproach('task-first', 'Task first', 'implementer', 'medium', 'medium', 'medium')],
   recommendedDefault: { id: 'decision-first', reason: 'It supports informed approval' },
   shortlist: [
     { approachId: 'decision-first', drivers: ['Decision clarity'], reservation: 'More review structure' },
@@ -324,10 +336,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.7.0');
+  assert.equal(started.bundle_version, '2.7.1');
   assert.deepEqual(started.producer, { role: 'chief', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.7.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.7.1');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -340,7 +352,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.7.0');
+  assert.equal(resumed.bundle_version, '2.7.1');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -363,7 +375,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.7.0');
+  assert.equal(recorded.artifact.bundle_version, '2.7.1');
   assert.deepEqual(recorded.artifact.producer, { role: 'inspector', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -1188,7 +1200,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.7.0');
+  assert.equal(task.artifact.bundle_version, '2.7.1');
   assert.deepEqual(task.artifact.producer, { role: 'engineer', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);

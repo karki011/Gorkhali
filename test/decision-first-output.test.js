@@ -59,6 +59,11 @@ const validPlan = () => ({
   _meta: meta(),
   depth: 'standard',
   title: 'Decision-first planning',
+  briefing: {
+    tackling: 'Decision-first planning output',
+    problem: 'Task-first plans hide the reasoning a human needs to approve',
+    how: 'Lead with What, Problem, and How, then keep tasks in a collapsed appendix',
+  },
   problem: 'Task-first plans hide the reasoning a human needs to approve',
   decision: {
     question: 'Approve decision-first planning output?',
@@ -99,6 +104,7 @@ const validPlan = () => ({
       claim: 'The previous required fields were execution-centric',
       source: 'scripts/validate-artifact.js',
       status: 'verified',
+      implication: 'The review contract must lead with a plain-English briefing, not task lists',
     },
   ],
   alternatives: [
@@ -142,15 +148,15 @@ const validPlan = () => ({
   tasks: [{ ...planTask }],
 });
 
-const approach = (id, name, lens) => ({
+const approach = (id, name, lens, { effort = 'medium', risk = 'low', reversibility = 'high' } = {}) => ({
   id,
   name,
   thesis: `${name} thesis`,
   description: `${name} description`,
   whyLens: lens,
-  effort: 'medium',
-  risk: 'low',
-  reversibility: 'high',
+  effort,
+  risk,
+  reversibility,
   whatBreaks: ['The review contract would need revision'],
   whenToPick: 'Pick when it best matches the decision criteria',
 });
@@ -159,6 +165,13 @@ const validBrainstorm = () => ({
   _meta: meta(),
   depth: 'standard',
   title: 'Planning output options',
+  briefing: {
+    tackling: 'Planning output options',
+    problem: 'Users see tasks and waves instead of a researched recommendation',
+    how: 'Lead with What, Problem, and How, then a comparison of distinct approaches',
+    scope: 'Review presentation for planning results',
+    risks: 'A task-first review delays informed approval',
+  },
   problem: 'Users see tasks and waves instead of a researched recommendation',
   stance: {
     mode: 'creative-partner',
@@ -211,7 +224,7 @@ const validBrainstorm = () => ({
   ],
   approaches: [
     approach('decision-first', 'Decision first', 'user-first'),
-    approach('task-first', 'Task first', 'simplest'),
+    approach('task-first', 'Task first', 'simplest', { effort: 'low', risk: 'medium' }),
   ],
   recommendedDefault: { id: 'decision-first', reason: 'Supports informed approval' },
   shortlist: [
@@ -233,6 +246,72 @@ const validBrainstorm = () => ({
     question: 'Which approach should Gorkhali use?',
     options: ['decision-first', 'task-first'],
   },
+});
+
+
+test('plan v3 requires a briefing with tackling, problem, and how', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const missing = validPlan();
+  delete missing.briefing;
+  assert.match(validate('plan', missing).join('\n'), /briefing: required object/);
+  const portable = { ...validPlan(), contract_version: 3 };
+  delete portable._meta;
+  delete portable.briefing;
+  assert.match(validateDecisionContract('plan', portable).join('\n'), /briefing: required object/);
+});
+
+test('brainstorm v3 requires a briefing with tackling, problem, how, scope, and risks', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const missing = validBrainstorm();
+  delete missing.briefing;
+  assert.match(validate('brainstorm', missing).join('\n'), /briefing: required object/);
+  const portable = { ...validBrainstorm(), contract_version: 3 };
+  delete portable._meta;
+  delete portable.briefing;
+  assert.match(validateDecisionContract('brainstorm', portable).join('\n'), /briefing: required object/);
+});
+
+test('standard plan v3 requires an implication on verified or supported evidence', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const plan = validPlan();
+  delete plan.evidence[0].implication;
+  assert.match(validate('plan', plan).join('\n'), /evidence\[0\]\.implication/);
+  const portable = { ...validPlan(), contract_version: 3 };
+  delete portable._meta;
+  delete portable.evidence[0].implication;
+  assert.match(validateDecisionContract('plan', portable).join('\n'), /evidence\[0\]\.implication/);
+});
+
+test('brainstorm approaches require distinct whyLens values', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const brainstorm = validBrainstorm();
+  brainstorm.approaches[1].whyLens = brainstorm.approaches[0].whyLens;
+  assert.match(validate('brainstorm', brainstorm).join('\n'), /duplicate whyLens/);
+  const portable = { ...validBrainstorm(), contract_version: 3 };
+  delete portable._meta;
+  portable.approaches[1].whyLens = portable.approaches[0].whyLens;
+  assert.match(validateDecisionContract('brainstorm', portable).join('\n'), /duplicate whyLens/);
+});
+
+test('brainstorm approaches must not all share the same effort, risk, and reversibility', async () => {
+  const { validateDecisionContract } = await portableContracts;
+  const brainstorm = validBrainstorm();
+  brainstorm.approaches[1].effort = brainstorm.approaches[0].effort;
+  brainstorm.approaches[1].risk = brainstorm.approaches[0].risk;
+  brainstorm.approaches[1].reversibility = brainstorm.approaches[0].reversibility;
+  assert.match(
+    validate('brainstorm', brainstorm).join('\n'),
+    /effort, risk, and reversibility must not all be identical/,
+  );
+  const portable = { ...validBrainstorm(), contract_version: 3 };
+  delete portable._meta;
+  portable.approaches[1].effort = portable.approaches[0].effort;
+  portable.approaches[1].risk = portable.approaches[0].risk;
+  portable.approaches[1].reversibility = portable.approaches[0].reversibility;
+  assert.match(
+    validateDecisionContract('brainstorm', portable).join('\n'),
+    /effort, risk, and reversibility must not all be identical/,
+  );
 });
 
 test('canonical plan v3 requires and accepts a decision-first contract', () => {

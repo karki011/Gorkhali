@@ -197,6 +197,9 @@ const requiredStrings = (type, artifact) => {
     return {
       errors,
       values: [
+        required(data.briefing?.tackling, 'briefing.tackling'),
+        required(data.briefing?.problem, 'briefing.problem'),
+        required(data.briefing?.how, 'briefing.how'),
         required(data.decision?.question, 'decision.question'),
         required(data.decision?.recommendation, 'decision.recommendation'),
         required(data.outcome?.goal, 'outcome.goal'),
@@ -211,6 +214,9 @@ const requiredStrings = (type, artifact) => {
   return {
     errors,
     values: [
+      required(data.briefing?.tackling, 'briefing.tackling'),
+      required(data.briefing?.problem, 'briefing.problem'),
+      required(data.briefing?.how, 'briefing.how'),
       required(data.decision?.question, 'decision.question'),
       required(selected?.name, 'recommended approach name'),
       required(data.recommendedDefault?.reason, 'recommendedDefault.reason'),
@@ -348,6 +354,22 @@ export function validateReviewHtml(type, artifact, html, { byteLength = Buffer.b
   const firstDetails = tags.find((tag) => (
     tag.name === 'details' && tag.start >= mainStart && tag.end <= mainEnd
   ));
+  const firstTable = tags.find((tag) => (
+    tag.name === 'table' && tag.start >= mainStart && tag.end <= mainEnd
+  ));
+  if (type === 'plan' && !firstDetails) errors.push('plan review must include a details element in main');
+  if (type === 'brainstorm' && !firstTable) errors.push('brainstorm review must include a table in main');
+  else if (type === 'brainstorm' && firstDetails && firstTable.start >= firstDetails.start) {
+    errors.push('brainstorm comparison table must appear before details');
+  }
+  if (tags.some((tag) => (
+    tag.name === 'details'
+    && tag.start >= mainStart
+    && tag.end <= mainEnd
+    && tag.attributes.has('open')
+  ))) {
+    errors.push('details must not have an open attribute');
+  }
   const decisionContent = active.slice(mainStart, firstDetails?.start ?? mainEnd);
   const visibleText = textFromHtml(decisionContent);
   for (const value of source.values) {

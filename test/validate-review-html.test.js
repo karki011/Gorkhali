@@ -14,6 +14,11 @@ const CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; for
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
 
 const plan = () => ({
+  briefing: {
+    tackling: 'Decision-first review HTML',
+    problem: 'Reviewers see tasks before the recommendation.',
+    how: 'Lead with What, Problem, and How, then collapse implementation.',
+  },
   decision: {
     question: 'Approve the decision-first review?',
     recommendation: 'Generate the review page directly from canonical JSON.',
@@ -22,6 +27,11 @@ const plan = () => ({
 });
 
 const brainstorm = () => ({
+  briefing: {
+    tackling: 'Which review approach to use',
+    problem: 'Reviewers need a comparable set of approaches.',
+    how: 'Lead with What, Problem, and How, then a comparison table.',
+  },
   decision: { question: 'Which review approach should we use?' },
   approaches: [{ id: 'direct-html', name: 'Direct AI HTML' }],
   recommendedDefault: { id: 'direct-html', reason: 'It removes the renderer layer.' },
@@ -33,8 +43,12 @@ const page = (content, extraHead = '') => `<!doctype html>
 ${CSP_META}<title>Review</title>${extraHead}</head>
 <body><main><h1>Review</h1>${content}</main></body></html>`;
 
-const planPage = (extra = '', extraHead = '') => page(`<p>${plan().decision.question}</p><p>${plan().decision.recommendation}</p><p>${plan().outcome.goal}</p>${extra}`, extraHead);
-const brainstormPage = () => page(`<p>${brainstorm().decision.question}</p><p>Direct AI HTML</p><p>${brainstorm().recommendedDefault.reason}</p><p>${brainstorm().directionGate.question}</p>`);
+const planLead = (source = plan()) => `<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.briefing.how}</p><p>${source.decision.question}</p><p>${source.decision.recommendation}</p><p>${source.outcome.goal}</p>`;
+const planAppendix = '<details><summary>Implementation</summary><p>Task details</p></details>';
+const planPage = (extra = '', extraHead = '') => page(`${planLead()}${planAppendix}${extra}`, extraHead);
+const brainstormLead = (source = brainstorm()) => `<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.briefing.how}</p><p>${source.decision.question}</p><p>Direct AI HTML</p><p>${source.recommendedDefault.reason}</p><p>${source.directionGate.question}</p>`;
+const brainstormTable = '<table><thead><tr><th>Approach</th><th>Why</th></tr></thead><tbody><tr><td>Direct AI HTML</td><td>Removes the renderer</td></tr></tbody></table>';
+const brainstormPage = () => page(`${brainstormLead()}${brainstormTable}`);
 const fixtureDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-review-html-'));
 
 const run = (dir, type, source, candidate, output = 'accepted.html') => {
@@ -98,7 +112,7 @@ test('allows URL-attribute-like prose in canonical review content', () => {
   source.decision.question = 'Should src=generated/output.json remain visible?';
   source.decision.recommendation = 'Keep action=deploy as plain review prose.';
   source.outcome.goal = 'Document poster=review and ping=disabled without creating attributes.';
-  const html = page(`<p>${source.decision.question}</p><p>${source.decision.recommendation}</p><p>${source.outcome.goal}</p>`);
+  const html = page(`${planLead(source)}${planAppendix}`);
   const result = run(fixtureDir(), 'plan', source, html);
   assert.equal(result.status, 0, result.stderr);
 });
@@ -230,10 +244,70 @@ test('rejects slash-separated event handlers and unsafe CSS in an unclosed style
   }
 });
 
+test('requires plan briefing strings in main before details', () => {
+  const html = page(`<p>${plan().decision.question}</p><p>${plan().decision.recommendation}</p><p>${plan().outcome.goal}</p>${planAppendix}`);
+  const result = run(fixtureDir(), 'plan', plan(), html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /missing canonical review text/);
+});
+
+test('requires a details element in the plan main', () => {
+  const html = page(planLead());
+  const result = run(fixtureDir(), 'plan', plan(), html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan review must include a details element in main/);
+});
+
+test('rejects an expanded details element in the plan main', () => {
+  const html = page(`${planLead()}<details open><summary>Implementation</summary><p>Task details</p></details>`);
+  const result = run(fixtureDir(), 'plan', plan(), html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /details must not have an open attribute/);
+});
+
+test('requires a brainstorm comparison table before details', () => {
+  const strings = brainstormLead();
+  const missing = run(fixtureDir(), 'brainstorm', brainstorm(), page(strings + '<details><summary>Cards</summary><p>Detail</p></details>'));
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /brainstorm review must include a table in main/);
+  const after = run(fixtureDir(), 'brainstorm', brainstorm(), page(strings + '<details><summary>Cards</summary><p>Detail</p></details>' + brainstormTable));
+  assert.equal(after.status, 1);
+  assert.match(after.stderr, /brainstorm comparison table must appear before details/);
+});
+
+test('rejects a plan candidate whose details have an open attribute', () => {
+  for (const open of ['open', 'open=""']) {
+    const html = page(`${planLead()}<details ${open}><summary>Implementation</summary><p>Task details</p></details>`);
+    const result = run(fixtureDir(), 'plan', plan(), html);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /details must not have an open attribute/);
+  }
+});
+
+test('rejects a brainstorm candidate whose details after the table have an open attribute', () => {
+  const html = page(`${brainstormLead()}${brainstormTable}<details open><summary>Cards</summary><p>Detail</p></details>`);
+  const result = run(fixtureDir(), 'brainstorm', brainstorm(), html);
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /details must not have an open attribute/);
+});
+
+test('rejects a brainstorm candidate missing briefing.how', () => {
+  const source = brainstorm();
+  const html = page(`<p>${source.briefing.tackling}</p><p>${source.briefing.problem}</p><p>${source.decision.question}</p><p>Direct AI HTML</p><p>${source.recommendedDefault.reason}</p><p>${source.directionGate.question}</p>${brainstormTable}`);
+  const result = run(fixtureDir(), 'brainstorm', source, html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /missing canonical review text|briefing\.how/);
+});
+
+test('accepts a valid planPage whose details have no open attribute', () => {
+  const result = run(fixtureDir(), 'plan', plan(), planPage());
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('recognizes HTML-escaped canonical text in the visible page text', () => {
   const source = plan();
   source.decision.question = 'Approve A & B?';
-  const html = page('<p>Approve A &amp; B?</p><p>Generate the review page directly from canonical JSON.</p><p>A concise, safe plan review.</p>');
+  const html = page(`<p>${plan().briefing.tackling}</p><p>${plan().briefing.problem}</p><p>${plan().briefing.how}</p><p>Approve A &amp; B?</p><p>Generate the review page directly from canonical JSON.</p><p>A concise, safe plan review.</p>${planAppendix}`);
   const result = run(fixtureDir(), 'plan', source, html);
   assert.equal(result.status, 0, result.stderr);
 });

@@ -128,9 +128,10 @@ Use the existing ship-ceremony mechanics for mechanical git operations only:
    body is `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Clerk
    does not author, fill, or re-order any section of that body.
 
-Do not merge the PR, transition unrelated tickets, or start an automatic
-review/fix loop. Any destructive or newly external action beyond the authorized
-PR requires separate authority.
+After the PR is created, always invoke `Skill(skill="gorkhali:greploop")` with
+the PR number. Do not ask. Do not merge the PR — merging stays a human action.
+Do not transition unrelated tickets. Any destructive or newly external action
+beyond the authorized PR requires separate authority.
 
 ## Step 6: Record the outcome
 
