@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 // release-version.js - keeps the version in sync across the four plugin
-// manifests, which have never had anything enforcing agreement between them:
+// manifests and the README badge, which have never had anything enforcing
+// agreement between them:
 //
 //   .claude-plugin/plugin.json        top-level  "version"
 //   .claude-plugin/marketplace.json   NESTED     metadata.version
 //   .codex-plugin/plugin.json         top-level  "version"
 //   .kimi-plugin/plugin.json          top-level  "version"
+//   README.md                         shields.io version badge
 //
 // Commit 7a88e0c bumped only the first and left the other two behind; the
 // portable-skill validator caught it and the branch sat red until it was
 // fixed by hand. This script is the fix for the root cause: no release
-// tooling existed at all.
+// tooling existed at all. The README badge later sat at 1.0.0 while the
+// manifests reached 1.0.4 because it was never part of --check.
 //
 // These are hand-maintained JSON files (2-space indent, stable key order), so
 // writes never round-trip through JSON.stringify - that would be free to
@@ -23,7 +26,7 @@
 //                                                        version + verdict
 //   node scripts/release-version.js --check             same, exit 1 on drift
 //   node scripts/release-version.js --set <semver>      write <semver> to all
-//                                                        four manifests
+//                                                        four manifests and README
 //   node scripts/release-version.js [--json] [--root <dir>]
 //
 // Exit codes: 0 = in sync / write succeeded; 1 = drift under --check (or an
@@ -49,6 +52,11 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 // the closing quote plus optional comma. Replacing only the middle preserves
 // indentation and comma placement untouched.
 const VERSION_LINE_RE = /^(\s*"version":\s*")[^"]*("[,]?)$/;
+
+// README badge as shipped: shields.io version-* then -blue, linking the
+// Claude plugin manifest. Group 1 is the semver. Anything else is drift.
+const README_BADGE_RE =
+  /\[!\[version\]\(https:\/\/img\.shields\.io\/badge\/version-(\d+\.\d+\.\d+)-blue\)\]\(\.claude-plugin\/plugin\.json\)/;
 
 const USAGE =
   'usage: release-version.js [--check] [--set <semver>] [--json] [--root <dir>]\n';
@@ -112,6 +120,46 @@ function findVersionLineIndex(lines, within, label) {
   );
 }
 
+function readmeFile(root) {
+  return path.join(root, 'README.md');
+}
+
+function readReadmeVersion(root) {
+  const file = readmeFile(root);
+  let raw;
+  try {
+    raw = fs.readFileSync(file, 'utf-8');
+  } catch (err) {
+    throw new GorkhaliError('README.md: ' + err.message, 'IO_ERROR');
+  }
+  const match = raw.match(README_BADGE_RE);
+  if (!match) {
+    throw new GorkhaliError(
+      'README.md: could not find shields.io version badge linking to .claude-plugin/plugin.json',
+      'IO_ERROR'
+    );
+  }
+  return match[1];
+}
+
+function setReadmeVersion(root, newVersion) {
+  const file = readmeFile(root);
+  const before = readReadmeVersion(root);
+  let changed = false;
+  if (before !== newVersion) {
+    const raw = fs.readFileSync(file, 'utf-8');
+    const next = raw.replace(
+      README_BADGE_RE,
+      '[![version](https://img.shields.io/badge/version-' +
+        newVersion +
+        '-blue)](.claude-plugin/plugin.json)'
+    );
+    atomicWrite(file, next);
+    changed = true;
+  }
+  return { label: 'README.md', file: file, before, after: newVersion, changed };
+}
+
 function readVersion(manifest) {
   let raw;
   try {
@@ -136,21 +184,22 @@ function readVersion(manifest) {
 }
 
 /**
- * Current version of all three manifests. Read-only; mutates nothing.
- * Returns { root, files: [{ label, file, version }], inSync, versions }.
+ * Current version of all four manifests plus the README badge. Read-only;
+ * mutates nothing. Returns { root, files: [{ label, file, version }], inSync, versions }.
  */
 function status(opts = {}) {
   const root = opts.root || REPO_ROOT;
   const files = manifestsFor(root).map((m) => ({ label: m.label, file: m.file, version: readVersion(m) }));
+  files.push({ label: 'README.md', file: readmeFile(root), version: readReadmeVersion(root) });
   const versions = [...new Set(files.map((f) => f.version))];
   return { root, files, inSync: versions.length <= 1, versions };
 }
 
 /**
- * Write `newVersion` to all three manifests, changing only the version
- * line's value. A manifest already at `newVersion` is left untouched (byte
- * for byte), so re-running --set with the current version is a no-op diff.
- * Returns { root, version, files: [{ label, before, after, changed }], written }.
+ * Write `newVersion` to all four manifests and the README badge, changing
+ * only the version value. A file already at `newVersion` is left untouched
+ * (byte for byte), so re-running --set with the current version is a no-op
+ * diff. Returns { root, version, files: [{ label, before, after, changed }], written }.
  */
 function setVersion(newVersion, opts = {}) {
   validateSemver(newVersion);
@@ -169,6 +218,7 @@ function setVersion(newVersion, opts = {}) {
     }
     return { label: m.label, before, after: newVersion, changed };
   });
+  files.push(setReadmeVersion(root, newVersion));
   return { root, version: newVersion, files, written: files.filter((f) => f.changed).length };
 }
 
@@ -193,7 +243,7 @@ function parseArgs(argv) {
 }
 
 function printStatus(result) {
-  process.stdout.write('manifest versions:\n');
+  process.stdout.write('release versions:\n');
   const width = Math.max(...result.files.map((f) => f.label.length)) + 2;
   for (const f of result.files) {
     process.stdout.write('  ' + f.label.padEnd(width) + f.version + '\n');
