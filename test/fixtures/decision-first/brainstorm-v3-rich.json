@@ -46,7 +46,8 @@
       "Portability",
       "Implementation cost",
       "Long-term extensibility"
-    ]
+    ],
+    "successSignal": "A reviewer identifies the recommendation without opening the execution appendix"
   },
   "evidence": [
     {

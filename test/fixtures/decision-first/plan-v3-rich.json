@@ -55,6 +55,13 @@
       "Backward compatibility with valid v3 quick artifacts"
     ]
   },
+  "crossCutting": {
+    "security": { "status": "n/a", "detail": "No new auth or data surface" },
+    "privacy": { "status": "n/a", "detail": "No PII" },
+    "observability": { "status": "n/a", "detail": "No new runtime signal" },
+    "rollout": { "status": "n/a", "detail": "Backward-compatible; no migration" },
+    "docs": { "status": "n/a", "detail": "No user-facing docs drift" }
+  },
   "solution_shape": {
     "summary": "Transform one validated decision artifact into semantic review sections while preserving JSON as the authoritative, portable record.",
     "components": [
@@ -304,7 +311,7 @@
     ]
   },
   "route": "shadows",
-  "devilsAdvocateVerdict": "PROCEED",
+  "oppositionVerdict": "PROCEED",
   "tasks": [
     {
       "id": "T1",

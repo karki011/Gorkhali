@@ -33,9 +33,15 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 - Create on approval in `commands/` directory
 - Git commit with `skill-spawn:` prefix
 
-## Evolution Check Procedure (runs at wrap time)
+## Evolution Check Procedure
 
-1. Haiku agent scans `learnings/INDEX.md`:
+Automatic capture is the Stop hook (failed Bash → `gorkhali-learning.mjs capture`). It does **not** edit skills.
+
+Skill-level promote/prune is **user-invoked**: `/gorkhali:evolve`. Do not run it from wrap.
+
+When evolve runs:
+
+1. Scan `learnings/INDEX.md`:
    - `[validated:5+]` entries → Tier 1 candidates
    - `[failed]` corrections seen 3+ sessions → Tier 2 candidates
    - Repeated multi-step patterns → Tier 3 candidates
@@ -44,7 +50,7 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 
 ## Safety Rails
 
-- Never edit skills during active session — evolution only at wrap time
+- Never edit skills during an active implementation turn — evolve is its own command
 - Tier 1 auto-applies (low risk). Tier 2-3 require user approval.
 - All changes git-committed with `skill-evolution:` or `skill-spawn:` prefix
 - `state/evolution-log.json` tracks every change for rollback

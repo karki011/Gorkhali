@@ -37,6 +37,7 @@ Pre-Ship Review Panel checks `specDelta` during wrap to verify scope alignment.
 Spawn the Opposition agent, blocking (`subagent_type: "opposition"`, `name: "opposition-parlow"` per `reference/roster.md`):
 - Input: complete plan + coding principles
 - Output: Challenges (must address), Warnings (consider), Verdict, plus `plan-check.json` in the session directory
+- Record the verdict as `oppositionVerdict` (`PROCEED` | `REVISE` | `RETHINK`). The legacy key `devilsAdvocateVerdict` is still read; do not write it on new plans.
 - PROCEED -> continue. REVISE -> address + re-run. RETHINK -> back to research.
 - Max 2 iterations. Still RETHINK -> escalate to user.
 
@@ -62,7 +63,7 @@ See `reference/agents.md` for routing table.
 
 ## Task Structure
 
-See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`). Research-Free Tasking is canonical in the portable reference; `hooks/engineer-model-gate.js` is its native enforcement, and `fable` is never a legal implementer model.
+See `schemas/plan.md` for the full task template, field rules, and extended fields (`read_first`, `acceptance_criteria`). Research-free tasking is canonical in the portable reference; `hooks/engineer-model-gate.js` is its native enforcement, and `fable` is never a legal implementer model.
 
 ## Plan Artifacts
 

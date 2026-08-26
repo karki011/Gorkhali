@@ -9,7 +9,7 @@ Multi-agent shadows for this repository. Compatible with Claude Code, Codex, Kim
 | Chief | Orchestrator - plans, decomposes, coordinates, triages failures |
 | Engineer | Implementation - infers specialization from task domain |
 | Inspector | Verification - repo-aware lint/build/test |
-| Auditor | Quality gate - code review, scored 0-10 |
+| Auditor | Independent review — blocking or advisory |
 | Advisor | On-demand guidance for stuck agents (<100 words) |
 | Surveyor | Explicit opt-in visual inspection - advisory only |
 

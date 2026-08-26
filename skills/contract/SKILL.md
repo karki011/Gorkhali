@@ -1,10 +1,10 @@
 ---
 name: contract
-description: Define scope, interface contracts, and acceptance criteria before implementation for feature, API, testing, UI, or fix work.
+description: Optional projection of an approved plan.json for API or UI interface details; NOT a planning gate and NOT a fifth source of truth beside intent.json and plan.json.
 ---
 ## Triggers
 
-Define scope, interfaces, acceptance criteria, and structured feature, API, testing, UI, or fix contracts before implementation. Use when requirements or boundaries need to be made explicit.
+After an approved plan, optionally render API or UI interface details from that plan. Do not use this to define scope before planning — `plan.json` is canonical. Never block execution on a missing contract file.
 
 Apply `../../host-support/compatibility.md` for workflow `contract` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/contract.md`.
 

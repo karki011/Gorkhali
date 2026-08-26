@@ -88,7 +88,8 @@ Native session-file layout for the canonical convergence contract:
 1. **Write `brainstorm.json`** with `_meta.version: 3` (schema:
    `reference/schemas/brainstorm.md`). This is the source of truth; nothing
    downstream reads chat prose.
-2. **Review HTML:** Have the active AI author `{SESSION_DIR}/brainstorm.candidate.html` from the
+2. **Review HTML:** Skip HTML on `--simple` / `quick` — present What/Problem/How
+   and Pick A/B/C in chat. Otherwise have the active AI author `{SESSION_DIR}/brainstorm.candidate.html` from the
    canonical JSON, in the canonical page order. Promote only a valid candidate with `node
    {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs brainstorm --source
    {SESSION_DIR}/brainstorm.json --candidate {SESSION_DIR}/brainstorm.candidate.html --out

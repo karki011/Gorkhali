@@ -2,14 +2,16 @@
 
 Every command the native compatibility plugin exposes, with the route it takes.
 
+On Cursor, the `/` menu is the seven user-invocable commands: `/start`, `/pause`, `/resume`, `/verify`, `/review`, `/pr-review`, `/wrap`. Other rows below are skill-chained or hidden from that menu.
+
 | Command | Route | Description |
 |---------|-------|-------------|
 | `/gorkhali:start` | Entry | Adaptive router → classify → execute appropriate route |
 | `/gorkhali:loop` (alias `/gorkhali:q`) | Entry | Self-contained Jira loop - polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/gorkhali:start` to a ready-for-review PR; weak → `/gorkhali:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
-| `/gorkhali:verify` | - | Power Level with auto-fix for P0/P1 |
-| `/gorkhali:wrap` | - | Commit, push, PR, Jira transition (+ optional `--recap` HTML diff recap) |
+| `/gorkhali:verify` | - | Run repo checks, simplify, independent review. Reports failures; never auto-fixes. Review is blocking or advisory |
+| `/gorkhali:wrap` | - | Open a ready-for-review PR after `ship-pr` authorization. Does not merge (+ optional `--recap` HTML diff recap) |
 | `/gorkhali:close` | - | Post-merge closeout - Jira→Done, finalize+archive session, cleanup branch/worktree, final cost |
-| `/gorkhali:greploop` | - | Drive a PR to a perfect Greptile review (auto-invoked by wrap) |
+| `/gorkhali:greploop` | - | All-author review loop; may skip if Greptile is unavailable; never invents a pass. Wrap invokes it |
 | `/gorkhali:fix` | - | Triage failures, assign scoped repairs (loop ceiling owned by `hooks/loop-controller.js`) |
 | `/gorkhali:pause` | - | Save session state + emit a portable handoff packet (`handoff.md`) for cold/cross-session continuation |
 | `/gorkhali:resume` | - | Restore session from saved state |

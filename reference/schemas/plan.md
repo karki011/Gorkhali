@@ -19,7 +19,14 @@ after the human or delegated approval is recorded separately.
 | decision.rationale | string[] | _meta.version >= 3: yes; older: no | Evidence-backed reasons for the recommendation |
 | decision.status | `"pending"` \| `"delegated"` | _meta.version >= 3: yes; older: no | Approval state; the model never marks its own plan approved |
 | outcome | object | _meta.version >= 3: yes; older: no | Goal and observable definition of done |
+| outcome.signal | string | no | Optional product/UX success signal beside mechanical doneWhen |
 | scope | object | _meta.version >= 3: yes; older: no | In-scope, out-of-scope, and constraints |
+| crossCutting | object | v3 standard/deep: yes; v3 quick and older: no | Design-doc cross-cutting notes: security, privacy, observability, rollout, docs |
+| crossCutting.security | `{ status: "n/a"\|"note", detail }` | when crossCutting is required | Auth, data surface, and named OWASP categories as they apply to this plan |
+| crossCutting.privacy | `{ status: "n/a"\|"note", detail }` | when crossCutting is required | PII, tenancy, and retention impact |
+| crossCutting.observability | `{ status: "n/a"\|"note", detail }` | when crossCutting is required | Logs, metrics, or what a human watches after ship |
+| crossCutting.rollout | `{ status: "n/a"\|"note", detail }` | when crossCutting is required | Flag, migration, compatibility, and release rollback |
+| crossCutting.docs | `{ status: "n/a"\|"note", detail }` | when crossCutting is required | Docs the change would make stale |
 | solution_shape | object | v3 standard/deep: yes; v3 quick and older: no | Architecture summary, components, and data flow |
 | evidence | object[] | _meta.version >= 3: yes; older: no | Claims, sources, and evidence states |
 | evidence[].implication | string | v3 standard/deep when status is verified or supported | What the claim implies for the recommendation |
@@ -31,7 +38,7 @@ after the human or delegated approval is recorded separately.
 | risks | object[] | _meta.version >= 3: yes; older: no | Risks, mitigations, reversibility, and recovery |
 | validation | object | _meta.version >= 3: yes; older: no | Validation strategy, checks, and definition of done |
 | route | `"solo"` \| `"shadows"` | yes | Whether to spawn agents or work inline |
-| devilsAdvocateVerdict | `"PROCEED"` \| `"REVISE"` \| `"RETHINK"` | yes | Grill gate outcome |
+| oppositionVerdict | `"PROCEED"` \| `"REVISE"` \| `"RETHINK"` | yes | Opposition plan-gate outcome. Legacy key `devilsAdvocateVerdict` is still read; do not write it on new plans |
 | tasks | object[] | yes | Ordered list of task objects |
 | tasks[].id | string | yes | Unique task ID |
 | tasks[].description | string | yes | What this task does |
@@ -66,6 +73,13 @@ after the human or delegated approval is recorded separately.
     "doneWhen": ["Decision brief appears before the first task"]
   },
   "scope": { "in": ["plan artifacts and AI-authored review HTML"], "out": [], "constraints": ["offline HTML"] },
+  "crossCutting": {
+    "security": { "status": "n/a", "detail": "No new auth or data surface" },
+    "privacy": { "status": "n/a", "detail": "No PII" },
+    "observability": { "status": "n/a", "detail": "No new runtime signal" },
+    "rollout": { "status": "n/a", "detail": "Backward-compatible" },
+    "docs": { "status": "n/a", "detail": "No docs drift" }
+  },
   "solution_shape": {
     "summary": "One machine artifact with a generated human review surface",
     "components": ["plan validator", "AI-authored review", "review safety validator"],
@@ -82,7 +96,7 @@ after the human or delegated approval is recorded separately.
     "checks": ["npm test"]
   },
   "route": "solo",
-  "devilsAdvocateVerdict": "PROCEED",
+  "oppositionVerdict": "PROCEED",
   "tasks": [
     {
       "id": "T1",

@@ -1,12 +1,14 @@
 # Gorkhali Roadmap
 
 **Author:** Subash karki
-**Date:** 2026-07-28
+**Date:** 2026-07-28, last corrected 2026-08-26
 **Branch of record:** `model-routing-scope-check`
 
 > This document SUPERSEDES `docs/team-skill-improvement-plan.md` (dated 2026-05-11).
-> That plan names agents that no longer exist (Spark, Sentinel, Prism, Cortex) against today's roster (chief, engineer, auditor, inspector, clerk, justice, steward, opposition, plan-checker, advisor, detective).
+> That plan names agents that no longer exist (Spark, Sentinel, Prism, Cortex) against today's roster (chief, engineer, auditor, inspector, clerk, justice, steward, opposition, advisor, detective).
 > Treat it as history only; it is archived by B7.
+
+**2026-08-26 correction.** B9–B13 (finding schema, verification pass, re-review convergence, structured PR body) stay closed. This session (P1) diverges from two later deferrals: `REVIEW.md` is read now (cheap, pr-review + Auditor), not waited on T4; greploop is always *invoked* but capability-gated, which is the wrap.md:103 fix section 9 asked for. Diff-size, Justice widening, and a low-risk fast path stay data-gated on B9. `plan-checker` is not a live role — Opposition is the one plan critic (D4).
 
 Research basis: `docs/research/agnostic-improvement-research.md` is AUTHORITATIVE for the peer landscape, the portability matrix, the per-hook verdicts, and the derivation of B1-B8.
 This document does not restate those findings.
@@ -24,6 +26,7 @@ Each backlog item traces to a research weakness (section 6 of the research doc):
 | W6 - repo and context bloat | B7 |
 | W7 - ceremony candidates | B8 |
 | W8 - review effectiveness unmeasured | B9, B9b, B10, B11, B12, B13 |
+| W9 - user-job packaging (four review surfaces, brainstorm/plan design-doc gaps, wrap/greploop ceremony) | P1 |
 
 W8 derives from a second research doc, `project-docs/review-research-2026.md`, which is AUTHORITATIVE for the 2026 review landscape, the false-positive literature, and the derivation of B9-B13.
 Same rule as above: this document does not restate those findings.
@@ -59,6 +62,7 @@ Same rule as above: this document does not restate those findings.
 | B12 | Re-review convergence | DONE | 0.5d | carry-over ledger survives the deliberate `auditor.json` delete; round 2 itemizes blocking only |
 | B9b | Per-finding table in the baseline miner | DONE | 0.5d | completes B9's stated test; corpus is 0/0 measurable until the first post-B9 fix loop closes |
 | B13 | Structured PR body | DONE | 0.5d | - |
+| P1 | Phase-judgment product packaging | DONE | 1d | W9; this session. Does not reopen B9–B13 |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the four plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
@@ -156,7 +160,7 @@ Historical agent spawns at the time of measurement: engineer 1157, justice 464, 
 `wrap.json` carries 89 distinct top-level keys, and `pr.status` had 16 free-text variants.
 That schema drift is WHY measurement never happened before this session, and it is precisely what B0 fixed.
 
-Greptile at 50/191 means it is already de facto optional on the ship path, despite `wrap.md:103` claiming it always runs.
+Greptile at 50/191 means it was already de facto optional on the ship path, despite wrap then claiming it always runs (`wrap.md:103` at the time of measurement). P1 later aligned wrap with that fact: always invoke, capability-gate, skip without inventing a pass. See section 9.
 
 Per F8 the two review rows above (review cycles, and the spawn ratio) describe the PRE-#109 pipeline and are superseded, not merely dated.
 Their replacement is the `REVIEW FINDINGS` section of `scripts/baseline-report.js` (B9b), which measures precision per finding rather than cycles per PR.
@@ -510,9 +514,24 @@ Why: the MSR 2026 study of ~13k agent-authored PRs (including Claude Code) found
 This is the only item in the W8 set that improves HUMAN review rather than machine review, and Gorkhali produces exactly the kind of PR the study measured.
 Test: run `/gorkhali:wrap` on a session and watch the created PR body come back with all five sections populated from session artifacts rather than free prose.
 
-**Deferred from the same research, deliberately.**
-`REVIEW.md` support is public-interop differentiation and belongs with T4, which is already gated behind B2 and B7/B8.
-Diff-size policy, widening cross-file context, and a low-risk fast path are all THRESHOLD decisions; B9's data settles them, and picking numbers before that data exists is the error D4 and B6 both exist to prevent.
+**Deferred from the same research, deliberately — then P1 pulled one cheap item forward.**
+`REVIEW.md` is no longer waiting on T4. P1 added a read of `REVIEW.md` / `.github/REVIEW.md` on the pr-review and Auditor paths when the file exists. That is not Anthropic managed-product interop and is not skip-rule tuning; those still belong with T4.
+Diff-size policy, widening Justice cross-file context, and a low-risk fast path remain THRESHOLD decisions; B9's data settles them, and picking numbers before that data exists is the error D4 and B6 both exist to prevent.
+
+### P1 - Phase-judgment product packaging. 1d. DONE this session.
+
+What: five product-facing fixes after a 2026-08-26 judgment of brainstorm, planning, wrap-time review, and skill-book PR review. Not a reopen of B9–B13.
+
+1. One-page map of the four review surfaces (Auditor, Justice, wrap→greploop, pr-review) on the gorkhali, wrap, review, and pr-review intros so users pick a *decision*, not four interchangeable commands.
+2. pr-review as the skill-book product: five-line human checklist, intent sources `ticket` | `issue` | `pr-body` (`inferred` illegal), `REVIEW.md` when present, advisory / no-post / no-gate.
+3. Brainstorm v3 requires `decision.nonGoals` + `decision.successSignal`; `--simple` (and the clearer path) skips HTML; council/HTML stay FULL.
+4. Depth-gated `crossCutting` on standard/deep plans (security, privacy, observability, rollout, docs); write `oppositionVerdict` (legacy `devilsAdvocateVerdict` still read); `contract` is an optional projection of an approved plan, not a fifth source of truth.
+5. Wrap hygiene: defense-brief does not default to stale `review-panel.json` / RPSL; wrap always *invokes* greploop (tests + sole writer of `greptile.status`) and greploop capability-gates itself; LITE/DIRECT wrap tells the user to run verify first because wrap does not run Auditor.
+
+Why: users pick a decision. Four review surfaces, a design-doc-shaped brainstorm/plan, and wrap ceremony were the packaging gap; the precision work (B9–B13) already shipped.
+Test: `node --test test/review-surfaces.test.js test/decision-first-output.test.js test/decision-contract-parity.test.js test/wrap-greploop-watch.test.js test/wrap-defense-brief.test.js`. Do not quote eval percentages or pre-#109 spawn ratios in user-facing copy.
+
+What this is not: a reviewer agent, numeric maintainability scores, low-risk auto-approve, Justice widening, council-by-default, mandatory HTML on simple brainstorms, mandatory RPSL on wrap.
 
 ### B4 - Codex CLI hook adapter. 3d.
 
@@ -613,22 +632,17 @@ Preserve that per provider and make it the acceptance test for every new provide
 
 ## 9. Greploop, becoming reviewloop
 
-Greptile is on the MANDATORY ship path (`wrap.md:103` says "always runs"), and `hooks/greploop-gate.js` is a registered blocking Stop hook.
-It DOES fail open and it explicitly recognizes "not installed", but it does so by REGEX-MATCHING freeform prose an LLM wrote into `wrap.json`.
-That is the same fragility class as the 16 free-text `pr.status` variants.
+**P1 landed the wrap.md "always runs" fix.** Wrap still always *invokes* greploop (the Stop hook and wrap tests require a single writer of `greptile.status`). Greploop probes `review.external` (`node scripts/gorkhali-config.js get review.external --repo <workspace> --json`). If the value is `none`, or the key is unset and no Greptile check-run exists, it writes `greptile.status: skipped` and stops. Bot auto-fix only unless `--fix-humans`; `--no-fix` skips all edits.
 
-Fix:
+Still open from this section:
 
-- a `review.external` capability (`greptile | none`) determined by PROBING, not by string-matching prose;
-- `wrap.md:103` becomes "runs when available" instead of "always runs";
-- `greptile.status` becomes a closed enum: `pending | settled | unavailable | not_configured`;
-- keep fail-open as defense in depth, but stop DEPENDING on it.
-
-Rename to `gorkhali:reviewloop` at T4; `greploop` is vendor-branded, which is odd for a public repo.
-A `coderabbit` key already appears in one historical `wrap.json`, so per ponytail rung 1, gate now with a closed enum and add provider adapters only when a second provider is actually needed.
+- `hooks/greploop-gate.js` still fail-opens and still PREFIX-matches freeform `greptile.status` (same fragility class as the 16 historical `pr.status` variants). Canonical writes are `pending | done | skipped`; the gate still allows unknown settled values.
+- Close the enum in the validator (`pending | done | skipped`, plus a documented unavailable/not-configured alias if you need it) so wrap.json cannot accumulate a fourth freeform dialect.
+- Rename to `gorkhali:reviewloop` at T4; `greploop` is vendor-branded, which is odd for a public repo.
+- A `coderabbit` key already appears in one historical `wrap.json`, so per ponytail rung 1, gate now with a closed enum and add provider adapters only when a second provider is actually needed.
 
 **Standing principle: the ship path must never hard-depend on a paid third-party SaaS.**
-This covers Greptile, Jira, and whatever comes next.
+This covers Greptile, Jira, and whatever comes next. P1 honors it by skipping, not by pretending a pass.
 
 ---
 
@@ -637,7 +651,7 @@ This covers Greptile, Jira, and whatever comes next.
 | Tier | Requires | Skills |
 |---|---|---|
 | 1 core | git plus a runtime | start, execute, verify, fix, review, scout, detective, learn, pause, resume, status |
-| 2 git-host | `gh` or equivalent | wrap PR creation, close |
+| 2 git-host | `gh` or equivalent | wrap PR creation, close, pr-review |
 | 3 vendor-optional | greptile, jira, figma, sentry | greploop, loop, visual |
 
 Rule: **a Tier 3 skill whose capability is absent must not be ADVERTISED.**
@@ -689,6 +703,15 @@ Port only the pure `classify()`.
 The 1-10 per-dimension scoring in the source article's maintainability prompt (readability, complexity, dependency risk, change isolation) is REJECTED.
 `reference/temperature-review.md` already drops P2/P3 outright, and the false-positive literature says the win is fewer, better-verified findings — a score turns every review into four numbers nobody acts on, which is volume without a decision attached.
 Revives only if B9's disposition data shows maintainability findings being ACTED ON at a rate comparable to correctness findings, which would mean the P2/P3 drop is throwing away value.
+P1 reconfirmed this: do not add a reviewer agent, numeric scores, or a low-risk auto-approve path.
+
+**Council-by-default and mandatory HTML on simple brainstorms.**
+Rejected in P1. `--simple` and the clearer path stay chat Pick A/B/C. FULL keeps council/HTML.
+Revives only if measured sessions show users asking for the HTML that `--simple` skipped, not because a design-doc template exists.
+
+**Mandatory RPSL / review-panel on wrap.**
+Rejected in P1. Defense-brief sources that were not produced this session stay `None flagged this session`. `--deep-review` is the opt-in.
+Revives only if wrap-time humans actually used those sections enough to measure, which they have not.
 
 **Reviving `ruvector.db` / vector memory.**
 Referenced by nothing.

@@ -80,6 +80,13 @@ const validPlan = () => ({
     out: ['Implementation runtime changes'],
     constraints: ['Self-contained offline HTML'],
   },
+  crossCutting: {
+    security: { status: 'n/a', detail: 'No new auth or data surface' },
+    privacy: { status: 'n/a', detail: 'No PII' },
+    observability: { status: 'n/a', detail: 'No new runtime signal' },
+    rollout: { status: 'n/a', detail: 'Backward-compatible; no migration' },
+    docs: { status: 'n/a', detail: 'No user-facing docs drift' },
+  },
   solution_shape: {
     summary: 'Generate a human review view from a machine source of truth',
     components: ['artifact validator', 'AI-authored review'],
@@ -144,7 +151,7 @@ const validPlan = () => ({
     unresolved: [],
   },
   route: 'solo',
-  devilsAdvocateVerdict: 'PROCEED',
+  oppositionVerdict: 'PROCEED',
   tasks: [{ ...planTask }],
 });
 
@@ -185,6 +192,7 @@ const validBrainstorm = () => ({
     nonGoals: ['Implement before direction approval'],
     constraints: ['Offline HTML'],
     evaluationCriteria: ['Decision clarity', 'Evidence quality'],
+    successSignal: 'A reviewer can pick A, B, or C without reading the task appendix',
   },
   evidence: [
     {

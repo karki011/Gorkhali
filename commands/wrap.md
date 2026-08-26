@@ -1,18 +1,26 @@
 ---
 name: wrap
-description: "Validate current portable quality evidence, create a ready-for-review pull request, and record the release summary and lifecycle outcome."
+description: "Validate passed verification+review, write the author brief, open a ready-for-review PR, then capability-gate greploop; NOT for reviewing someone else's PR."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-facing hour-one loop. Stay on the / menu (Cursor slash reads this file).
+# Duplication with skills/{name} is accepted for start/pause/resume/verify/review/pr-review/wrap.
+user-invocable: true
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
 
 # /gorkhali:wrap
 
-Wrap is a thin shipping adapter. Portable lifecycle state, worktree fingerprint,
-verification, and review artifacts are the authority. Do not run a second Chief
-review or mandatory RPSL panel.
+Wrap is a thin shipping adapter. It does not run Auditor. Steps, in order:
+**Validate evidence → Author brief → Open PR → Optional external review loop.**
+
+Portable lifecycle state, worktree fingerprint, verification, and review
+artifacts are the authority. Do not run a second Chief review or mandatory RPSL
+panel.
+
+Wrong surface: `/gorkhali:review` reviews YOUR verified local diff (and needs
+Inspector on this worktree). `/gorkhali:pr-review` reviews someone else's PR
+and never gates ship.
 
 ## 1. Validate the current release candidate
 
@@ -41,6 +49,10 @@ the helper rejects the cross-gate contract: stop with the exact gap and run
 `/gorkhali:verify`. A mismatched required/result role set is the same blocking
 case. Never infer approval from a legacy `verification.json`, chat message, old
 panel, or clean-looking diff.
+
+A `lite` (and Inspector-only `direct`) session skipped Auditor on purpose.
+Wrap's ship gate still needs that review. Stop with: run `/gorkhali:verify`
+first, then wrap. Do not treat Inspector-only evidence as a passed review.
 
 If `--deep-review` was explicitly requested, run the optional RPSL preset in
 `reference/wrap/rpsl.md`. Its selected failed, blocked, or missing perspective
@@ -128,24 +140,39 @@ Use the existing ship-ceremony mechanics for mechanical git operations only:
    body is `{SESSION_DIR}/pr-body.md` passed verbatim via `--body-file`. Clerk
    does not author, fill, or re-order any section of that body.
 
-After the PR is created, always invoke `Skill(skill="gorkhali:greploop")` with
-the PR number. Do not ask. Do not merge the PR — merging stays a human action.
+After the PR is created, invoke `Skill(skill="gorkhali:greploop")` with the PR
+number. Do not ask. Greploop probes `review.external` and availability, then
+either runs the all-author loop or writes `greptile.status: skipped` and
+stops — wrap never invents a pass. Do not merge the PR — merging stays a human
+action.
 Do not transition unrelated tickets. Any destructive or newly external action
 beyond the authorized PR requires separate authority.
 
 ## Step 6: Record the outcome
 
-Write the normal wrap/run artifact through the existing portable recording
-path, including the summary, base/head branches, commit, PR number and
-URL, quality artifact references, known caveats, and observable model-routing
-diagnostics. Include `defenseBrief` as `{ path, questions, sections }`, where
+Write the wrap/run artifact through the existing portable recording path.
+Include `defenseBrief` as `{ path, questions, sections }`, where
 `path` names `defense-brief.md`, `questions` counts its Q/A pairs, and `sections`
 is 6.
 Include `prBody` as `{ path, sections, gaps }`, where `path` names `pr-body.md`,
 `sections` is 3, and `gaps` lists the headings that carry a stated gap because
 their source artifact was absent (empty array when every section was sourced).
-Preserve lifecycle/session completion mechanics and reusable learnings; cost,
-routing, and learning enrichments remain non-blocking.
+Closed payload keys only: `brief`, `pr`, `jira`, `greptile`, `learnings`,
+`defenseBrief`, `prBody`, `commit`, `base`, `head`, `qualityArtifacts`,
+`caveats`, `summary`, `modelRouting`. Do not add keys. Do not invent
+measurement (`ticket`, `route`, `wall_time_ms`, `agents`, `costUsd`, `eval`,
+`reviewPanel`, `brainCard`) — `scripts/outcome-write.js` derives those into
+`{SESSION_DIR}/outcome.json` and wrap does not copy them back.
+Preserve lifecycle/session completion mechanics. Cost, routing, and learning
+enrichments remain non-blocking. Do not LLM-author a learnings dump into
+`wrap.json` — failed-command capture is the Stop hook (`memory-writer`).
+
+Then write the durable record (never blocks wrap):
+
+```bash
+{PR_BOOTSTRAP}
+[ -n "$PR" ] && node "$PR/scripts/outcome-write.js" --ticket {TICKET} --repo-path <workspace> || echo "gorkhali: outcome-write failed or unavailable - outcome.json not written, wrap continues"
+```
 
 Report `done` with the PR URL only after creation and artifact recording.
 Use `done-with-caveat` for a non-blocking enrichment failure, or `blocked` with

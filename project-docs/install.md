@@ -1,6 +1,6 @@
 # Install
 
-Installing Gorkhali as a portable Agent Skill or as a native plugin on Claude Code, Codex, and Kimi Code, plus upgrade paths.
+Installing Gorkhali as a portable Agent Skill or as a native plugin on Claude Code, Codex, Kimi Code, and Cursor, plus upgrade paths.
 
 Install the same canonical directory without modifying it. Project-scoped
 examples:
@@ -43,7 +43,9 @@ locally; the runner may supply an optional external override when needed.
 The native plugin ships `.codex-plugin/plugin.json`, `.kimi-plugin/plugin.json`,
 and the legacy-compatible `.claude-plugin` marketplace. It exposes every public
 workflow under `skills/` for Codex and Kimi Code while retaining Claude Code
-command, agent, and hook integrations.
+command, agent, and hook integrations. Marketplace plugin version is
+`.claude-plugin/plugin.json`; portable bundle version is
+`skills/gorkhali/manifest.json` `bundle_version`. They are different numbers.
 
 In Codex, open the plugin browser and install Gorkhali from the repository
 marketplace:
@@ -110,6 +112,14 @@ Claude Code CLI for Claude installation; Kimi Code CLI for Kimi installation;
 and git for any flow. Recommended: gh CLI and Atlassian MCP. Optional: Slack
 MCP and code-review-graph MCP.
 
+## Cursor
+
+Cursor has no marketplace recipe yet. With this repository as the workspace,
+slash commands come from `commands/*.md` files marked `user-invocable: true`:
+`/start`, `/pause`, `/resume`, `/verify`, `/review`, `/pr-review`, `/wrap`.
+A portable copy of `skills/gorkhali` only is the router. Named wrap, review,
+and pr-review skills need the native plugin or the whole `skills/` tree.
+
 ## Upgrading from a pre-plugin install
 
 If you previously used the retired manual install, remove its exact
@@ -119,6 +129,7 @@ have registered these four Gorkhali hooks in `~/.claude/settings.json`; remove
 only those entries because `hooks/hooks.json` now owns them:
 
 - `memory-writer.js`
+- `observation-writer.js`
 - `chief-subagent-driven-law.sh`
 - `memory-reader.js`
 - `memory-consolidator.js`

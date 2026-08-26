@@ -202,7 +202,7 @@ function main() {
     decision: 'block',
     reason:
       `PR #${pr.number} has not been through greploop (greptile.status=${rawStatus || 'pending'}). ` +
-      `Run Skill(skill="gorkhali:greploop", args="${pr.number}") to drive it to 5/5 before finishing. ` +
+      `Run Skill(skill="gorkhali:greploop", args="${pr.number}") before finishing. ` +
       `(Gate fail-open; fires at most ${max} times per PR.)`,
   }));
 }

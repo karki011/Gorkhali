@@ -1,8 +1,9 @@
 ---
 name: pause
 description: "Use when stepping away or saving progress mid-session — 'pause', 'checkpoint', 'done for today'. Saves artifacts only, no git ops. Ship → gorkhali:wrap; continue → gorkhali:resume."
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-facing hour-one loop. Stay on the / menu (Cursor slash reads this file).
+# Duplication with skills/{name} is accepted for start/pause/resume/verify/review/pr-review/wrap.
+user-invocable: true
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)

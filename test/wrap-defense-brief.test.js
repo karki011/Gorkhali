@@ -132,6 +132,19 @@ test('wrap.md Step 6 defenseBrief spec documents path, questions, and sections',
   assert.ok(nearby.includes('sections'), 'defenseBrief spec must document a sections field');
 });
 
+test('wrap.md Step 6 closes wrap.json keys and names outcome-write', () => {
+  const content = read('commands/wrap.md');
+  const { WRAP_PAYLOAD_KEYS } = require('../scripts/validate-artifact');
+  for (const key of WRAP_PAYLOAD_KEYS) {
+    assert.ok(
+      content.includes('`' + key + '`'),
+      `wrap.md must name closed payload key \`${key}\``
+    );
+  }
+  assert.match(content, /scripts\/outcome-write\.js/);
+  assert.ok(content.includes('Do not add keys'), 'wrap.md must refuse new wrap keys');
+});
+
 // ── reference/wrap/defense-brief.md ────────────────────────────────────────
 
 test('reference/wrap/defense-brief.md exists', () => {

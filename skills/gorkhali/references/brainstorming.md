@@ -132,12 +132,14 @@ Use these exact JSON field shapes so every host produces the same contract:
 
 - `briefing`: `{ tackling, problem, how, scope, risks }`.
 - `decision`: `{ question, outcome, audience: [], nonGoals: [], constraints: [],
-  evaluationCriteria: [] }`.
-- `evidence[]`: `{ claim, source, status, observed_at, confidence, conflicts? }`,
+  evaluationCriteria: [], successSignal }`. `nonGoals` and `successSignal` are
+  required on every new v3 frame. `successSignal` is an observable, not a vibe.
+- `evidence[]`: `{ claim, source, status, kind, observed_at, confidence, conflicts? }`,
   where status is `verified`, `supported`, `inferred`, or `unknown`,
-  `observed_at` is an RFC 3339 timestamp with timezone, `confidence` is from
+  `kind` is `user` or `repo` (write it on every new row; a How supported only
+  by `repo` inference is an assumption), `observed_at` is an RFC 3339 timestamp with timezone, `confidence` is from
   `0` to `1`, and `conflicts` is an optional string array. Older v3 rows without
-  freshness metadata remain readable; new canonical writes require it.
+  freshness metadata or `kind` remain readable; new canonical writes require both.
 - `ideas[]`: `{ id, title, summary, lens, technique, evidence: [],
   assumptions: [] }`.
 - `clusters[]`: `{ id, name, insight, ideaIds: [] }`; every standard/deep idea
@@ -160,7 +162,8 @@ Use these exact JSON field shapes so every host produces the same contract:
 After validating the portable JSON, generate full-width, self-contained HTML
 using `<skill-directory>/references/review-html.md` and run
 `<skill-directory>/scripts/validate-review-html.mjs` against
-it. Order the page as:
+it — except on a `quick` or `--simple` brainstorm, which presents the same
+What/Problem/How brief and Pick A/B/C in chat and skips HTML. Order the page as:
 What, Problem, and How first; then current direction; a comparison table of
 the distinct approaches; frame and stance; evidence; divergence lanes;
 connections and clusters; convergence funnel and shortlist; dissent; cheapest

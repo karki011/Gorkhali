@@ -15,11 +15,14 @@ intentional mechanics; reply tone for Greptile is configurable via env `GORKHALI
 
 ---
 
-## Always on
+## Always invoked, capability-gated
 
-Greploop always runs — there is no opt-out, and wrap never asks. Repos that lack the Greptile bot are handled
-gracefully by the Availability guard below (they don't need to opt out). Always-on, fail-open, bounded.
-Never merge. Merging stays a human action.
+Wrap always invokes greploop after PR creation and never asks. Greploop itself
+probes `review.external` (`greptile` | `none`) and Greptile availability. When
+the value is `none`, or the key is unset and no Greptile check-run exists,
+greploop writes `greptile.status: skipped` and stops. Repos that lack the
+Greptile bot do not need to opt out. Fail-open, bounded. Never merge. Merging
+stays a human action.
 
 ---
 
@@ -29,6 +32,8 @@ Never merge. Merging stays a human action.
 - `--max N` (optional): max Phase 1 loop iterations (default **`REVIEW_LOOP_MAX`**, 5, from
   `scripts/lib/constants.js`).
 - `--no-fix` (optional): triage + report only; do not edit/commit.
+- `--fix-humans` (optional): also auto-fix actionable comments from human
+  reviewers. Default auto-fix is the configured external bot only.
 
 ---
 
@@ -159,7 +164,12 @@ Then proceed to **Phase 2**.
 
 ### E. Fix actionable comments
 
-For each unresolved actionable comment — inline and outside-diff — (skip this whole step under `--no-fix`):
+Default: auto-fix actionable comments from the **configured external bot**
+(Greptile) only. Human and other-author comments are classified, tagged, and
+replied to; they are not edited unless `--fix-humans`. Skip this whole step
+under `--no-fix`.
+
+For each unresolved actionable **bot** comment — inline and outside-diff:
 1. Read the file and understand the comment in context (read the full file, not just the diff).
 2. Decide: actionable (code change) vs informational / false-positive.
 3. If actionable, make the fix. For a substantial multi-file change, prefer spawning an `engineer` (`subagent_type: "engineer"`, `name: "engineer-vosler"` per `reference/roster.md`, `mode: "bypassPermissions"`) rather than editing inline.

@@ -211,6 +211,7 @@ const portableBrainstorm = () => ({
     nonGoals: [],
     constraints: ['Offline HTML'],
     evaluationCriteria: ['Decision clarity'],
+    successSignal: 'The reviewer picks a direction without reading tasks',
   },
   evidence: [{
     claim: 'Recommendation must lead',

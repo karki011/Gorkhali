@@ -35,12 +35,12 @@ try {
     parseAutoCaptures,
     lifecycleClass,
     isTemplatePlaceholder,
-    isLiveDomainFile,
   } = require('../scripts/lib/learning-grammar.cjs');
 
   let DOMAIN_KEYWORDS = {};
+  let fileDomain = () => null;
   try {
-    ({ DOMAIN_KEYWORDS } = require('../scripts/lib/domains'));
+    ({ DOMAIN_KEYWORDS, fileDomain } = require('../scripts/lib/domains'));
   } catch (_) { /* fail open: lib missing → no matches → 'shadows' default below */ }
   let GRADUATION_THRESHOLD = 5; // validated:5+ → high injection priority
   let SLOTS = 5, CORRECTION_SLOTS = 3, VALIDATED_SLOTS = 1, AGE_BAND_DAYS = 30;
@@ -69,13 +69,36 @@ try {
 
   if (!prompt) process.exit(0);
 
-  // --- Step 2: Detect domain signals (canonical taxonomy: scripts/lib/domains.js) ---
+  // --- Step 2: Detect domain signals (keywords + paths, not every domain) ---
 
   const matchedDomains = [];
   for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
     if (keywords.some((kw) => prompt.includes(kw))) {
       matchedDomains.push(domain);
     }
+  }
+
+  const PATH_RE = /(?:^|[\s`'"(])([A-Za-z0-9_./-]+\.[A-Za-z0-9]+)/g;
+  const pathHits = [];
+  let pathMatch;
+  while ((pathMatch = PATH_RE.exec(prompt)) !== null) pathHits.push(pathMatch[1]);
+
+  // Paths this session already edited (PostToolUse). Subagents never see this
+  // hook; the parent session does, and uses these paths to pick a domain.
+  if (hasSessionId) {
+    try {
+      const touchedFile = path.join(stateDir(), 'memory-touched', sessionId);
+      if (fs.existsSync(touchedFile)) {
+        for (const line of fs.readFileSync(touchedFile, 'utf-8').split('\n')) {
+          if (line.trim()) pathHits.push(line.trim());
+        }
+      }
+    } catch (_) { /* fail toward keyword-only match */ }
+  }
+
+  for (const filePath of pathHits) {
+    const domain = typeof fileDomain === 'function' ? fileDomain(filePath) : null;
+    if (domain && !matchedDomains.includes(domain)) matchedDomains.push(domain);
   }
 
   // Default to shadows if nothing matched
@@ -186,15 +209,10 @@ try {
     loadFile(findFileForDomain(domain));
   }
 
-  // Never go dark. A keyword can match a domain that has no file yet (a 'ui' prompt in
-  // a repo whose only files are infra.md and workflow.md resolved to nothing, which is
-  // most of why injection produced nothing at all). Recorded conventions are largely
-  // cross-domain, and priority ordering still puts [failed] corrections first, so
-  // falling back to every live domain file beats injecting silence.
+  // Never go dark, and never dump every domain file into the prompt. If the
+  // matched domain has no file yet, inject short INDEX one-liners instead.
   if (allEntries.length === 0) {
-    for (const fileName of fs.readdirSync(LEARNINGS_DIR).filter(isLiveDomainFile)) {
-      loadFile(fileName);
-    }
+    allEntries.push(...readEntries(indexContent, 'INDEX.md'));
   }
 
   // --- Step 7: Also check auto-captures.md ---

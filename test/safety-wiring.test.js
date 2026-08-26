@@ -46,7 +46,7 @@ test('the loop brakes are invoked through the plugin root, never a bare relative
   // where the plugin's scripts do not exist. For a reporting script that means it
   // silently never runs; for run-guard it is worse, because its MODULE_NOT_FOUND
   // exit 1 is the same code that means "confirmed budget halt".
-  const GUARDS = ['run-guard.js', 'review-round.js'];
+  const GUARDS = ['run-guard.js', 'review-round.js', 'outcome-write.js'];
   const offenders = [];
   for (const file of fs.readdirSync(path.join(REPO_ROOT, 'commands'))) {
     if (!file.endsWith('.md')) continue;
@@ -81,4 +81,12 @@ test('the durable outcome record counts loops from the ledger too', () => {
   const src = read('scripts', 'outcome-write.js');
   assert.match(src, /rounds\.json/, 'fix_loops must not be mined from an artifact nothing writes');
   assert.match(src, /resolveFixLoops/, 'and it uses the one resolver, not a private copy');
+});
+
+test('wrap.md invokes outcome-write for the durable record', () => {
+  const doc = read('commands', 'wrap.md');
+  assert.match(doc, /scripts\/outcome-write\.js/, 'wrap must call the script, not invent wrap.json measurement keys');
+  assert.match(doc, /outcome\.json/, 'the durable record is named');
+  assert.match(doc, /--repo-path/, 'wrap passes the workspace so git/gh resolve');
+  assert.match(doc, /never blocks wrap|outcome\.json not written, wrap continues/, 'outcome-write failure is non-blocking');
 });

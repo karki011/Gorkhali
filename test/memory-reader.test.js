@@ -36,7 +36,7 @@ function setup() {
   fs.mkdirSync(learnings, { recursive: true });
   fs.writeFileSync(path.join(learnings, 'INDEX.md'), '# Learnings Index\n');
   fs.writeFileSync(
-    path.join(learnings, 'general.md'),
+    path.join(learnings, 'shadows.md'),
     'LEARNING [alpha]: Entry Alpha describes a stable pattern worth remembering for tests (2026-01-01)\n' +
     'LEARNING [beta]: Entry Beta describes a second stable pattern worth remembering for tests (2026-01-01)\n'
   );
@@ -124,6 +124,60 @@ test('5. no session_id → dedup skipped entirely, no shared "unknown" marker', 
         'no shared "unknown" marker file should be written for id-less sessions'
       );
     }
+  } finally {
+    cleanup();
+  }
+});
+
+test('6. a touched source path injects that domain, not every file', () => {
+  const { env, cleanup } = setup();
+  try {
+    const data = env.GORKHALI_DATA;
+    const learnings = path.join(data, 'repos', REPO, 'learnings');
+    fs.writeFileSync(
+      path.join(learnings, 'ui.md'),
+      'CORRECTION [chakra-toast]: [used window.alert] - [use the toast helper] [failed] (2026-08-01)\n',
+    );
+    fs.writeFileSync(
+      path.join(learnings, 'workflow.md'),
+      'CORRECTION [secret-workflow]: [this must not leak into a ui edit] - [keep domains split] [failed] (2026-08-01)\n',
+    );
+    const sid = 'session-path';
+    const touchedDir = path.join(data, 'state', 'memory-touched');
+    fs.mkdirSync(touchedDir, { recursive: true });
+    fs.writeFileSync(path.join(touchedDir, sid), 'apps/dashboard/src/components/Pay.tsx\n');
+
+    const res = runHook(env, JSON.stringify({
+      prompt: 'continue the payment work',
+      session_id: sid,
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /chakra-toast/);
+    assert.doesNotMatch(res.stdout, /secret-workflow/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('7. missing domain file falls back to INDEX one-liners, not every domain file', () => {
+  const { env, cleanup } = setup();
+  try {
+    const learnings = path.join(env.GORKHALI_DATA, 'repos', REPO, 'learnings');
+    fs.writeFileSync(
+      path.join(learnings, 'INDEX.md'),
+      '# Learnings Index\n\n- workflow.md — grep-count-exit [failed]\n',
+    );
+    fs.writeFileSync(
+      path.join(learnings, 'workflow.md'),
+      'Subash, preamble that must not be injected.\n\nCORRECTION [grep-count-exit]: [wrote grep -c] - [use ! grep -q] [failed] (2026-07-07)\n',
+    );
+    const res = runHook(env, JSON.stringify({
+      prompt: 'fix the react component css layout',
+      session_id: 'session-index-fallback',
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /grep-count-exit/);
+    assert.doesNotMatch(res.stdout, /preamble that must not/);
   } finally {
     cleanup();
   }

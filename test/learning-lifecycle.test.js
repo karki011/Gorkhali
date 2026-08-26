@@ -98,7 +98,7 @@ test('injection surfaces a correction AND a validated entry in the same budget',
     ].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all');
+  const out = runHook(root, 'workflow session wrap gate');
   assert.match(out, /\[failed\]/, 'a [failed] correction must still surface');
   assert.match(out, /\[validated:2\]/, 'a [validated:N] entry must be reachable alongside it');
 });
@@ -112,7 +112,7 @@ test('the correction slot cap leaves a slot for a validated entry when correctio
     'workflow.md': [...corrections, 'PATTERN [p-win]: proven pattern [validated:3] (2026-06-01)', ''].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all');
+  const out = runHook(root, 'workflow session wrap gate');
   assert.match(out, /\[validated:3\]/, 'eight corrections must not consume all five slots');
   assert.match(out, /\[failed\]/, 'corrections must still surface - this is not a blanket inversion');
 });
@@ -129,7 +129,7 @@ test('an untagged entry does not count as validated and cannot claim the validat
     ].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all', {
+  const out = runHook(root, 'workflow session wrap gate', {
     GORKHALI_INJECTION_SLOTS: '1',
     GORKHALI_INJECTION_CORRECTION_SLOTS: '0',
     GORKHALI_INJECTION_VALIDATED_SLOTS: '1',
