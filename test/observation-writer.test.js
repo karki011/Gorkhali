@@ -77,6 +77,47 @@ test('failed Bash appends one observations jsonl line', () => {
     assert.equal(line.tool, 'Bash');
     assert.equal(line.exitCode, 1);
     assert.equal(line.session, 's3');
+    assert.equal(line.command, 'pnpm test');
+  } finally {
+    cleanup();
+  }
+});
+
+test('failed Bash redacts assignment-like secrets in the command', () => {
+  const { env, data, cleanup } = setup();
+  try {
+    run(env, {
+      session_id: 's4',
+      tool_name: 'Bash',
+      tool_input: { command: 'export API_TOKEN=supersecret pnpm test' },
+      tool_response: { exitCode: 1 },
+    });
+    const dir = path.join(data, 'observations');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
+    assert.equal(files.length, 1);
+    const line = JSON.parse(fs.readFileSync(path.join(dir, files[0]), 'utf-8').trim());
+    assert.equal(line.command.includes('supersecret'), false);
+    assert.match(line.command, /API_TOKEN=\*\*\*/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('failed Bash redacts URL userinfo in the command', () => {
+  const { env, data, cleanup } = setup();
+  try {
+    run(env, {
+      session_id: 's5',
+      tool_name: 'Bash',
+      tool_input: { command: 'curl https://user:s3cret@example.com/x' },
+      tool_response: { exitCode: 1 },
+    });
+    const dir = path.join(data, 'observations');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
+    assert.equal(files.length, 1);
+    const line = JSON.parse(fs.readFileSync(path.join(dir, files[0]), 'utf-8').trim());
+    assert.equal(line.command.includes('s3cret'), false);
+    assert.match(line.command, /:\/\/\*\*\*:\*\*\*@/);
   } finally {
     cleanup();
   }

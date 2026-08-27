@@ -471,8 +471,20 @@ test('portable decision contract validates enriched v3 and preserves earlier v3 
   const earlierBrainstorm = { ...validBrainstorm(), contract_version: 3 };
   delete earlierBrainstorm._meta;
   removeFields(earlierBrainstorm, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
-  removeFields(earlierBrainstorm.decision, ['audience', 'nonGoals']);
+  removeFields(earlierBrainstorm.decision, ['audience']);
   assert.deepEqual(validateDecisionContract('brainstorm', earlierBrainstorm), []);
+  const missingNonGoals = clone(earlierBrainstorm);
+  removeFields(missingNonGoals.decision, ['nonGoals']);
+  assert.match(
+    validateDecisionContract('brainstorm', missingNonGoals).join('\n'),
+    /decision\.nonGoals/,
+  );
+  const missingSuccessSignal = clone(earlierBrainstorm);
+  removeFields(missingSuccessSignal.decision, ['successSignal']);
+  assert.match(
+    validateDecisionContract('brainstorm', missingSuccessSignal).join('\n'),
+    /decision\.successSignal/,
+  );
   assert.match(
     validateDecisionContract('plan', { contract_version: 3 }).join('\n'),
     /decision: required object/,

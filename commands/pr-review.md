@@ -79,7 +79,7 @@ Then resolve intent in this order, first success wins:
 1. **Tracker ticket** — Jira, Linear, or GitHub issue fetched via the configured
    tracker (`scripts/gorkhali-config.js get tracker.provider`). Record
    `intentSource: "ticket"`.
-2. **GitHub issue** linked from the PR (`gh pr view --json closingIssues`).
+2. **GitHub issue** linked from the PR (`gh pr view --json closingIssuesReferences`).
    Record `intentSource: "issue"`.
 3. **PR body** — derive the intent from the description. Record
    `intentSource: "pr-body"`.

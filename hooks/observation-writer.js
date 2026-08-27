@@ -5,7 +5,8 @@
 // Edit/Write: record the touched path (cap 40) so the next prompt injects that
 // domain, not every domain. Bash: append one observations jsonl line ONLY on
 // failure. Successful edits are not learnings. Never logs file contents.
-// Silent; never throws; never prints.
+// Command strings are redacted for obvious secret patterns and truncated;
+// this is not a complete secret scanner. Silent; never throws; never prints.
 
 'use strict';
 
@@ -26,6 +27,17 @@ try {
 
 const TOUCHED_CAP = 40;
 const CMD_CAP = 180;
+const SECRET_ASSIGNMENT = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|AUTHORIZATION|AUTH|BEARER)/i;
+
+function redactCommand(cmd) {
+  let s = String(cmd || '');
+  s = s.replace(/:\/\/[^:@/\s]+:[^@/\s]+@/g, '://***:***@');
+  s = s.replace(/([A-Za-z_][A-Za-z0-9_-]*)=([^\s]+)/g, (full, name) => (
+    SECRET_ASSIGNMENT.test(name) ? `${name}=***` : full
+  ));
+  s = s.replace(/\bBearer\s+\S+/gi, 'Bearer ***');
+  return s.slice(0, CMD_CAP);
+}
 
 function readPayload() {
   try {
@@ -95,7 +107,7 @@ function writeObservation(payload, tool) {
   const exitCode = (typeof resp.exitCode === 'number')
     ? resp.exitCode
     : (typeof resp.exit_code === 'number' ? resp.exit_code : 1);
-  const command = String(input.command || '').slice(0, CMD_CAP);
+  const command = redactCommand(input.command);
   const rec = {
     ts: new Date().toISOString(),
     session: payload.session_id || process.env.CLAUDE_SESSION_ID || 'unknown',

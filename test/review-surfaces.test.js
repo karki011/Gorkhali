@@ -32,6 +32,8 @@ test('pr-review records honest intent sources and a five-line checklist', () => 
   assert.match(cmd, /intentSource: "ticket"/);
   assert.match(cmd, /intentSource: "issue"/);
   assert.match(cmd, /intentSource: "pr-body"/);
+  assert.match(cmd, /gh pr view --json closingIssuesReferences/);
+  assert.doesNotMatch(cmd, /gh pr view --json closingIssues[^\w]/);
   assert.doesNotMatch(cmd, /intentSource: "inferred"/);
   assert.match(cmd, /Intent delivered/);
   assert.match(cmd, /reachable in production/);

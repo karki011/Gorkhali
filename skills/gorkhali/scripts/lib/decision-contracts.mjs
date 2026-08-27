@@ -657,10 +657,10 @@ const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false 
   else {
     requireTextFields(payload.decision, 'decision', ['question', 'outcome'], errors);
     requireArray(payload.decision.constraints, 'decision.constraints', errors);
+    requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
+    requireTextFields(payload.decision, 'decision', ['successSignal'], errors);
     if (enriched) {
       requireArray(payload.decision.audience, 'decision.audience', errors, true);
-      requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
-      requireTextFields(payload.decision, 'decision', ['successSignal'], errors);
     }
     requireArray(payload.decision.evaluationCriteria, 'decision.evaluationCriteria', errors, true);
   }
