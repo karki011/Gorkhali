@@ -11,6 +11,7 @@ const {
 // a separator or a leading list dash that the real files do not use, so every tier
 // scanned 0 of 54 real entries. Never re-add a private entry regex here.
 const { parseLearningEntries, isLiveDomainFile } = require('./lib/learning-grammar.cjs');
+const { readSessionCited } = require('./lib/learnings-cited');
 
 const REPO = detectRepo();
 const LEARNINGS_DIR = learningsDir(REPO);
@@ -89,17 +90,14 @@ function sessionPassed(verification) {
  * nothing has ever reached the promote threshold of 5: the old increment fired only when
  * an LLM decided a pattern "was successfully used", which was unverifiable and unlogged.
  *
- * MISSING WRITER - the one input that does not exist yet. No artifact records WHICH
- * learning entries a session recalled. context.json's `learningsRefs` is documented as
- * "Paths to relevant learning files": file granularity, so it cannot attribute a
- * validation to an entry. (One context.json on disk carries an undocumented freeform
- * `learnings_applied` array of prose sentences - also not entry-identified.) The minimal
- * field needed is `learningsCited: string[]` on context.json, holding the `[keyword]` of
- * each injected entry; all 54 real entries carry a keyword, so it is a sufficient
- * identity. Its only possible writer is hooks/memory-reader.js, the component that
- * selects the entries. Until that field is written this returns an empty map and every
- * computed count is 0 - the reader is deliberately built first so the field has a
- * consumer the day it lands, rather than being a clause with no reader.
+ * Writer: hooks/memory-reader.js records the `[keyword]` of each injected entry
+ * into a sidecar `{SESSION_DIR}/learnings-cited.json` (durable: Phase A may
+ * rewrite context.json, and the first UserPromptSubmit often fires before
+ * context.json exists). When context.json is already a valid JSON object the
+ * hook also merges `learningsCited: string[]` onto it (and onto
+ * evidence.learningsCited when evidence is a plain object). context.json's
+ * `learningsRefs` remains file granularity and cannot attribute a validation to
+ * an entry. Hosts without this UserPromptSubmit hook still leave computed N at 0.
  */
 function computeCitedValidations() {
   const counts = new Map();
@@ -110,12 +108,9 @@ function computeCitedValidations() {
       if (!dirent.isDirectory()) continue;
       const dir = path.join(root, dirent.name);
       if (!sessionPassed(readJson(path.join(dir, 'verification.json')))) continue;
-      const context = readJson(path.join(dir, 'context.json'));
-      const cited = context && context[CITATION_FIELD];
-      if (!Array.isArray(cited)) continue;
-      for (const raw of cited) {
-        const keyword = String(raw == null ? '' : raw).trim().replace(/^\[|\]$/g, '').toLowerCase();
-        if (!keyword) continue;
+      const cited = readSessionCited(dir);
+      if (!cited.length) continue;
+      for (const keyword of cited) {
         if (!counts.has(keyword)) counts.set(keyword, new Set());
         counts.get(keyword).add(dirent.name);
       }

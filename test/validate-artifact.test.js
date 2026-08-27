@@ -116,6 +116,31 @@ const baseIntent = {
   specDelta: 'none',
 };
 
+const baseContext = {
+  ticket: 'PROJ-1',
+  summary: 'fixture',
+  source: 'args',
+};
+
+test('context: learningsCited string[] is valid', () => {
+  const res = runValidator('context', {
+    _meta: metaFor(),
+    ...baseContext,
+    learningsCited: ['alpha', 'beta'],
+  });
+  assert.equal(res.code, 0, `expected valid, got stderr: ${res.stderr}`);
+});
+
+test('context: learningsCited non-array is invalid', () => {
+  const res = runValidator('context', {
+    _meta: metaFor(),
+    ...baseContext,
+    learningsCited: 'alpha',
+  });
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /learningsCited/);
+});
+
 test('intent: with problem field passes', () => {
   const res = runValidator('intent', {
     _meta: metaFor(),

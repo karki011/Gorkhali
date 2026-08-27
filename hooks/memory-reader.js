@@ -53,6 +53,15 @@ try {
     AGE_BAND_DAYS = C.LEARNING_STALE_DAYS ?? AGE_BAND_DAYS;
   } catch (_) { /* fail open: lib missing → inline defaults */ }
 
+  let activeSessionDir = () => null;
+  let recordSessionCited = () => {};
+  try {
+    ({ activeSessionDir } = require('../scripts/lib/routing-state'));
+  } catch (_) { /* fail open: no session identity → skip citation write */ }
+  try {
+    ({ recordSessionCited } = require('../scripts/lib/learnings-cited'));
+  } catch (_) { /* fail open: no citation helper → injection still emits */ }
+
   const LEARNINGS_DIR = learningsDir();
   const INDEX_PATH = path.join(LEARNINGS_DIR, 'INDEX.md');
   const MAX_INJECTION_CHARS = 1600; // ~400 tokens
@@ -175,6 +184,7 @@ try {
         const cls = classOf(entry);
         return {
           text: entry.text,
+          keyword: entry.keyword || '',
           cls,
           date: entry.date || '',
           rank: (CLASS_RANK[cls] ?? CLASS_RANK.auto) * 2 + ageBand(entry.date),
@@ -324,6 +334,16 @@ try {
       fs.writeFileSync(injectedFile, Array.from(updated).join('\n') + '\n');
     } catch (_) { /* advisory: never suppress an injection over a marker write failure */ }
   }
+
+  // Record cited keywords for evolve's computed [validated:N]. Fail-open: a
+  // citation write must never suppress the injection already selected above.
+  try {
+    const keywords = injectedThisRound.map((entry) => entry.keyword).filter(Boolean);
+    if (keywords.length > 0) {
+      const sessionDir = activeSessionDir(input.cwd || process.cwd());
+      if (sessionDir) recordSessionCited(sessionDir, keywords);
+    }
+  } catch (_) { /* advisory: never suppress an injection over a citation write failure */ }
 
   process.stdout.write(header + outputLines.join('\n') + footer);
 } catch (_) {

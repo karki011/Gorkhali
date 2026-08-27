@@ -397,6 +397,7 @@ const SCHEMAS = {
       { field: 'source', type: '`"jira"` | `"args"` | `"branch"`', required: 'yes', description: 'Where context was sourced from' },
       { field: 'jira', type: 'object | `null`', required: 'no', description: 'Raw Jira issue fields (if source=jira)' },
       { field: 'learningsRefs', type: 'string[]', required: 'no', description: 'Paths to relevant learning files' },
+      { field: 'learningsCited', type: 'string[]', required: 'no', description: 'Keywords injected this session' },
       { field: 'modelOverride', type: 'string | `null`', required: 'no', description: 'Force a specific model for spawns' },
     ],
     validate: (d, errors) => {
@@ -406,6 +407,11 @@ const SCHEMAS = {
       const validSources = ['jira', 'args', 'branch'];
       if (!validSources.includes(d.source)) errors.push(`source: must be one of ${validSources.join('|')}, got "${d.source}"`);
       if (d.learningsRefs !== undefined && !Array.isArray(d.learningsRefs)) errors.push('learningsRefs: must be array if present');
+      if (d.learningsCited !== undefined) {
+        if (!Array.isArray(d.learningsCited) || !d.learningsCited.every((k) => typeof k === 'string' && k.trim())) {
+          errors.push('learningsCited: must be array of non-empty strings if present');
+        }
+      }
     },
   },
 
