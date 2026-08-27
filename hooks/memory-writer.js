@@ -70,6 +70,11 @@ try {
     process.exit(0);
   }
 
+  // Lean: only failed-command corrections become learnings. Successful edits
+  // and green test runs are not knowledge.
+  candidates = candidates.filter((c) => c && c.type === 'correction');
+  if (candidates.length === 0) process.exit(0);
+
   // Step 3: Hand the candidates to the canonical learning API. It performs the
   // locked staging/dedup/graduation write. On lock contention past its budget or
   // any failure it exits non-zero and we drop the capture - there is no unlocked

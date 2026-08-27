@@ -36,12 +36,13 @@ Context -> Router(DIRECT) -> status report -> Spawn Engineer -> Inspector verify
 Context -> Router(PLAN) -> Capture Intent -> Codebase Research
   -> Produce plan -> Deliberation (Planner <-> Challenger, max 2 rounds)
   -> Present to human (consensus or disagreement) -> Human OK
-  -> Contracts -> [optional: Wire] -> Execute -> Verify -> Done
+  -> [optional: contract projection for API/UI] -> [optional: Wire] -> Execute -> Verify -> Done
 ```
 - 1 human gate: approve plan after deliberation
 - Lightweight wiring auto-generated (wave assignments, no separate approval)
 - **Optional wiring**: if plan touches >5 files, invoke `Skill(skill="gorkhali:wire")` for topology -- no human gate on PLAN route, wiring is informational only
-- **Optional visual flow**: when `net_new_ui` is strong, before contracts -> `Skill(skill="gorkhali:visualflow")` (visual flow, user-gated) -- Chief recommends, user approves; no new hard gate
+- **Optional contract**: after plan approval, the `contract` skill may project API/UI details from `plan.json`. It is not a gate and not a fifth source of truth.
+- **Optional visual flow**: when `net_new_ui` is strong, before the plan gate -> `Skill(skill="gorkhali:visualflow")` (visual flow, user-gated) -- Chief recommends, user approves; no new hard gate
 - Artifacts: + intent.json, plan.json, deliberation.json, wiring.json (auto or via gorkhali:wire), visualflow.json (when net_new_ui)
 
 ## BRAINSTORM

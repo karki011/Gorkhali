@@ -17,7 +17,9 @@ Before reviewing, require:
 
 - the current diff and changed-file list;
 - the approved intent or acceptance criteria;
-- repository instructions and relevant existing patterns; and
+- repository instructions and relevant existing patterns;
+- `REVIEW.md` at the repo root or `.github/REVIEW.md` when that file exists
+  (highest-priority review-only instruction; absence is not a gap); and
 - a current passed portable verification artifact produced by Inspector and bound to
   the same worktree fingerprint.
 
@@ -35,7 +37,8 @@ safe operation:
 4. broken imports, references, types, or public contracts;
 5. unnecessary custom machinery when repository, standard, native, or installed
    behavior already solves the problem;
-6. maintainability and repository-pattern violations.
+6. maintainability, complexity that makes the code harder to call later, docs
+   the change made stale, and repository-pattern violations.
 
 UI component under review -> run the STATE MATRIX CHECK in
 `reference/temperature-review.md` (every enumerated layout state checked for collision,

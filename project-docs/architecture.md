@@ -56,7 +56,7 @@ The router classifies incoming tasks and selects the right cognitive mode:
 
 **Core Disciplines** - 15 rules, each with a WHY explaining the failure mode it prevents. Enforced structurally via hooks and artifact schemas, not prompt ceremony.
 
-**Power Level** - P0 (critical) + P1 (high) auto-fix. P2 (medium) + P3 (low) dropped.
+**Review** - Auditor is `blocking` or `advisory`. Verify never auto-fixes.
 
 **Direct HTML Review** - For plan and brainstorm gates, the active AI authors a self-contained candidate HTML page from canonical JSON. A local validator promotes it to the accepted artifact, which opens directly; approval and feedback stay in the existing chat. Visualflow artifacts also open directly, with feedback captured in chat.
 

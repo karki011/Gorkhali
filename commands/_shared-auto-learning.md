@@ -1,9 +1,7 @@
 # Gorkhali Shadows -- Auto-Learning System
 
-> See `reference/learning-system.md` for full protocol.
+> Full protocol: `reference/learning-system.md`.
 
-**Quick ref:** Load `learnings/INDEX.md` always. Domain files loaded per task classification. `[validated:5+]` auto-apply. `[failed]` blocked. Decay: 30d stale, 60d remove.
+**Read path (lean).** Parent session only: `hooks/memory-reader.js` injects ≤1600 chars, ranked, 5 slots. Match by prompt keywords **and** touched file paths (`scripts/lib/domains.js` `fileDomain`). No match → INDEX one-liners, never every domain file. Subagents do not get this hook. Grep `learnings/INDEX.md` for the files you will edit; read that domain file only if you need the full correction. The INDEX is the on-demand catalog. Citations of injected `[keyword]`s are recorded by `hooks/memory-reader.js` (sidecar + `context.json` `learningsCited`) so `/gorkhali:evolve` can compute `[validated:N]`.
 
-**Domain routing:** ui (*.tsx, components/), data (*.api.*, hooks/), auth (auth/, session/), testing (*.test.*), tooling (*.config.*), migration (migrations/), shadows (workflow, agent).
-
-**Writes go through one locked API.** Never edit `INDEX.md` / `auto-captures.md` / domain files by hand from a workflow. The auto-capture and consolidation hooks and any portable workflow route writes through the canonical, concurrent-safe learning API (`skills/gorkhali/scripts/gorkhali-learning.mjs capture|consolidate`, candidates JSON on stdin). It takes a per-repo lock and never writes unlocked, so concurrent writers keep every entry. See `skills/gorkhali/references/state.md` § Learning index.
+**Write path (automatic, lean).** Failed Bash → `hooks/observation-writer.js` → `observations/YYYY-MM-DD.jsonl` → Stop `memory-writer.js` → `gorkhali-learning.mjs capture`. Successful edits are not learnings. Do not append wrap.json. Skill-level evolve/promote stays `/gorkhali:evolve`.

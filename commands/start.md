@@ -3,8 +3,9 @@ name: start
 description: "Use when starting any new feature, bug fix, refactor, or task — a Jira ticket key (e.g., PROJ-123), 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes with multi-agent shadows."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-facing hour-one loop. Stay on the / menu (Cursor slash reads this file).
+# Duplication with skills/{name} is accepted for start/pause/resume/verify/review/pr-review/wrap.
+user-invocable: true
 ---
 
 > **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
@@ -51,7 +52,7 @@ Agent spawn rules (all routes):
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
 2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Chief env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${GORKHALI_DATA:-$HOME/.gorkhali}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.chief-active"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/gorkhali-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
 2.6. Link session to cost ledger (silent, never blocks): `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (advisory guard, `{PR_BOOTSTRAP}` per `_shared.md` §Paths - empty `$PR` skips silently)
-3. Jira MCP → fetch ticket + AC. Load `learnings/INDEX.md` for corrections.
+3. Jira MCP → fetch ticket + AC. Grep `learnings/INDEX.md` for the files this task will touch; do not paste the whole INDEX.
 3.2. **Jira lifecycle sync** (only when TICKET matches `[A-Z][A-Z0-9]+-\d+`; slug sessions skip silently). In order:
    a. **Assign**: `atlassianUserInfo` → accountId; assign only when the ticket's `assignee` is null/empty OR `assignee.accountId` differs from it, via `editJiraIssue` to set it to the current user; already-mine → true skip, no redundant edit. Record as `assigned | already-mine | reassigned | skipped | unavailable` (reassigned = taken over from another assignee).
    b. **Transition**: `getTransitionsForJiraIssue`, match a transition named "In Progress", "Start Progress", "In Development", or "Doing" (case-insensitive); already in an in-progress-like status → skip with a note; ticket in a terminal status (Done/Closed/Resolved) → skip with a note (never reopen); matched → `transitionJiraIssue`; no name matches → skip with a note (workflow differs) - never error, never force-pick. Honor `jira.auto_transition` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/gorkhali-config.js" get jira.auto_transition`): skip the transition, not the assignment, ONLY when it prints exactly `false`; unset prints nothing (exit 1) so the transition proceeds, mirroring `commands/close.md`.
@@ -221,7 +222,9 @@ Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/
 
 ## Auto-chaining (default flow)
 
-Phases chain autonomously without returning to the human between phases: verify PASS continues to `Skill(skill="gorkhali:wrap")`, verify FAIL threads `--chained` into `Skill(skill="gorkhali:fix")` and re-verifies. The only stops are the PLAN/FULL plan-approval gate(s) and fix-loop exhaustion (loop ceiling owned by `hooks/loop-controller.js`). Wrap ships a **ready-for-review PR** with no ship confirmation; the human gate is the PR review itself.
+Verify FAIL threads `--chained` into `Skill(skill="gorkhali:fix")` and re-verifies until pass or the fix-loop ceiling (`hooks/loop-controller.js`). Verify PASS does **not** wrap. Stop and tell the user to run `/gorkhali:wrap` when they want a PR — wrap records `authorize --scope ship-pr` and is never implied by implementation or a passing verify. Plan-approval gates still stop PLAN/FULL.
+
+Unattended Mission Control (`commands/loop.md`) is the exception: that loop may auto-chain wrap because it is acting as the operator.
 
 > The `args="--chained"` token threaded into the `gorkhali:verify` calls above is what makes verify/fix run autonomously (auto-invoke fix, auto-proceed past fix-packet approval). Its ABSENCE is the safe standalone default: verify/fix fall back to gated report+suggest and wait for the human. So a dropped token degrades to MORE gating, never less.
 

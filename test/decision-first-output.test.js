@@ -80,6 +80,13 @@ const validPlan = () => ({
     out: ['Implementation runtime changes'],
     constraints: ['Self-contained offline HTML'],
   },
+  crossCutting: {
+    security: { status: 'n/a', detail: 'No new auth or data surface' },
+    privacy: { status: 'n/a', detail: 'No PII' },
+    observability: { status: 'n/a', detail: 'No new runtime signal' },
+    rollout: { status: 'n/a', detail: 'Backward-compatible; no migration' },
+    docs: { status: 'n/a', detail: 'No user-facing docs drift' },
+  },
   solution_shape: {
     summary: 'Generate a human review view from a machine source of truth',
     components: ['artifact validator', 'AI-authored review'],
@@ -144,7 +151,7 @@ const validPlan = () => ({
     unresolved: [],
   },
   route: 'solo',
-  devilsAdvocateVerdict: 'PROCEED',
+  oppositionVerdict: 'PROCEED',
   tasks: [{ ...planTask }],
 });
 
@@ -185,6 +192,7 @@ const validBrainstorm = () => ({
     nonGoals: ['Implement before direction approval'],
     constraints: ['Offline HTML'],
     evaluationCriteria: ['Decision clarity', 'Evidence quality'],
+    successSignal: 'A reviewer can pick A, B, or C without reading the task appendix',
   },
   evidence: [
     {
@@ -463,8 +471,20 @@ test('portable decision contract validates enriched v3 and preserves earlier v3 
   const earlierBrainstorm = { ...validBrainstorm(), contract_version: 3 };
   delete earlierBrainstorm._meta;
   removeFields(earlierBrainstorm, ['depth', 'stance', 'phase', 'ideas', 'clusters', 'shortlist', 'dissent']);
-  removeFields(earlierBrainstorm.decision, ['audience', 'nonGoals']);
+  removeFields(earlierBrainstorm.decision, ['audience']);
   assert.deepEqual(validateDecisionContract('brainstorm', earlierBrainstorm), []);
+  const missingNonGoals = clone(earlierBrainstorm);
+  removeFields(missingNonGoals.decision, ['nonGoals']);
+  assert.match(
+    validateDecisionContract('brainstorm', missingNonGoals).join('\n'),
+    /decision\.nonGoals/,
+  );
+  const missingSuccessSignal = clone(earlierBrainstorm);
+  removeFields(missingSuccessSignal.decision, ['successSignal']);
+  assert.match(
+    validateDecisionContract('brainstorm', missingSuccessSignal).join('\n'),
+    /decision\.successSignal/,
+  );
   assert.match(
     validateDecisionContract('plan', { contract_version: 3 }).join('\n'),
     /decision: required object/,

@@ -80,13 +80,22 @@ review plans, but it never permits execute, verify, or ship.
 - [Shipping](references/shipping.md): authorize and perform an external
   pull-request lifecycle after all current evidence passes.
 
-Do not load later phases speculatively. The phase reference explains agent
-behavior; the state helper enforces whether the transition is legal.
+Do not load later phases speculatively. State enforces the transition.
+
+## Which review to run
+
+| You have | Skill | Gates ship? | Posts? |
+|---|---|---|---|
+| Your verified local diff | `review` | Yes | No |
+| This session, ready to open a PR | `wrap` then `greploop` | Needs `review` | Replies; never merge |
+| Someone else's pull request | `pr-review` | No | Draft only |
+
+Justice is not a separate skill. `review` on a foreign PR blocks. `pr-review`
+never records a lifecycle gate.
 
 ## Capability degradation
 
-Use native repository, shell, search, delegation, visual, tracker, and review
-capabilities when exposed. If a capability is unavailable, use the smallest
+Use native capabilities when exposed. If one is missing, use the smallest
 labeled fallback that preserves the same artifact and gate. Missing required
 evidence blocks only the dependent action; it does not erase completed work.
 

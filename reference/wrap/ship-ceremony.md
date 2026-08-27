@@ -76,7 +76,7 @@ If skipped: log reason to wrap.json, print "PR skipped ({reason}). Branch pushed
 
 ## 5. All-author review + CHIEF_PING watch (always runs)
 
-The loop **always runs**. Do not ask. After the PR is created, hand off to greploop:
+The loop **always runs as an invocation**. Do not ask. After the PR is created, hand off to greploop, which probes `review.external` and may skip:
 
 ```
 Skill(skill="gorkhali:greploop", args="{PR_NUMBER}")

@@ -16,9 +16,12 @@ choice is locked into `decisions.json`.
 | decision | object | _meta.version >= 3: yes; older: no | Decision frame shown before approaches |
 | decision.question | string | _meta.version >= 3: yes; older: no | The choice the user is being asked to make |
 | decision.outcome | string | _meta.version >= 3: yes; older: no | Desired observable outcome |
+| decision.nonGoals | string[] | _meta.version >= 3: yes; older: no | What this decision will not do; anti-scope-creep control |
+| decision.successSignal | string | _meta.version >= 3: yes; older: no | Observable signal that the chosen direction worked; not a vibe |
 | decision.constraints | string[] | _meta.version >= 3: yes; older: no | Hard boundaries every approach must satisfy |
 | decision.evaluationCriteria | string[] | _meta.version >= 3: yes; older: no | Criteria fixed before candidate evaluation |
 | evidence | object[] | _meta.version >= 3: yes; older: no | Claims and sources gathered before divergence |
+| evidence[].kind | `"user"` \| `"repo"` | new v3 writes: yes; older: no | Whether the claim is about a user outcome or a repository fact; a How supported only by repo inference is an assumption |
 | openQuestions | object[] | _meta.version >= 3: yes; older: no | Unresolved questions, including whether each blocks the decision |
 | approaches | object[] | yes | Candidate approach cards from the diverge phase |
 | approaches[].id | string | yes | Stable slug identifying this approach |
@@ -54,11 +57,13 @@ choice is locked into `decisions.json`.
   "decision": {
     "question": "How should planning results be presented?",
     "outcome": "Users understand and can approve the direction before execution",
+    "nonGoals": ["Implement the selected direction during brainstorming"],
+    "successSignal": "A reviewer picks A, B, or C without reading a task list",
     "constraints": ["Offline deterministic HTML"],
     "evaluationCriteria": ["Decision clarity", "Evidence", "Review speed"]
   },
   "evidence": [
-    { "claim": "The current schema requires task mechanics but not rationale", "source": "scripts/validate-artifact.js", "status": "verified" }
+    { "claim": "The current schema requires task mechanics but not rationale", "source": "scripts/validate-artifact.js", "status": "verified", "kind": "repo" }
   ],
   "openQuestions": [],
   "approaches": [

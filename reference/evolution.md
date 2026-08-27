@@ -33,9 +33,15 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 - Create on approval in `commands/` directory
 - Git commit with `skill-spawn:` prefix
 
-## Evolution Check Procedure (runs at wrap time)
+## Evolution Check Procedure
 
-1. Haiku agent scans `learnings/INDEX.md`:
+Automatic capture is the Stop hook (failed Bash → `gorkhali-learning.mjs capture`). It does **not** edit skills.
+
+Skill-level promote/prune is **user-invoked**: `/gorkhali:evolve`. Do not run it from wrap.
+
+When evolve runs:
+
+1. Scan `learnings/INDEX.md`:
    - `[validated:5+]` entries → Tier 1 candidates
    - `[failed]` corrections seen 3+ sessions → Tier 2 candidates
    - Repeated multi-step patterns → Tier 3 candidates
@@ -44,7 +50,7 @@ Repeated multi-step patterns (4+ sessions) become new micro-skills.
 
 ## Safety Rails
 
-- Never edit skills during active session — evolution only at wrap time
+- Never edit skills during an active implementation turn — evolve is its own command
 - Tier 1 auto-applies (low risk). Tier 2-3 require user approval.
 - All changes git-committed with `skill-evolution:` or `skill-spawn:` prefix
 - `state/evolution-log.json` tracks every change for rollback
@@ -105,13 +111,13 @@ A session counts as evidence only when `verification.json` has `verdict: "pass"`
 The promotion tier reads this derived count (or the on-disk `[validated:N]` tag, whichever is higher; the tag is a manual floor).
 Nothing rewrites the tag in the markdown, so there is no second destructive write path and the tag cannot drift into a stale cache.
 
-**Missing input - the writer does not exist yet.**
-No artifact currently records *which* learning entries a session recalled.
-`context.json`'s `learningsRefs` is documented as "Paths to relevant learning files": file granularity, so it cannot attribute a validation to an entry.
-The minimal field needed is `learningsCited: string[]` on `context.json`, holding the `[keyword]` of each entry that was injected; all 54 entries on disk carry a keyword, so it is a sufficient identity.
-Its only possible writer is `hooks/memory-reader.js`, the component that selects the entries.
-Until that field is written, every computed count is 0 and the runner says so explicitly - which is why max `validationCount` on disk is 2 and nothing has ever reached the promote threshold of 5.
-The reader is built first, deliberately, so the field has a consumer the day it lands.
+The field is `learningsCited: string[]` on `context.json` (and on `evidence.learningsCited` when `evidence` is a plain object), holding the `[keyword]` of each entry that was injected; all 54 entries on disk carry a keyword, so it is a sufficient identity.
+`context.json`'s `learningsRefs` remains file granularity and cannot attribute a validation to an entry.
+
+The writer is `hooks/memory-reader.js`, the component that selects the entries.
+It records citations in a sidecar `{SESSION_DIR}/learnings-cited.json` so the first UserPromptSubmit can persist them before `context.json` exists (Phase A may also rewrite context.json).
+When `context.json` is already a valid JSON object, the hook also merges `learningsCited` onto it.
+Hosts without this UserPromptSubmit hook still leave computed N at 0.
 
 ## Brain Card Decay
 

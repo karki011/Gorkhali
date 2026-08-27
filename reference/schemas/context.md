@@ -10,6 +10,7 @@ Written by Phase A (`gorkhali:start`). Provides ticket context for all downstrea
 | source | `"jira"` \| `"args"` \| `"branch"` | yes | Where context was sourced from |
 | jira | object \| `null` | no | Raw Jira issue fields (if source=jira) |
 | learningsRefs | string[] | no | Paths to relevant learning files |
+| learningsCited | string[] | no | Keywords injected this session |
 | modelOverride | string \| `null` | no | Force a specific model for spawns |
 <!-- END GENERATED FIELDS -->
 

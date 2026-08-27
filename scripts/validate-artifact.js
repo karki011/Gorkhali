@@ -356,6 +356,39 @@ function validatePlanTaskGraph(tasks, errors) {
 // elsewhere.
 const EXECUTION_TASK_STATUSES = ['done', 'failed', 'skipped', 'done-with-concerns', 'needs-context'];
 
+// Closed wrap payload. Measurement (route, wall_time_ms, agents, gh pr_state)
+// is scripts/outcome-write.js -> outcome.json. Do not add keys here to measure
+// journaling. Envelope keys are the portable gorkhali-state wrap record; payload
+// keys are the LLM/session wrap body (and wrap.evidence when the two are nested).
+const WRAP_PAYLOAD_KEYS = [
+  'brief', 'pr', 'jira', 'greptile', 'learnings',
+  'defenseBrief', 'prBody',
+  'commit', 'base', 'head', 'qualityArtifacts', 'caveats', 'summary',
+  'modelRouting',
+];
+const WRAP_ENVELOPE_KEYS = [
+  '_meta', 'schema_version', 'artifact_type', 'repo_id', 'task_id', 'status',
+  'created_at', 'updated_at', 'producer', 'bundle_version', 'record_sequence',
+  'model_routing', 'evidence',
+];
+
+function rejectUnknownWrapKeys(d, errors) {
+  const allowed = new Set([...WRAP_ENVELOPE_KEYS, ...WRAP_PAYLOAD_KEYS]);
+  for (const key of Object.keys(d)) {
+    if (!allowed.has(key)) {
+      errors.push(`unknown wrap field "${key}" — closed payload only; scripts/outcome-write.js authors outcome.json`);
+    }
+  }
+  if (isObject(d.evidence)) {
+    const payloadAllowed = new Set(WRAP_PAYLOAD_KEYS);
+    for (const key of Object.keys(d.evidence)) {
+      if (!payloadAllowed.has(key)) {
+        errors.push(`unknown wrap.evidence field "${key}" — closed payload only; scripts/outcome-write.js authors outcome.json`);
+      }
+    }
+  }
+}
+
 const SCHEMAS = {
   context: {
     fields: [
@@ -364,6 +397,7 @@ const SCHEMAS = {
       { field: 'source', type: '`"jira"` | `"args"` | `"branch"`', required: 'yes', description: 'Where context was sourced from' },
       { field: 'jira', type: 'object | `null`', required: 'no', description: 'Raw Jira issue fields (if source=jira)' },
       { field: 'learningsRefs', type: 'string[]', required: 'no', description: 'Paths to relevant learning files' },
+      { field: 'learningsCited', type: 'string[]', required: 'no', description: 'Keywords injected this session' },
       { field: 'modelOverride', type: 'string | `null`', required: 'no', description: 'Force a specific model for spawns' },
     ],
     validate: (d, errors) => {
@@ -373,6 +407,11 @@ const SCHEMAS = {
       const validSources = ['jira', 'args', 'branch'];
       if (!validSources.includes(d.source)) errors.push(`source: must be one of ${validSources.join('|')}, got "${d.source}"`);
       if (d.learningsRefs !== undefined && !Array.isArray(d.learningsRefs)) errors.push('learningsRefs: must be array if present');
+      if (d.learningsCited !== undefined) {
+        if (!Array.isArray(d.learningsCited) || !d.learningsCited.every((k) => typeof k === 'string' && k.trim())) {
+          errors.push('learningsCited: must be array of non-empty strings if present');
+        }
+      }
     },
   },
 
@@ -408,9 +447,12 @@ const SCHEMAS = {
       { field: 'decision', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Decision frame shown before approaches' },
       { field: 'decision.question', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'The choice the user is being asked to make' },
       { field: 'decision.outcome', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Desired observable outcome' },
+      { field: 'decision.nonGoals', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'What this decision will not do; anti-scope-creep control' },
+      { field: 'decision.successSignal', type: 'string', required: '_meta.version >= 3: yes; older: no', description: 'Observable signal that the chosen direction worked; not a vibe' },
       { field: 'decision.constraints', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Hard boundaries every approach must satisfy' },
       { field: 'decision.evaluationCriteria', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Criteria fixed before candidate evaluation' },
       { field: 'evidence', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Claims and sources gathered before divergence' },
+      { field: 'evidence[].kind', type: '`"user"` | `"repo"`', required: 'new v3 writes: yes; older: no', description: 'Whether the claim is about a user outcome or a repository fact; a How supported only by repo inference is an assumption' },
       { field: 'openQuestions', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Unresolved questions, including whether each blocks the decision' },
       { field: 'approaches', type: 'object[]', required: 'yes', description: 'Candidate approach cards from the diverge phase' },
       { field: 'approaches[].id', type: 'string', required: 'yes', description: 'Stable slug identifying this approach' },
@@ -486,6 +528,8 @@ const SCHEMAS = {
         else {
           if (!isNonEmptyString(d.decision.question)) errors.push('decision.question: required string (schema v3+)');
           if (!isNonEmptyString(d.decision.outcome)) errors.push('decision.outcome: required string (schema v3+)');
+          if (!Array.isArray(d.decision.nonGoals)) errors.push('decision.nonGoals: required array (schema v3+)');
+          if (!isNonEmptyString(d.decision.successSignal)) errors.push('decision.successSignal: required string (schema v3+)');
           if (!Array.isArray(d.decision.constraints)) errors.push('decision.constraints: required array (schema v3+)');
           if (!Array.isArray(d.decision.evaluationCriteria) || d.decision.evaluationCriteria.length === 0) {
             errors.push('decision.evaluationCriteria: required non-empty array (schema v3+)');
@@ -499,6 +543,9 @@ const SCHEMAS = {
           }
           if (!isObject(item) || !evidenceStates.includes(item.status)) {
             errors.push(`evidence[${i}].status: must be ${evidenceStates.join('|')} (schema v3+)`);
+          }
+          if (item && item.kind !== undefined && !['user', 'repo'].includes(item.kind)) {
+            errors.push(`evidence[${i}].kind: must be user|repo when present`);
           }
         });
         requireArray(d, 'openQuestions', errors);
@@ -626,7 +673,14 @@ const SCHEMAS = {
       { field: 'decision.rationale', type: 'string[]', required: '_meta.version >= 3: yes; older: no', description: 'Evidence-backed reasons for the recommendation' },
       { field: 'decision.status', type: '`"pending"` | `"delegated"`', required: '_meta.version >= 3: yes; older: no', description: 'Approval state; the model never marks its own plan approved' },
       { field: 'outcome', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Goal and observable definition of done' },
+      { field: 'outcome.signal', type: 'string', required: 'no', description: 'Optional product/UX success signal beside mechanical doneWhen' },
       { field: 'scope', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'In-scope, out-of-scope, and constraints' },
+      { field: 'crossCutting', type: 'object', required: 'v3 standard/deep: yes; v3 quick and older: no', description: 'Design-doc cross-cutting notes: security, privacy, observability, rollout, docs' },
+      { field: 'crossCutting.security', type: '`{ status: "n/a"|"note", detail }`', required: 'when crossCutting is required', description: 'Auth, data surface, and named OWASP categories as they apply to this plan' },
+      { field: 'crossCutting.privacy', type: '`{ status: "n/a"|"note", detail }`', required: 'when crossCutting is required', description: 'PII, tenancy, and retention impact' },
+      { field: 'crossCutting.observability', type: '`{ status: "n/a"|"note", detail }`', required: 'when crossCutting is required', description: 'Logs, metrics, or what a human watches after ship' },
+      { field: 'crossCutting.rollout', type: '`{ status: "n/a"|"note", detail }`', required: 'when crossCutting is required', description: 'Flag, migration, compatibility, and release rollback' },
+      { field: 'crossCutting.docs', type: '`{ status: "n/a"|"note", detail }`', required: 'when crossCutting is required', description: 'Docs the change would make stale' },
       { field: 'solution_shape', type: 'object', required: 'v3 standard/deep: yes; v3 quick and older: no', description: 'Architecture summary, components, and data flow' },
       { field: 'evidence', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Claims, sources, and evidence states' },
       { field: 'evidence[].implication', type: 'string', required: 'v3 standard/deep when status is verified or supported', description: 'What the claim implies for the recommendation' },
@@ -638,7 +692,7 @@ const SCHEMAS = {
       { field: 'risks', type: 'object[]', required: '_meta.version >= 3: yes; older: no', description: 'Risks, mitigations, reversibility, and recovery' },
       { field: 'validation', type: 'object', required: '_meta.version >= 3: yes; older: no', description: 'Validation strategy, checks, and definition of done' },
       { field: 'route', type: '`"solo"` | `"shadows"`', required: 'yes', description: 'Whether to spawn agents or work inline' },
-      { field: 'devilsAdvocateVerdict', type: '`"PROCEED"` | `"REVISE"` | `"RETHINK"`', required: 'yes', description: 'Grill gate outcome' },
+      { field: 'oppositionVerdict', type: '`"PROCEED"` | `"REVISE"` | `"RETHINK"`', required: 'yes', description: 'Opposition plan-gate outcome. Legacy key `devilsAdvocateVerdict` is still read; do not write it on new plans' },
       { field: 'tasks', type: 'object[]', required: 'yes', description: 'Ordered list of task objects' },
       { field: 'tasks[].id', type: 'string', required: 'yes', description: 'Unique task ID' },
       { field: 'tasks[].description', type: 'string', required: 'yes', description: 'What this task does' },
@@ -660,7 +714,10 @@ const SCHEMAS = {
       const validRoutes = ['solo', 'shadows'];
       if (!validRoutes.includes(d.route)) errors.push(`route: must be one of ${validRoutes.join('|')}, got "${d.route}"`);
       const validVerdicts = ['PROCEED', 'REVISE', 'RETHINK'];
-      if (!validVerdicts.includes(d.devilsAdvocateVerdict)) errors.push(`devilsAdvocateVerdict: must be one of ${validVerdicts.join('|')}, got "${d.devilsAdvocateVerdict}"`);
+      const planVerdict = d.oppositionVerdict || d.devilsAdvocateVerdict;
+      if (!validVerdicts.includes(planVerdict)) {
+        errors.push(`oppositionVerdict: must be one of ${validVerdicts.join('|')} (legacy key devilsAdvocateVerdict still accepted), got "${planVerdict}"`);
+      }
       if (!Array.isArray(d.tasks) || d.tasks.length === 0) errors.push('tasks: required non-empty array');
       // v1 plans predate task-quality fields and stay lenient; v2+ requires them so Inspector has
       // something concrete to check. Missing/non-numeric _meta.version is treated as v1.
@@ -738,6 +795,29 @@ const SCHEMAS = {
           if (!isNonEmptyString(d.outcome.goal)) errors.push('outcome.goal: required string (schema v3+)');
           if (!Array.isArray(d.outcome.doneWhen) || d.outcome.doneWhen.length === 0) {
             errors.push('outcome.doneWhen: required non-empty array (schema v3+)');
+          }
+          if (d.outcome.signal !== undefined && !isNonEmptyString(d.outcome.signal)) {
+            errors.push('outcome.signal: must be a non-empty string when present');
+          }
+        }
+        if (planDepth !== 'quick') {
+          const keys = ['security', 'privacy', 'observability', 'rollout', 'docs'];
+          if (!isObject(d.crossCutting)) {
+            errors.push('crossCutting: required object (schema v3 standard/deep)');
+          } else {
+            for (const key of keys) {
+              const item = d.crossCutting[key];
+              if (!isObject(item)) {
+                errors.push(`crossCutting.${key}: required object`);
+                continue;
+              }
+              if (!['n/a', 'note'].includes(item.status)) {
+                errors.push(`crossCutting.${key}.status: must be n/a|note`);
+              }
+              if (!isNonEmptyString(item.detail)) {
+                errors.push(`crossCutting.${key}.detail: required string`);
+              }
+            }
           }
         }
         if (!isObject(d.scope)) errors.push('scope: required object (schema v3+)');
@@ -1238,14 +1318,24 @@ const SCHEMAS = {
       { field: 'jira.commented', type: 'boolean', required: 'yes (if present)', description: 'Whether comment was posted' },
       { field: 'greptile', type: 'object | `null`', required: 'no', description: 'Greptile review result' },
       { field: 'greptile.requested', type: 'boolean', required: 'yes (if present)', description: 'Whether review was requested' },
-      { field: 'greptile.status', type: 'string', required: 'yes (if present)', description: 'Canonical values greploop writes: `"done"` (completed, 5/5) and `"skipped"` (Greptile unavailable on the repo) — greploop is the sole writer of these. `"pending"` (or missing) = loop not yet run → the Stop-hook gate `hooks/greploop-gate.js` blocks the session at end while a live PR sits here. The gate matches **case-insensitively by PREFIX**, so freeform suffixes are tolerated as settled (e.g. `"skipped — availability guard (Greptile not installed on this repo)"`, `"done — 5/5"`); only `"pending…"`/`"requested"`/empty/missing block. Bias is to ALLOW on unknown values.' },
+      { field: 'greptile.status', type: 'string', required: 'yes (if present)', description: 'Canonical values greploop writes: `"done"` (loop completed) and `"skipped"` (Greptile unavailable on the repo) — greploop is the sole writer of these. `"pending"` (or missing) = loop not yet run → the Stop-hook gate `hooks/greploop-gate.js` blocks the session at end while a live PR sits here. The gate matches **case-insensitively by PREFIX**, so freeform suffixes are tolerated as settled (e.g. `"skipped — availability guard (Greptile not installed on this repo)"`, legacy `"done — 5/5"`); only `"pending…"`/`"requested"`/empty/missing block. Bias is to ALLOW on unknown values.' },
       { field: 'learnings', type: 'object', required: 'yes', description: 'Learning record actions' },
       { field: 'learnings.recorded', type: 'string[]', required: 'yes', description: 'Learnings written this session' },
       { field: 'learnings.promoted', type: 'string[]', required: 'yes', description: 'Learnings promoted to validated' },
       { field: 'learnings.pruned', type: 'string[]', required: 'yes', description: 'Stale learnings removed' },
+      { field: 'defenseBrief', type: 'object', required: 'no', description: '`{ path, questions, sections }` pointer to `defense-brief.md`. Never a substitute for the brief.' },
+      { field: 'prBody', type: 'object', required: 'no', description: '`{ path, sections, gaps }` pointer to `pr-body.md`.' },
+      { field: 'commit', type: 'string', required: 'no', description: 'HEAD commit at wrap time.' },
+      { field: 'base', type: 'string', required: 'no', description: 'Base branch name.' },
+      { field: 'head', type: 'string', required: 'no', description: 'Head branch name.' },
+      { field: 'qualityArtifacts', type: 'object', required: 'no', description: 'Pointers to verification/review artifacts used at wrap.' },
+      { field: 'caveats', type: 'string[]', required: 'no', description: 'Known caveats. Empty array when none.' },
+      { field: 'summary', type: 'string', required: 'no', description: 'Portable-envelope alias of `brief`. Native wrap uses `brief`.' },
+      { field: 'modelRouting', type: 'object', required: 'no', description: 'Observable model-routing diagnostics. Measurement still belongs in `outcome.json`.' },
     ],
     validate: (d, errors) => {
       validateMeta(d, errors);
+      rejectUnknownWrapKeys(d, errors);
       if (!('pr' in d)) errors.push('pr: required field (object or null)');
       if (d.pr !== null && typeof d.pr === 'object') {
         if (typeof d.pr.number !== 'number') errors.push('pr.number: required number');
@@ -1355,7 +1445,15 @@ function main(argv) {
   process.stdout.write(`OK: ${artifactType} at ${resolvedPath} is valid (schema v${data._meta?.version ?? '?'})\n`);
 }
 
-module.exports = { SCHEMAS, validate, validateMeta, main, EXECUTION_TASK_STATUSES };
+module.exports = {
+  SCHEMAS,
+  validate,
+  validateMeta,
+  main,
+  EXECUTION_TASK_STATUSES,
+  WRAP_PAYLOAD_KEYS,
+  WRAP_ENVELOPE_KEYS,
+};
 
 if (require.main === module) {
   try {

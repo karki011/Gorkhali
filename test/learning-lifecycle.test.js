@@ -98,7 +98,7 @@ test('injection surfaces a correction AND a validated entry in the same budget',
     ].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all');
+  const out = runHook(root, 'workflow session wrap gate');
   assert.match(out, /\[failed\]/, 'a [failed] correction must still surface');
   assert.match(out, /\[validated:2\]/, 'a [validated:N] entry must be reachable alongside it');
 });
@@ -112,7 +112,7 @@ test('the correction slot cap leaves a slot for a validated entry when correctio
     'workflow.md': [...corrections, 'PATTERN [p-win]: proven pattern [validated:3] (2026-06-01)', ''].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all');
+  const out = runHook(root, 'workflow session wrap gate');
   assert.match(out, /\[validated:3\]/, 'eight corrections must not consume all five slots');
   assert.match(out, /\[failed\]/, 'corrections must still surface - this is not a blanket inversion');
 });
@@ -129,7 +129,7 @@ test('an untagged entry does not count as validated and cannot claim the validat
     ].join('\n'),
   });
 
-  const out = runHook(root, 'anything at all', {
+  const out = runHook(root, 'workflow session wrap gate', {
     GORKHALI_INJECTION_SLOTS: '1',
     GORKHALI_INJECTION_CORRECTION_SLOTS: '0',
     GORKHALI_INJECTION_VALIDATED_SLOTS: '1',
@@ -240,6 +240,28 @@ test('validated:N is computed from cited sessions with an observed verification 
   assert.match(out, /\[Tier 2\] Promoted: 1 patterns/, 'a computed count at the threshold must promote an entry that carries no tag');
 });
 
+test('sidecar-only citations promote the same as context.json citations', () => {
+  const { root } = makeWorkspace({
+    'workflow.md': 'PATTERN [p-cited]: a pattern with no tag at all on disk (2026-07-20)\n',
+  });
+  for (let i = 0; i < 5; i++) {
+    const dir = path.join(root, 'repos', REPO, 'sessions', `s-${i}`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'learnings-cited.json'), JSON.stringify({
+      schema_version: 1, learningsCited: ['p-cited'],
+    }));
+    fs.writeFileSync(path.join(dir, 'verification.json'), JSON.stringify({
+      correctness: { lint: true, build: true, tests: true, commands: ['npm test'], observations: { lint: 'checked:pass', build: 'checked:pass', tests: 'checked:pass' } },
+      review: { temperature: 0.7, findings: [], fixLoops: 0 },
+      simplifyRan: true, intentAlignment: 'aligned', verdict: 'pass',
+    }));
+  }
+
+  const out = runRunner(root);
+  assert.match(out, /5 verified session citations/, 'sidecar-only citations must count the same as context.json');
+  assert.match(out, /\[Tier 2\] Promoted: 1 patterns/, 'five sidecar citations must promote at the threshold');
+});
+
 test('a citation from a failed session is not evidence', () => {
   const { root } = makeWorkspace({
     'workflow.md': 'PATTERN [p-cited]: a pattern with no tag at all on disk (2026-07-20)\n',
@@ -318,5 +340,7 @@ test('reference/evolution.md and evolution-runner.js agree on the [failed] exemp
     code.includes("includes('--prune')"),
     'evolution-runner.js must actually read --prune',
   );
-  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the missing citation field precisely');
+  assert.match(prose, /`learningsCited: string\[\]`/, 'the prose must name the citation field precisely');
+  assert.match(prose, /memory-reader\.js/, 'the prose must name memory-reader.js as the citation writer');
+  assert.doesNotMatch(prose, /does not exist yet/, 'the writer exists; the missing-input paragraph is stale');
 });

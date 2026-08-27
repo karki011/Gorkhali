@@ -36,7 +36,7 @@ function setup() {
   fs.mkdirSync(learnings, { recursive: true });
   fs.writeFileSync(path.join(learnings, 'INDEX.md'), '# Learnings Index\n');
   fs.writeFileSync(
-    path.join(learnings, 'general.md'),
+    path.join(learnings, 'shadows.md'),
     'LEARNING [alpha]: Entry Alpha describes a stable pattern worth remembering for tests (2026-01-01)\n' +
     'LEARNING [beta]: Entry Beta describes a second stable pattern worth remembering for tests (2026-01-01)\n'
   );
@@ -52,6 +52,46 @@ function payload(sessionId) {
 
 function payloadNoSessionId() {
   return JSON.stringify({ prompt: 'please summarize the quarterly numbers for finance review' });
+}
+
+function writePortableSession(data, repoRoot, status = 'active', options = {}) {
+  const repo = options.repo || path.basename(repoRoot);
+  const task = options.task || 'TEST-1';
+  const collection = status === 'completed' ? 'completed' : 'sessions';
+  const sessionDir = options.sessionDir || path.join(data, 'repos', repo, collection, task);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'session.json'), JSON.stringify({
+    schema_version: 1,
+    repo_id: options.sessionRepo || repo,
+    task_id: task,
+    status,
+    workspace: options.workspace || fs.realpathSync(repoRoot),
+    ...(options.updatedAt ? { updated_at: options.updatedAt } : {}),
+  }));
+  const pointerDir = path.join(data, 'state', 'current-session');
+  fs.mkdirSync(pointerDir, { recursive: true });
+  fs.writeFileSync(path.join(pointerDir, `${repo}.json`), JSON.stringify({
+    schema_version: 1,
+    repo_id: repo,
+    task_id: task,
+    session_dir: sessionDir,
+  }));
+  return { repo, task, sessionDir };
+}
+
+function findCitedFiles(root) {
+  const hits = [];
+  const walk = (dir) => {
+    let names;
+    try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const entry of names) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name === 'learnings-cited.json') hits.push(full);
+    }
+  };
+  walk(root);
+  return hits;
 }
 
 test('1. first prompt injects available learnings', () => {
@@ -125,6 +165,133 @@ test('5. no session_id → dedup skipped entirely, no shared "unknown" marker', 
       );
     }
   } finally {
+    cleanup();
+  }
+});
+
+test('6. a touched source path injects that domain, not every file', () => {
+  const { env, cleanup } = setup();
+  try {
+    const data = env.GORKHALI_DATA;
+    const learnings = path.join(data, 'repos', REPO, 'learnings');
+    fs.writeFileSync(
+      path.join(learnings, 'ui.md'),
+      'CORRECTION [chakra-toast]: [used window.alert] - [use the toast helper] [failed] (2026-08-01)\n',
+    );
+    fs.writeFileSync(
+      path.join(learnings, 'workflow.md'),
+      'CORRECTION [secret-workflow]: [this must not leak into a ui edit] - [keep domains split] [failed] (2026-08-01)\n',
+    );
+    const sid = 'session-path';
+    const touchedDir = path.join(data, 'state', 'memory-touched');
+    fs.mkdirSync(touchedDir, { recursive: true });
+    fs.writeFileSync(path.join(touchedDir, sid), 'apps/dashboard/src/components/Pay.tsx\n');
+
+    const res = runHook(env, JSON.stringify({
+      prompt: 'continue the payment work',
+      session_id: sid,
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /chakra-toast/);
+    assert.doesNotMatch(res.stdout, /secret-workflow/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('7. missing domain file falls back to INDEX one-liners, not every domain file', () => {
+  const { env, cleanup } = setup();
+  try {
+    const learnings = path.join(env.GORKHALI_DATA, 'repos', REPO, 'learnings');
+    fs.writeFileSync(
+      path.join(learnings, 'INDEX.md'),
+      '# Learnings Index\n\n- workflow.md — grep-count-exit [failed]\n',
+    );
+    fs.writeFileSync(
+      path.join(learnings, 'workflow.md'),
+      'Subash, preamble that must not be injected.\n\nCORRECTION [grep-count-exit]: [wrote grep -c] - [use ! grep -q] [failed] (2026-07-07)\n',
+    );
+    const res = runHook(env, JSON.stringify({
+      prompt: 'fix the react component css layout',
+      session_id: 'session-index-fallback',
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /grep-count-exit/);
+    assert.doesNotMatch(res.stdout, /preamble that must not/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('8. active portable session: first prompt writes sidecar keywords and merges onto context.json', () => {
+  const { env, cleanup } = setup();
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mr-ws-'));
+  try {
+    const cwd = fs.realpathSync(repoRoot);
+    const { sessionDir } = writePortableSession(env.GORKHALI_DATA, repoRoot, 'active', {
+      repo: REPO,
+      workspace: cwd,
+    });
+    fs.writeFileSync(path.join(sessionDir, 'context.json'), JSON.stringify({
+      ticket: 'TEST-1', summary: 'fixture', source: 'args',
+    }));
+    const res = runHook(env, JSON.stringify({
+      prompt: 'please summarize the quarterly numbers for finance review',
+      session_id: 'session-cite',
+      cwd,
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /Entry Alpha/);
+    assert.match(res.stdout, /Entry Beta/);
+    const sidecar = JSON.parse(fs.readFileSync(path.join(sessionDir, 'learnings-cited.json'), 'utf8'));
+    assert.deepEqual(sidecar.learningsCited, ['alpha', 'beta']);
+    const context = JSON.parse(fs.readFileSync(path.join(sessionDir, 'context.json'), 'utf8'));
+    assert.deepEqual(context.learningsCited, ['alpha', 'beta']);
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+    cleanup();
+  }
+});
+
+test('9. no active session → injection still happens, no sidecar written', () => {
+  const { env, cleanup } = setup();
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mr-ws-'));
+  try {
+    const cwd = fs.realpathSync(repoRoot);
+    const res = runHook(env, JSON.stringify({
+      prompt: 'please summarize the quarterly numbers for finance review',
+      session_id: 'session-no-cite',
+      cwd,
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /Entry Alpha/);
+    assert.deepEqual(findCitedFiles(env.GORKHALI_DATA), []);
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+    cleanup();
+  }
+});
+
+test('10. citation write failure must not suppress injection', () => {
+  const { env, cleanup } = setup();
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mr-ws-'));
+  try {
+    const cwd = fs.realpathSync(repoRoot);
+    const { sessionDir } = writePortableSession(env.GORKHALI_DATA, repoRoot, 'active', {
+      repo: REPO,
+      workspace: cwd,
+    });
+    fs.mkdirSync(path.join(sessionDir, 'learnings-cited.json'));
+    const res = runHook(env, JSON.stringify({
+      prompt: 'please summarize the quarterly numbers for finance review',
+      session_id: 'session-cite-fail',
+      cwd,
+    }));
+    assert.equal(res.code, 0);
+    assert.match(res.stdout, /Entry Alpha/);
+    assert.match(res.stdout, /Entry Beta/);
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
     cleanup();
   }
 });

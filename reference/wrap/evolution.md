@@ -1,6 +1,6 @@
 # Evolution Check & Archive/Shutdown
 
-> **Context:** Called during `/gorkhali:wrap` after ship ceremony completes. Final phase — archives session state, syncs memory, audits compliance, and shuts down shadows.
+> **Context:** User-invoked via `/gorkhali:evolve`, not wrap. Wrap is ship-only. Automatic capture of failed commands is the Stop hook.
 
 ## Evolution Check (Inspector sidecar, haiku-pinned)
 

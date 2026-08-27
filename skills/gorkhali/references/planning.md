@@ -122,34 +122,39 @@ N", "etc.", "and so on", "as needed", "if necessary", "where appropriate",
 If any appears in an acceptance criterion, task description, or action, rewrite
 it as a command or an observable fact.
 
-### Requirement Coverage
+### Cross-cutting (standard/deep; always on `full`)
 
-Trace every acceptance criterion to at least one task before recording. A
-criterion with no matching task is a coverage gap: add the task or remove the
-criterion. Reject the same way when a task owns no file or a dependency names
-a task that does not exist.
+Record `crossCutting` with closed keys `security`, `privacy`, `observability`,
+`rollout`, `docs`, each `{ status: "n/a"|"note", detail }`. `n/a` needs a
+one-line reason. Quick plans omit the object. Do not invent architecture to
+fill a key. `outcome.signal` is optional product/UX language beside mechanical
+`doneWhen`.
 
-### Research-Free Tasking
+### Contracts are not a planning gate
 
-Every task must reach its implementer research-free: read-first paths, exact
-files, the pattern to follow, and the contract are resolved during planning.
-If a task would require exploring the repository, searching documentation, or
-making a design decision, the plan is incomplete. Re-decompose it; raising the
-implementer model never remedies weak scoping.
+`plan.json` is canonical. `contract` is an optional post-approval projection
+for API/UI detail. Do not wait on `contracts/*.html` or treat it as a second
+source of truth.
+
+### Coverage and research-free tasks
+
+Every acceptance criterion maps to a task; every task owns a file; every
+dependency names a real task. Every task is research-free: read-first paths,
+exact files, the pattern, and the contract are resolved here. Exploring the
+repo or making a design decision during implementation means the plan is
+incomplete. Raising the implementer model never remedies weak scoping.
 
 ## Decision-First Plan Artifact (mandatory at every plan gate)
 
-A plan is a researched recommendation before it is an execution manifest, for
-research work as much as implementation.
+A plan is a researched recommendation before it is an execution manifest.
 
 At standard and deep depth, completeness is useful content, not populated
 keys: evidence implies a decision; alternatives have distinct benefits, costs,
 rejection reasons, and reconsideration conditions; assumptions have confidence,
 impact, and validation; risks have likelihood, impact, trigger, mitigation, and
 recovery; rationale is 2-4 points; every task is an executable dossier. Quick
-plans may omit alternatives, solution shape, and task-local risk and recovery
-when not applicable. Never invent architecture or fake alternatives to fill a
-template.
+plans may omit alternatives, solution shape, and task-local risk when not
+applicable. Never invent architecture or fake alternatives to fill a template.
 
 Use evidence states, not unsupported numeric confidence: `verified`,
 `supported`, `inferred`, or `unknown`. Cite a repository location, command
@@ -168,8 +173,8 @@ A review page chooses its design but must use this order:
    attribute: affected files, waves, task dossiers, and dependencies.
 5. Plan check, review provenance, and unrecognized compatibility fields.
 
-The first screen must answer what is being tackled, what problem this solves,
-how the recommendation works, what evidence supports that How, what remains
+The first screen must answer what is being tackled, the problem, how the
+recommendation works, what evidence supports that How, what remains
 uncertain, and whether to approve. A How without supporting evidence is an
 assumption: record it in `assumptions`, never present it as a finding. Tasks
 and waves never lead the gate and never appear in the chat brief.

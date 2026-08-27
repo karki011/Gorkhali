@@ -1,9 +1,10 @@
 ---
 name: pr-review
-description: "Review an EXTERNAL pull request against its ticket intent. Advisory only - produces reviewer artifacts and a draft comment, never records a lifecycle gate and never posts to GitHub."
+description: "Review someone else's PR against ticket, GitHub issue, or PR-body intent. Advisory. Draft comment; never posts unless asked; never records a lifecycle gate."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+# User-facing hour-one loop. Stay on the / menu (Cursor slash reads this file).
+# Duplication with skills/{name} is accepted for start/pause/resume/verify/review/pr-review/wrap.
+user-invocable: true
 ---
 
 > **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
@@ -15,7 +16,8 @@ and gates on an Inspector artifact bound to your worktree fingerprint; that gate
 be satisfied for a branch you did not build, and `worktreeFingerprint(repo.root)`
 would describe your checkout rather than the PR head. So this command is
 **advisory only**: it never calls `gorkhali-state.mjs record`, never writes a
-lifecycle gate, and never claims a session outcome.
+lifecycle gate, and never claims a session outcome. Wrong surface: your own
+verified diff → `/gorkhali:review`; opening your PR → `/gorkhali:wrap`.
 
 It reviews from the **ticket**, not the diff. A change can be correct,
 conventional and lint-clean while failing to deliver its intent - the severity
@@ -66,19 +68,28 @@ includes the caller's local branches.
 
 ## 2. Establish the intent
 
+Intent sources are first-class and none is a failure. Record the one you used.
+
 Parse a ticket key from the PR title, then the branch name, using the same
 pattern `commands/start.md` uses: any match of `[A-Z][A-Z0-9]+-\d+`. Accept it
 as-is; do not validate the project prefix.
 
-- **Ticket found** - fetch it and its acceptance criteria via the Jira MCP, the
-  same read `commands/start.md` performs. Record `intentSource: "ticket"`.
-- **No ticket, or the fetch fails** - derive the intent from the PR body, record
-  `intentSource: "inferred"`, and say so in the report.
+Then resolve intent in this order, first success wins:
 
-Never block on a missing ticket.
+1. **Tracker ticket** — Jira, Linear, or GitHub issue fetched via the configured
+   tracker (`scripts/gorkhali-config.js get tracker.provider`). Record
+   `intentSource: "ticket"`.
+2. **GitHub issue** linked from the PR (`gh pr view --json closingIssuesReferences`).
+   Record `intentSource: "issue"`.
+3. **PR body** — derive the intent from the description. Record
+   `intentSource: "pr-body"`.
 
-Write the resolved intent to `{REVIEW_DIR}/intent.json` with `ticket`,
-`intentSource`, `acceptanceCriteria` (array, possibly empty), and `summary`.
+A missing tracker ticket is not a defect and does not block. Say which source
+you used. `inferred` is not a legal `intentSource`.
+
+Write the resolved intent to `{REVIEW_DIR}/intent.json` with `ticket` (or
+`issue`), `intentSource`, `acceptanceCriteria` (array, possibly empty), and
+`summary`.
 
 `{REVIEW_DIR}` is `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/pr-reviews/{PR_NUMBER}`.
 It is deliberately NOT a session directory: no session exists, and writing under
@@ -110,6 +121,11 @@ A change that cannot execute in production fails its stated intent, and is
 
 ## 4. Correctness
 
+If the repository has a `REVIEW.md` at the root (or `.github/REVIEW.md`), read
+it before spawning reviewers and treat it as the highest-priority review-only
+instruction — per-repo severity, skip paths, and always-check rules. Its
+absence is not a gap.
+
 Spawn Auditor against the PR branch using `agents/auditor.md`, writing
 `{REVIEW_DIR}/auditor.json`. Add Justice (`agents/justice.md`) writing
 `{REVIEW_DIR}/specialists/justice.json` only on explicit risk triggers, exactly as
@@ -125,7 +141,8 @@ Three constraints on how reviewers are prompted:
 
 - **Ask for verdict and evidence. Do NOT ask for a proposed fix in the same
   pass.** Remediation is produced in step 6, for findings that survived, not as
-  part of finding them.
+  part of finding them. Do not ask the reviewer for praise; "what landed
+  properly" is scored in step 6 from confirmed citations, never from vibe.
 - **`confidence` is mandatory on every finding**, not optional as the schema
   permits. `confirmed` requires that the cited line was re-read; anything unread
   is `needs-verification` with a matching `observationGaps` entry.
@@ -159,35 +176,55 @@ Recording here would bind evidence to the wrong commit.
 
 ## 6. Report
 
-Draft one comment. Do NOT post it, and never submit a formal GitHub review
-(Approve / Request changes) - blocking another author's branch is a human
-decision.
+Lead with one verdict line (PASS/FAIL, blocking count, advisory count). Advisory
+only; not a GitHub review. Every section below is its own collapsed `<details>`
+with a `<summary>` that names what it holds, and with **no `open` attribute**.
+Do not leave a section as open prose. Empty is allowed; skipped is not — a
+required section with nothing confirmed says so inside the block.
 
-The reader deciding whether to act sees only decisions; everything that
-justifies a decision is one click deep. So above the fold, and only this: the
-verdict line; each blocking finding's claim as a single bold sentence (the
-file:line citation stays in the collapsed evidence, not the claim); and that
-finding's remediation list, numbered when there are alternative paths that
-each close the finding.
+Required sections, in this order:
 
-Everything else goes behind `<details>`, each with a `<summary>` that names
-what it holds without being opened, so the reader can skip it with confidence
-rather than open it to find out:
-
-- Each blocking finding's evidence - the quotes, the corroborating lines, the
-  reasoning - in its OWN `<details>` block, not merged with the claim above it.
-- All advisory findings in one block, its `<summary>` carrying the count and
-  the gate status, e.g. "Advisory findings (6 - none gate)".
-- The acceptance-criteria scorecard, as a table with one row per AC (status
-  plus one-line evidence). This block earns its place only when
-  `intentSource` is `"ticket"` - an inferred intent has no criteria to score.
-- The verification-performed-and-limits section (see below).
+1. **What landed properly** — required even on FAIL. Only work you re-read and
+   can cite (`file:line`, or a command you ran). Never generic praise ("looks
+   clean", "LGTM", "standard quality") and never a positive that was not
+   confirmed. If nothing confirmed-positive, say that and why (what you did not
+   re-read or run).
+2. **Checklist** — five lines, yes / no / unknown, one evidence clause each:
+   1. Intent delivered (against the resolved `intentSource`)
+   2. Change is reachable in production
+   3. Diff makes something worse than before, or misses an acceptance criterion
+   4. Tests cover the changed behavior (or `review-gaps.js` named the miss)
+   5. Docs/ops the change requires were updated, or are n/a
+   Unknown is legal. Inventing a yes is not.
+3. **Blocking** — `<summary>` carries the count. Each surviving blocking finding:
+   claim as one bold sentence; remediation numbered when there are alternative
+   paths; evidence (quotes, corroborating lines) in a nested `<details>`, not
+   merged with the claim. Zero findings: one sentence that none survived re-read.
+4. **What can improve** — advisory findings plus optional, still-cited
+   improvements. `<summary>` carries the count and "none gate". Zero: say none
+   survived re-read. Do not pad with style nits you did not confirm.
+5. **Repo and code quality** — two lines, yes / no / unknown, one evidence
+   clause each: (a) the change matches this repo's existing patterns; (b) the
+   change meets this repo's code-quality bar. Compare to code you re-read on
+   the same branch or base, not to a generic standard. Unknown if you did not
+   compare.
+6. **Acceptance-criteria scorecard** — table, one row per AC (status plus
+   one-line evidence). Only when `intentSource` is `"ticket"` or `"issue"`.
+   Omit the section for `"pr-body"` — there are no criteria to score.
+7. **Verification performed and limits** — which claims were re-read, whether
+   tests were executed, which `intentSource` was used, whether a code graph was
+   available. A limit the author can see is a limit they can correct.
 
 Now derive remediation for findings that survived step 4, and only those.
 
-State the limits plainly in the draft: which claims were verified by re-reading
-the source, whether tests were executed, whether the intent was fetched or
-inferred, and whether a code graph was available. A limit the author can see is
-a limit they can correct.
+A finding or a positive that was not re-read is `needs-verification` and belongs
+in limits, not in What landed properly, Blocking, or What can improve as a
+confirmed fact. Do not manufacture a review from the PR body's self-description.
 
-Report the draft to the caller and stop. The human posts it.
+Then draft one comment. Do NOT post it unless the user explicitly asked to
+post a draft (`--post-draft`). Never submit a formal GitHub review
+(Approve / Request changes) — blocking another author's branch is a human
+decision.
+
+Report the draft to the caller and stop. The human posts it unless they asked
+`--post-draft`.

@@ -21,7 +21,7 @@ const COMMANDS_DIR = path.join(ROOT, 'commands');
 // growing file names itself in the failure.
 const AGENT_CEILINGS = {
   'advisor.md': 2120,
-  'auditor.md': 4475,
+  'auditor.md': 4720, // +REVIEW.md as highest-priority review-only instruction when present
   'chief.md': 10350,
   'clerk.md': 3830,
   'detective.md': 2590,

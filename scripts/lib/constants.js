@@ -56,10 +56,13 @@ module.exports = {
   INJECTION_CORRECTION_SLOTS: intFromEnv('GORKHALI_INJECTION_CORRECTION_SLOTS', 3),
   INJECTION_VALIDATED_SLOTS: intFromEnv('GORKHALI_INJECTION_VALIDATED_SLOTS', 1),
 
-  // context.json field naming the learning entries a session actually recalled, by
-  // `[keyword]`. Read by evolution-runner to DERIVE [validated:N] from artifacts
-  // instead of LLM judgment. No writer exists yet -- see reference/evolution.md
-  // "Computed validation" for the writer that has to be added and by whom.
+  // Field naming the learning entries a session actually recalled, by `[keyword]`.
+  // Writer: hooks/memory-reader.js. Durable store: {SESSION_DIR}/learnings-cited.json
+  // (sidecar), because Phase A may rewrite context.json and the first
+  // UserPromptSubmit often fires before context.json exists. When context.json
+  // already exists as a valid JSON object, the writer also merges this field
+  // onto it. Read by evolution-runner to DERIVE [validated:N] from artifacts
+  // instead of LLM judgment. See reference/evolution.md "Computed Validation".
   LEARNING_CITATION_FIELD: 'learningsCited',
 
   // Per-hook timeout default, in SECONDS (parity with hooks.json `timeout`).

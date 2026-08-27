@@ -1,10 +1,10 @@
 ---
 name: review
-description: Independent read-only review of the current verified diff for quality, duplication, and architecture; NOT for test runs (verify) or self-quizzing (grill).
+description: Independent read-only review of YOUR verified local diff; gates the ship. NOT for someone else's PR (pr-review), test runs (verify), wrap/ship, or self-quizzing (grill).
 ---
 ## Triggers
 
-Review current code changes for quality, simplicity, duplication, architecture, and actionable diff findings; not for test execution or requirements validation.
+Review YOUR current verified diff for quality, simplicity, duplication, architecture, and actionable findings. Requires a passed Inspector artifact bound to this worktree. Wrong surface: someone else's PR → `pr-review`; opening a PR → `wrap`; running tests → `verify`.
 
 Apply `../../host-support/compatibility.md` for workflow `review` before reading the delegated command. It resolves the portable runtime, loads the canonical preambles, then identifies `../../commands/review.md`.
 

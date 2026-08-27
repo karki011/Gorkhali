@@ -20,7 +20,7 @@ Feeds from: `intent.json`, `decisions.json`. The problem or ticket goal, and why
 
 ### 3. `## Watch out for`
 
-Feeds from: `plan.json` risks, `review-panel.json` findings (including findings the panel passed with caveats), and any Auditor fix loops that ran. Fragile spots, known gaps, follow-ups left open, anything a reviewer could trip on that isn't obvious from the diff.
+Feeds from: `plan.json` risks, Auditor findings (including advisories that shipped unfixed), and any Auditor fix loops that ran. Use `review-panel.json` / RPSL only when `--deep-review` actually ran this session. Fragile spots, known gaps, follow-ups left open, anything a reviewer could trip on that isn't obvious from the diff. If none: write `None flagged this session` — do not invent RPSL or panel findings.
 
 ### 4. `## What you need to know`
 
@@ -28,7 +28,7 @@ Feeds from: `verification.json`, `execution.json`, session decisions. Context a 
 
 ### 5. `## Likely questions and answers`
 
-Feeds from: RPSL findings (Scope/Regression/Architecture/Skeptic), Auditor fix loops, plan risks, and the diff's blast radius. Q/A pairs. Every question must be one a real reviewer would ask about this specific diff - not a generic template question. Every answer must cite a `file:line` or name a session artifact (`verification.json`, `review-panel.json`, `decisions.json`, etc). No generic reassurance ("tests pass", "should be fine", "this is safe") without a citation backing it.
+Feeds from: Auditor fix loops, plan risks, the diff's blast radius, and RPSL only when `--deep-review` ran. Q/A pairs. Every question must be one a real reviewer would ask about this specific diff - not a generic template question. Every answer must cite a `file:line` or name a session artifact (`verification.json`, `reviews/auditor.json`, `decisions.json`, etc). No generic reassurance ("tests pass", "should be fine", "this is safe") without a citation backing it. If there are no hard questions: write `None flagged this session`.
 
 ### 6. `## Decision log`
 
@@ -38,7 +38,7 @@ Feeds from: `decisions.json` (`alternatives[]`), `intent.json` (`exploredAlterna
 
 - Exactly six sections, exact heading text and order as listed above. These are grepped verbatim by the clerk preflight (`commands/wrap.md` Step 2) and by `test/wrap-defense-brief.test.js` - a paraphrased heading fails both.
 - Every answer in "Likely questions and answers" cites a `file:line` or a session artifact path. An answer with no citation is not acceptable, regardless of how confident it reads.
-- Questions must be the hard ones - seeded from RPSL findings, Auditor fix loops, plan risks, and blast radius - not softballs a reviewer would never bother asking.
+- Questions must be the hard ones - seeded from Auditor fix loops, plan risks, blast radius, and RPSL only when `--deep-review` ran - not softballs a reviewer would never bother asking. Do not pad from a missing panel.
 - Anchor to what actually happened this session. Do not invent content to fill a section that has nothing to report; write "None flagged this session" instead of padding.
 
 ## Example skeleton
@@ -56,8 +56,8 @@ callers of the same hook turned up with the identical bug.
 
 ## Watch out for
 The fix changes the reducer's return shape (adds `rangeVersion`). Any other
-caller relying on the old shape will need the same bump - see review-panel.json
-Scope Agent note.
+caller relying on the old shape will need the same bump - see
+reviews/auditor.json advisory on the hook export.
 
 ## What you need to know
 No migration needed - the reducer is stateless per-mount. Verification ran the
@@ -69,8 +69,8 @@ A: Clearing state re-triggers a fetch on every range tweak (useUsageRange.ts:42)
 rangeVersion lets the reducer detect staleness without an extra network call.
 
 **Q: Did this touch the other two callers of useUsageRange?**
-A: No - out of scope for this ticket, flagged as a follow-up (review-panel.json,
-Scope Agent finding #2).
+A: No - out of scope for this ticket, flagged as a follow-up
+(reviews/auditor.json advisory #2).
 
 ## Decision log
 - Fixed the shared hook, not the component - rejected the component-level patch

@@ -116,6 +116,31 @@ const baseIntent = {
   specDelta: 'none',
 };
 
+const baseContext = {
+  ticket: 'PROJ-1',
+  summary: 'fixture',
+  source: 'args',
+};
+
+test('context: learningsCited string[] is valid', () => {
+  const res = runValidator('context', {
+    _meta: metaFor(),
+    ...baseContext,
+    learningsCited: ['alpha', 'beta'],
+  });
+  assert.equal(res.code, 0, `expected valid, got stderr: ${res.stderr}`);
+});
+
+test('context: learningsCited non-array is invalid', () => {
+  const res = runValidator('context', {
+    _meta: metaFor(),
+    ...baseContext,
+    learningsCited: 'alpha',
+  });
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /learningsCited/);
+});
+
 test('intent: with problem field passes', () => {
   const res = runValidator('intent', {
     _meta: metaFor(),
@@ -491,4 +516,46 @@ test('verification: duplicate top-level user-verification decision is rejected',
   const res = runValidator('verification', artifact);
   assert.equal(res.code, 1);
   assert.match(res.stderr, /userVerificationRequired: unsupported; use userVerification\.required/);
+});
+
+function validWrap(extra = {}) {
+  return {
+    _meta: metaFor({ skill: 'gorkhali:wrap', phase: 'D' }),
+    brief: 'Closed the wrap payload and let outcome-write.js author the durable record.',
+    pr: { number: 1, url: 'https://example.com/pull/1', status: 'open' },
+    learnings: { recorded: [], promoted: [], pruned: [] },
+    ...extra,
+  };
+}
+
+test('wrap: required payload plus closed extras passes', () => {
+  const res = runValidator('wrap', validWrap({
+    jira: null,
+    greptile: { requested: true, status: 'skipped' },
+    defenseBrief: { path: 'defense-brief.md', questions: 3, sections: 6 },
+    prBody: { path: 'pr-body.md', sections: 3, gaps: [] },
+    commit: 'abc1234',
+    base: 'main',
+    head: 'feat/closed-wrap',
+    qualityArtifacts: { verification: 'verification.json' },
+    caveats: [],
+    summary: 'Shipped',
+    modelRouting: { requested: 'sonnet', actual: 'sonnet' },
+  }));
+  assert.equal(res.code, 0, `closed extras must pass, got stderr: ${res.stderr}`);
+});
+
+test('wrap: invented measurement keys are rejected', () => {
+  for (const key of ['ticket', 'reviewPanel', 'eval', 'brainCard', 'costUsd', 'route']) {
+    const res = runValidator('wrap', validWrap({ [key]: 1 }));
+    assert.equal(res.code, 1, `${key} must be rejected`);
+    assert.match(res.stderr, new RegExp(`unknown wrap field "${key}"`));
+    assert.match(res.stderr, /outcome-write\.js/);
+  }
+});
+
+test('wrap: unknown evidence keys are rejected', () => {
+  const res = runValidator('wrap', validWrap({ evidence: { summary: 'ok', ticket: 'CP-1' } }));
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /unknown wrap\.evidence field "ticket"/);
 });

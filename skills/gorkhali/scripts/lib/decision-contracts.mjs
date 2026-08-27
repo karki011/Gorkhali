@@ -237,6 +237,9 @@ const validateEvidence = (items, errors, { requireFreshness = false } = {}) => {
       if (item.conflicts !== undefined) {
         requireTextArray(item.conflicts, `evidence[${index}].conflicts`, errors);
       }
+      if (item.kind !== undefined && !['user', 'repo'].includes(item.kind)) {
+        errors.push(`evidence[${index}].kind: must be user|repo when present`);
+      }
     }
   });
 };
@@ -512,6 +515,26 @@ const validatePlan = (
   if (isObject(payload.outcome)) {
     requireTextFields(payload.outcome, 'outcome', ['goal'], errors);
     requireArray(payload.outcome.doneWhen, 'outcome.doneWhen', errors, true);
+    if (payload.outcome.signal !== undefined && !isText(payload.outcome.signal)) {
+      errors.push('outcome.signal: must be a non-empty string when present');
+    }
+  }
+  if (depth !== 'quick') {
+    const keys = ['security', 'privacy', 'observability', 'rollout', 'docs'];
+    if (!isObject(payload.crossCutting)) errors.push('crossCutting: required object');
+    else {
+      for (const key of keys) {
+        const item = payload.crossCutting[key];
+        if (!isObject(item)) {
+          errors.push(`crossCutting.${key}: required object`);
+          continue;
+        }
+        if (!['n/a', 'note'].includes(item.status)) {
+          errors.push(`crossCutting.${key}.status: must be n/a|note`);
+        }
+        if (!isText(item.detail)) errors.push(`crossCutting.${key}.detail: required string`);
+      }
+    }
   }
   if (isObject(payload.scope)) {
     for (const field of ['in', 'out', 'constraints']) requireArray(payload.scope[field], `scope.${field}`, errors);
@@ -634,9 +657,10 @@ const validateBrainstorm = (payload, errors, { enforceEvidenceFreshness = false 
   else {
     requireTextFields(payload.decision, 'decision', ['question', 'outcome'], errors);
     requireArray(payload.decision.constraints, 'decision.constraints', errors);
+    requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
+    requireTextFields(payload.decision, 'decision', ['successSignal'], errors);
     if (enriched) {
       requireArray(payload.decision.audience, 'decision.audience', errors, true);
-      requireArray(payload.decision.nonGoals, 'decision.nonGoals', errors);
     }
     requireArray(payload.decision.evaluationCriteria, 'decision.evaluationCriteria', errors, true);
   }
