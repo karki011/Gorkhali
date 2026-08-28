@@ -693,12 +693,27 @@ function requireCurrent(workspace, taskId) {
 
 function start(workspace, args) {
   if (!args.task || !args.intent) throw new Error('start requires --task and --intent.');
-  const route = args.route || 'plan';
+  const paths = sessionPaths(workspace, args.task);
+  // Read before mkdir so a rejected new start leaves no empty session folder.
+  const existing = readJson(join(paths.sessionDir, 'session.json'));
+  const existingHasRoute = ROUTES.has(existing?.route);
+  if (!args.route && !existingHasRoute) {
+    throw new Error(
+      'start requires --route <lite|direct|plan|brainstorm|full>. '
+      + 'Omitting it no longer defaults to plan; lite and direct skip the plan gate.',
+    );
+  }
+  const route = args.route || existing.route;
   // route_source records WHY the session carries this route: 'explicit' when the
-  // caller passed --route, 'default' when the 'plan' fallback above applied. The
-  // vocabulary is closed to 'explicit' | 'default' | 'unknown'; 'unknown' is only
-  // ever assigned below, to a preserved legacy route that predates this field.
-  const routeSource = args.route ? 'explicit' : 'default';
+  // caller passed --route. 'default' remains in the closed vocabulary for
+  // historical sessions created under the old plan fallback; new sessions never
+  // write it. 'unknown' is only ever assigned below, to a preserved legacy route
+  // that predates this field.
+  const routeSource = args.route
+    ? 'explicit'
+    : (existing.route_source === 'explicit' || existing.route_source === 'default'
+      ? existing.route_source
+      : 'unknown');
   if (!ROUTES.has(route)) {
     throw new Error(`Unsupported route: ${route}`);
   }
@@ -706,13 +721,11 @@ function start(workspace, args) {
     throw new Error('Unsupported mode. Use --mode standard or --mode to-plan.');
   }
   const requestedMode = args['to-plan'] === true || args.mode === 'to-plan' ? 'to-plan' : 'standard';
-  const paths = sessionPaths(workspace, args.task);
   // Multiple tasks may be active for the same repo at once - starting a new
   // task_id never blocks on another task's status. It joins the active set and
   // becomes focus (see touchPointerTask below). Resuming the SAME task_id still
   // goes through the immutability checks below, unchanged.
   mkdirSync(paths.sessionDir, { recursive: true });
-  const existing = readJson(join(paths.sessionDir, 'session.json'));
   const correction = existing?.work_kind_correction ?? null;
   const requestedWorkKind = resolveWorkKind(args['work-kind'], args.intent, correction);
   if (existing) {

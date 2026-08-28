@@ -337,10 +337,10 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
   assert.equal(started.status, 'active');
   assert.equal(started.task_id, 'TASK-42');
   assert.equal(started.route, 'plan');
-  assert.equal(started.bundle_version, '2.7.2');
+  assert.equal(started.bundle_version, '2.7.3');
   assert.deepEqual(started.producer, { role: 'chief', compute_profile: 'frontier' });
   const sessionDirectory = path.join(context.data, 'repos', started.repo_id, 'sessions', started.task_id);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.7.2');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sessionDirectory, 'intent.json'))).bundle_version, '2.7.3');
 
   const paused = parse(await run(['pause', ...common, '--reason', 'Context boundary'], context.env));
   assert.equal(paused.status, 'paused');
@@ -353,7 +353,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
 
   const resumed = parse(await run(['resume', ...common], context.env));
   assert.equal(resumed.status, 'active');
-  assert.equal(resumed.bundle_version, '2.7.2');
+  assert.equal(resumed.bundle_version, '2.7.3');
   assert.ok(resumed.resumed_at);
   await authorizeAndExecute(context, ['plan']);
 
@@ -376,7 +376,7 @@ test('portable lifecycle persists start, pause, resume, evidence, and completion
     '--tool-turns', '3',
   ], context.env));
   assert.equal(recorded.artifact.status, 'passed');
-  assert.equal(recorded.artifact.bundle_version, '2.7.2');
+  assert.equal(recorded.artifact.bundle_version, '2.7.3');
   assert.deepEqual(recorded.artifact.producer, { role: 'inspector', compute_profile: 'economy' });
   assert.deepEqual(recorded.artifact.model_routing, {
     requested_profile: 'economy',
@@ -1201,7 +1201,7 @@ test('state records bounded delegation v2 tasks and matching typed results', asy
     'record', ...common, '--type', 'delegation-task', '--status', 'pending', '--run', 'D1', '--input', taskFile,
   ], context.env));
   assert.equal(task.artifact.artifact_type, 'delegation-task');
-  assert.equal(task.artifact.bundle_version, '2.7.2');
+  assert.equal(task.artifact.bundle_version, '2.7.3');
   assert.deepEqual(task.artifact.producer, { role: 'engineer', compute_profile: 'balanced' });
   assert.equal(task.artifact.model_routing.requested_profile, 'balanced');
   assert.equal(task.artifact.model_routing.actual_profile, null);
@@ -2114,6 +2114,51 @@ test('same-task restarts preserve immutable route and material intent', async ()
   const status = parse(await run(['status', ...common], context.env));
   assert.equal(status.route, 'plan');
   assert.equal(status.intent_summary, 'Preserve this intent');
+});
+
+test('start requires --route for new sessions and preserves it on same-task restart', async () => {
+  const context = fixture();
+  const common = ['--workspace', context.workspace];
+  const task = 'ROUTE-REQUIRED-1';
+  const intent = 'Choose a route explicitly';
+
+  const omitted = await run([
+    'start', ...common, '--task', task, '--intent', intent,
+  ], context.env);
+  assert.equal(omitted.code, 1);
+  assert.match(
+    omitted.stderr,
+    /start requires --route <lite\|direct\|plan\|brainstorm\|full>\. Omitting it no longer defaults to plan; lite and direct skip the plan gate/,
+  );
+  const repos = path.join(context.data, 'repos');
+  if (fs.existsSync(repos)) {
+    for (const entry of fs.readdirSync(repos, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const sessionDir = path.join(repos, entry.name, 'sessions', task);
+      assert.equal(fs.existsSync(sessionDir), false, 'rejected new start must not create a session folder');
+      assert.equal(fs.existsSync(path.join(sessionDir, 'session.json')), false);
+    }
+  }
+
+  const started = parse(await run([
+    'start', ...common, '--task', task, '--intent', intent, '--route', 'direct',
+  ], context.env));
+  assert.equal(started.route, 'direct');
+  const sessionDir = path.join(context.data, 'repos', started.repo_id, 'sessions', task);
+  const session = JSON.parse(fs.readFileSync(path.join(sessionDir, 'session.json'), 'utf8'));
+  const intentRecord = JSON.parse(fs.readFileSync(path.join(sessionDir, 'intent.json'), 'utf8'));
+  assert.equal(session.route, 'direct');
+  assert.equal(session.route_source, 'explicit');
+  assert.equal(intentRecord.route, 'direct');
+  assert.equal(intentRecord.route_source, 'explicit');
+
+  const resumed = parse(await run([
+    'start', ...common, '--task', task, '--intent', intent,
+  ], context.env));
+  assert.equal(resumed.route, 'direct');
+  const resumedSession = JSON.parse(fs.readFileSync(path.join(sessionDir, 'session.json'), 'utf8'));
+  assert.equal(resumedSession.route, 'direct');
+  assert.equal(resumedSession.route_source, 'explicit');
 });
 
 test('approvals require and remain bound to current passed decision artifacts', async () => {
