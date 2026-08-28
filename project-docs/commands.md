@@ -2,7 +2,7 @@
 
 Every command the native compatibility plugin exposes, with the route it takes.
 
-On Cursor, the `/` menu is the seven user-invocable commands: `/start`, `/pause`, `/resume`, `/verify`, `/review`, `/pr-review`, `/wrap`. Other rows below are skill-chained or hidden from that menu.
+On Cursor, the `/` menu is the seven matching hour-one skills: `/start`, `/pause`, `/resume`, `/verify`, `/review`, `/pr-review`, `/wrap`. The same-named command files remain the canonical procedure and stay hidden. Other rows below are skill-chained or hidden from that menu.
 
 | Command | Route | Description |
 |---------|-------|-------------|

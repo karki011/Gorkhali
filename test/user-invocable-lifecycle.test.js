@@ -1,8 +1,7 @@
 // Author: Subash Karki
-// Pins the seven user-facing hour-one commands on the slash menu. Cursor
-// reads commands/*.md for /start /pause /resume /verify /review /pr-review
-// /wrap; hiding them (the default for every other command, whose skill is
-// the menu) made those commands uninvocable on that host.
+// Hour-one commands stay hidden so Claude Code / Cursor plugin menus list
+// each name once via the matching skill; the command file remains the
+// canonical procedure.
 'use strict';
 
 const { test } = require('node:test');
@@ -15,14 +14,22 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 const USER_FACING = ['start', 'pause', 'resume', 'verify', 'review', 'pr-review', 'wrap'];
 
-test('hour-one commands are user-invocable', () => {
+test('hour-one commands stay hidden; matching skills are the menu surface', () => {
   for (const name of USER_FACING) {
     const cmd = read(path.join('commands', `${name}.md`));
     assert.match(
       cmd,
-      /^user-invocable:\s*true\s*$/m,
-      `${name}.md must be user-invocable so /${name} appears in the menu`,
+      /^user-invocable:\s*false\s*$/m,
+      `${name}.md must be hidden so /${name} is listed once via the matching skill`,
     );
-    assert.doesNotMatch(cmd, /^user-invocable:\s*false\s*$/m, `${name}.md must not stay hidden`);
+    assert.doesNotMatch(
+      cmd,
+      /^user-invocable:\s*true\s*$/m,
+      `${name}.md must not be user-invocable`,
+    );
+    assert.ok(
+      fs.existsSync(path.join(ROOT, 'skills', name, 'SKILL.md')),
+      `skills/${name}/SKILL.md must exist as the single menu surface`,
+    );
   }
 });

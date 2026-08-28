@@ -1,7 +1,7 @@
 # GORKHALI — You Govern. They Execute.
 
 [![CI](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml/badge.svg)](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-1.1.1-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-1.1.2-blue)](.claude-plugin/plugin.json)
 [![tests](https://img.shields.io/badge/tests-passing-brightgreen)](test/)
 [![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI%20%2B%20Kimi%20Code%20%2B%20Cursor-8A2BE2)](project-docs/install.md)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -53,7 +53,7 @@ Report a bug instead of a feature and the route changes: the work is classified 
 
 ## Runs Everywhere Your Agents Do
 
-One provider-neutral Agent Skill at `skills/gorkhali/` runs natively on **Claude Code**, **Codex CLI**, and **Kimi Code** — zero external plugin dependencies, fully self-contained. Optional host capabilities degrade to explicit fallbacks instead of breaking. The Kimi preset routes only across Kimi's own model tiers, so a Kimi session never requests compute from another provider. **Cursor** slash commands come from this repo's user-invocable `commands/*.md` files (`/start` `/pause` `/resume` `/verify` `/review` `/pr-review` `/wrap`); a portable copy of `skills/gorkhali` alone does not expose those slashes.
+One provider-neutral Agent Skill at `skills/gorkhali/` runs natively on **Claude Code**, **Codex CLI**, and **Kimi Code** — zero external plugin dependencies, fully self-contained. Optional host capabilities degrade to explicit fallbacks instead of breaking. The Kimi preset routes only across Kimi's own model tiers, so a Kimi session never requests compute from another provider. **Cursor** slash commands come from this repo's matching hour-one skills (`/start` `/pause` `/resume` `/verify` `/review` `/pr-review` `/wrap`); the same-named `commands/*.md` files remain the canonical procedure and stay hidden. A portable copy of `skills/gorkhali` alone does not expose those slashes.
 
 ## Install
 
@@ -81,7 +81,7 @@ cd Gorkhali && codex
 
 **Cursor** (this repository as the workspace — no marketplace recipe yet)
 
-User-invocable commands in `commands/*.md` appear as `/start` `/pause` `/resume` `/verify` `/review` `/pr-review` `/wrap`. A portable copy of `skills/gorkhali` only is the router; named wrap/review/pr-review skills need the native plugin or the whole `skills/` tree.
+Matching hour-one skills appear as `/start` `/pause` `/resume` `/verify` `/review` `/pr-review` `/wrap`; the same-named `commands/*.md` files remain the procedure and stay hidden. A portable copy of `skills/gorkhali` only is the router; named wrap/review/pr-review skills need the native plugin or the whole `skills/` tree.
 
 **Any Agent Skills host** (portable, no plugin manager needed)
 
@@ -102,7 +102,7 @@ Use Gorkhali to investigate why the dashboard feels slow.
 Use Gorkhali to pause this task and preserve a resumable checkpoint.
 ```
 
-**Cursor** (this repo checked out) — hour-one slash commands from `commands/*.md`:
+**Cursor** (this repo checked out) — hour-one slash commands from the matching skills; `commands/*.md` remain the procedure and stay hidden:
 
 ```text
 /start CP-41606     # router → plan → execute → verify (does not wrap)

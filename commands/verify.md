@@ -2,9 +2,8 @@
 name: verify
 description: "Run the repository's correctness checks, simplify the changed files, and obtain an independent review. Reports failures; it never edits code to make a check pass."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# User-facing hour-one loop. Stay on the / menu (Cursor slash reads this file).
-# Duplication with skills/{name} is accepted for start/pause/resume/verify/review/pr-review/wrap.
-user-invocable: true
+# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
+user-invocable: false
 ---
 
 > **Preamble Tier: T2** — shared contexts per the canonical registry (`scripts/preamble-tier.js`); `_shared-detective.md` also loads on the detective trigger

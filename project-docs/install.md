@@ -115,7 +115,8 @@ MCP and code-review-graph MCP.
 ## Cursor
 
 Cursor has no marketplace recipe yet. With this repository as the workspace,
-slash commands come from `commands/*.md` files marked `user-invocable: true`:
+slash commands come from the matching hour-one skills; the `commands/*.md`
+files remain the canonical procedure and stay hidden:
 `/start`, `/pause`, `/resume`, `/verify`, `/review`, `/pr-review`, `/wrap`.
 A portable copy of `skills/gorkhali` only is the router. Named wrap, review,
 and pr-review skills need the native plugin or the whole `skills/` tree.
