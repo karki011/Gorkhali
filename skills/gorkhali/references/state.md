@@ -279,18 +279,20 @@ Compact status returns `record:plan` until the canonical plan is valid, then
 returns no next action; it never recommends an action the mode will reject.
 `complete` closes a plan-only session on that same valid canonical plan instead
 of execution and quality gates, so the workspace is released for the next task.
-For an existing active task, route and material intent are immutable. `start`
-may backfill a missing route on a legacy session, but a route or intent change
-must be captured as an explicit revision or restarted under a new task id. It
-must never silently retain approvals across changed intent.
+A new start requires `--route`. Omitting `--route` on an existing active task
+preserves that task's route; it is not a plan default. For an existing active
+task, route and material intent are immutable. `start` may backfill a missing
+route on a legacy session, but only from an explicit `--route`. A route or
+intent change must be captured as an explicit revision or restarted under a
+new task id. It must never silently retain approvals across changed intent.
 
 `start` also records `route_source` next to `route` in both `session.json` and
-`intent.json`: `explicit` when `--route` was supplied, `default` when the
-`plan` fallback applied, and `unknown` when a preserved legacy route predates
-the field (whether it was chosen or defaulted is no longer attributable). The
-vocabulary is closed to those three values, and because route is immutable on
-an active task, the preserved route's recorded `route_source` is preserved
-with it.
+`intent.json`: `explicit` when `--route` was supplied, `default` as a historical
+value for sessions created under the old plan fallback (new sessions do not
+write it), and `unknown` when a preserved legacy route predates the field
+(whether it was chosen or defaulted is no longer attributable). The vocabulary
+is closed to those three values, and because route is immutable on an active
+task, the preserved route's recorded `route_source` is preserved with it.
 
 Record decisions and cross lifecycle gates with the helper:
 

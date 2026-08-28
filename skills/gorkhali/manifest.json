@@ -1,7 +1,7 @@
 {
   "name": "gorkhali",
-  "bundle_version": "2.7.2",
-  "contract_resource_digest": "sha256:53e2cc21e2369193dbc86acca19f6c841bba6d4c9d9dbbbdd865e693e873667c",
+  "bundle_version": "2.7.3",
+  "contract_resource_digest": "sha256:01dba7f7b318bf14e7287d8cd036afef1a37bcdda3ba269015b283ec5f1ad40b",
   "contract_versions": {
     "capability_ledger": 1,
     "state_envelope": 1,
