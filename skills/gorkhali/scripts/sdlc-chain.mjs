@@ -305,7 +305,7 @@ function writeChain(outDir, files) {
 }
 
 function printJson(value) {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
 function main() {
@@ -336,12 +336,10 @@ function main() {
         trackerId: args['tracker-id'],
         commitSha: args['commit-sha'],
       });
-      if (isText(args.out)) {
-        const written = writeChain(args.out, chain.files);
-        printJson({ written, out: args.out, task: chain.meta.taskId || MISSING });
-        return;
-      }
-      printJson(chain.files);
+      const written = isText(args.out)
+        ? writeChain(args.out, chain.files)
+        : Object.keys(chain.files);
+      printJson({ written, task: chain.meta.taskId || MISSING });
       return;
     }
     if (command === 'plan-compliance') {

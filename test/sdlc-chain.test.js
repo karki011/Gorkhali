@@ -148,7 +148,15 @@ test('CLI render --out writes only relative filenames', () => {
   assert.equal(rendered.status, 0, rendered.stderr);
   const payload = JSON.parse(rendered.stdout);
   assert.deepEqual(payload.written, ['intent.md']);
+  assert.equal(payload.out, undefined);
+  assert.doesNotMatch(rendered.stdout, /## Problem|Show claim status/);
   assert.ok(fs.existsSync(path.join(out, 'intent.md')));
+
+  const dry = run(['render', '--session', session, '--task', 'T-1']);
+  assert.equal(dry.status, 0, dry.stderr);
+  const dryPayload = JSON.parse(dry.stdout);
+  assert.deepEqual(dryPayload.written, ['intent.md']);
+  assert.doesNotMatch(dry.stdout, /# Intent|## Problem/);
 });
 
 test('wrap and start treat the chain as a product-repo audit copy, not session state', () => {

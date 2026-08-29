@@ -20,6 +20,9 @@ review HTML, not a second source of truth.
 `wrap` renders the chain into the product repository and stages it with the
 change. `review` runs mechanical plan-compliance against the diff.
 
+CLI stdout is a compact receipt (`written`, `found`, `status`). Projection
+bodies stay on disk. Do not pretty-print JSON into the model.
+
 ## Source of truth
 
 Name one system per artifact:
