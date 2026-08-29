@@ -27,6 +27,13 @@ review stage rather than restating it.
    Read its `requiredSpecialists` role-string array as the authoritative
    selection; do not reclassify the diff in this command.
 3. Load the intent, repository rules, current changed-file list, and diff.
+   Run mechanical plan-compliance and pass the JSON to Auditor. `n/a` is not a
+   pass; `wrong` is blocking; `drift` is advisory unless required proof files
+   are missing:
+
+   ```text
+   node <skill-directory>/scripts/sdlc-chain.mjs plan-compliance --session {SESSION_DIR} --changed <comma-separated repo-relative paths>
+   ```
 4. Read the round number before deleting anything:
 
    ```text

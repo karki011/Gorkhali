@@ -63,6 +63,7 @@ Same rule as above: this document does not restate those findings.
 | B9b | Per-finding table in the baseline miner | DONE | 0.5d | completes B9's stated test; corpus is 0/0 measurable until the first post-B9 fix loop closes |
 | B13 | Structured PR body | DONE | 0.5d | - |
 | P1 | Phase-judgment product packaging | DONE | 1d | W9; this session. Does not reopen B9–B13 |
+| S1 | AI-native SDLC chain (`intake` + projections + plan-compliance) | DONE | this PR | JSON stays canonical; markdown is the committed audit copy |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the four plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |

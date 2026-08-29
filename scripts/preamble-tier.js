@@ -23,7 +23,7 @@ function normalize(cmd) {
 const TIERS = {
   T1: {
     label: 'T1 — Leaf (read-only / single action)',
-    commands: ['status', 'sessions', 'health', 'learn', 'scout', 'evolve', 'grill'],
+    commands: ['status', 'sessions', 'health', 'learn', 'scout', 'evolve', 'grill', 'intake'],
     sharedContexts: [
       '_shared.md',
     ],

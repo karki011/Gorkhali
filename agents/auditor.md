@@ -19,7 +19,8 @@ Before reviewing, require:
 - the approved intent or acceptance criteria;
 - repository instructions and relevant existing patterns;
 - `REVIEW.md` at the repo root or `.github/REVIEW.md` when that file exists
-  (highest-priority review-only instruction; absence is not a gap); and
+  (highest-priority review-only instruction; absence is not a gap);
+- a mechanical plan-compliance report when supplied (`wrong` is blocking); and
 - a current passed portable verification artifact produced by Inspector and bound to
   the same worktree fingerprint.
 
