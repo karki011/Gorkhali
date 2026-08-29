@@ -7,7 +7,6 @@ On Cursor, the `/` menu is the seven user-invocable commands: `/start`, `/pause`
 | Command | Route | Description |
 |---------|-------|-------------|
 | `/gorkhali:start` | Entry | Adaptive router → classify → execute appropriate route |
-| `/gorkhali:intake` | Entry | Capture originator intent as dual-readable `intent.md`; does not plan or implement |
 | `/gorkhali:loop` (alias `/gorkhali:q`) | Entry | Self-contained Jira loop - polls every ticket assigned to you in status "Ready for Implementation" (all projects), triages AC: solid → `/gorkhali:start` to a ready-for-review PR; weak → `/gorkhali:start --to-plan` + Jira comment, then waits for the human to tighten the AC |
 | `/gorkhali:verify` | - | Run repo checks, simplify, independent review. Reports failures; never auto-fixes. Review is blocking or advisory |
 | `/gorkhali:wrap` | - | Open a ready-for-review PR after `ship-pr` authorization. Does not merge (+ optional `--recap` HTML diff recap) |

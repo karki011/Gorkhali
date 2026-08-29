@@ -24,6 +24,12 @@
       "timeout": 10
     },
     {
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "command": "node ./hooks/test-file-gate.js",
+      "timeout": 10
+    },
+    {
       "event": "Stop",
       "command": "node ./hooks/greploop-gate.js",
       "timeout": 15

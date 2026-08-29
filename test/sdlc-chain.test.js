@@ -140,6 +140,9 @@ test('wrap and start treat the chain as a product-repo audit copy, not session s
   assert.doesNotMatch(wrap, /intent\.json/);
   assert.match(start, /locate-intent/);
   assert.match(start, /not session state/);
+  assert.match(start, /## Proto-spec/);
+  assert.match(start, /--out \{SESSION_DIR\}/);
+  assert.doesNotMatch(start, /Skill\(skill="gorkhali:intake"/);
 });
 
 test('locateIntentFile prefers .gorkhali/sdlc then intent/', async () => {

@@ -99,6 +99,21 @@ READ `reference/router.md` for full algorithm.
 3. Write `route-decision.json`. Report: `"[{ROUTE}] {rationale}"`
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-b-route || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
 
+## Proto-spec (all routes, after intent.json)
+
+`start` is the intake. Do not invoke a separate intake skill. Do not write
+product-repo `.gorkhali/sdlc/` here — wrap commits that copy.
+
+- `lite` / `direct`: no interview. Status `accepted`. Missing fields stay `_Not recorded`.
+- `plan` / `brainstorm` / `full`: ask only what the ticket, utterance, ingested file, and code cannot answer. The operator running start is the originator: Status `accepted`. A product-repo `draft` from someone else still forces plan-only (step 2.4).
+- After `intent.json` exists:
+
+  ```text
+  node <skill-directory>/scripts/sdlc-chain.mjs render --session {SESSION_DIR} --out {SESSION_DIR} --task {TICKET}
+  ```
+
+  That writes `{SESSION_DIR}/intent.md` only. Chief never edits project source.
+
 ## Route: LITE (0 gates)
 
 Trivial scope only — the router picks LITE (per `reference/router/algorithm.md` step 5); the user never does.

@@ -19,7 +19,7 @@ Most agent setups trust the model to behave. Gorkhali doesn't. Its rules are **c
 - **No silent edits outside a session.** `hooks/routing-gate.js` denies stray `Edit`/`Write` calls in a Gorkhali-known repo (opt-in via `GORKHALI_ROUTING_ENFORCE=1`).
 - **A hand-edited routing decision does not survive CI.** Agent model pins are *generated* from one policy file; drift fails the build.
 - **Evals decide, not reports.** `scripts/run-evals.js --gate` refuses to bless a partial run as a clean release — and recomputes the baseline from raw verdicts rather than trusting a stored number.
-- **The SDLC chain is committed, not recalled.** `intake` writes dual-readable `intent.md`; wrap projects plan/spec beside the diff; review checks the diff against the plan. Session JSON remains the gate. Markdown is the audit copy.
+- **The SDLC chain is committed, not recalled.** `start` writes a session-local proto-spec; wrap projects plan/spec beside the diff; review checks the diff against the plan. Session JSON remains the gate. Markdown is the audit copy.
 
 Every registration is visible in `hooks/hooks.json`. There is no hidden machinery.
 

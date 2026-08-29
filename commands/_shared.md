@@ -163,7 +163,7 @@ This table is a rendering of it — `test/preamble-tier.test.js` fails on any dr
 
 | Tier | Commands | Shared Contexts |
 |------|----------|----------------|
-| **T1** | evolve, grill, health, intake, learn, scout, sessions, status | `_shared.md` |
+| **T1** | status, sessions, health, learn, scout, evolve, grill | `_shared.md` |
 | **T2** | verify, fix, validate, eval, detective, brainstorm, close, greploop, loop, q, wire | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` (+ `_shared-detective.md` on the detective trigger) |
 | **T3** | review, pr-review, contract, recruit, visual, visualflow | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` |
 | **T4** | start, execute, wrap, resume, pause | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` + `_shared-detective.md` |

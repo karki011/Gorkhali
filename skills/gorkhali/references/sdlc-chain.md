@@ -8,16 +8,17 @@ review HTML, not a second source of truth.
 
 | Stage | Canonical | Projection | Gate |
 |---|---|---|---|
-| Plan | `intent.json` | `.gorkhali/sdlc/<task>/intent.md` or `intent/<task>.md` | Originator corrects; product owner accepts |
+| Plan | `intent.json` | session `intent.md`; wrap copies to `.gorkhali/sdlc/<task>/` | Operator running start is originator; foreign `draft` stays plan-only |
 | Design | `brainstorm.json` | `spec.md` beside that intent when a brainstorm exists | Direction approval |
 | Build | `plan.json` | `plan.md` | Plan approval, then implementation authorization |
 | Test | verification artifact | evidence in the PR body | Inspector pass |
 | Deploy | review artifact + ready-for-review PR | PR thread | Independent review, then `ship-pr` |
 | Maintain | defect-proof / new intent | a new `intent.md` | Investigation before mutation |
 
-`intake` writes the Plan projection. `start` reads it when present. `wrap`
-renders the chain into the product repository and stages it with the change.
-`review` runs mechanical plan-compliance against the diff.
+`start` writes the Plan projection into the session (`intent.md` next to
+`intent.json`). `start` also reads a product-repo intent file when present.
+`wrap` renders the chain into the product repository and stages it with the
+change. `review` runs mechanical plan-compliance against the diff.
 
 ## Source of truth
 

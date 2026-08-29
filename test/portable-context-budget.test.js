@@ -37,10 +37,8 @@ test('standard start closure stays below the mandatory context budget', (t) => {
   const total = measured.reduce((sum, component) => sum + component.bytes, 0);
   t.diagnostic(`${measured.map(({ file, bytes: size }) => `${file}=${size}`).join(', ')}`);
   t.diagnostic(`standard start: ${total} bytes / ~${approximateTokens(total)} tokens`);
-  // Raised 16000 -> 17500 for the same reason as the router budget above. The
-  // closure sat at 15994 of 16000 before this, so the old ceiling had six bytes
-  // of headroom and would have blocked any addition at all.
-  assert.ok(total <= 17_500, `standard start closure is ${total} bytes; budget is 17500`);
+  // Raised 17500 -> 17650 for the session-local proto-spec line on the start adapter.
+  assert.ok(total <= 17_650, `standard start closure is ${total} bytes; budget is 17650`);
 });
 
 test('router exposes exactly four direct one-hop phase references', () => {

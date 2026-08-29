@@ -124,5 +124,8 @@ triggered specialists, and portable artifact locations. End with:
 - `done-with-caveat` only for a genuinely optional unavailable capability; or
 - `blocked` with exact failures or missing evidence.
 
+When Inspector evidence is recorded `passed`, delete `{SESSION_DIR}/fix-active`
+if it exists. A failed verify leaves the marker so a following fix stays gated.
+
 This command reports and records. It never auto-fixes findings, retries code
 changes, or proceeds to wrap on its own.

@@ -90,3 +90,14 @@ test('wrap.md invokes outcome-write for the durable record', () => {
   assert.match(doc, /--repo-path/, 'wrap passes the workspace so git/gh resolve');
   assert.match(doc, /never blocks wrap|outcome\.json not written, wrap continues/, 'outcome-write failure is non-blocking');
 });
+
+test('the test-file gate is wired and fix.md arms it', () => {
+  const hooks = read('hooks', 'hooks.json');
+  assert.match(hooks, /test-file-gate\.js/, 'hooks.json must invoke the gate');
+  const kimi = JSON.parse(read('.kimi-plugin', 'plugin.json'));
+  assert.ok(kimi.hooks.some((h) => String(h.command).includes('test-file-gate.js')));
+  const fix = read('commands', 'fix.md');
+  assert.match(fix, /fix-active/, 'fix must write the marker the gate reads');
+  const verify = read('commands', 'verify.md');
+  assert.match(verify, /fix-active/, 'passed verify must clear the marker');
+});

@@ -23,7 +23,7 @@ skills/gorkhali/          # canonical provider-neutral Agent Skill
 ├── .kimi-plugin/      # Kimi Code plugin manifest (skills + agents + hook gates)
 ├── host-support/      # host-neutral compatibility contract + --host resolver
 ├── codex-support/     # backward-compat shims pointing at host-support/
-├── commands/          # 30 command directives (+ 9 _shared partials)
+├── commands/          # 29 command directives (+ 9 _shared partials)
 ├── reference/         # reference files (on-demand, injected by hooks)
 │   ├── router.md          # Classification algorithm, deliberation protocol
 │   ├── brainstorm.md      # Diverge/converge protocol, question-asking rules

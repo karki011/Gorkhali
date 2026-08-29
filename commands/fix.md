@@ -31,7 +31,7 @@ Fix loop from latest failed verification.
 
 Mode: if `$ARGUMENTS` contains `--chained`, this is CHAINED flow; otherwise STANDALONE (default, gated).
 
-1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/gorkhali:verify` first).
+1. **Load failures** — from `verification.json` or session JSON. **BLOCK if none** (run `/gorkhali:verify` first). Write `{SESSION_DIR}/fix-active` (empty marker) so `hooks/test-file-gate.js` can deny test-file edits until a later verify records `passed`.
 2. **Check loop count** — read the standing the ledger already holds:
 
    ```text
