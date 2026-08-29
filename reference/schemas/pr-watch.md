@@ -1,7 +1,9 @@
 # `pr-watch.json` Schema
 
 Tiny standing-watch state written by `/gorkhali:greploop` Phase 2 and updated
-each `CHIEF_PING` tick (`reference/pr-watch.md`, codec `scripts/lib/chief-ping.js`).
+each `CHIEF_PING` tick (`reference/pr-watch.md`, writer `scripts/lib/pr-watch-tick.js`,
+codec `scripts/lib/chief-ping.js`). The tick script writes `status: "stopped"` when
+threads are clean or Greptile is 5/5.
 
 This is **not** a full Gorkhali session artifact: it does **not** carry `_meta`.
 The five keys below are the entire file. Extra keys are illegal. Comment bodies

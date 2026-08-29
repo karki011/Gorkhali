@@ -11,7 +11,8 @@ const ACK_SENTINEL = 'CHIEF_ACK';
 
 const VERDICTS = Object.freeze(['idle', 'new_work', 'exit']);
 const EXIT_REASONS = Object.freeze([
-  'none', 'merged', 'closed', 'approved_clean', 'ceiling', 'user_stop',
+  'none', 'merged', 'closed', 'approved_clean', 'threads_clean',
+  'greptile_max', 'ceiling', 'user_stop',
 ]);
 const NEXT_ACTIONS = Object.freeze(['ack_rearm', 'ack_assess', 'ack_stop']);
 const ACK_KINDS = Object.freeze(['idle', 'assess', 'stop']);

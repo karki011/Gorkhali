@@ -74,7 +74,10 @@ test('validatePing accepts new_work with count>=1, ids length=count, ack_assess'
 });
 
 test('validatePing accepts exit when reason !== none and next_action is ack_stop', () => {
-  for (const reason of ['merged', 'closed', 'approved_clean', 'ceiling', 'user_stop']) {
+  for (const reason of [
+    'merged', 'closed', 'approved_clean', 'threads_clean',
+    'greptile_max', 'ceiling', 'user_stop',
+  ]) {
     const result = validatePing(exitPing({ exit_reason: reason }));
     assert.equal(result.ok, true, `${reason}: ${result.errors.join('; ')}`);
   }

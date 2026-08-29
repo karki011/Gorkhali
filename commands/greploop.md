@@ -34,7 +34,7 @@ after the capability probe.
    - E. Auto-fix actionable comments from the configured external bot only. Human and other-author comments: classify, tag, reply — do not edit unless `--fix-humans`. `--no-fix` skips all edits. Substantial multi-file bot fix: spawn `subagent_type: "engineer"`, `name: "engineer-vosler"`.
    - F. Commit + push (push BEFORE replying) only when a fix landed.
    - G. Reply in-thread tagging the author (`@greptileai` when Greptile; otherwise `@<login>`), resolve threads, loop back to A.
-2. **Phase 2 — arm watch** — write `{SESSION_DIR}/pr-watch.json` (`status: watching`) and run the first `CHIEF_PING` tick per `reference/pr-watch.md` (`subagent_type: "clerk"`, `name: "clerk-herald"`). Clerk emits the ping only via `{PR_BOOTSTRAP}; printf '%s\n' "$PING_JSON" | node "$PR/scripts/lib/chief-ping.js" format` (empty `$PR` or non-zero CLI → failed tick; no hand-typed block).
+2. **Phase 2 — arm watch** — write `{SESSION_DIR}/pr-watch.json` (`status: watching`) and run `{PR_BOOTSTRAP}; node "$PR/scripts/lib/pr-watch-tick.js" --watch-file "{SESSION_DIR}/pr-watch.json"` (empty `$PR` or non-zero CLI → failed tick; no hand-typed block). The script emits `CHIEF_PING` and stops on resolved threads or Greptile 5/5. Spawn `subagent_type: "clerk"`, `name: "clerk-herald"` only on `ack_assess`.
 3. **Report** — PR, iterations, remaining, watch status.
 
 On Phase 1 exit (success or Greptile unavailable), **release the wrap gate** by writing `greptile.status` to the session `wrap.json` (`done` | `skipped`) — greploop is the SOLE writer; `hooks/greploop-gate.js` blocks the session until it lands. Never merges the PR — merging stays a human action.

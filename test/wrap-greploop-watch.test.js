@@ -45,14 +45,15 @@ test('greploop command pins all-author watch and never-merge', () => {
   assert.match(content, /all-author/);
   assert.ok(content.includes('CHIEF_PING'));
   assert.match(content, /never merge/i);
+  assert.ok(content.includes('pr-watch-tick.js'));
   assert.ok(content.includes('clerk-herald'));
 });
 
-test('greploop skill describes all-author review, not Greptile 5/5', () => {
+test('greploop skill describes all-author review and Phase 2 5/5 stop', () => {
   const content = read('skills/greploop/SKILL.md');
   assert.match(content, /all-author|ALL review comments/);
   assert.ok(content.includes('CHIEF_PING'));
-  assert.doesNotMatch(content, /5\/5 confidence/);
+  assert.match(content, /5\/5/);
 });
 
 test('reference/greploop.md pins all-author CHIEF_PING watch', () => {
@@ -60,9 +61,10 @@ test('reference/greploop.md pins all-author CHIEF_PING watch', () => {
   assert.match(content, /all-author/);
   assert.ok(content.includes('CHIEF_PING'));
   assert.match(content, /never merge/i);
+  assert.ok(content.includes('pr-watch-tick.js'));
 });
 
-test('reference/pr-watch.md pins CHIEF_PING, illegal {new:false}, never merge', () => {
+test('reference/pr-watch.md pins the tick script, illegal {new:false}, never merge', () => {
   const content = read('reference/pr-watch.md');
   assert.ok(content.includes('CHIEF_PING'));
   assert.ok(content.includes('{new:false}'));
@@ -70,9 +72,11 @@ test('reference/pr-watch.md pins CHIEF_PING, illegal {new:false}, never merge', 
   assert.match(content, /never merge/i);
   assert.ok(content.includes('clerk-herald'));
   assert.ok(
-    content.includes('scripts/lib/chief-ping.js" format'),
-    'pr-watch.md must require the production chief-ping.js format CLI'
+    content.includes('scripts/lib/pr-watch-tick.js'),
+    'pr-watch.md must require the production pr-watch-tick.js tick CLI'
   );
+  assert.ok(content.includes('threads_clean'));
+  assert.ok(content.includes('greptile_max'));
 });
 
 test('resume.md continues an armed pr-watch without asking', () => {
