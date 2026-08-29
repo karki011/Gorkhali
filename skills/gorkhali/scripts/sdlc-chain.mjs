@@ -98,6 +98,18 @@ export function locateIntentFile(workspace, task) {
   return null;
 }
 
+export function ingestIntent(workspace, task) {
+  const located = locateIntentFile(workspace, task);
+  if (!located) return { found: false };
+  const parsed = parseIntentMarkdown(readFileSync(located.absolute, 'utf8'));
+  return {
+    found: true,
+    relative: located.relative,
+    status: parsed.status,
+    summary: parsed.summary,
+  };
+}
+
 function uniquePaths(plan) {
   const files = new Set();
   const tasks = Array.isArray(plan?.tasks) ? plan.tasks : [];
@@ -313,6 +325,10 @@ function main() {
       printJson(located || { relative: null, absolute: null });
       return;
     }
+    if (command === 'ingest') {
+      printJson(ingestIntent(args.workspace || process.cwd(), args.task));
+      return;
+    }
     if (command === 'render') {
       if (!isText(args.session)) throw new Error('render requires --session <dir>.');
       const chain = renderChain(args.session, {
@@ -336,7 +352,7 @@ function main() {
       return;
     }
     process.stderr.write(
-      'Usage: sdlc-chain.mjs <parse-intent|locate-intent|render|plan-compliance>\n',
+      'Usage: sdlc-chain.mjs <parse-intent|locate-intent|ingest|render|plan-compliance>\n',
     );
     process.exitCode = 1;
   } catch (error) {

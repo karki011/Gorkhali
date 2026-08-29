@@ -104,6 +104,25 @@ test('renderChain writes dual-readable files from session JSON and omits absent 
   assert.doesNotMatch(chain.files['intent.md'], /\/tmp|\/home\//);
 });
 
+test('CLI ingest returns compact summary without absolute paths', () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-ingest-'));
+  const empty = run(['ingest', '--workspace', workspace, '--task', 'CP-1']);
+  assert.equal(empty.status, 0, empty.stderr);
+  assert.deepEqual(JSON.parse(empty.stdout), { found: false });
+
+  fs.mkdirSync(path.join(workspace, '.gorkhali/sdlc/CP-1'), { recursive: true });
+  fs.writeFileSync(path.join(workspace, '.gorkhali/sdlc/CP-1/intent.md'), PLAYBOOK_INTENT);
+  const hit = run(['ingest', '--workspace', workspace, '--task', 'CP-1']);
+  assert.equal(hit.status, 0, hit.stderr);
+  const payload = JSON.parse(hit.stdout);
+  assert.equal(payload.found, true);
+  assert.equal(payload.relative, '.gorkhali/sdlc/CP-1/intent.md');
+  assert.equal(payload.status, 'draft');
+  assert.match(payload.summary, /claim status/);
+  assert.equal(payload.absolute, undefined);
+  assert.equal(payload.problem, undefined);
+});
+
 test('CLI parse-intent and plan-compliance speak JSON', () => {
   const file = path.join(os.tmpdir(), `intent-${Date.now()}.md`);
   fs.writeFileSync(file, PLAYBOOK_INTENT);
@@ -138,7 +157,8 @@ test('wrap and start treat the chain as a product-repo audit copy, not session s
   assert.match(wrap, /sdlc-chain\.mjs render/);
   assert.match(wrap, /Do not commit\nGorkhali session artifacts/);
   assert.doesNotMatch(wrap, /intent\.json/);
-  assert.match(start, /locate-intent/);
+  assert.match(start, /sdlc-chain\.mjs ingest/);
+  assert.doesNotMatch(start, /locate-intent|parse-intent/);
   assert.match(start, /not session state/);
   assert.match(start, /## Proto-spec/);
   assert.match(start, /--out \{SESSION_DIR\}/);

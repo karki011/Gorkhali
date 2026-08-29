@@ -48,8 +48,7 @@ it into repository instructions. Do not edit those files without approval.
 ## Helper
 
 ```text
-node <skill-directory>/scripts/sdlc-chain.mjs parse-intent --file <path>
-node <skill-directory>/scripts/sdlc-chain.mjs locate-intent --workspace <path> --task <id>
+node <skill-directory>/scripts/sdlc-chain.mjs ingest --workspace <path> --task <id>
 node <skill-directory>/scripts/sdlc-chain.mjs render --session <dir> --out .gorkhali/sdlc/<task>
 node <skill-directory>/scripts/sdlc-chain.mjs plan-compliance --session <dir> --changed a.ts,b.ts
 ```
