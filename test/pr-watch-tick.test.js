@@ -13,6 +13,8 @@ const { spawnSync } = require('node:child_process');
 const {
   parseGreptileConfidence,
   decideTick,
+  snapshotFromPull,
+  fetchSnapshot,
   runTick,
 } = require('../scripts/lib/pr-watch-tick');
 
@@ -39,16 +41,17 @@ function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'pr-watch-tick-'));
 }
 
-test('parseGreptileConfidence reads Confidence: N/5 and last N/5 fallback', () => {
+test('parseGreptileConfidence reads labeled Confidence only', () => {
   assert.equal(parseGreptileConfidence('Confidence: 5/5'), 5);
   assert.equal(parseGreptileConfidence('**Confidence:** 4/5'), 4);
-  assert.equal(parseGreptileConfidence('Score 3/5 then later 2/5'), 2);
+  assert.equal(parseGreptileConfidence('Score 3/5 then later 2/5'), null);
+  assert.equal(parseGreptileConfidence('3/5 files'), null);
   assert.equal(parseGreptileConfidence('no score here'), null);
   assert.equal(parseGreptileConfidence(''), null);
 });
 
 test('zero unresolved threads exits threads_clean even when Greptile is 4/5', () => {
-  const ping = decideTick(base({ unresolvedCount: 0, greptileScore: 4 }));
+  const ping = decideTick(base({ unresolvedCount: 0, threadCount: 2, greptileScore: 4 }));
   assert.equal(ping.verdict, 'exit');
   assert.equal(ping.exit_reason, 'threads_clean');
   assert.equal(ping.next_action, 'ack_stop');
@@ -57,11 +60,22 @@ test('zero unresolved threads exits threads_clean even when Greptile is 4/5', ()
 test('zero unresolved + GitHub APPROVED exits approved_clean', () => {
   const ping = decideTick(base({
     unresolvedCount: 0,
+    threadCount: 1,
     reviewDecision: 'APPROVED',
     greptileScore: 4,
   }));
   assert.equal(ping.exit_reason, 'approved_clean');
   assert.equal(ping.next_action, 'ack_stop');
+});
+
+test('zero review threads stays idle, not threads_clean', () => {
+  const zero = decideTick(base({ unresolvedCount: 0, threadCount: 0, greptileScore: 4 }));
+  assert.equal(zero.verdict, 'idle');
+  assert.equal(zero.exit_reason, 'none');
+  const omitted = decideTick(base({ unresolvedCount: 0, greptileScore: 4 }));
+  assert.equal(omitted.verdict, 'idle');
+  const max = decideTick(base({ unresolvedCount: 0, threadCount: 0, greptileScore: 5 }));
+  assert.equal(max.exit_reason, 'greptile_max');
 });
 
 test('Greptile 5/5 exits greptile_max even with unresolved threads', () => {
@@ -74,6 +88,7 @@ test('Greptile 5/5 exits greptile_max even with unresolved threads', () => {
 test('truncated thread list does not claim threads_clean', () => {
   const ping = decideTick(base({
     unresolvedCount: 0,
+    threadCount: 2,
     threadsTruncated: true,
     greptileScore: 4,
   }));
@@ -117,9 +132,85 @@ test('new items after the watermark are new_work only when still dirty', () => {
 test('new items are ignored once threads are already clean', () => {
   const ping = decideTick(base({
     unresolvedCount: 0,
+    threadCount: 1,
     items: [{ id: 'IC_1', updatedAt: '2026-08-25T21:41:00.000Z' }],
   }));
   assert.equal(ping.exit_reason, 'threads_clean');
+});
+
+test('snapshotFromPull sets truncation flags from pageInfo', () => {
+  const truncated = snapshotFromPull({
+    state: 'OPEN',
+    reviewDecision: 'REVIEW_REQUIRED',
+    comments: { pageInfo: { hasPreviousPage: true }, nodes: [] },
+    reviews: { pageInfo: { hasPreviousPage: true }, nodes: [] },
+    reviewThreads: {
+      pageInfo: { hasNextPage: true },
+      nodes: [
+        { isResolved: true, comments: { nodes: [] } },
+        { isResolved: false, comments: { nodes: [] } },
+      ],
+    },
+  }, { number: 12, state: 'OPEN' });
+  assert.equal(truncated.pr, 12);
+  assert.equal(truncated.commentsTruncated, true);
+  assert.equal(truncated.reviewsTruncated, true);
+  assert.equal(truncated.threadsTruncated, true);
+  assert.equal(truncated.threadCount, 2);
+  assert.equal(truncated.unresolvedCount, 1);
+
+  const full = snapshotFromPull({
+    comments: { pageInfo: { hasPreviousPage: false }, nodes: [] },
+    reviews: { pageInfo: { hasPreviousPage: false }, nodes: [] },
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] },
+  }, { number: 1 });
+  assert.equal(full.commentsTruncated, false);
+  assert.equal(full.reviewsTruncated, false);
+  assert.equal(full.threadsTruncated, false);
+  assert.equal(full.threadCount, 0);
+});
+
+test('fetchSnapshot REST-falls back when GraphQL has no labeled Confidence', () => {
+  const calls = [];
+  const snap = fetchSnapshot(42, {
+    runGh(args) {
+      calls.push(args);
+      if (args[0] === 'pr') {
+        return JSON.stringify({
+          number: 42,
+          state: 'OPEN',
+          url: 'https://github.com/acme/repo/pull/42',
+          reviewDecision: null,
+        });
+      }
+      if (args[1] === 'graphql') {
+        return JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                state: 'OPEN',
+                comments: { pageInfo: { hasPreviousPage: false }, nodes: [] },
+                reviews: { pageInfo: { hasPreviousPage: false }, nodes: [] },
+                reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] },
+              },
+            },
+          },
+        });
+      }
+      return JSON.stringify([
+        {
+          id: 99,
+          updated_at: '2026-08-25T21:41:00.000Z',
+          user: { login: 'greptile[bot]' },
+          body: 'Confidence: 5/5',
+        },
+      ]);
+    },
+  });
+  assert.equal(snap.greptileScore, 5);
+  assert.equal(snap.threadCount, 0);
+  assert.ok(calls.some((a) => a[0] === 'api' && String(a[1]).includes('repos/acme/repo/issues/42/comments')));
+  assert.ok(snap.items.some((item) => String(item.id) === '99'));
 });
 
 test('runTick writes status stopped on threads_clean', () => {
@@ -138,6 +229,7 @@ test('runTick writes status stopped on threads_clean', () => {
     snapshot: {
       state: 'OPEN',
       unresolvedCount: 0,
+      threadCount: 1,
       greptileScore: 4,
       items: [],
     },
@@ -177,6 +269,7 @@ test('CLI --snapshot-file --json exits 0 with threads_clean', () => {
   fs.writeFileSync(snapshotFile, JSON.stringify({
     state: 'OPEN',
     unresolvedCount: 0,
+    threadCount: 1,
     greptileScore: 3,
     items: [],
   }));

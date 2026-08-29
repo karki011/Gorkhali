@@ -21,15 +21,14 @@ const { GorkhaliError, VALIDATION_ERROR, reportError } = require('./axi-error');
 
 const GREPTILE_LOGIN_RE = /greptile/i;
 const CONFIDENCE_RE = /confidence\s*[:\s]*([1-5])\s*\/\s*5/i;
-const SCORE_RE = /\b([1-5])\s*\/\s*5\b/g;
 
 const GRAPHQL_QUERY = [
   'query($owner:String!,$name:String!,$number:Int!){',
   '  repository(owner:$owner,name:$name){',
   '    pullRequest(number:$number){',
   '      state reviewDecision',
-  '      comments(last:50){nodes{id databaseId updatedAt author{login} body}}',
-  '      reviews(last:50){nodes{id databaseId submittedAt author{login} body}}',
+  '      comments(last:100){pageInfo{hasPreviousPage} nodes{id databaseId updatedAt author{login} body}}',
+  '      reviews(last:100){pageInfo{hasPreviousPage} nodes{id databaseId submittedAt author{login} body}}',
   '      reviewThreads(first:100){',
   '        pageInfo{hasNextPage}',
   '        nodes{isResolved comments(first:10){nodes{id databaseId updatedAt}}}',
@@ -41,13 +40,8 @@ const GRAPHQL_QUERY = [
 
 function parseGreptileConfidence(body) {
   if (typeof body !== 'string' || !body) return null;
-  const explicit = body.match(CONFIDENCE_RE);
-  if (explicit) return Number(explicit[1]);
-  let last = null;
-  SCORE_RE.lastIndex = 0;
-  let match;
-  while ((match = SCORE_RE.exec(body))) last = Number(match[1]);
-  return last;
+  const explicit = body.replace(/\*+/g, '').match(CONFIDENCE_RE);
+  return explicit ? Number(explicit[1]) : null;
 }
 
 function isGreptileLogin(login) {
@@ -94,15 +88,40 @@ function uniqueItems(items) {
 }
 
 function loginOf(node) {
-  return node && node.author && node.author.login;
+  return (node && node.author && node.author.login)
+    || (node && node.user && node.user.login);
+}
+
+function timestampOf(node) {
+  if (!node) return null;
+  return node.updatedAt || node.updated_at || node.submittedAt || null;
+}
+
+function pickLatestGreptileScore(nodes) {
+  const greptile = (Array.isArray(nodes) ? nodes : [])
+    .filter((node) => isGreptileLogin(loginOf(node)) && node.body)
+    .sort((a, b) => {
+      const aTs = Date.parse(toIso(timestampOf(a)) || 0);
+      const bTs = Date.parse(toIso(timestampOf(b)) || 0);
+      return aTs - bTs;
+    });
+  const latest = greptile[greptile.length - 1];
+  return latest ? parseGreptileConfidence(latest.body) : null;
+}
+
+function threadsAreClean(snapshot) {
+  const threadCount = Number.isInteger(snapshot.threadCount) ? snapshot.threadCount : 0;
+  return snapshot.unresolvedCount === 0
+    && snapshot.threadsTruncated !== true
+    && threadCount > 0;
 }
 
 /**
  * Decide one CHIEF_PING from a fetched snapshot. No GitHub I/O.
  * Stop reasons (first match): merged, closed, ceiling, threads_clean /
- * approved_clean (zero unresolved threads, listing not truncated), greptile_max
- * (score === 5). Otherwise new_work if anything is newer than the watermark,
- * else idle.
+ * approved_clean (zero unresolved threads, at least one thread, listing not
+ * truncated), greptile_max (labeled Confidence === 5). Otherwise new_work if
+ * anything is newer than the watermark, else idle.
  */
 function decideTick(snapshot) {
   const pr = snapshot.pr;
@@ -133,8 +152,7 @@ function decideTick(snapshot) {
     return { ...ping, verdict: 'exit', exit_reason: 'ceiling', next_action: 'ack_stop' };
   }
 
-  const unresolved = snapshot.unresolvedCount;
-  if (typeof unresolved === 'number' && unresolved === 0 && snapshot.threadsTruncated !== true) {
+  if (threadsAreClean(snapshot)) {
     const approved = String(snapshot.reviewDecision || '').toUpperCase() === 'APPROVED';
     return {
       ...ping,
@@ -196,6 +214,47 @@ function pushNode(items, node, timestamp) {
   items.push({ id, updatedAt });
 }
 
+function snapshotFromPull(pull, view) {
+  pull = pull || {};
+  view = view || {};
+  const threadConn = pull.reviewThreads || {};
+  const threads = Array.isArray(threadConn.nodes) ? threadConn.nodes : [];
+  const unresolvedCount = threads.filter((thread) => thread && thread.isResolved === false).length;
+  const threadsTruncated = !!(threadConn.pageInfo && threadConn.pageInfo.hasNextPage);
+  const threadCount = threads.length;
+
+  const commentConn = pull.comments || {};
+  const reviewConn = pull.reviews || {};
+  const comments = Array.isArray(commentConn.nodes) ? commentConn.nodes : [];
+  const reviews = Array.isArray(reviewConn.nodes) ? reviewConn.nodes : [];
+  const commentsTruncated = !!(commentConn.pageInfo && commentConn.pageInfo.hasPreviousPage);
+  const reviewsTruncated = !!(reviewConn.pageInfo && reviewConn.pageInfo.hasPreviousPage);
+
+  const greptileScore = pickLatestGreptileScore([...comments, ...reviews]);
+
+  const items = [];
+  for (const node of comments) pushNode(items, node, timestampOf(node));
+  for (const node of reviews) pushNode(items, node, timestampOf(node));
+  for (const thread of threads) {
+    for (const node of (thread.comments && thread.comments.nodes) || []) {
+      pushNode(items, node, timestampOf(node));
+    }
+  }
+
+  return {
+    pr: Number.isInteger(view.number) ? view.number : null,
+    state: pull.state || view.state,
+    reviewDecision: pull.reviewDecision || view.reviewDecision || null,
+    unresolvedCount,
+    threadCount,
+    threadsTruncated,
+    commentsTruncated,
+    reviewsTruncated,
+    greptileScore,
+    items,
+  };
+}
+
 function fetchSnapshot(pr, opts = {}) {
   const run = opts.runGh || ((args) => runGh(args, opts));
   const view = parseJson(
@@ -222,43 +281,22 @@ function fetchSnapshot(pr, opts = {}) {
     throw new GorkhaliError('graphql returned no pullRequest', 'IO_ERROR');
   }
 
-  const threadConn = pull.reviewThreads || {};
-  const threads = Array.isArray(threadConn.nodes) ? threadConn.nodes : [];
-  const unresolvedCount = threads.filter((thread) => thread && thread.isResolved === false).length;
-  const threadsTruncated = !!(threadConn.pageInfo && threadConn.pageInfo.hasNextPage);
+  const snapshot = snapshotFromPull(pull, view);
+  if (!Number.isInteger(snapshot.pr)) snapshot.pr = Number(pr);
 
-  const comments = (pull.comments && pull.comments.nodes) || [];
-  const reviews = (pull.reviews && pull.reviews.nodes) || [];
-  const greptileBodies = [...comments, ...reviews]
-    .filter((node) => isGreptileLogin(loginOf(node)) && node.body)
-    .sort((a, b) => {
-      const aTs = Date.parse(toIso(a.updatedAt || a.submittedAt) || 0);
-      const bTs = Date.parse(toIso(b.updatedAt || b.submittedAt) || 0);
-      return aTs - bTs;
-    });
-  const latestGreptile = greptileBodies[greptileBodies.length - 1];
-  const greptileScore = latestGreptile
-    ? parseGreptileConfidence(latestGreptile.body)
-    : null;
-
-  const items = [];
-  for (const node of comments) pushNode(items, node, node.updatedAt);
-  for (const node of reviews) pushNode(items, node, node.submittedAt);
-  for (const thread of threads) {
-    for (const node of (thread.comments && thread.comments.nodes) || []) {
-      pushNode(items, node, node.updatedAt);
-    }
+  if (snapshot.greptileScore == null) {
+    const rest = parseJson(
+      run(['api', `repos/${loc.owner}/${loc.repo}/issues/${pr}/comments?per_page=100`]),
+      'gh api issue comments'
+    );
+    const list = Array.isArray(rest) ? rest : [];
+    if (list.length >= 100) snapshot.commentsTruncated = true;
+    const score = pickLatestGreptileScore(list);
+    if (score != null) snapshot.greptileScore = score;
+    for (const node of list) pushNode(snapshot.items, node, timestampOf(node));
   }
 
-  return {
-    pr: Number.isInteger(view.number) ? view.number : Number(pr),
-    state: pull.state || view.state,
-    reviewDecision: pull.reviewDecision || view.reviewDecision || null,
-    unresolvedCount,
-    threadsTruncated,
-    greptileScore,
-    items,
-  };
+  return snapshot;
 }
 
 function readWatchFile(filePath) {
@@ -379,6 +417,7 @@ const HELP =
 module.exports = {
   parseGreptileConfidence,
   decideTick,
+  snapshotFromPull,
   fetchSnapshot,
   runTick,
   applyWatchFile,

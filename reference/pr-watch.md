@@ -11,7 +11,9 @@ Codec: `scripts/lib/chief-ping.js`. Schema: `reference/schemas/pr-watch.md`.
 Never merge. Merging stays a human action.
 
 The watch **stops as soon as** every review thread is resolved **or** Greptile
-reports 5/5. It does not keep re-arming after that. Phase 1 still exits on
+reports labeled **Confidence: 5/5**. `threads_clean` needs at least one thread;
+a PR with zero review threads stays idle. Stray `N/5` in a comment body is not
+a score. It does not keep re-arming after a real stop. Phase 1 still exits on
 unresolved-item count, not on score alone; this early stop is Phase 2 only.
 
 ---
@@ -121,13 +123,13 @@ Critical exits (any one → `verdict: exit`), first match in the script:
 
 - merged / closed
 - ceiling (ticks)
-- every review thread resolved (`threads_clean`; `approved_clean` when GitHub `reviewDecision` is also `APPROVED`)
-- Greptile confidence **5/5** (`greptile_max`)
+- every review thread resolved (`threads_clean` needs at least one thread and a non-truncated listing; `approved_clean` when GitHub `reviewDecision` is also `APPROVED`)
+- Greptile labeled **Confidence: 5/5** (`greptile_max`; stray `N/5` in a body is ignored)
 - user says stop
 
-Zero unresolved threads stops even if Greptile is still 4/5. Greptile 5/5
+Zero unresolved threads, with at least one thread present, stops even if Greptile is still 4/5. A PR with zero review threads is idle, not `threads_clean`. Greptile 5/5
 stops even if threads remain. Either condition is enough. Do not wait for
-GitHub Approve, and do not keep watching after the PR is already clean.
+GitHub Approve, and do not keep watching after the PR is already clean. Confidence is the labeled `Confidence: N/5` field only.
 
 Non-zero parse → failed tick, same as missing sentinel. Then ack with:
 
