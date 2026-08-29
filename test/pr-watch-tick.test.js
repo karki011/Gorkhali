@@ -12,6 +12,7 @@ const { spawnSync } = require('node:child_process');
 
 const {
   parseGreptileConfidence,
+  pickLatestGreptileScore,
   decideTick,
   snapshotFromPull,
   fetchSnapshot,
@@ -48,6 +49,21 @@ test('parseGreptileConfidence reads labeled Confidence only', () => {
   assert.equal(parseGreptileConfidence('3/5 files'), null);
   assert.equal(parseGreptileConfidence('no score here'), null);
   assert.equal(parseGreptileConfidence(''), null);
+});
+
+test('later unlabeled Greptile body does not hide prior labeled score', () => {
+  assert.equal(pickLatestGreptileScore([
+    {
+      updatedAt: '2026-08-25T21:40:00.000Z',
+      author: { login: 'greptile[bot]' },
+      body: 'Confidence: 5/5',
+    },
+    {
+      updatedAt: '2026-08-25T21:41:00.000Z',
+      author: { login: 'greptile[bot]' },
+      body: 'looking again, no labeled confidence here',
+    },
+  ]), 5);
 });
 
 test('zero unresolved threads exits threads_clean even when Greptile is 4/5', () => {
@@ -209,8 +225,83 @@ test('fetchSnapshot REST-falls back when GraphQL has no labeled Confidence', () 
   });
   assert.equal(snap.greptileScore, 5);
   assert.equal(snap.threadCount, 0);
-  assert.ok(calls.some((a) => a[0] === 'api' && String(a[1]).includes('repos/acme/repo/issues/42/comments')));
+  const restUrl = String((calls.find((a) => a[0] === 'api' && a[1] !== 'graphql') || [])[1] || '');
+  assert.ok(restUrl.includes('repos/acme/repo/issues/42/comments'));
+  assert.ok(restUrl.includes('sort=updated'));
+  assert.ok(restUrl.includes('direction=desc'));
   assert.ok(snap.items.some((item) => String(item.id) === '99'));
+});
+
+function mockPrView() {
+  return JSON.stringify({
+    number: 42,
+    state: 'OPEN',
+    url: 'https://github.com/acme/repo/pull/42',
+    reviewDecision: null,
+  });
+}
+
+function graphqlPullPayload(reviewThreads, extra = {}) {
+  return JSON.stringify({
+    data: {
+      repository: {
+        pullRequest: {
+          state: 'OPEN',
+          comments: extra.comments || { pageInfo: { hasPreviousPage: false }, nodes: [] },
+          reviews: extra.reviews || { pageInfo: { hasPreviousPage: false }, nodes: [] },
+          reviewThreads,
+        },
+      },
+    },
+  });
+}
+
+test('fetchSnapshot paginates reviewThreads when first page hasNextPage', () => {
+  const calls = [];
+  const snap = fetchSnapshot(42, {
+    runGh(args) {
+      calls.push(args);
+      if (args[0] === 'pr') return mockPrView();
+      if (args[1] === 'graphql') {
+        const query = String(args.find((a) => String(a).startsWith('query=')) || '');
+        if (query.includes('after:$cursor')) {
+          return graphqlPullPayload({
+            pageInfo: { hasNextPage: false, endCursor: 'c2' },
+            nodes: [{ isResolved: false, comments: { nodes: [] } }],
+          });
+        }
+        return graphqlPullPayload({
+          pageInfo: { hasNextPage: true, endCursor: 'c1' },
+          nodes: [{ isResolved: true, comments: { nodes: [] } }],
+        });
+      }
+      return JSON.stringify([]);
+    },
+  });
+  assert.equal(snap.threadCount, 2);
+  assert.equal(snap.threadsTruncated, false);
+  const graphqlCalls = calls.filter((a) => a[1] === 'graphql');
+  assert.equal(graphqlCalls.length, 2);
+  const secondQuery = String(graphqlCalls[1].find((a) => String(a).startsWith('query=')) || '');
+  assert.ok(secondQuery.includes('after:$cursor'));
+});
+
+test('fetchSnapshot does not paginate reviewThreads when first page is complete', () => {
+  const calls = [];
+  fetchSnapshot(42, {
+    runGh(args) {
+      calls.push(args);
+      if (args[0] === 'pr') return mockPrView();
+      if (args[1] === 'graphql') {
+        return graphqlPullPayload({
+          pageInfo: { hasNextPage: false, endCursor: null },
+          nodes: [{ isResolved: true, comments: { nodes: [] } }],
+        });
+      }
+      return JSON.stringify([]);
+    },
+  });
+  assert.equal(calls.filter((a) => a[1] === 'graphql').length, 1);
 });
 
 test('runTick writes status stopped on threads_clean', () => {

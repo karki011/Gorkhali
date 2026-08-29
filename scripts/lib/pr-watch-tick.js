@@ -21,6 +21,7 @@ const { GorkhaliError, VALIDATION_ERROR, reportError } = require('./axi-error');
 
 const GREPTILE_LOGIN_RE = /greptile/i;
 const CONFIDENCE_RE = /confidence\s*[:\s]*([1-5])\s*\/\s*5/i;
+const MAX_THREAD_PAGES = 20;
 
 const GRAPHQL_QUERY = [
   'query($owner:String!,$name:String!,$number:Int!){',
@@ -30,8 +31,21 @@ const GRAPHQL_QUERY = [
   '      comments(last:100){pageInfo{hasPreviousPage} nodes{id databaseId updatedAt author{login} body}}',
   '      reviews(last:100){pageInfo{hasPreviousPage} nodes{id databaseId submittedAt author{login} body}}',
   '      reviewThreads(first:100){',
-  '        pageInfo{hasNextPage}',
-  '        nodes{isResolved comments(first:10){nodes{id databaseId updatedAt}}}',
+  '        pageInfo{hasNextPage endCursor}',
+  '        nodes{isResolved comments(last:10){nodes{id databaseId updatedAt}}}',
+  '      }',
+  '    }',
+  '  }',
+  '}',
+].join(' ');
+
+const THREADS_PAGE_QUERY = [
+  'query($owner:String!,$name:String!,$number:Int!,$cursor:String){',
+  '  repository(owner:$owner,name:$name){',
+  '    pullRequest(number:$number){',
+  '      reviewThreads(first:100, after:$cursor){',
+  '        pageInfo{hasNextPage endCursor}',
+  '        nodes{isResolved comments(last:10){nodes{id databaseId updatedAt}}}',
   '      }',
   '    }',
   '  }',
@@ -103,10 +117,13 @@ function pickLatestGreptileScore(nodes) {
     .sort((a, b) => {
       const aTs = Date.parse(toIso(timestampOf(a)) || 0);
       const bTs = Date.parse(toIso(timestampOf(b)) || 0);
-      return aTs - bTs;
+      return bTs - aTs;
     });
-  const latest = greptile[greptile.length - 1];
-  return latest ? parseGreptileConfidence(latest.body) : null;
+  for (const node of greptile) {
+    const score = parseGreptileConfidence(node.body);
+    if (score != null) return score;
+  }
+  return null;
 }
 
 function threadsAreClean(snapshot) {
@@ -255,6 +272,49 @@ function snapshotFromPull(pull, view) {
   };
 }
 
+function graphqlPull(run, loc, pr, query, extraFlags, label) {
+  const gql = parseJson(
+    run([
+      'api', 'graphql',
+      '-F', `owner=${loc.owner}`,
+      '-F', `name=${loc.repo}`,
+      '-F', `number=${pr}`,
+      ...(extraFlags || []),
+      '-f', `query=${query}`,
+    ]),
+    label
+  );
+  const pull = gql && gql.data && gql.data.repository && gql.data.repository.pullRequest;
+  if (!pull) {
+    throw new GorkhaliError('graphql returned no pullRequest', 'IO_ERROR');
+  }
+  return pull;
+}
+
+function paginateReviewThreads(run, loc, pr, firstConn) {
+  const conn = firstConn || {};
+  const nodes = Array.isArray(conn.nodes) ? [...conn.nodes] : [];
+  let hasNext = !!(conn.pageInfo && conn.pageInfo.hasNextPage);
+  let cursor = conn.pageInfo && conn.pageInfo.endCursor;
+  let pages = 1;
+  while (hasNext && cursor && pages < MAX_THREAD_PAGES) {
+    const nextPull = graphqlPull(
+      run, loc, pr, THREADS_PAGE_QUERY,
+      ['-F', `cursor=${cursor}`],
+      'gh api graphql reviewThreads'
+    );
+    const next = nextPull.reviewThreads || {};
+    if (Array.isArray(next.nodes)) nodes.push(...next.nodes);
+    hasNext = !!(next.pageInfo && next.pageInfo.hasNextPage);
+    cursor = next.pageInfo && next.pageInfo.endCursor;
+    pages += 1;
+  }
+  return {
+    nodes,
+    pageInfo: { hasNextPage: hasNext },
+  };
+}
+
 function fetchSnapshot(pr, opts = {}) {
   const run = opts.runGh || ((args) => runGh(args, opts));
   const view = parseJson(
@@ -266,27 +326,15 @@ function fetchSnapshot(pr, opts = {}) {
     throw new GorkhaliError('gh pr view did not return a github.com url', 'IO_ERROR');
   }
 
-  const gql = parseJson(
-    run([
-      'api', 'graphql',
-      '-F', `owner=${loc.owner}`,
-      '-F', `name=${loc.repo}`,
-      '-F', `number=${pr}`,
-      '-f', `query=${GRAPHQL_QUERY}`,
-    ]),
-    'gh api graphql'
-  );
-  const pull = gql && gql.data && gql.data.repository && gql.data.repository.pullRequest;
-  if (!pull) {
-    throw new GorkhaliError('graphql returned no pullRequest', 'IO_ERROR');
-  }
+  const pull = graphqlPull(run, loc, pr, GRAPHQL_QUERY, [], 'gh api graphql');
+  pull.reviewThreads = paginateReviewThreads(run, loc, pr, pull.reviewThreads);
 
   const snapshot = snapshotFromPull(pull, view);
   if (!Number.isInteger(snapshot.pr)) snapshot.pr = Number(pr);
 
   if (snapshot.greptileScore == null) {
     const rest = parseJson(
-      run(['api', `repos/${loc.owner}/${loc.repo}/issues/${pr}/comments?per_page=100`]),
+      run(['api', `repos/${loc.owner}/${loc.repo}/issues/${pr}/comments?per_page=100&sort=updated&direction=desc`]),
       'gh api issue comments'
     );
     const list = Array.isArray(rest) ? rest : [];
@@ -416,6 +464,7 @@ const HELP =
 
 module.exports = {
   parseGreptileConfidence,
+  pickLatestGreptileScore,
   decideTick,
   snapshotFromPull,
   fetchSnapshot,
