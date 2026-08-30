@@ -63,13 +63,14 @@ Same rule as above: this document does not restate those findings.
 | B9b | Per-finding table in the baseline miner | DONE | 0.5d | completes B9's stated test; corpus is 0/0 measurable until the first post-B9 fix loop closes |
 | B13 | Structured PR body | DONE | 0.5d | - |
 | P1 | Phase-judgment product packaging | DONE | 1d | W9; this session. Does not reopen B9–B13 |
+| S1 | AI-native SDLC chain (`start` proto-spec + wrap projections + plan-compliance + fix test-file gate) | DONE | this PR | JSON stays canonical; no intake skill |
 | E1 | Eval cwd sandboxing | PENDING | 1d | gates the 7 judge cases |
 | E2 | Release script for the four plugin manifests | PENDING | 1d | - |
 | E3 | Diagnose 0/6 route eval failures | PENDING | 1d | cross-refs E1, F7 |
 | E4 | Roster-degradation drill | PENDING | 2d | - |
 | E5 | Verifier-first escalation for direct routes | PENDING | 2d | needs the outcome `route` field |
 | K1 | Kimi Code host (preset, host-support generalization, `.kimi-plugin` manifest) | DONE | - | shipped; version-synced fourth manifest |
-| K2 | Kimi hook adapter | DONE | - | landed via the `.kimi-plugin/plugin.json` `hooks` field (routing-gate on PreToolUse, greploop-gate on Stop); engineer-model-gate deliberately not wired |
+| K2 | Kimi hook adapter | DONE | - | landed via the `.kimi-plugin/plugin.json` `hooks` field (routing-gate and test-file-gate on PreToolUse, greploop-gate on Stop); engineer-model-gate deliberately not wired |
 | K3 | Kimi eval baseline (`evals/baselines/k3.json`) | PENDING | 0.5d | needs a real `--host kimi` run; do not fabricate |
 | K4 | Kimi cost attribution in `scripts/cost-report.js` | PENDING | 1d | needs Kimi Code transcript format access (session `wire.jsonl` files are the likely source) |
 | K5 | Verify per-spawn model selection on Kimi | PENDING | 0.5d | if the Agent tool gains a model param, apply the tiered preset at spawn and wire engineer-model-gate; until then `delegation.model_select` stays `unavailable` |

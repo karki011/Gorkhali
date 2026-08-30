@@ -72,6 +72,11 @@
             "type": "command",
             "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/routing-gate.js\"",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/test-file-gate.js\"",
+            "timeout": 5
           }
         ]
       }

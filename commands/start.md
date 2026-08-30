@@ -44,11 +44,15 @@ Agent spawn rules (all routes):
 
 ## Phase A: Context
 
-> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of gorkhali state.
+> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of gorkhali state. Product-repo `.gorkhali/sdlc/` and `intent/` markdown files are the committed audit chain, not session state.
 
 1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
    `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
 2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
+2.4. **Ingest committed intent when present.** After the ticket id is known:
+   `node <skill-directory>/scripts/sdlc-chain.mjs ingest --workspace <workspace> --task {TICKET}`
+   If `found`, use `summary` as session intent. Foreign `draft` stays plan-only.
+   Not lifecycle state.
 2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Chief env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${GORKHALI_DATA:-$HOME/.gorkhali}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.chief-active"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/gorkhali-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
 2.6. Link session to cost ledger (silent, never blocks): `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (advisory guard, `{PR_BOOTSTRAP}` per `_shared.md` §Paths - empty `$PR` skips silently)
 3. Jira MCP → fetch ticket + AC. Grep `learnings/INDEX.md` for the files this task will touch; do not paste the whole INDEX.
@@ -87,6 +91,16 @@ READ `reference/router.md` for full algorithm.
 2. Classify: hard overrides → uncertainty → scope → learnings correction → route
 3. Write `route-decision.json`. Report: `"[{ROUTE}] {rationale}"`
    Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-b-route || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
+
+## Proto-spec (after intent.json)
+
+No product-repo `.gorkhali/sdlc/` until wrap. Operator running start → Status `accepted`; foreign `draft` from 2.4 stays plan-only.
+
+- lite/direct: no interview.
+- plan+: ask only what ticket, utterance, ingest, and code cannot answer.
+
+`node <skill-directory>/scripts/sdlc-chain.mjs render --session {SESSION_DIR} --out {SESSION_DIR} --task {TICKET}`
+Session-local projections. Chief never edits project source.
 
 ## Route: LITE (0 gates)
 

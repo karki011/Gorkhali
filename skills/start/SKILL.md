@@ -18,7 +18,8 @@ For a normal start:
 2. Read repository instructions and relevant learnings, then gather bounded
    code, dependency, and risk evidence.
 3. Classify the route and load `../gorkhali/references/planning.md`.
-4. Persist the route and plan artifacts through the portable state helper.
+4. Persist the route and plan artifacts through the portable state helper,
+   then project session-local intent.md via sdlc-chain render into that session.
 5. Stop at every required approval or authorization boundary.
 
 This adapter covers local planning and implementation only. Implementation

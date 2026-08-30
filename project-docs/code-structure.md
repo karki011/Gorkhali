@@ -13,7 +13,7 @@ skills/gorkhali/          # canonical provider-neutral Agent Skill
 ├── SKILL.md             # intent router and invariant workflow
 ├── manifest.json        # bundle and portable contract versions
 ├── references/          # capabilities, profiles, roles, state, workflows, QA
-└── scripts/             # portable state, profile, and impact-analysis helpers
+└── scripts/             # portable state, profile, impact-analysis, and SDLC-chain helpers
 
 {PLUGIN_ROOT}/           # native compatibility plugin
 ├── .claude-plugin/    # Plugin manifest + self-hosted marketplace

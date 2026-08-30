@@ -33,6 +33,11 @@ Categorize the learning and route to the correct domain file:
 
 **If no domain fits**, create a new `learnings/{domain}.md` with `## Patterns`, `## Corrections`, `## Habits` sections.
 
+**Twice rule (Corrections only):** if `learnings/` already has a `[failed]`
+entry with the same approach signature, do not silently append a duplicate.
+Propose promoting the correction into repository instructions (`AGENTS.md` or
+the host equivalent). Do not edit those files without explicit approval.
+
 **Write in caveman-compressed format** — drop articles/filler/hedging, use fragments, short synonyms. Technical terms exact. Example:
 - Not: "You should always make sure to use semantic tokens instead of hardcoded hex values"
 - Yes: "Use semantic tokens, never hardcoded hex"

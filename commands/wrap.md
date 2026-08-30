@@ -114,6 +114,16 @@ Use repo-relative paths. Do not publish local absolute paths, credentials,
 private session data, or screenshots without explicit approval. Do not commit
 Gorkhali session artifacts.
 
+Project the canonical session JSON into the product-repo audit chain (not
+session state) before staging:
+
+```text
+node <skill-directory>/scripts/sdlc-chain.mjs render --session {SESSION_DIR} --out .gorkhali/sdlc/{TICKET} --task {TICKET}
+```
+
+Stage `.gorkhali/sdlc/{TICKET}/` with the product commit. Missing stages omit
+their files. Never invent fields.
+
 ## 4. Authorize and cross the portable ship gate
 
 PR-shipping authorization is distinct from implementation authorization. When the
