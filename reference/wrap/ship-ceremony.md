@@ -84,7 +84,10 @@ Skill(skill="gorkhali:greploop", args="{PR_NUMBER}")
 
 **Phase 1** classifies, tags, and resolves review comments from **all authors** (`reference/greploop.md`). Greptile comments still end with `@greptileai`; every other author is tagged `@<login>`. Bounded by `REVIEW_LOOP_MAX` (default 5).
 
-**Phase 2** arms the standing watch (`reference/pr-watch.md`): every tick Clerk emits `CHIEF_PING` — including idle. `{new:false}` is illegal. Chief must `CHIEF_ACK`. Never merge.
+**Phase 2** arms the standing watch (`reference/pr-watch.md`): run
+`scripts/lib/pr-watch-tick.js`. The script emits `CHIEF_PING` and stops when
+every thread is resolved or Greptile is 5/5. `{new:false}` is illegal. Chief
+must `CHIEF_ACK`. Never merge.
 
 - Skip if section 4 skipped the PR (no PR → no greploop).
 - If `gh` unavailable or greploop errors: log a warning. Do not block the wrap. A tick without `CHIEF_PING` is failure, not quiet.

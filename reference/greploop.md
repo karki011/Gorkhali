@@ -5,8 +5,9 @@ Loaded by `/gorkhali:greploop`. Two phases after wrap creates a ready-for-review
 1. **Phase 1 — all-author classify / tag / resolve.** Fetch review comments from
    every author, classify them, fix or push back, tag the author, resolve threads.
    Greptile comments still end with `@greptileai`.
-2. **Phase 2 — arm watch.** Write `{SESSION_DIR}/pr-watch.json` and run the first
-   `CHIEF_PING` tick (`reference/pr-watch.md`). Idle still pings Chief.
+2. **Phase 2 — arm watch.** Write `{SESSION_DIR}/pr-watch.json` and run
+   `scripts/lib/pr-watch-tick.js` (`reference/pr-watch.md`). The script stops
+   on resolved threads or Greptile 5/5. Idle still pings Chief only while dirty.
 
 Adapted from [greptileai/skills `greploop`](https://github.com/greptileai/skills) (MIT). GitHub-only;
 multi-platform branches stripped. Tag `@greptileai`, in-thread replies, and push-before-reply are
@@ -140,7 +141,7 @@ For Greptile's summary specifically, Greptile **edits a single summary comment i
 Parse for:
 - **Unresolved inline comments** from every author — plus any actionable items in a Greptile summary's "Prompt to fix all with AI" section, **even if the inline endpoint returns zero**.
 - **Outside-diff items** — numbered items extracted from the `<details>...Comments Outside Diff...` block; treat as unresolved until addressed.
-- **Greptile confidence** (when present) — pattern like `4/5` or `Confidence: 5/5`. Informational; Phase 1 exits on unresolved-item count, not on score alone.
+- **Greptile confidence** (when present) — pattern like `4/5` or `Confidence: 5/5`. Informational for Phase 1: Phase 1 exits on unresolved-item count, not on score alone. Phase 2 watch treats **5/5** as `greptile_max` and stops.
 
 Skip our own replies and already-resolved threads.
 
@@ -285,10 +286,11 @@ node -e '
 After Phase 1 releases the gate, arm the standing watch. Do not ask.
 
 1. Write `{SESSION_DIR}/pr-watch.json` with keys **only** `pr`, `status` (`watching`), `tick` (`0`), `watermark` (RFC3339, newest seen comment timestamp or now), `lastPingAt` (now). See `reference/schemas/pr-watch.md`. Extra keys are illegal.
-2. Run **one** watch tick per `reference/pr-watch.md`. Spawn Watch Clerk (`subagent_type: "clerk"`, `name: "clerk-herald"`). Clerk MUST emit `CHIEF_PING` — including `verdict: idle`. Boolean `{new:false}` is illegal. Missing sentinel is a failed tick, not quiet.
-3. Chief MUST `CHIEF_ACK` then `ack_rearm` / `ack_assess` / `ack_stop`.
+2. Run **one** watch tick: `node "$PR/scripts/lib/pr-watch-tick.js" --watch-file "{SESSION_DIR}/pr-watch.json"` (resolve `$PR` the same way commands do). The script classifies GitHub and emits `CHIEF_PING`. Empty `$PR` or non-zero CLI → failed tick; no hand-typed block. Boolean `{new:false}` is illegal.
+3. If the ping is `ack_stop` (`threads_clean`, `greptile_max`, merged, closed, ceiling), the script already wrote `status: stopped`. Do not re-arm. Spawn `clerk-herald` only on `ack_assess`.
+4. Chief MUST `CHIEF_ACK` then `ack_rearm` / `ack_assess` / `ack_stop`.
 
-Host interval: `PR_WATCH_INTERVAL_SECONDS` (120). Tick ceiling: `PR_WATCH_TICK_CEILING` (60). Never merge.
+Host interval: `PR_WATCH_INTERVAL_SECONDS` (120). Tick ceiling: `PR_WATCH_TICK_CEILING` (60). Early stop: all threads resolved **or** Greptile 5/5. Never merge.
 
 ---
 
@@ -306,7 +308,7 @@ Greploop complete.
   PR:          #1234
   Iterations:  2
   Remaining:   0
-  Watch:       watching
+  Watch:       stopped
 ```
 
 If stopped at `--max` with work left, list the remaining items (`path:line — "comment"`) and suggest next steps. greploop never merges the PR — merging stays a human action.

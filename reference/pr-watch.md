@@ -1,13 +1,20 @@
 # PR Watch Protocol (`CHIEF_PING`)
 
-Standing watch after `/gorkhali:greploop` Phase 1. Clerk glances at GitHub on an
-interval; **every tick pings Chief**, including idle. A boolean `{new:false}` is
-not a ping — it is swallowed, the loop goes quiet, and Chief never hears that
-the watch is still alive. Idle without a ping is the failure mode.
+Standing watch after `/gorkhali:greploop` Phase 1. **Every tick is
+`scripts/lib/pr-watch-tick.js`.** The script glances at GitHub, emits
+`CHIEF_PING`, and writes `pr-watch.json`. A boolean `{new:false}` is not a ping
+— it is swallowed, the loop goes quiet, and Chief never hears that the watch is
+still alive. Idle without a ping is the failure mode.
 
 Codec: `scripts/lib/chief-ping.js`. Schema: `reference/schemas/pr-watch.md`.
 
 Never merge. Merging stays a human action.
+
+The watch **stops as soon as** every review thread is resolved **or** Greptile
+reports labeled **Confidence: 5/5**. `threads_clean` needs at least one thread;
+a PR with zero review threads stays idle. Stray `N/5` in a comment body is not
+a score. It does not keep re-arming after a real stop. Phase 1 still exits on
+unresolved-item count, not on score alone; this early stop is Phase 2 only.
 
 ---
 
@@ -15,25 +22,35 @@ Never merge. Merging stays a human action.
 
 | Role | Model | Does |
 | --- | --- | --- |
-| Watch Clerk | economy | GitHub timestamp vs watermark; emit `CHIEF_PING`; never classify |
+| Tick script | none | `pr-watch-tick.js` classifies GitHub; emits `CHIEF_PING`; writes watch status `stopped` on exit |
 | Chief | session | Ack every ping; assess only on `new_work` |
 | Engineer | balanced | Code change only after Chief's candidate |
 | Inspector | economy | Touched files after a fix |
-| Reply Clerk | economy | Post reply / resolve after Chief decides |
+| Reply Clerk | economy | Post reply / resolve after Chief decides (`clerk-herald`) |
 
-Idle cost is one Haiku glance + one Chief ack line. Not a review dump.
+Idle cost is one script glance + one Chief ack line. Not a review dump. After
+`threads_clean` or `greptile_max`, there is no next tick.
 
 ---
 
-## Spawn (every tick)
+## Tick (every interval)
 
-Spawn Watch Clerk:
+Do **not** invent a verdict. Do not have Clerk glance GitHub. Resolve `$PR`
+the same way commands do (`commands/_shared.md` §Paths). Then:
 
+```text
+node "$PR/scripts/lib/pr-watch-tick.js" --watch-file "{SESSION_DIR}/pr-watch.json"
+```
+
+The script prints a `CHIEF_PING` block (pipe through
+`scripts/lib/chief-ping.js` `format` is not required — the tick CLI already
+emits the block). Empty `$PR` or a non-zero CLI is a **failed** tick. Do not
+fall back to `{new:false}` or a hand-typed block.
+
+`clerk-herald` is **not** spawned for the glance. Spawn
 `Agent({ subagent_type: "clerk", name: "clerk-herald", mode: "bypassPermissions" })`
-
-Same-site re-runs reuse `clerk-herald` (the watch tick is one logical site).
-Name from `reference/roster.md` slot 3. Clerk does not decide. Clerk does not
-stay quiet. Chief does not poll GitHub.
+only after `ack_assess`, to post the reply / resolve. Same-site re-runs reuse
+that name (roster slot 3).
 
 ---
 
@@ -53,11 +70,12 @@ It does not keep polling.
 
 - Returning `{new:false}` (or any boolean-only JSON) and ending the turn
 - Sleeping until the next tick without a ping
-- Clerk re-arming itself without Chief
+- Clerk classifying GitHub or re-arming itself without Chief
 - Empty tool output meaning "still watching"
 - Loading comment bodies on an idle tick
 - Missing `CHIEF_PING` sentinel — Chief treats the tick as **failed** and either
-  re-spawns Clerk once or pauses. It does not invent "probably idle."
+  re-runs the tick script once or pauses. It does not invent "probably idle."
+- Re-arming after `threads_clean` or `greptile_max`
 
 ---
 
@@ -65,20 +83,16 @@ It does not keep polling.
 
 ```text
 every tick:
-  Clerk (Haiku) checks GitHub
-  Clerk ALWAYS emits CHIEF_PING via the codec CLI   ← even if zero new comments
+  node scripts/lib/pr-watch-tick.js --watch-file {SESSION_DIR}/pr-watch.json
+  script ALWAYS emits CHIEF_PING   ← even if zero new comments
+  on exit it writes status: stopped (threads_clean | greptile_max | merged | …)
   Chief MUST parse then ack via the codec CLI
     idle     → re-arm next tick
     new work → pull those comments → push back OR Engineer
-    exit     → stop the loop
+    exit     → stop the loop (do not re-arm)
 ```
 
-Clerk emits the ping **only** by running the codec CLI — never by hand-typing the
-block. Resolve `$PR` the same way commands do (`commands/_shared.md` §Paths). If
-`$PR` is empty or the CLI exits non-zero, the tick **failed** (illegal ping /
-missing codec). Do not fall back to `{new:false}` or a hand-typed block.
-
-`$PING_JSON` is this shape (Clerk fills values, then pipes to `format`):
+`$PING_JSON` shape (the script fills this; `--json` prints it):
 
 ```json
 {
@@ -94,25 +108,28 @@ missing codec). Do not fall back to `{new:false}` or a hand-typed block.
 ```
 
 `verdict` is `idle | new_work | exit`. `exit_reason` is
-`none | merged | closed | approved_clean | ceiling | user_stop`.
+`none | merged | closed | approved_clean | threads_clean | greptile_max | ceiling | user_stop`.
 `next_action` is `ack_rearm | ack_assess | ack_stop`.
 
 ```text
-printf '%s\n' "$PING_JSON" | node "$PR/scripts/lib/chief-ping.js" format
+printf '%s\n' "$CLERK_TURN" | node "$PR/scripts/lib/chief-ping.js" parse
 ```
 
 - `verdict: idle` → `new_count` is 0, `new_ids` empty, `exit_reason: none`, **still a ping**. `next_action` is `ack_rearm`.
 - `verdict: new_work` → `new_count >= 1`, `new_ids` length equals count, **ids only (no bodies)**. `next_action` is `ack_assess`.
 - `verdict: exit` → `exit_reason` is not `none`. `next_action` is `ack_stop`.
 
-Critical exits (any one → `verdict: exit`): merged, closed, user says stop,
-approved with nothing unresolved (`approved_clean`), ceiling (ticks / spend).
+Critical exits (any one → `verdict: exit`), first match in the script:
 
-Chief **must** parse Clerk's turn with:
+- merged / closed
+- ceiling (ticks)
+- every review thread resolved (`threads_clean` needs at least one thread and a non-truncated listing; `approved_clean` when GitHub `reviewDecision` is also `APPROVED`)
+- Greptile labeled **Confidence: 5/5** (`greptile_max`; stray `N/5` in a body is ignored)
+- user says stop
 
-```text
-printf '%s\n' "$CLERK_TURN" | node "$PR/scripts/lib/chief-ping.js" parse
-```
+Zero unresolved threads, with at least one thread present, stops even if Greptile is still 4/5. A PR with zero review threads is idle, not `threads_clean`. Greptile 5/5
+stops even if threads remain. Either condition is enough. Do not wait for
+GitHub Approve, and do not keep watching after the PR is already clean. Confidence is the labeled `Confidence: N/5` field only.
 
 Non-zero parse → failed tick, same as missing sentinel. Then ack with:
 
@@ -132,7 +149,7 @@ printf '%s\n' '{"tick":12,"kind":"idle"}' | node "$PR/scripts/lib/chief-ping.js"
 3. Then only:
    - `ack_rearm` — schedule the next tick. No GitHub body fetch. No Engineer.
    - `ack_assess` — pull **those** `new_ids` only. Push back in-thread (`@author`) **or** write a short candidate and spawn Engineer → Inspector on touched files → Clerk replies and resolves.
-   - `ack_stop` — write watch status `stopped`, do not re-arm.
+   - `ack_stop` — do not re-arm. The tick script already wrote `status: stopped`.
 
 If Chief does not ack, the watch is broken. Next host wake must ping again or pause. It must not go idle.
 
@@ -142,11 +159,12 @@ If Chief does not ack, the watch is broken. Next host wake must ping again or pa
 
 `{SESSION_DIR}/pr-watch.json` is only `pr`, `status` (`watching` \| `paused` \| `stopped`),
 `tick`, `watermark`, `lastPingAt`. Not comment text. Not a transcript. Extra keys are illegal.
+The tick script is the writer on each tick.
 
 ---
 
 ## Resume
 
 `/gorkhali:resume`: if `pr-watch.json` exists, `status` is `watching`, and the PR is still
-open, run **one** watch tick without asking. Skip if `paused` / `stopped` or the PR is
-merged / closed. See `commands/resume.md`.
+open, run **one** watch tick without asking (`pr-watch-tick.js --watch-file`). Skip if
+`paused` / `stopped` or the PR is merged / closed. See `commands/resume.md`.
