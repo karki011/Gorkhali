@@ -98,6 +98,11 @@ function inspectRouting(workspace, options = {}) {
     });
     if (identity.kind === 'walk-up' || identity.kind === 'default') return { state: UNKNOWN };
     const repo = identity.id;
+    // session.workspace is recorded as a realpath; identity.root may still be
+    // symlinked (e.g. macOS /var -> /private/var tmpdirs). Compare against the
+    // resolved form so the same workspace is never rejected over a symlink.
+    const identityRootResult = realpath(identity.root);
+    const identityRoot = identityRootResult.state === ACTIVE ? identityRootResult.value : identity.root;
     const pointerResult = readJson(path.join(root, 'state', 'current-session', `${repo}.json`));
     if (pointerResult.state !== ACTIVE) return { state: pointerResult.state };
 
@@ -131,7 +136,7 @@ function inspectRouting(workspace, options = {}) {
         && session.repo_id === repo
         && session.task_id === taskId
         && session.status === 'active'
-        && session.workspace === identity.root
+        && (session.workspace === identity.root || session.workspace === identityRoot)
         && !isStaleActive(session);
       if (isActive) return { state: ACTIVE, sessionDir: sessionDirResult.value };
     }
