@@ -41,6 +41,8 @@ safe operation:
 6. maintainability, complexity that makes the code harder to call later, docs
    the change made stale, and repository-pattern violations.
 
+Comment bloat on changed lines — the §6 never-write list in `reference/comment-discipline.md` — is an advisory finding.
+
 UI component under review -> run the STATE MATRIX CHECK in
 `reference/temperature-review.md` (every enumerated layout state checked for collision,
 occlusion, and margin/padding math against other fixed/absolute elements); missing state

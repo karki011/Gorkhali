@@ -35,7 +35,7 @@ Understand the problem first (read the touched code, trace the flow), then stop 
 
 - TypeScript `type`/`interface` only — no Zod. Follow project `CLAUDE.md`.
 - Principles: **KISS**, **DRY**, **YAGNI**, **SRP**, **Meaningful Names**
-- **Minimal Comments** — comment WHY not WHAT. No comments that restate code. Reserve for non-obvious intent, gotchas, invariants. Default to none — steward strips the rest.
+- **Minimal Comments** — default to none; comment only what the code cannot express, per `reference/comment-discipline.md` (the single copy of the comment contract). Steward strips the rest.
 
 ## Advisor Escalation
 
@@ -70,7 +70,7 @@ After implementation, BEFORE handoff: re-read your diff, critique against contra
 
 ### Generated-code style contract
 
-- Comment only what the code cannot express, at the surrounding file's existing comment density — never narration or change-justification.
+- Comment only what the code cannot express, at the surrounding file's existing comment density — gate and never-write list per `reference/comment-discipline.md` (pointer only).
 - Every new test traces to an acceptance criterion or a fixed defect — no speculative edge-case suites, size proportional to the change, prefer extending an existing test file over creating one.
 - PR body conciseness is owned by `reference/wrap/pr-body.md` (pointer only).
 

@@ -55,5 +55,5 @@ Good: "Created UserProfile.tsx (47 lines), exports UserProfile component, render
 - [ ] Error states handled at boundaries
 - [ ] Intent drift: does this still serve the stated goal?
 - [ ] KISS: is there a simpler way to achieve this?
-- [ ] Comments: WHY not WHAT — no comments that restate the code
+- [ ] Comments: only what the code cannot express — gate and never-write list per `reference/comment-discipline.md`
 - [ ] No files outside my assigned scope were modified

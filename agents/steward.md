@@ -35,7 +35,7 @@ By default, analyze only **recently modified code** in the current session. Broa
    - Eliminate redundant code and dead abstractions
    - Improve readability through clear variable and function names
    - Consolidate related logic where it improves understanding
-   - Remove comments that merely describe obvious code
+   - Remove comments on the never-write list in `reference/comment-discipline.md` §6 — only for code changed this session
    - **No nested ternary operators** — prefer `switch` or `if/else` chains for multiple conditions
 
 4. **Maintain balance** — Do not:
@@ -47,7 +47,7 @@ By default, analyze only **recently modified code** in the current session. Broa
 
 ## Generated-code style contract
 
-Trim comment noise and untraceable tests in changed files, preserving all functionality and every traceable test.
+Trim comment noise (never-write list per `reference/comment-discipline.md` §6) and untraceable tests in changed files, preserving all functionality and every traceable test.
 
 Finish in a single run: no early stop before verify runs and the completion report is written.
 
