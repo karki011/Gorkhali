@@ -43,12 +43,33 @@ Spawn the Opposition agent, blocking (`subagent_type: "opposition"`, `name: "opp
 
 One gate, both jobs: Opposition is the single plan critic, so this spawn satisfies the deliberation challenge (`reference/router/deliberation.md`) and decomposition validation (learnings collisions, blast radius, coverage, scope, dependency order) at once. There is no separate plan-check pass.
 
-## Codebase Research
+## Codebase Research (delegated, `research` profile)
 
-Spawn Explore (session model, `name: "explore-farwick"`) + Plan (session model, `name: "planner-drafton"`; `subagent_type` passed to `Agent` is still `Plan` — see `reference/roster.md`'s Explore / Planner note) agents for:
-- File structure and patterns
-- Existing similar implementations
-- Import/dependency chains
+Chief does not read project source to plan. It spawns the planner, blocking, and ingests the result by `jq` extract:
+
+```
+Agent call:
+  description: "Planner: research + author plan.json for {TICKET}"
+  subagent_type: "engineer"
+  name: "planner-drafton"
+  mode: "bypassPermissions"
+  model: "<resolved>"   # node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role engineer --profile research --host claude-code → `opus`
+  prompt: |
+    You are an ENGINEER with ROLE FOCUS: planner (research + plan authoring; NO project-source edits).
+    Intent: {SESSION_DIR}/intent.json. Ticket AC: {inline, already extracted}. Learnings corrections: {inline}.
+    Research the codebase yourself: file structure and patterns, existing similar implementations,
+    import/dependency chains, and every `read_first` path a task will need.
+    Write {SESSION_DIR}/plan.json per `reference/schemas/plan.md` (_meta.version 3), then author
+    {SESSION_DIR}/plan.candidate.html and promote it with validate-review-html.mjs (see start.md PLAN gate).
+    Write research notes to {SESSION_DIR}/agent-outputs/planner.md.
+    Return ONLY: briefing (What / Problem / How, <=8 lines), task table (id · files · dependsOn), validator exit code.
+```
+
+Revision after Opposition or gate feedback is the same spawn with `Revise {SESSION_DIR}/plan.json against {SESSION_DIR}/plan-check.json (and this feedback: ...)`; Chief passes paths, not the challenges' text.
+
+Spawn `explore-farwick` (native `Explore`, same `research` model) alongside only when the blast radius is unfamiliar or crosses repos; it returns a <=40-line survey that Chief forwards to the planner inline. Never spawn it to answer a question Chief could settle from `intent.json`.
+
+After the planner returns, Chief reads `jq '.briefing, [.tasks[] | {id, files, dependsOn}]' plan.json` and nothing else from it.
 
 ## Anti-Repetition Check
 

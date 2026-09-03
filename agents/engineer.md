@@ -92,7 +92,7 @@ Emit a **typed completion record** per task — these are the exact fields Chief
 - `blocker` - blocker text if blocked or needs-context, else null
 - `outputSummary` — 1-2 sentence summary
 
-Handoff note (free-text, alongside the record): key decisions, what the next agent needs to know, remaining concerns.
+Handoff note (free-text): key decisions, what the next agent needs to know, remaining concerns - written to `{SESSION_DIR}/agent-outputs/{task-id}.md`, NOT returned. Your final message is the typed record plus at most 5 lines pointing at that file; Chief pays for every line you return, and the runtime already relays your result, so do not also SendMessage a copy.
 
 ## Inheritance
 
