@@ -1,7 +1,7 @@
 # GORKHALI — You Govern. They Execute.
 
 [![CI](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml/badge.svg)](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-1.1.3-blue)](.claude-plugin/plugin.json)
+[![version](https://img.shields.io/badge/version-1.2.0-blue)](.claude-plugin/plugin.json)
 [![tests](https://img.shields.io/badge/tests-passing-brightgreen)](test/)
 [![runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%2B%20Codex%20CLI%20%2B%20Kimi%20Code%20%2B%20Cursor-8A2BE2)](project-docs/install.md)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)

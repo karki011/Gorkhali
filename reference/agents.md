@@ -25,19 +25,24 @@ command to run. `test/agent-seniority.test.js` holds title and profile together.
 
 ## Model Routing (Chief decides at spawn)
 
-**Delegated work runs a ladder: `haiku` for the mechanical roles, `sonnet` for everything above them. Opus stays orchestration-only.** On this host
-`model-presets.json` maps `economy` → `haiku`, `balanced` and `deep` → `sonnet` at effort `high`, and `frontier`
-→ inherit (the session model), so the policy ladder now costs what it says. Inspector and Clerk (`economy`) run
-haiku; Engineer, Surveyor, Opposition, and Steward (`balanced`) run sonnet; Auditor, Justice, Detective, and
-Advisor (`deep`) keep sonnet at high effort as the review quality floor.
+**Delegated work runs a ladder: `haiku` for the mechanical roles, `sonnet` for everything above them, and
+`opus` for the one reading rung, `research`. Opus is otherwise orchestration-only.** On this host
+`model-presets.json` maps `economy` → `haiku`, `balanced` and `deep` → `sonnet` at effort `high`, `research` →
+`opus` at `high`, and `frontier` → inherit (the session model), so the policy ladder now costs what it says.
+Inspector and Clerk (`economy`) run haiku; Engineer, Surveyor, Opposition, and Steward (`balanced`) run sonnet;
+Auditor, Justice, Detective, and Advisor (`deep`) keep sonnet at high effort as the review quality floor. No role
+sits on `research` by default: the planner and explore spawns in `reference/planning.md` → Codebase Research
+request it explicitly (`--role engineer --profile research`), because the point of that rung is to move every
+project-source read out of Chief's window into a worker's.
 The seniority ladder is unchanged and still load-bearing: the rung a role sits at in
 `model-policy.json` decides how Chief BRIEFS it (a principal gets the problem, a staff engineer gets
 a resolved contract, an engineer gets the commands) — and now, what it costs.
 
 **Escalation is still not a routing move.** `deep` resolves to the same sonnet-high as `balanced` on this
 host, so when a subtask turns out to be too big, too fuzzy, or too cross-cutting for the model, the answer is
-to **re-decompose it** — there is nothing above sonnet to hand delegated work to. Weak scoping is fixed by
-splitting the assignment, never by reaching for a bigger model.
+to **re-decompose it** — there is nothing above sonnet to hand delegated *implementation* to (`research` is
+for reading and planning, never for implementing). Weak scoping is fixed by splitting the assignment, never by
+reaching for a bigger model.
 
 **Effort is inherited from the session (`high`)** — there is NO per-spawn effort param, so never try to set
 effort at spawn time. The effort values in `model-presets.json` record routing intent for hosts that support
@@ -53,10 +58,13 @@ routing choice belongs in Chief's visible output, and `hooks/engineer-model-gate
 that omits it.
 
 - **Mechanical / tool-driver roles** (Inspector, Clerk) → `haiku`.
-- **Implementation** (Engineer), **judgment tool-drivers** (Steward, Surveyor, Opposition, and
-  search/Explore-style spawns), and **reasoning / review roles** (Auditor, Justice, Detective, Advisor)
-  → `sonnet`.
-- **Orchestration** (Chief) → the session model, which is the only place Opus still belongs.
+- **Implementation** (Engineer), **judgment tool-drivers** (Steward, Surveyor, Opposition), and
+  **reasoning / review roles** (Auditor, Justice, Detective, Advisor) → `sonnet`.
+- **Research and plan authoring** (`planner-drafton`, `explore-farwick`, `scout-*`) → `opus` via
+  `--profile research`. These spawns read the codebase and write session artifacts (`plan.json`,
+  `plan.candidate.html`, research notes); they never edit project source.
+- **Orchestration** (Chief) → the session model. Chief reads tickets, learnings, and `jq` extracts of
+  session artifacts; it does not read project source or author `plan.json`.
 
 When decomposing, keep tagging each subtask `mechanical | standard | complex`. The tag does not select a
 model — the role's policy profile does that — it is the honest scope signal that tells Chief whether the
@@ -145,6 +153,13 @@ point here.
    outputs or file bodies back into Chief context.
 4. **Ingest verdicts, not bodies.** Chief consumes each subagent's verdict/summary section, never the full
    output or logs. Summaries enter the conversation; full outputs stay in their files.
+5. **Extract, never Read, session artifacts.** `plan.json` alone is ~12K tokens when read whole and ~12K
+   again when Chief writes it. Chief neither: the planner (`research` profile) authors it, and Chief pulls
+   only the fields it needs with `jq` — `.briefing`, `.tasks[] | {id, files, dependsOn}`,
+   `.oppositionVerdict`. The same applies to `plan-check.json`, `wiring.json`, and every `agent-outputs/*.md`.
+6. **Bound what comes back.** Every spawn prompt states the return contract: a typed record plus at most 5
+   lines, with the full report written to `{SESSION_DIR}/agent-outputs/`. A subagent that returns its whole
+   report has failed the contract; do not re-read it, spot-check the file.
 
 ## SOLO vs SHADOWS Routing
 

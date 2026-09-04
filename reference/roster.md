@@ -150,19 +150,19 @@ is assigned `justice-gavelin` in the Reference-Level table below. `robeck`/
 `sagard`/`verdick` remain genuine unused reserve capacity for any future
 Justice site.
 
-**Explore / Planner / Hunter note:** these name the generic Claude Code
-`Explore` and `Plan` subagent types when `reference/planning.md`'s Codebase
-Research step spawns them, and the external
+**Explore / Planner / Hunter note:** `explore` names the generic Claude Code
+`Explore` subagent type when `reference/planning.md`'s Codebase Research step
+spawns it, and `hunter` names the external
 `pr-review-toolkit:silent-failure-hunter` agent that
 `reference/agent-protocols/quality-gate.md`'s Full Gauntlet spawns as Hunter.
-All three role tokens are deliberately NOT renamed under this roster's role
-vocabulary, because they bind to identifiers outside this roster's control -
-the native Explore/Plan agent types and the external silent-failure-hunter
-plugin agent - and renaming the role prefix would break that binding; only
-their character slots (`farwick`, `drafton`, `quarrick`) changed. The Planner
-role prefix is `planner` (not `plan`) to avoid visual collision with
-`plan.json` in prose and filenames; the underlying `subagent_type` value
-passed to `Agent` is still `Plan`.
+Both role tokens are deliberately NOT renamed under this roster's role
+vocabulary, because they bind to identifiers outside this roster's control,
+and renaming the role prefix would break that binding; only their character
+slots (`farwick`, `quarrick`) changed. `planner` is different: it is an
+`engineer`-typed spawn with ROLE FOCUS: planner on the `research` profile (the
+native `Plan` type cannot write files, and the planner must author `plan.json`
+and the review HTML so Chief never does). The role prefix stays `planner` (not
+`plan`) to avoid visual collision with `plan.json` in prose and filenames.
 
 **Council note:** the `council-*` function aliases (`council-mvp`,
 `council-risk`, `council-user`, `council-reuse`, `council-simple`,
@@ -212,8 +212,8 @@ command file. Same rules apply - each gets its own permanent slot.
 |---|---|---|---|---|
 | `reference/evolution.md` | Tier 0 - read-only external-absorption scout | scout | 9 | `scout-crandal` |
 | `reference/planning.md` | Opposition (mandatory, every plan) - the one plan critic, blocking; writes `plan-check.json` | opposition | 2 | `opposition-parlow` |
-| `reference/planning.md` | Codebase Research - `Explore` agent (file structure, patterns, similar implementations) | explore | 1 | `explore-farwick` |
-| `reference/planning.md` | Codebase Research - `Plan` agent (same research pass, architect-facing) | planner | 1 | `planner-drafton` |
+| `reference/planning.md` | Codebase Research - optional `Explore` survey when blast radius is unfamiliar (`research` profile) | explore | 1 | `explore-farwick` |
+| `reference/planning.md` | Codebase Research - planner: `engineer` with ROLE FOCUS: planner on `research` profile; researches and authors `plan.json` + review HTML | planner | 1 | `planner-drafton` |
 | `reference/agent-protocols/quality-gate.md` | Full Gauntlet Step 2 - steward agent (paired with the hunter below) | steward | 2 | `steward-tessle` |
 | `reference/agent-protocols/quality-gate.md` | Full Gauntlet Step 2 - `pr-review-toolkit:silent-failure-hunter` | hunter | 1 | `hunter-quarrick` |
 | `reference/agent-protocols/quality-gate.md` | Dual-Auditor Protocol - second reviewer alongside the primary Auditor | auditor | 4 | `auditor-pruett` |
