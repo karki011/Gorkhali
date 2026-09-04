@@ -24,7 +24,9 @@ not restated here. This file carries only the agent → default-model lookup tha
 | steward | sonnet (frontmatter pin) | simplification |
 
 - Every delegated role is `sonnet` on this host - the seniority differences in the table above are
-  about how tightly Chief briefs each role, not about what each one costs. Opus is orchestration-only.
+  about how tightly Chief briefs each role, not about what each one costs. One exception: `research`
+  (`opus`) for planner/explore/scout spawns that read the codebase and author `plan.json` for
+  Chief. Opus is otherwise orchestration-only.
 - `sonnet` resolves to `claude-sonnet-5`; `opus` to `claude-opus-5`; `haiku` to `claude-haiku-4-5`. Frontmatter and Agent-tool spawn params accept bare aliases only — never dated or full model IDs.
 - Check MODEL_OVERRIDE at session start.
 

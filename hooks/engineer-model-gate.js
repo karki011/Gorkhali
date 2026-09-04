@@ -80,7 +80,7 @@ const NAME_RE = /^[a-z][a-z0-9-]*$/;
 // Roles whose NAMES legitimately ride on a different `subagent_type`. Scouts and
 // Council members are read-only Engineer spawns, so their distinct names prevent
 // either role from being mistaken for an implementation Engineer.
-const NAME_ROLE_ALIASES = { engineer: ['scout', 'council'] };
+const NAME_ROLE_ALIASES = { engineer: ['scout', 'council', 'planner'] };
 
 const POLICY_FILE = path.join(
   __dirname, '..', 'skills', 'gorkhali', 'references', 'model-policy.json'

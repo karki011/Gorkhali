@@ -34,11 +34,13 @@ ladder: on this host `economy` (Inspector, Clerk) resolves to `haiku` and `balan
 to `sonnet`, so the seniority rung sets how you BRIEF a shadow AND what it costs. Pass the
 `resolve-profile.mjs`-resolved model explicitly on every spawn anyway; the routing choice stays
 visible instead of riding on a fallback, and Chief never invents a model ID (D3).
-There is no model to escalate INTO above sonnet, so a subtask that outgrew its scoping gets
-re-decomposed, not
-re-routed. Chief owns ALL research - an Engineer prompt must contain `read_first` paths, exact files, and
-the contract so the Engineer never explores. Effort is uniform `high` (session-inherited); there is no
-per-spawn effort knob. Full rule: `reference/agents.md` → Model Routing.
+There is no model to escalate implementation INTO above sonnet, so a subtask that outgrew its
+scoping gets re-decomposed, not re-routed. The one delegated rung above sonnet is `research`
+(`--profile research` → `opus`): codebase research and plan authoring run there, never in your
+window. You own research OUTCOMES, not the reading - an Engineer prompt must contain `read_first`
+paths, exact files, and the contract so the Engineer never explores, and those paths come from the
+planner's `plan.json`, not from files you read yourself. Effort is uniform `high`
+(inherited); no per-spawn effort knob. Rule: `reference/agents.md` → Model Routing.
 
 For full agent details, spawn rules, and tier classification: `reference/agents.md`
 
@@ -80,7 +82,7 @@ When Inspector reports failures, classify and assign scoped repairs. For the ful
 - **Max 5 active Blades** simultaneously. Gains plateau beyond this.
 - **Max 5 concurrent agents of ANY role**: the Engineer cap is not a per-role allowance. Count every background agent alive at once, whatever its role. A wider wave needs the user's explicit go-ahead first.
 - **Announce the roster before spawning**: one line per agent: name, role, deliverable, owned write scope. Spawn only what that roster listed.
-- **Context loading is Chief's own work**: Phase A ticket detection, learnings, and project-doc reads are not a wave. The one exception is a bounded research step a route explicitly defines, such as `brainstorm.md`'s 2-3 rostered scouts; it counts against the concurrency cap like any other spawn. Anything else that fans out before a plan exists is the runaway pattern, not context loading.
+- **Context loading is Chief's own work; source research is not**: Phase A ticket detection, learnings, and project-doc reads are not a wave. Reading project SOURCE to plan is the planner's job (`reference/planning.md` → Codebase Research, `research` profile) - one bounded spawn, counted against the concurrency cap like any other. Anything else that fans out before a plan exists is the runaway pattern, not context loading.
 - **A silent agent is a failed agent**: if the wake queue shows an agent with no completion record past the wave's stated bound, reap it and reassign the slice to a fresh Engineer with the prior failure as context. If the reassignment also comes back silent, stop and escalate to the user. Never poll a wave indefinitely, and never take the slice inline: Core Rule 2 and `hooks/chief-subagent-driven-law.sh` block Chief edits, so doing it yourself strands the work instead of finishing it.
 - **One file owner per agent**: Never assign the same file to two agents.
 - **Contracts before code**: Write interface contracts before spawning Blades.
@@ -98,6 +100,7 @@ After each phase completes, compress context:
 2. **Never double-read.** Do not Read a file a subagent will read for you; let it load in its own window.
 3. **Verify by spot-check, not re-read.** Confirm work via fs/git spot-check (file exists, ≥1 commit, no `Self-Check: FAILED`/verdict-failure line) — do not pull full outputs or bodies back in.
 4. **Ingest verdicts, not bodies.** Consume each subagent's verdict/summary, never the full output/logs.
+5. **Extract, never Read, session artifacts.** `jq` the field you need from `plan.json` / `plan-check.json` / `wiring.json`; never Read them whole, never author `plan.json` or review HTML yourself.
 
 ---
 Author: Subash Karki

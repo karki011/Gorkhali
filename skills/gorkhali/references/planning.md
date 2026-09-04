@@ -13,7 +13,8 @@ mutation or external lifecycle actions.
    explains why this case differs.
 3. Trace the current code path and existing patterns. For shared or refactored
    surfaces, inspect dependency impact with a native graph or the bundled
-   read-only impact analyzer.
+   read-only impact analyzer. A `research` worker traces and drafts the
+   plan; the orchestrator ingests fields, never source files.
 4. Record capability availability without destructive probes. A fallback must
    be visible and preserve the same decision or evidence contract.
 5. Apply the minimum-sufficient ladder after understanding the code path:

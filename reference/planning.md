@@ -43,12 +43,43 @@ Spawn the Opposition agent, blocking (`subagent_type: "opposition"`, `name: "opp
 
 One gate, both jobs: Opposition is the single plan critic, so this spawn satisfies the deliberation challenge (`reference/router/deliberation.md`) and decomposition validation (learnings collisions, blast radius, coverage, scope, dependency order) at once. There is no separate plan-check pass.
 
-## Codebase Research
+## Codebase Research (delegated, `research` profile)
 
-Spawn Explore (session model, `name: "explore-farwick"`) + Plan (session model, `name: "planner-drafton"`; `subagent_type` passed to `Agent` is still `Plan` — see `reference/roster.md`'s Explore / Planner note) agents for:
-- File structure and patterns
-- Existing similar implementations
-- Import/dependency chains
+Chief does not read project source to plan. It spawns the planner, blocking, in two passes (`hooks/engineer-model-gate.js` admits the `planner-` alias on `engineer` spawns), and ingests each result by `jq` extract:
+
+**Draft pass** (before Opposition; writes `plan.json` only, no HTML yet):
+```
+Agent call:
+  description: "Planner: research + draft plan.json for {TICKET}"
+  subagent_type: "engineer"
+  name: "planner-drafton"
+  mode: "bypassPermissions"
+  model: "<resolved>"   # node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role engineer --profile research --host claude-code → `opus`
+  prompt: |
+    You are an ENGINEER with ROLE FOCUS: planner (research + plan authoring; NO project-source edits).
+    Intent: {SESSION_DIR}/intent.json. Ticket AC: {inline, already extracted}. Learnings corrections: {inline}.
+    Research the codebase yourself: file structure and patterns, existing similar implementations,
+    import/dependency chains, and every `read_first` path a task will need.
+    Write {SESSION_DIR}/plan.json per `reference/schemas/plan.md` (_meta.version 3). Leave `oppositionVerdict`
+    unset and do NOT author any HTML: Opposition has not run yet.
+    Write research notes to {SESSION_DIR}/agent-outputs/planner.md.
+    Return ONLY: briefing (What / Problem / How, <=8 lines), task table (id · files · dependsOn).
+```
+
+**Finalize pass** (after EVERY Opposition verdict, PROCEED included; same spawn name):
+```
+    Finalize {SESSION_DIR}/plan.json against {SESSION_DIR}/plan-check.json: set `oppositionVerdict` from its
+    verdict; on REVISE also address each challenge (and this gate feedback, if any: ...). Then author
+    {SESSION_DIR}/plan.candidate.html from plan.json + plan-check.json and promote it with
+    validate-review-html.mjs (command in start.md PLAN gate). Return ONLY: verdict recorded, changed task ids,
+    validator exit code.
+```
+
+The HTML is generated only after `plan-check.json` exists, so the gate page always carries Opposition provenance and `plan.json` never guesses its verdict. Chief passes paths, not the challenges' text; a REVISE round is finalize → Opposition → finalize again.
+
+Spawn `explore-farwick` (native `Explore`, same `research` model) alongside only when the blast radius is unfamiliar or crosses repos; it returns a <=40-line survey that Chief forwards to the planner inline. Never spawn it to answer a question Chief could settle from `intent.json`.
+
+After each planner pass, Chief reads `jq '.briefing, .oppositionVerdict, [.tasks[] | {id, files, dependsOn}]' plan.json` and nothing else from it.
 
 ## Anti-Repetition Check
 

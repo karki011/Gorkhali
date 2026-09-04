@@ -597,7 +597,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'gorkhali',
-    bundle_version: '2.7.3',
+    bundle_version: '2.8.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -752,7 +752,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.7.3');
+    assert.equal(result.bundle_version, '2.8.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -855,6 +855,11 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       economy: ['haiku', 'low'],
       balanced: ['sonnet', 'high'],
       deep: ['sonnet', 'high'],
+      // research is the one delegated rung above sonnet: codebase research and
+      // plan authoring run on opus so that reading happens in a worker window
+      // and never in Chief's. No role sits on it by default; a spawn requests
+      // it with `--profile research`.
+      research: ['opus', 'high'],
       frontier: [null, null],
     },
     codex: {
@@ -862,6 +867,7 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       economy: ['gpt-5.6-luna', 'low'],
       balanced: ['gpt-5.6-terra', 'high'],
       deep: ['gpt-5.6-sol', 'high'],
+      research: ['gpt-5.6-sol', 'high'],
       frontier: ['gpt-5.6-sol', 'max'],
     },
     kimi: {
@@ -872,17 +878,23 @@ test('bundled presets cover every profile and resolve each role tier', () => {
       economy: ['kimi-for-coding', null],
       balanced: ['k3-256k', 'high'],
       deep: ['k3', 'high'],
+      research: ['k3', 'high'],
       frontier: ['k3', 'max'],
     },
   };
   const roleForProfile = { economy: 'inspector', balanced: 'engineer', deep: 'auditor', frontier: 'chief' };
+  // research has no default role: it is always an explicit profile request on
+  // the spawn (planner-drafton / explore-farwick run as engineer-typed spawns).
+  const argsForProfile = (profile) => (roleForProfile[profile]
+    ? ['--role', roleForProfile[profile]]
+    : ['--role', 'engineer', '--profile', profile]);
 
   for (const [host, profiles] of Object.entries(expected)) {
     assert.deepEqual(Object.keys(presets.hosts[host].profiles).sort(), Object.keys(profiles).sort());
     for (const [profile, [model, effort]] of Object.entries(profiles)) {
       assert.deepEqual(presets.hosts[host].profiles[profile], { model, effort });
       if (profile === 'inherit') continue;
-      const result = runJson(RESOLVER, ['--role', roleForProfile[profile], '--host', host.toUpperCase()]);
+      const result = runJson(RESOLVER, [...argsForProfile(profile), '--host', host.toUpperCase()]);
       assert.equal(result.host, host);
       assert.equal(result.requested_profile, profile);
       assert.equal(result.model, model);
@@ -978,7 +990,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'chief', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.7.3');
+  assert.equal(resolver.bundle_version, '2.8.0');
   assert.equal(resolver.model, null);
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [

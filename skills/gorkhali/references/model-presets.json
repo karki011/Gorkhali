@@ -13,6 +13,7 @@
         "economy": { "model": "haiku", "effort": "low" },
         "balanced": { "model": "sonnet", "effort": "high" },
         "deep": { "model": "sonnet", "effort": "high" },
+        "research": { "model": "opus", "effort": "high" },
         "frontier": { "model": null, "effort": null }
       }
     },
@@ -22,6 +23,7 @@
         "economy": { "model": "gpt-5.6-luna", "effort": "low" },
         "balanced": { "model": "gpt-5.6-terra", "effort": "high" },
         "deep": { "model": "gpt-5.6-sol", "effort": "high" },
+        "research": { "model": "gpt-5.6-sol", "effort": "high" },
         "frontier": { "model": "gpt-5.6-sol", "effort": "max" }
       }
     },
@@ -31,6 +33,7 @@
         "economy": { "model": "kimi-for-coding", "effort": null },
         "balanced": { "model": "k3-256k", "effort": "high" },
         "deep": { "model": "k3", "effort": "high" },
+        "research": { "model": "k3", "effort": "high" },
         "frontier": { "model": "k3", "effort": "max" }
       }
     }

@@ -13,6 +13,12 @@ contract already resolved; an engineer receives the exact checks to run.
 Briefing below the rung wastes the tier; briefing above it returns unbounded
 work. Rung and profile move together or not at all.
 
+`research` is a profile without a default role: a principal-level reading
+rung requested explicitly for codebase research and plan authoring, so that
+source reads and plan drafting happen in a worker's context rather than the
+orchestrator's. Chief ingests the resulting artifact by field extraction; a
+`research` worker never edits project source.
+
 | Role | Seniority | Profile | Write scope | Purpose and output contract |
 |---|---|---|---|---|
 | Chief | Engineering lead | `frontier` | workspace | Route, scope, coordinate, and synthesize. Output decisions, dependencies, status, and next action. |
