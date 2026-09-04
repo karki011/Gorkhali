@@ -82,7 +82,7 @@ const ARTIFACTS = {
   review: { run: true, role: 'auditor' },
   wrap: { run: true, role: 'clerk' },
 };
-const MODEL_PROFILES = new Set(['inherit', 'economy', 'balanced', 'deep', 'frontier']);
+const MODEL_PROFILES = new Set(['inherit', 'economy', 'balanced', 'deep', 'research', 'frontier']);
 const LOCK_WAIT_MS = 2_000;
 const LOCK_RETRY_MS = 10;
 const STALE_LOCK_MS = 5 * 60_000;

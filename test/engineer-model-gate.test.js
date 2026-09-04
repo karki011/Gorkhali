@@ -278,6 +278,13 @@ test('32b. known council-* names ride legally on engineer spawns, invented names
   assertNameDeny(runGate(agentSpawn('engineer', { name: 'council-fake', model: 'sonnet' })));
 });
 
+test('32c. planner-drafton rides legally on an engineer spawn (research-profile planner), invented planner names do not', () => {
+  // reference/planning.md Codebase Research: the planner is an engineer-typed
+  // spawn on the research profile, so its roster name must pass the gate.
+  assertAllow(runGate(agentSpawn('engineer', { name: 'planner-drafton', model: 'opus' })));
+  assertNameDeny(runGate(agentSpawn('engineer', { name: 'planner-fake', model: 'opus' })));
+});
+
 test('33. dynamic shapes IN their roster-defined range → ALLOW', () => {
   const shapes = [
     ['engineer', 'engineer-24'],            // roster-length overflow, engineer roster is 23
