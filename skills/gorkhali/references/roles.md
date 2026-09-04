@@ -71,7 +71,7 @@ change for style violations, scope the scan to the current diff rather than the
 whole repository, so pre-existing prose is not reported as this change's work.
 
 Comments only for what code cannot express, at the file's existing density —
-never narration. Every new test traces to an acceptance criterion or a fixed
+gate and never-write list per [comment-discipline.md](comment-discipline.md). Every new test traces to an acceptance criterion or a fixed
 defect — no speculative suites, sized to the change, prefer extending an
 existing test file. PR body conciseness is owned by `reference/wrap/pr-body.md`
 (pointer only).

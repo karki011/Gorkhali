@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 // Author: Subash Karki
 
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { existsSync, realpathSync } from 'node:fs';
+import {
+  accessSync,
+  constants,
+  existsSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 // Route the data root through the shared codec so every host resolves the same
@@ -12,12 +19,12 @@ import { execFileSync } from 'node:child_process';
 const require = createRequire(import.meta.url);
 const codec = require('../skills/gorkhali/scripts/lib/shared-state.cjs');
 
-function optionValue(argv, flag) {
+function optionValue(argv, flag, pattern = /^[a-z0-9-]+$/) {
   const index = argv.indexOf(flag);
   if (index < 0) return null;
   const value = argv[index + 1];
-  if (!value || !/^[a-z0-9-]+$/.test(value)) {
-    throw new Error(`${flag} requires a lowercase slug value.`);
+  if (!value || !pattern.test(value)) {
+    throw new Error(`${flag} requires a lowercase filename-safe value.`);
   }
   return value;
 }
@@ -63,12 +70,48 @@ export function resolveRuntime(environment = process.env, workflow = null, host 
   };
 }
 
+export function readReference(runtime, slug) {
+  const referenceFiles = {
+    'comment-discipline.md': 'comment-discipline.md',
+  };
+  const relativeFile = referenceFiles[slug];
+  if (!relativeFile) throw new Error(`Unknown Gorkhali reference: ${slug}`);
+
+  let referencesRoot;
+  let target;
+  try {
+    referencesRoot = realpathSync(join(runtime.portable_skill_root, 'references'));
+    target = realpathSync(join(referencesRoot, relativeFile));
+  } catch {
+    throw new Error(`Gorkhali reference is unavailable: ${slug}`);
+  }
+  if (target !== referencesRoot && !target.startsWith(`${referencesRoot}${sep}`)) {
+    throw new Error(`Gorkhali reference escapes the portable references directory: ${slug}`);
+  }
+
+  let targetStat;
+  try {
+    targetStat = statSync(target);
+    accessSync(target, constants.R_OK);
+  } catch {
+    throw new Error(`Gorkhali reference is unreadable: ${slug}`);
+  }
+  if (!targetStat.isFile()) throw new Error(`Gorkhali reference is not a regular file: ${slug}`);
+  return readFileSync(target);
+}
+
 if (process.argv[1]
   && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const argv = process.argv.slice(2);
-  process.stdout.write(`${JSON.stringify(
-    resolveRuntime(process.env, optionValue(argv, '--command'), optionValue(argv, '--host') || 'codex'),
-    null,
-    2,
-  )}\n`);
+  const runtime = resolveRuntime(
+    process.env,
+    optionValue(argv, '--command'),
+    optionValue(argv, '--host') || 'codex',
+  );
+  const reference = optionValue(argv, '--read-reference', /^[a-z0-9-]+\.md$/);
+  if (reference) {
+    process.stdout.write(readReference(runtime, reference));
+  } else {
+    process.stdout.write(`${JSON.stringify(runtime, null, 2)}\n`);
+  }
 }

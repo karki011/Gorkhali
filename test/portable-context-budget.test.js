@@ -12,6 +12,8 @@ const GORKHALI = path.join(ROOT, 'skills', 'gorkhali');
 const ROUTER = path.join(GORKHALI, 'SKILL.md');
 const REFERENCES = path.join(GORKHALI, 'references');
 const PHASES = ['planning.md', 'execution.md', 'verification.md', 'shipping.md'];
+const ROLES = path.join(REFERENCES, 'roles.md');
+const COMMENT_CONTRACT = path.join(REFERENCES, 'comment-discipline.md');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 const bytes = (file) => Buffer.byteLength(read(file), 'utf8');
@@ -39,6 +41,15 @@ test('standard start closure stays below the mandatory context budget', (t) => {
   t.diagnostic(`standard start: ${total} bytes / ~${approximateTokens(total)} tokens`);
   // Raised 17500 -> 17650 for the session-local proto-spec line on the start adapter.
   assert.ok(total <= 17_650, `standard start closure is ${total} bytes; budget is 17650`);
+});
+
+test('portable role activation closure stays below its context budget', (t) => {
+  const measured = [ROLES, COMMENT_CONTRACT]
+    .map((file) => ({ file: path.relative(ROOT, file), bytes: bytes(file) }));
+  const total = measured.reduce((sum, component) => sum + component.bytes, 0);
+  t.diagnostic(measured.map(({ file, bytes: size }) => `${file}=${size}`).join(', '));
+  t.diagnostic(`roles + comment contract: ${total} bytes / ~${approximateTokens(total)} tokens`);
+  assert.ok(total <= 14_000, `portable role closure is ${total} bytes; budget is 14000`);
 });
 
 test('router exposes exactly four direct one-hop phase references', () => {

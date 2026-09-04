@@ -34,25 +34,7 @@ Assign responsibilities to the class/module that has the **information** to fulf
 
 ## Minimal Comments (Example)
 
-Comment WHY, not WHAT.
-
-```ts
-// Bad — restates the code
-// increment the counter by 1
-count += 1;
-
-// loop over users and send each an email
-for (const user of users) sendEmail(user);
-```
-
-```ts
-// Good — explains non-obvious intent / a gotcha
-// Stripe webhooks can arrive out of order; dedupe on event.id before processing.
-if (seen.has(event.id)) return;
-
-count += 1;
-for (const user of users) sendEmail(user);
-```
+See the canonical rule and examples in [comment-discipline.md](../skills/gorkhali/references/comment-discipline.md).
 
 ## Anti-Patterns: Must Avoid
 
