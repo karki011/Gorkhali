@@ -22,7 +22,6 @@ const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
 const PRESETS = path.join(SKILL_ROOT, 'references', 'model-presets.json');
 const COMMENT_CONTRACT = path.join(SKILL_ROOT, 'references', 'comment-discipline.md');
-const COMMENT_CONTRACT_COMMIT = 'b9cfe47506524e614fcc7be7bd841bb8ef564e10';
 const COMMENT_CONTRACT_SHA256 = '2ad981db174aec16485bf429b638f11bf280243ec236f811dcadae59c62c46f3';
 const COMMENT_DISPATCH_START = '<!-- BEGIN GORKHALI COMMENT DISCIPLINE DISPATCH -->';
 const COMMENT_DISPATCH_END = '<!-- END GORKHALI COMMENT DISCIPLINE DISPATCH -->';
@@ -350,11 +349,6 @@ test('host runtime resolver accepts an explicit host key', () => {
 
 test('comment contract keeps its committed bytes, structure, and digest', () => {
   const canonical = fs.readFileSync(COMMENT_CONTRACT);
-  const committed = execFileSync('git', [
-    'show',
-    `${COMMENT_CONTRACT_COMMIT}:reference/comment-discipline.md`,
-  ], { cwd: REPO_ROOT });
-  assert.deepEqual(canonical, committed);
   assert.equal(canonical.length, 4_128);
   assert.equal(canonical.toString('utf8').split('\n').length - 1, 79);
   assert.equal((canonical.toString('utf8').match(/^## [1-7]\./gm) || []).length, 7);
