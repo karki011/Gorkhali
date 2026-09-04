@@ -21,6 +21,16 @@ const MANIFEST = path.join(SKILL_ROOT, 'manifest.json');
 const RESOLVER = path.join(SKILL_ROOT, 'scripts', 'resolve-profile.mjs');
 const RESOLVER_URL = require('node:url').pathToFileURL(RESOLVER).href;
 const PRESETS = path.join(SKILL_ROOT, 'references', 'model-presets.json');
+const COMMENT_CONTRACT = path.join(SKILL_ROOT, 'references', 'comment-discipline.md');
+const COMMENT_CONTRACT_COMMIT = 'b9cfe47506524e614fcc7be7bd841bb8ef564e10';
+const COMMENT_CONTRACT_SHA256 = '2ad981db174aec16485bf429b638f11bf280243ec236f811dcadae59c62c46f3';
+const COMMENT_DISPATCH_START = '<!-- BEGIN GORKHALI COMMENT DISCIPLINE DISPATCH -->';
+const COMMENT_DISPATCH_END = '<!-- END GORKHALI COMMENT DISCIPLINE DISPATCH -->';
+const RUNTIME_PROMPT_ROOTS = [
+  path.join(REPO_ROOT, 'agents'),
+  path.join(REPO_ROOT, 'reference', 'agent-protocols'),
+];
+const PORTABLE_ROLES = path.join(SKILL_ROOT, 'references', 'roles.md');
 
 function filesUnder(directory) {
   return fs.readdirSync(directory).flatMap((entry) => {
@@ -53,6 +63,61 @@ function copySkill(label) {
 
 function validate(directory) {
   return spawnSync(process.execPath, [VALIDATOR, directory], { encoding: 'utf8' });
+}
+
+function markdownFilesUnder(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) return [];
+    if (entry.isDirectory()) return markdownFilesUnder(target);
+    return entry.isFile() && entry.name.endsWith('.md') ? [target] : [];
+  });
+}
+
+function commentPointerFiles() {
+  return [...RUNTIME_PROMPT_ROOTS.flatMap(markdownFilesUnder), PORTABLE_ROLES]
+    .filter((file) => fs.readFileSync(file, 'utf8').includes('comment-discipline.md'));
+}
+
+function extractCommentDispatch(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  assert.equal(source.split(COMMENT_DISPATCH_START).length, 2, `${file} needs one dispatch start`);
+  assert.equal(source.split(COMMENT_DISPATCH_END).length, 2, `${file} needs one dispatch end`);
+  const marked = source.slice(
+    source.indexOf(COMMENT_DISPATCH_START) + COMMENT_DISPATCH_START.length,
+    source.indexOf(COMMENT_DISPATCH_END),
+  );
+  const shell = marked.match(/^\s*```sh\r?\n([\s\S]*?)\r?\n```\s*$/);
+  assert.ok(shell, `${file} dispatch must be one sh block`);
+  return shell[1];
+}
+
+function installNativePlugin(target) {
+  fs.mkdirSync(path.join(target, 'host-support'), { recursive: true });
+  fs.copyFileSync(HOST_RUNTIME_RESOLVER, path.join(target, 'host-support', 'resolve-runtime.mjs'));
+  fs.cpSync(SKILL_ROOT, path.join(target, 'skills', 'gorkhali'), { recursive: true });
+  return target;
+}
+
+function dispatchEnvironment(home, overrides = {}) {
+  const environment = { ...process.env, HOME: home };
+  for (const key of ['GORKHALI_AGENT_HOST', 'CLAUDE_PLUGIN_ROOT', 'KIMI_CODE_HOME']) {
+    delete environment[key];
+  }
+  return { ...environment, ...overrides };
+}
+
+function runCommentDispatch(dispatch, workspace, environment) {
+  return spawnSync('sh', ['-c', dispatch], { cwd: workspace, env: environment });
+}
+
+function dispatchFixture(label) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `gorkhali-comment-${label}-`));
+  const home = path.join(root, 'home');
+  const workspace = path.join(root, 'consumer-workspace');
+  fs.mkdirSync(home);
+  fs.mkdirSync(workspace);
+  return { root, home, workspace };
 }
 
 test('portable skill passes its strict provider-neutral validator', () => {
@@ -283,6 +348,177 @@ test('host runtime resolver accepts an explicit host key', () => {
   assert.equal(runtime.plugin_root, REPO_ROOT);
 });
 
+test('comment contract keeps its committed bytes, structure, and digest', () => {
+  const canonical = fs.readFileSync(COMMENT_CONTRACT);
+  const committed = execFileSync('git', [
+    'show',
+    `${COMMENT_CONTRACT_COMMIT}:reference/comment-discipline.md`,
+  ], { cwd: REPO_ROOT });
+  assert.deepEqual(canonical, committed);
+  assert.equal(canonical.length, 4_128);
+  assert.equal(canonical.toString('utf8').split('\n').length - 1, 79);
+  assert.equal((canonical.toString('utf8').match(/^## [1-7]\./gm) || []).length, 7);
+  assert.equal(crypto.createHash('sha256').update(canonical).digest('hex'), COMMENT_CONTRACT_SHA256);
+  assert.equal(fs.existsSync(path.join(REPO_ROOT, 'reference', 'comment-discipline.md')), false);
+});
+
+test('runtime comment pointers use one bounded, recursively discovered dispatch', () => {
+  const promptFiles = commentPointerFiles().filter((file) => file !== PORTABLE_ROLES);
+  assert.deepEqual(promptFiles.map((file) => path.relative(REPO_ROOT, file)).sort(), [
+    'agents/auditor.md',
+    'agents/engineer.md',
+    'agents/steward.md',
+    'reference/agent-protocols/engineer-conventions.md',
+  ]);
+  const dispatches = promptFiles.map(extractCommentDispatch);
+  assert.ok(dispatches.every((dispatch) => dispatch === dispatches[0]));
+  for (const [index, file] of promptFiles.entries()) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(source, /reference\/comment-discipline\.md/,
+      `${path.relative(REPO_ROOT, file)} must not resolve against a consumer repository`);
+    assert.match(dispatches[index], /--read-reference comment-discipline\.md$/m);
+  }
+
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-comment-scan-'));
+  const nested = path.join(fixture, 'nested');
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-comment-outside-'));
+  fs.mkdirSync(nested);
+  fs.writeFileSync(path.join(nested, 'prompt.md'), 'comment-discipline.md\n');
+  fs.writeFileSync(path.join(nested, 'ignored.txt'), 'comment-discipline.md\n');
+  fs.writeFileSync(path.join(outside, 'escaped.md'), 'comment-discipline.md\n');
+  fs.symlinkSync(outside, path.join(fixture, 'outside-link'), 'dir');
+  assert.deepEqual(markdownFilesUnder(fixture), [path.join(nested, 'prompt.md')]);
+});
+
+test('standalone roles link stays inside copied references and resolves canonical bytes', () => {
+  const copied = copySkill('comment-role-link');
+  const roles = path.join(copied, 'references', 'roles.md');
+  const link = fs.readFileSync(roles, 'utf8').match(/\[comment-discipline\.md\]\(([^)]+)\)/);
+  assert.ok(link, 'roles.md needs a parsed comment-discipline link');
+  assert.equal(link[1], 'comment-discipline.md');
+  const references = fs.realpathSync(path.dirname(roles));
+  const target = fs.realpathSync(path.resolve(references, link[1]));
+  assert.ok(target.startsWith(`${references}${path.sep}`));
+  assert.deepEqual(fs.readFileSync(target), fs.readFileSync(COMMENT_CONTRACT));
+});
+
+test('actual installed prompt dispatch is fail-closed across Claude and Kimi layouts', async (t) => {
+  const promptFiles = commentPointerFiles().filter((file) => file !== PORTABLE_ROLES);
+  const dispatch = extractCommentDispatch(promptFiles[0]);
+  for (const file of promptFiles.slice(1)) assert.equal(extractCommentDispatch(file), dispatch);
+  const canonical = fs.readFileSync(COMMENT_CONTRACT);
+  const expectCanonical = (result) => {
+    assert.equal(result.status, 0, result.stderr.toString());
+    assert.deepEqual(result.stdout, canonical);
+  };
+
+  await t.test('explicit Claude root', () => {
+    const fixture = dispatchFixture('claude-explicit');
+    const plugin = installNativePlugin(path.join(fixture.root, 'claude-plugin'));
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code',
+      CLAUDE_PLUGIN_ROOT: `${plugin}/`,
+    })));
+  });
+
+  await t.test('Claude newest-cache fallback', () => {
+    const fixture = dispatchFixture('claude-fallback');
+    const cache = path.join(fixture.home, '.claude', 'plugins', 'cache', 'gorkhali', 'gorkhali');
+    const older = installNativePlugin(path.join(cache, '1.0.0'));
+    const newest = installNativePlugin(path.join(cache, '2.0.0'));
+    fs.utimesSync(older, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    fs.utimesSync(newest, new Date(1_800_000_000_000), new Date(1_800_000_000_000));
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code',
+    })));
+  });
+
+  await t.test('explicit Kimi home', () => {
+    const fixture = dispatchFixture('kimi-explicit');
+    const kimiHome = path.join(fixture.root, 'kimi-home');
+    installNativePlugin(path.join(kimiHome, 'plugins', 'managed', 'gorkhali'));
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'kimi',
+      KIMI_CODE_HOME: kimiHome,
+    })));
+  });
+
+  await t.test('default Kimi home', () => {
+    const fixture = dispatchFixture('kimi-default');
+    installNativePlugin(path.join(fixture.home, '.kimi-code', 'plugins', 'managed', 'gorkhali'));
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'kimi',
+    })));
+  });
+
+  await t.test('unset and unknown hosts fail before dual-install probing', () => {
+    const fixture = dispatchFixture('host-ambiguity');
+    const claude = installNativePlugin(path.join(fixture.root, 'claude-plugin'));
+    const kimiHome = path.join(fixture.root, 'kimi-home');
+    installNativePlugin(path.join(kimiHome, 'plugins', 'managed', 'gorkhali'));
+    for (const host of [undefined, 'future-host']) {
+      const overrides = { CLAUDE_PLUGIN_ROOT: claude, KIMI_CODE_HOME: kimiHome };
+      if (host) overrides.GORKHALI_AGENT_HOST = host;
+      const result = runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, overrides));
+      assert.equal(result.status, 64);
+      assert.match(result.stderr.toString(), /explicit active host required \(claude-code\|kimi\)/);
+      assert.equal(result.stdout.length, 0);
+    }
+  });
+
+  await t.test('explicit host selects only its installation when both exist', () => {
+    const fixture = dispatchFixture('dual-selected');
+    const claude = installNativePlugin(path.join(fixture.root, 'claude-plugin'));
+    const kimiHome = path.join(fixture.root, 'kimi-home');
+    const kimi = installNativePlugin(path.join(kimiHome, 'plugins', 'managed', 'gorkhali'));
+    const kimiContract = path.join(kimi, 'skills', 'gorkhali', 'references', 'comment-discipline.md');
+    fs.writeFileSync(kimiContract, 'wrong host\n');
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code', CLAUDE_PLUGIN_ROOT: claude, KIMI_CODE_HOME: kimiHome,
+    })));
+    fs.copyFileSync(COMMENT_CONTRACT, kimiContract);
+    fs.writeFileSync(path.join(claude, 'skills', 'gorkhali', 'references', 'comment-discipline.md'), 'wrong host\n');
+    expectCanonical(runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'kimi', CLAUDE_PLUGIN_ROOT: claude, KIMI_CODE_HOME: kimiHome,
+    })));
+  });
+
+  await t.test('missing selected installation does not fall back', () => {
+    const fixture = dispatchFixture('missing-install');
+    const kimiHome = path.join(fixture.root, 'kimi-home');
+    installNativePlugin(path.join(kimiHome, 'plugins', 'managed', 'gorkhali'));
+    const result = runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code',
+      CLAUDE_PLUGIN_ROOT: path.join(fixture.root, 'missing-claude'),
+      KIMI_CODE_HOME: kimiHome,
+    }));
+    assert.equal(result.status, 66);
+    assert.match(result.stderr.toString(), /selected installation unavailable/);
+  });
+
+  await t.test('missing resolver fails explicitly', () => {
+    const fixture = dispatchFixture('missing-resolver');
+    const plugin = installNativePlugin(path.join(fixture.root, 'claude-plugin'));
+    fs.rmSync(path.join(plugin, 'host-support', 'resolve-runtime.mjs'));
+    const result = runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code', CLAUDE_PLUGIN_ROOT: plugin,
+    }));
+    assert.equal(result.status, 66);
+    assert.match(result.stderr.toString(), /selected installation unavailable/);
+  });
+
+  await t.test('missing contract fails explicitly', () => {
+    const fixture = dispatchFixture('missing-contract');
+    const plugin = installNativePlugin(path.join(fixture.root, 'claude-plugin'));
+    fs.rmSync(path.join(plugin, 'skills', 'gorkhali', 'references', 'comment-discipline.md'));
+    const result = runCommentDispatch(dispatch, fixture.workspace, dispatchEnvironment(fixture.home, {
+      GORKHALI_AGENT_HOST: 'claude-code', CLAUDE_PLUGIN_ROOT: plugin,
+    }));
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr.toString(), /Gorkhali reference is unavailable: comment-discipline\.md/);
+  });
+});
+
 test('installed-cache resolver loads deterministic preambles for every workflow', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-codex-cache-'));
   const cachedPlugin = path.join(root, 'cache', 'gorkhali', 'gorkhali', '0.2.1');
@@ -424,6 +660,7 @@ test('portable validator detects stale bundle metadata after a lifecycle contrac
 
 test('portable validator requires every bundled planning and AI review resource', () => {
   for (const resource of [
+    'references/comment-discipline.md',
     'references/execution.md',
     'references/planning.md',
     'references/shipping.md',

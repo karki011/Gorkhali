@@ -55,5 +55,24 @@ Good: "Created UserProfile.tsx (47 lines), exports UserProfile component, render
 - [ ] Error states handled at boundaries
 - [ ] Intent drift: does this still serve the stated goal?
 - [ ] KISS: is there a simpler way to achieve this?
-- [ ] Comments: only what the code cannot express — gate and never-write list per `reference/comment-discipline.md`
+- [ ] Comments: only what code cannot express — apply the loaded gate and never-write list
 - [ ] No files outside my assigned scope were modified
+
+Obtain `GORKHALI_AGENT_HOST` (`claude-code` or `kimi`) from explicit runtime context, never credentials, environment presence, installed roots, or their order. Run this block and read stdout before applying the contract; failure blocks the role.
+
+<!-- BEGIN GORKHALI COMMENT DISCIPLINE DISPATCH -->
+```sh
+case "${GORKHALI_AGENT_HOST-}" in
+  claude-code)
+    GORKHALI_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT-}
+    [ -n "$GORKHALI_PLUGIN_ROOT" ] || GORKHALI_PLUGIN_ROOT=$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)
+    GORKHALI_PLUGIN_ROOT=${GORKHALI_PLUGIN_ROOT%/}
+    ;;
+  kimi) GORKHALI_PLUGIN_ROOT=${KIMI_CODE_HOME:-"$HOME/.kimi-code"}/plugins/managed/gorkhali ;;
+  *) echo 'Gorkhali comment discipline: explicit active host required (claude-code|kimi)' >&2; exit 64 ;;
+esac
+GORKHALI_RUNTIME=$GORKHALI_PLUGIN_ROOT/host-support/resolve-runtime.mjs
+[ -f "$GORKHALI_RUNTIME" ] || { echo 'Gorkhali comment discipline: selected installation unavailable' >&2; exit 66; }
+exec node "$GORKHALI_RUNTIME" --host "$GORKHALI_AGENT_HOST" --read-reference comment-discipline.md
+```
+<!-- END GORKHALI COMMENT DISCIPLINE DISPATCH -->

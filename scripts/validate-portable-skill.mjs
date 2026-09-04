@@ -15,6 +15,8 @@ const kimiManifestFile = join(repositoryRoot, '.kimi-plugin', 'plugin.json');
 const claudeManifestFile = join(repositoryRoot, '.claude-plugin', 'plugin.json');
 const marketplaceFile = join(repositoryRoot, '.claude-plugin', 'marketplace.json');
 const hostCompatibilityReference = '../../host-support/compatibility.md';
+const commentDisciplineReference = 'references/comment-discipline.md';
+const commentDisciplineHash = '2ad981db174aec16485bf429b638f11bf280243ec236f811dcadae59c62c46f3';
 
 const forbiddenPatterns = [
   ['provider directory', /\.(?:claude|codex|gemini|kimi)(?:\/|\\)/i],
@@ -536,6 +538,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
     'references/model-policy.json',
     'references/model-presets.json',
     'references/brainstorming.md',
+    'references/comment-discipline.md',
     'references/execution.md',
     'references/planning.md',
     'references/review-html.md',
@@ -606,9 +609,13 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
 
   for (const file of filesUnder(skillDirectory)) {
     const content = file === skillFile ? skillContent : readFileSync(file, 'utf8');
+    const relativePath = relative(skillDirectory, file).replaceAll('\\', '/');
+    const allowProviderName = relativePath === commentDisciplineReference
+      && createHash('sha256').update(content).digest('hex') === commentDisciplineHash;
     for (const [label, pattern] of forbiddenPatterns) {
       if (file === modelPresetsFile && controlledPresetPatterns.has(label)) continue;
-      if (pattern.test(content)) errors.push(`${relative(skillDirectory, file)} contains forbidden ${label}.`);
+      if (label === 'provider name' && allowProviderName) continue;
+      if (pattern.test(content)) errors.push(`${relativePath} contains forbidden ${label}.`);
     }
     if (extname(file) === '.json') {
       try {

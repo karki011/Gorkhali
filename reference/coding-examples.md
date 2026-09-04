@@ -34,7 +34,7 @@ Assign responsibilities to the class/module that has the **information** to fulf
 
 ## Minimal Comments (Example)
 
-See the canonical rule and examples in [comment-discipline.md](comment-discipline.md).
+See the canonical rule and examples in [comment-discipline.md](../skills/gorkhali/references/comment-discipline.md).
 
 ## Anti-Patterns: Must Avoid
 

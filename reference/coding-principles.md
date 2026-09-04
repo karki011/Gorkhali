@@ -28,7 +28,7 @@ Apply as a checklist before writing or reviewing code. Extended examples in [cod
 - **Referential Transparency** -- Same inputs, same output, no side effects. Pure functions are easier to test.
 - **Encapsulate What Varies** -- Isolate what changes behind a stable interface.
 - **Favor Readability Over Cleverness** -- Readable code is maintainable code. Optimize for the reader.
-- **Minimal Comments** -- The canonical rule and examples live in [comment-discipline.md](comment-discipline.md).
+- **Minimal Comments** -- The canonical rule and examples live in [comment-discipline.md](../skills/gorkhali/references/comment-discipline.md).
 
 ## Anti-Patterns
 
