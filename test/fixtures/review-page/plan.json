@@ -1,0 +1,18 @@
+{
+  "_meta": { "version": 3 },
+  "depth": "standard",
+  "briefing": {
+    "tackling": "The Usage dashboard's 8 headline numbers are plain text with nothing around them. This turns them into 8 cards that match the ones already on the Livestream page, adds a change-since-last-period figure to 6 of them instead of 2, and gives the row somewhere to go when it does not fit on screen.",
+    "problem": "The numbers sit as bare text next to real cards, so they read as an afterthought rather than the headline. Only 2 of the 8 show whether they went up or down. A guard in the delta code asks the wrong question: it checks how far back the window starts from today, when the backend only cares how long the window is. So the 60-day view silently shows no change figures at all. And when 8 numbers do not fit the width, nothing happens. They just get cut off.",
+    "how": "Fix the guard to ask the real question: is the previous window 90 days or shorter. Four new change figures then come almost free. Two are derived from data the page already fetches, and two from one extra lightweight call that reads a running total straight off page one. Not the older user-count query: that one scans the whole table and was removed earlier the same day for timing out. Then describe the 8 cards as a list of entries and render them with one card component, so a 9th is one line. Finish the scroll component the design system already half-built, so arrows appear only when the row genuinely overflows. Measure the real text in a browser before fixing any font size, because both earlier estimates in this session were guesses."
+  },
+  "decision": {
+    "question": "Approve building this as 8 equal cards, with the previous period's user count coming from a single lightweight page-one read rather than the query that was removed for timing out earlier today?",
+    "recommendation": "Do the data fixes first, because the cards only render whatever the data layer produces. The scroll component and the browser measurement can run alongside them. Wire the cards last.",
+    "status": "pending"
+  },
+  "outcome": {
+    "goal": "All 8 numbers render as cards; 6 of them show a correct change figure at all three windows (7, 30 and 60 days) without reviving a query known to time out; the row gets a real horizontal scroll when it does not fit; and adding a 9th number is one new entry in a list."
+  },
+  "oppositionVerdict": "REVISE"
+}

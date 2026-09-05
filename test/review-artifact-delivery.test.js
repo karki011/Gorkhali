@@ -5,6 +5,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
+const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const SKILL_ROOT = path.join(ROOT, 'skills', 'gorkhali');
@@ -64,13 +66,14 @@ test('the shell owns the chassis and the page owns everything else', () => {
 
 test('every HTML review surface is a validator type', () => {
   const validator = read('skills', 'gorkhali', 'scripts', 'validate-review-html.mjs');
-  assert.match(validator, /'plan', 'brainstorm', 'visualflow', 'detective'/);
+  assert.match(validator, /'plan', 'brainstorm', 'visualflow', 'detective', 'review'/);
   // Only the two decision gates carry canonical-string checks.
   assert.match(validator, /const GATE_TYPES = new Set\(\['plan', 'brainstorm'\]\)/);
 
   for (const [file, type] of [
     [path.join('commands', 'visualflow.md'), 'visualflow'],
     [path.join('commands', 'detective.md'), 'detective'],
+    [path.join('commands', 'review.md'), 'review'],
   ]) {
     const command = flat(file);
     assert.match(command, new RegExp(`validate-review-html\\.mjs ${type}`), file);
@@ -136,4 +139,50 @@ test('an unreadable shell fails validation instead of silently passing', () => {
   // would let any embedded text through.
   assert.match(source, /if \(expected !== null && embedded !== expected\)/);
   assert.doesNotMatch(source, /catch \{ expected = null; \}/);
+});
+
+test('the findings page never becomes the review record', () => {
+  const command = flat('commands', 'review.md');
+  assert.match(command, /`auditor\.json` stays the artifact the verdict is read from/i);
+  assert.match(command, /never parsed back/i);
+  assert.match(command, /a page that failed to generate never turns a `fail` into a `pass`/i);
+  // A clean review has nothing to show, so it does not get a page.
+  assert.match(command, /Skip it entirely on a clean review/i);
+});
+
+// End-to-end regression on a real page that was rendered and visually checked,
+// rather than on a minimal synthetic one. The shell is spliced in at test time so
+// this fixture cannot drift from the bundled chassis.
+test('a real, browser-verified page still satisfies the whole contract', () => {
+  const fixture = read('test', 'fixtures', 'review-page', 'plan.example.html');
+  assert.match(fixture, /__GORKHALI_SHELL__/, 'fixture must not inline the shell');
+  const shell = fs.readFileSync(
+    path.join(SKILL_ROOT, 'assets', 'review-shell.css'), 'utf8',
+  ).replace(/\r\n/g, '\n').trim();
+  const page = fixture.replace('__GORKHALI_SHELL__', shell);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gorkhali-review-fixture-'));
+  const candidate = path.join(dir, 'candidate.html');
+  const out = path.join(dir, 'accepted.html');
+  fs.writeFileSync(candidate, page);
+
+  const result = spawnSync(process.execPath, [
+    path.join(SKILL_ROOT, 'scripts', 'validate-review-html.mjs'), 'plan',
+    '--source', path.join(ROOT, 'test', 'fixtures', 'review-page', 'plan.json'),
+    '--candidate', candidate,
+    '--out', out,
+    '--target', 'artifact',
+  ], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+
+  // The properties the page is supposed to have, asserted on the page itself.
+  assert.match(page, /<nav class="rail"/, 'section rail');
+  assert.match(page, /<div class="doc">/, 'reading column');
+  assert.equal((page.match(/<h1/g) || []).length, 1);
+  assert.equal((page.match(/<main/g) || []).length, 1);
+  assert.doesNotMatch(page, /<details[^>]*\sopen/, 'appendix must start collapsed');
+  // The decision text leads; the mechanics follow it.
+  const lead = page.slice(0, page.indexOf('<details'));
+  assert.ok(lead.includes('Approve building this as 8 equal cards'), 'approval question in the lead');
+  assert.ok(page.indexOf('Wave 1') > page.indexOf('<details'), 'waves live in the appendix');
 });

@@ -12,10 +12,11 @@ import { isMainModule } from './lib/portable.mjs';
 
 const MAX_BYTES = 512 * 1024;
 // plan and brainstorm are decision gates: their canonical strings must survive onto
-// the page. visualflow and detective are review surfaces over artifacts with no
+// the page. visualflow, detective and review are surfaces over artifacts with no
 // decision-string contract, so they are held to the shell, safety and structure rules only.
-const SUPPORTED_TYPES = new Set(['plan', 'brainstorm', 'visualflow', 'detective']);
+const SUPPORTED_TYPES = new Set(['plan', 'brainstorm', 'visualflow', 'detective', 'review']);
 const GATE_TYPES = new Set(['plan', 'brainstorm']);
+const APPENDIX_TYPES = new Set(['plan', 'detective', 'review']);
 const SUPPORTED_TARGETS = new Set(['file', 'artifact']);
 const TITLE_SCAN_BYTES = 8 * 1024;
 const FORBIDDEN_TAG_NAMES = new Set([
@@ -498,7 +499,9 @@ export function validateReviewHtml(type, artifact, html, {
   const firstTable = tags.find((tag) => (
     tag.name === 'table' && tag.start >= mainStart && tag.end <= mainEnd
   ));
-  if ((type === 'plan' || type === 'detective') && !firstDetails) errors.push(`${type} review must include a details element in main`);
+  // These three carry a body of supporting detail that must not lead the page:
+  // task inventories, traced evidence, per-finding citations and gaps.
+  if (APPENDIX_TYPES.has(type) && !firstDetails) errors.push(`${type} review must include a details element in main`);
   if (type === 'brainstorm' && !firstTable) errors.push('brainstorm review must include a table in main');
   else if (type === 'brainstorm' && firstDetails && firstTable.start >= firstDetails.start) {
     errors.push('brainstorm comparison table must appear before details');
@@ -550,7 +553,7 @@ const promote = (candidateBytes, output) => {
   }
 };
 
-const usage = 'Usage: node validate-review-html.mjs <plan|brainstorm|visualflow|detective> --source <canonical-json> --candidate <candidate.html> --out <accepted.html> [--target file|artifact]';
+const usage = 'Usage: node validate-review-html.mjs <plan|brainstorm|visualflow|detective|review> --source <canonical-json> --candidate <candidate.html> --out <accepted.html> [--target file|artifact]';
 
 const main = () => {
   const options = parseArgs(process.argv.slice(2));

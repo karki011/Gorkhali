@@ -1,5 +1,10 @@
 # AI-authored review pages
 
+Five surfaces share this contract: `plan` and `brainstorm` are decision gates,
+and `visualflow`, `detective` and `review` are reading surfaces over an artifact
+that carries no approval question. Everything below applies to all five; only the
+decision gates have canonical strings the validator checks for.
+
 `plan` and `brainstorm` review pages are disposable decision surfaces.
 The canonical JSON artifact remains the source of truth; no review page is ever parsed back or manually patched.
 
@@ -164,7 +169,7 @@ It checks that the candidate is a bounded, self-contained static document, conta
 A valid candidate is copied to a temporary sibling and atomically renamed to `--out`.
 
 Both targets reject executable or network-capable constructs: scripts, embedded frames or objects, forms and controls, event-handler attributes, refresh metas, URL-bearing attributes, and CSS imports or URL/image-set values.
-Both require exactly one `h1` and one `main`, the canonical briefing strings, approval question, recommendation, outcome, and selected approach in the visible `<main>` lead before any collapsed `<details>` appendix, a details appendix in `<main>` for a plan review, and a comparison table in `<main>` before any details for a brainstorm review.
+Both require exactly one `h1` and one `main`, the canonical briefing strings, approval question, recommendation, outcome, and selected approach in the visible `<main>` lead before any collapsed `<details>` appendix, a details appendix in `<main>` for a `plan`, `detective` or `review` page, and a comparison table in `<main>` before any details for a brainstorm review.
 Both reject explicit hidden attributes, dialogs, and CSS display/visibility hiding.
 
 The `file` target additionally requires the full document shell and the CSP meta, and rejects SVG and every non-fragment href.
