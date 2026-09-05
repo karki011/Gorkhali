@@ -28,7 +28,7 @@ Pre-implementation visual flow planning — produces a reviewable HTML flow arti
 
 3. **Build flow model:** Assemble an ordered screen-by-screen flow + per-screen state list + transitions/branches + open questions (decisions that need a human). Keep it low-fidelity — the goal is to agree on the flow, not the pixels.
 
-4. **Render:** Write a self-contained HTML artifact to `{SESSION_DIR}/visualflow.html` using `reference/visualflow/flow-template.md` (substitute placeholders — zero external requests, all CSS inline). Open it directly; collect review feedback and approval in chat.
+4. **Render:** Author `{SESSION_DIR}/visualflow.candidate.html` for the artifact target using `reference/visualflow/flow-template.md` for content and `skills/gorkhali/references/review-html.md` for voice, shell and structure: paste `assets/review-shell.css` verbatim, keep page-specific CSS in a second style block, and lead in plain English. Promote it with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs visualflow --source {SESSION_DIR}/intent.json --candidate {SESSION_DIR}/visualflow.candidate.html --out {SESSION_DIR}/visualflow.html --target artifact`, then publish with `Artifact(file_path: "{SESSION_DIR}/visualflow.html", favicon: "<one emoji>", description: "<one sentence>")` and give the user the returned URL. Republish the same `file_path` on later rounds; omit `favicon` on a republish. If publishing fails or is declined, regenerate with `--target file` and open the local page. Collect review feedback and approval in chat.
 
 5. **HUMAN GATE:** Present the flow. Ask the human to **approve / adjust / add screens**. Loop on adjustments until approved, then lock the flow.
 

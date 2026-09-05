@@ -25,6 +25,7 @@ Record each value as `available`, `unavailable`, or `unknown`:
     "dependency.graph": "unknown",
     "issue.tracker": "unknown",
     "review.publish": "unknown",
+    "review.artifact": "unknown",
     "lifecycle.hooks": "unavailable",
     "state.persist": "unknown"
   }
@@ -33,6 +34,14 @@ Record each value as `available`, `unavailable`, or `unknown`:
 
 An unknown optional capability behaves as unavailable until safely discovered.
 Re-evaluate the ledger when the runtime exposes a new ability.
+
+Mark `review.artifact` available only when the runtime exposes a tool that
+publishes an HTML page to a hosted, user-visible URL. Publishing sends page
+content to that service, so surface it as an outward-facing action the first time
+in a session and honor a refusal by falling back to the local file target rather
+than retrying. Availability changes only the delivery target in
+[review-html.md](review-html.md); it never changes the review's voice,
+structure, validation, or approval gate.
 
 ## Native delegation boundary
 
@@ -78,6 +87,7 @@ change artifact schemas, approval gates, route semantics, or completion rules.
 | Web research | Verify current external facts. | Ask for supplied sources or mark the claim unverified. |
 | Issue integration | Read and update lifecycle state directly. | Use user-provided context and prepare an update for publishing. |
 | Review publishing | Create or update a review request. | Prepare title, body, evidence, and exact next action. |
+| Review artifact | Publish the plan or brainstorm review page as a hosted artifact and hand the user its URL. | Write the same page as a self-contained local file and open it with the host's file preview. |
 
 Record every fallback used in the session capability artifact. Never silently
 convert an unavailable check into a pass.

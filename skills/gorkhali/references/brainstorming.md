@@ -130,7 +130,13 @@ phase. Legacy v3 decision records without phase fields remain readable.
 
 Use these exact JSON field shapes so every host produces the same contract:
 
-- `briefing`: `{ tackling, problem, how, scope, risks }`.
+- `briefing`: `{ tackling, problem, how, scope, risks }`. Every field is quoted
+  verbatim onto the human gate, so write it in plain English: short sentences,
+  conclusion first, everyday words, a domain term defined the first time it
+  appears. Symbol names and file paths ride beside a claim as a citation, never
+  threaded through a sentence. Simplify only down to the truth; a detail that
+  changes the decision stays, said plainly. The mechanical depth belongs in
+  `evidence` and `approaches[]`, which the review page collapses.
 - `decision`: `{ question, outcome, audience: [], nonGoals: [], constraints: [],
   evaluationCriteria: [], successSignal }`. `nonGoals` and `successSignal` are
   required on every new v3 frame. `successSignal` is an observable, not a vibe.
@@ -159,10 +165,10 @@ Use these exact JSON field shapes so every host produces the same contract:
   actual choice or delegated authority separately; never infer it from the
   recommendation.
 
-After validating the portable JSON, generate full-width, self-contained HTML
-using `<skill-directory>/references/review-html.md` and run
+After validating the portable JSON, generate a review page using
+`<skill-directory>/references/review-html.md` and run
 `<skill-directory>/scripts/validate-review-html.mjs` against
-it — except on a `quick` or `--simple` brainstorm, which presents the same
+it - except on a `quick` or `--simple` brainstorm, which presents the same
 What/Problem/How brief and Pick A/B/C in chat and skips HTML. Order the page as:
 What, Problem, and How first; then current direction; a comparison table of
 the distinct approaches; frame and stance; evidence; divergence lanes;
@@ -170,8 +176,12 @@ connections and clusters; convergence funnel and shortlist; dissent; cheapest
 experiment; open questions; direction gate. Put detailed approach cards in
 collapsed `<details>` with no `open` attribute; the comparison table must
 appear in `<main>` before any details. Treat this as an exploration workbench,
-not a plan dossier. JSON remains the source of truth and generated HTML is
-never parsed back. If HTML generation or opening is unavailable, present the
+not a plan dossier. Choose the delivery target from the capability ledger:
+`artifact` when the runtime exposes an artifact publishing tool, otherwise
+`file`. Publish an accepted artifact and give the user its URL; open an accepted
+file with the host's normal preview. A publishing failure falls back to the
+`file` target. JSON remains the source of truth and a generated page is
+never parsed back. If page generation or opening is unavailable, present the
 same What/Problem/How brief in chat, then Pick A/B/C. A How without supporting
 evidence is an assumption. The input may be a direct v3 payload or the
 portable state envelope.
