@@ -475,3 +475,39 @@ test('the file target is unaffected by the shell requirement', () => {
   const result = run(fixtureDir(), 'plan', plan(), planPage());
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('the chassis guard survives :is()/:where() wrapping', () => {
+  // Wrapping a reserved token in a functional pseudo-class must not launder it.
+  for (const css of [
+    ':is(main){grid-template-columns:1fr}',
+    ':where(body){background:#000}',
+    '.card:is(.doc){max-width:none}',
+    ':is(:root){--accent:#f00}',
+  ]) {
+    const result = runArtifact(fixtureDir(), 'plan', plan(), artifactPlanPage('', '', css));
+    assert.equal(result.status, 1, `expected ${css} to be rejected`);
+    assert.match(result.stderr, /may not restyle the shell chassis/);
+  }
+});
+
+test('a page class that merely starts with a reserved name is allowed', () => {
+  // `.doc-note` is the page's own component, not the shell's `.doc` column.
+  const css = '.doc-note{color:var(--muted)}.rail-badge{color:var(--accent)}.mainline{font-weight:600}';
+  const result = runArtifact(fixtureDir(), 'plan', plan(), artifactPlanPage('', '', css));
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('the title window is measured on published bytes, not comment-stripped text', () => {
+  // Comments are blanked before scanning, so measuring the stripped text would let
+  // a title the host cannot reach still pass.
+  const dir = fixtureDir();
+  const pad = `<!--${'x'.repeat(9000)}-->`;
+  const html = `${pad}${artifactPlanPage()}`;
+  const result = runArtifact(dir, 'plan', plan(), html);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /title must appear within the first 8192 bytes/);
+
+  // A small comment leaves the title comfortably inside the window.
+  const ok = runArtifact(fixtureDir(), 'plan', plan(), `<!-- generated -->${artifactPlanPage()}`);
+  assert.equal(ok.status, 0, ok.stderr);
+});

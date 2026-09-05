@@ -52,6 +52,8 @@ test('the shell owns the chassis and the page owns everything else', () => {
   assert.match(contract, /pastes it verbatim into its first `<style>` block/i);
   assert.match(contract, /second `<style>` block/i);
   assert.match(contract, /targets `:root`, `html`, `body`, `main`, `\*`, `\.doc`, or `\.rail` is rejected/i);
+  assert.match(contract, /Wrapping one in `:is\(\)` or `:where\(\)` does not launder it/i);
+  assert.match(contract, /merely begins with a reserved name, such as `\.doc-note`/i);
 
   const shell = read('skills', 'gorkhali', 'assets', 'review-shell.css');
   assert.match(shell, /gorkhali:shell v1 begin/);

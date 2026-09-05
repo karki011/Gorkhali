@@ -38,11 +38,45 @@ const SHELL_END = 'gorkhali:shell v1 end */';
 // The chassis the shell owns outright. A page may add and restyle components
 // freely; it may not move the layout, retune the tokens, or repaint the ground,
 // because those are what keep every review page recognizably the same page.
-const RESERVED_SELECTOR = /(^|[\s,>+~])(?::root\b|html\b|body\b|main\b|\*(?![-\w])|\.doc\b|\.rail\b)/i;
+// `(` is an allowed prefix so a token wrapped in :is()/:where() is still caught,
+// and every token ends on (?![-\w]) so a page's own `.doc-note` or `.rail-badge`
+// is not mistaken for the chassis.
+const RESERVED_SELECTOR = new RegExp(
+  String.raw`(^|[\s,>+~(])(?::root|html|body|main|\*|\.doc|\.rail)(?![-\w])`,
+  'i',
+);
 const URL_BEARING_ATTRIBUTES = new Set([
   'src', 'srcset', 'action', 'formaction', 'poster', 'ping', 'background', 'xlink:href',
 ]);
 const RAW_TEXT_TAGS = new Set(['style', 'title', 'textarea', 'script']);
+
+// Comments are blanked before scanning, which shifts every offset. This records
+// where each collapse happened so an offset in the scanned text can be mapped
+// back to the byte it came from in the published file.
+const stripComments = (source) => {
+  const pattern = /<!--[\s\S]*?-->/g;
+  const marks = [];
+  let scanned = '';
+  let cursor = 0;
+  let match = pattern.exec(source);
+  while (match) {
+    scanned += `${source.slice(cursor, match.index)} `;
+    cursor = match.index + match[0].length;
+    marks.push({ scanned: scanned.length, raw: cursor });
+    match = pattern.exec(source);
+  }
+  scanned += source.slice(cursor);
+  return { scanned, marks };
+};
+
+const rawOffset = (marks, scannedIndex) => {
+  let base = { scanned: 0, raw: 0 };
+  for (const mark of marks) {
+    if (mark.scanned > scannedIndex) break;
+    base = mark;
+  }
+  return base.raw + (scannedIndex - base.scanned);
+};
 
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
@@ -400,7 +434,7 @@ export function validateReviewHtml(type, artifact, html, {
   const source = requiredStrings(type, artifact);
   errors.push(...source.errors);
   const candidate = String(html);
-  const active = candidate.replace(/<!--[\s\S]*?-->/g, ' ');
+  const { scanned: active, marks: commentMarks } = stripComments(candidate);
   const scannedTags = scanTags(active);
   const tags = scannedTags.filter((tag) => !tag.closing);
   const htmlRegion = elementRegion(scannedTags, 'html');
@@ -431,7 +465,7 @@ export function validateReviewHtml(type, artifact, html, {
     const artifactTitle = elementRegion(scannedTags, 'title');
     if (!artifactTitle || !isText(active.slice(artifactTitle.opening.end, artifactTitle.closing.start))) {
       errors.push('missing non-empty title element');
-    } else if (Buffer.byteLength(active.slice(0, artifactTitle.opening.start), 'utf8') > TITLE_SCAN_BYTES) {
+    } else if (Buffer.byteLength(candidate.slice(0, rawOffset(commentMarks, artifactTitle.opening.start)), 'utf8') > TITLE_SCAN_BYTES) {
       errors.push(`title must appear within the first ${TITLE_SCAN_BYTES} bytes`);
     }
   } else {
@@ -466,7 +500,7 @@ export function validateReviewHtml(type, artifact, html, {
   if (containsUnsafeCss(active, tags, target)) errors.push('contains unsafe CSS, hidden content, or URL behavior');
 
   if (isArtifact) {
-    const blocks = cssSources(active, tags).filter((_, index) => index >= 0);
+    const blocks = cssSources(active, tags);
     const joined = blocks.join('\n');
     const begin = joined.indexOf(SHELL_BEGIN);
     const end = joined.indexOf(SHELL_END, begin < 0 ? 0 : begin);

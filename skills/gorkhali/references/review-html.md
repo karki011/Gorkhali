@@ -63,7 +63,9 @@ Page-specific CSS goes in a **second `<style>` block** after the shell, and ther
 add components, restyle the ones the shell ships, introduce a device this particular plan needs.
 The one boundary is the chassis. A rule whose selector targets `:root`, `html`, `body`, `main`,
 `*`, `.doc`, or `.rail` is rejected, because those are what make every review page recognizably the
-same page and what keep both themes correct.
+same page and what keep both themes correct. Wrapping one in `:is()` or `:where()` does not launder
+it. A class of your own that merely begins with a reserved name, such as `.doc-note` or
+`.rail-badge`, is fine.
 
 The shell gives you: `.eyebrow`, `.standfirst`, `.meta` with `.chip` (`.warn`, `.good`),
 `.verdict` with `.word`, `.ev` for an inline citation, `.callout`, `.tablewrap` around a `table`
