@@ -101,7 +101,29 @@ review stage rather than restating it.
    the next fix loop is the one that must not silently happen — this command
    still never starts one, but it is what makes the ceiling visible at the moment
    it is reached rather than after another round.
-8. Record the merged outcome through the portable helper:
+8. **Findings page (optional).** When the review reports findings and the runtime
+   can publish an artifact, author `{SESSION_DIR}/reviews/review.candidate.html`
+   for the artifact target from `{SESSION_DIR}/reviews/auditor.json`, following
+   `skills/gorkhali/references/review-html.md` for voice, shell and structure:
+   paste `assets/review-shell.css` verbatim, keep page-specific CSS in a second
+   style block, and lead in plain English with the verdict and the blocking
+   findings. Per-finding citations, quotes, `discardedFindings` and
+   `observationGaps` belong in the collapsed `<details>` appendix, not the lead.
+   Promote it with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs
+   review --source {SESSION_DIR}/reviews/auditor.json --candidate
+   {SESSION_DIR}/reviews/review.candidate.html --out {SESSION_DIR}/reviews/review.html
+   --target artifact`, then publish with `Artifact(file_path:
+   "{SESSION_DIR}/reviews/review.html", favicon: "<one emoji>", description: "<one
+   sentence>")` and give the user the returned URL. Republish the same `file_path`
+   on later rounds so one review keeps one URL; omit `favicon` on a republish. If
+   publishing fails or is declined, regenerate with `--target file` and open the
+   local page.
+
+   The page is a reading surface, never the record: `auditor.json` stays the
+   artifact the verdict is read from, the page is never parsed back, and a page
+   that failed to generate never turns a `fail` into a `pass`. Skip it entirely on
+   a clean review - an empty findings page earns nobody's attention.
+9. Record the merged outcome through the portable helper:
 
    ```json
    {

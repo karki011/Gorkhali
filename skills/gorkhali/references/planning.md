@@ -67,7 +67,8 @@ disposable review projection, never parsed back into state.
 A plan should communicate only what a reviewer or implementer needs:
 
 - briefing: What is being tackled, the Problem it solves, and How the
-  recommendation works;
+  recommendation works, in the plain-English voice of
+  [review-html.md](review-html.md); it is quoted verbatim onto the gate;
 - decision question, recommendation, intended outcome, and scope boundaries;
 - inspected evidence with observation time, confidence, and conflicts,
   including the verified claim set and any premise found refuted or stale;
@@ -80,10 +81,10 @@ A plan should communicate only what a reviewer or implementer needs:
 Never guess a path or pad required fields with generic prose; unresolved
 material uncertainty makes the plan concerned or blocked.
 
-For brainstorm routes, research genuinely distinct approaches before
-convergence. Record what evidence would change the recommendation, then promote
-the approved direction into a plan. For full routes, record the approved
-cross-scope decisions after the plan.
+For brainstorm routes, research genuinely distinct approaches before convergence.
+Record what evidence would change the recommendation, then promote the approved
+direction into a plan. For full routes, record approved cross-scope decisions
+after the plan.
 
 Record canonical artifacts through the engine:
 
@@ -94,9 +95,11 @@ node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --ty
 Validate canonical JSON before creating any human review page. When a review
 page is useful, follow [review HTML guidance](review-html.md), generate the
 disposable HTML from the validated JSON, and run
-`scripts/validate-review-html.mjs` before presenting it. If file writing is
-unavailable, present one fenced `json` block; if HTML generation or viewing is
-unavailable, preserve JSON and present the same What/Problem/How brief in chat.
+`scripts/validate-review-html.mjs --target artifact|file` before presenting it.
+Publish an artifact and give its URL, or open a file; a failed publish falls back
+to `file`. If file writing is unavailable, present one fenced `json` block; if
+HTML generation or viewing is unavailable, preserve JSON and present the same
+What/Problem/How brief in chat.
 
 ## Plan Quality Rules
 
@@ -175,10 +178,10 @@ A review page chooses its design but must use this order:
 5. Plan check, review provenance, and unrecognized compatibility fields.
 
 The first screen must answer what is being tackled, the problem, how the
-recommendation works, what evidence supports that How, what remains
-uncertain, and whether to approve. A How without supporting evidence is an
-assumption: record it in `assumptions`, never present it as a finding. Tasks
-and waves never lead the gate and never appear in the chat brief.
+recommendation works, what evidence supports that How, what remains uncertain,
+and whether to approve. A How without supporting evidence is an assumption:
+record it in `assumptions`, never present it as a finding. Tasks and waves never
+lead the gate and never appear in the chat brief.
 
 ## Collect approvals
 

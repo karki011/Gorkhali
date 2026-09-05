@@ -1,0 +1,173 @@
+<title>Usage KPI Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+__GORKHALI_SHELL__
+</style>
+
+<style>
+  /* Page CSS. The shell owns tokens, layout, the rail and the base components;
+     this block adds what only this plan needs. It may not touch the chassis. */
+  .trap-mark {
+    font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--warn); display:block; margin-bottom:.35em;
+  }
+</style>
+
+
+<main>
+  <nav class="rail" aria-label="Sections">
+    <p>On this page</p>
+    <ol>
+      <li><a href="#problem">The problem</a></li>
+      <li><a href="#fix">How we fix it</a></li>
+      <li><a href="#checked">What we checked</a></li>
+      <li><a href="#risks">What could go wrong</a></li>
+      <li><a href="#done">What done looks like</a></li>
+      <li><a href="#open">Still open</a></li>
+      <li><a href="#decision">Your decision</a></li>
+      <li><a href="#detail">Implementation detail</a></li>
+    </ol>
+  </nav>
+
+  <div class="doc">
+  <p class="eyebrow">Plan review &middot; CP-47317 &middot; feature-web-apps &middot; Sep 4, 2026</p>
+  <h1>Usage KPI cards</h1>
+  <p class="standfirst">The Usage dashboard's 8 headline numbers are plain text with nothing around them. This turns them into 8 cards that match the ones already on the Livestream page, adds a change-since-last-period figure to 6 of them instead of 2, and gives the row somewhere to go when it does not fit on screen.</p>
+
+  <div class="meta">
+    <span class="chip">3 packages</span>
+    <span class="chip">12 files</span>
+    <span class="chip">no backend change</span>
+    <span class="chip warn">opposition: revise &rarr; resolved &times;8</span>
+  </div>
+
+  <div class="verdict">
+    <span class="word">Recommend</span>
+    <p>Do the data fixes first, because the cards only render whatever the data layer produces. The scroll component and the browser measurement can run alongside them. Wire the cards last.</p>
+  </div>
+
+  <h2 id="problem">The problem</h2>
+  <p>The numbers sit as bare text next to real cards, so they read as an afterthought rather than the headline. Only 2 of the 8 show whether they went up or down. A guard in the delta code asks the wrong question: it checks how far back the window starts from today, when the backend only cares how long the window is. So the 60-day view silently shows no change figures at all. And when 8 numbers do not fit the width, nothing happens. They just get cut off.</p>
+
+  <h2 id="fix">How we fix it</h2>
+  <p>Fix the guard to ask the real question: is the previous window 90 days or shorter. Four new change figures then come almost free. Two are derived from data the page already fetches, and two from one extra lightweight call that reads a running total straight off page one. Not the older user-count query: that one scans the whole table and was removed earlier the same day for timing out. Then describe the 8 cards as a list of entries and render them with one card component, so a 9th is one line. Finish the scroll component the design system already half-built, so arrows appear only when the row genuinely overflows. Measure the real text in a browser before fixing any font size, because both earlier estimates in this session were guesses.</p>
+
+  <div class="callout">
+    <strong>The one trap here.</strong> An earlier draft of this plan reached for <span class="ev">partition_values(user_name)</span> to count users in the previous window. That call scans the whole properties map under a 30-second budget and was deliberately deleted from this codebase earlier the same day for timing out. The replacement uses the same endpoint the current window already relies on, asks for a single row, and reads the total off the response envelope.
+  </div>
+
+  <h2 id="checked">What we checked</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>What we found</th><th>Where we read it</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>The backend limit is about how <em>long</em> a window is, not how far back it starts. So the guard's question was never the backend's question.</td>
+          <td class="src">types.py:122-132, constants.py:36-38</td>
+        </tr>
+        <tr>
+          <td>Today the guard blocks exactly one thing: the 60-day view. 7 and 30 pass it by accident.</td>
+          <td class="src">derive-usage-kpis.ts:153-160</td>
+        </tr>
+        <tr>
+          <td>The running total is already on page one of the response. Walking every page exists to merge the per-user breakdown, which a single count does not need.</td>
+          <td class="src">types.ts:71-81, use-user-name-cost-pages.ts:39-50</td>
+        </tr>
+        <tr>
+          <td>The single-page and paginated calls hit the same endpoint with the same 60-second budget, so this is not a less-tested path.</td>
+          <td class="src">cost-over-time.query.ts:29-53, :79-128</td>
+        </tr>
+        <tr>
+          <td>The scroll component's resize watcher is already imported and mocked in its test, and used zero times in the component.</td>
+          <td class="src">scroll-carousel.tsx</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="risks">What could go wrong</h2>
+  <div class="risks">
+    <div class="risk">
+      <p class="r">Eight equal cards may still be too tight at 1280px.</p>
+      <p class="m">That is the accepted cost of the shape you already picked: the scroll arrows become the normal state at that width, not an edge case. Ship it.</p>
+    </div>
+    <div class="risk">
+      <p class="r">The extra call is still one more query than today.</p>
+      <p class="m">Smaller and better understood than either alternative. If it does time out, only the two user-related figures go blank; the page still loads.</p>
+    </div>
+    <div class="risk">
+      <p class="r">Reusing the old skeleton sizes would reopen a layout-shift bug.</p>
+      <p class="m">Two prior P0s came from exactly this. The measurement task is gated to produce fresh numbers from the rendered card, not to copy the old constants.</p>
+    </div>
+    <div class="risk">
+      <p class="r">Arrows could flicker while the sidebar animates.</p>
+      <p class="m">Copy the existing legend component's pattern first. Add a short delay only if flicker is actually visible, not preemptively.</p>
+    </div>
+  </div>
+
+  <h2 id="done">What done looks like</h2>
+  <p>All 8 numbers render as cards; 6 of them show a correct change figure at all three windows (7, 30 and 60 days) without reviving a query known to time out; the row gets a real horizontal scroll when it does not fit; and adding a 9th number is one new entry in a list.</p>
+
+  <h2 id="open">Still open</h2>
+  <ul>
+    <li>The exact card font size and minimum width are deliberately unset until the browser measurement runs. Every number in this session so far has been a guess.</li>
+    <li>Changing the guard's signature is safe only if it has the two call sites we found. The first task greps for a third before touching it.</li>
+  </ul>
+
+  <div class="ask" id="decision">
+    <p class="label">Your decision</p>
+    <p>Approve building this as 8 equal cards, with the previous period's user count coming from a single lightweight page-one read rather than the query that was removed for timing out earlier today?</p>
+  </div>
+
+  <details id="detail">
+    <summary>Implementation detail &mdash; tasks, files, and waves</summary>
+    <div class="body">
+      <h3>Wave 1 &mdash; data layer</h3>
+      <ul>
+        <li><span class="ev">T-guard</span> Retarget <span class="ev">canComputeUsageDelta</span> to test prior-window length &le; 90 days. Grep for a third call site before changing the signature. Fix the test at <span class="ev">derive-usage-kpis.test.ts:268-275</span>, which encodes the old now-relative rule.</li>
+        <li><span class="ev">T-deltas</span> Add four figures. Price per million tokens and average spend per day derive from the three prior-window series the hook already fetches. Active users and cost per active user derive from one new <span class="ev">limit=1</span> <span class="ev">cost_data_over_time</span> call reading <span class="ev">pagination.total_count</span>. Average spend per day uses <span class="ev">deriveAvgCostPerDay</span> over the prior daily series, never aliased to the cost delta. Guard the series build on a non-null prior response.</li>
+        <li><span class="ev">T-types</span> Introduce a domain-owned <span class="ev">UsageDeltaKey</span> union so a typo fails to compile; <span class="ev">deltas</span> becomes <span class="ev">Record&lt;UsageDeltaKey, number|null&gt;</span>.</li>
+      </ul>
+
+      <h3>Wave 1, in parallel</h3>
+      <ul>
+        <li><span class="ev">T-measure</span> Real-browser measurement of the longest label and value pair before any font size or minimum width is fixed.</li>
+        <li><span class="ev">T-carousel</span> Finish <span class="ev">ScrollCarousel</span>'s dormant <span class="ev">ResizeObserver</span>, observing the scroll container rather than the window, because the 208px sidebar toggle fires no resize event.</li>
+      </ul>
+
+      <h3>Wave 2 &mdash; presentation</h3>
+      <ul>
+        <li><span class="ev">T-descriptors</span> A Usage-local descriptor list plus one generic <span class="ev">UsageKpiCard</span> (<span class="ev">Card.Root variant='elevated'</span>, <span class="ev">borderRadius='card'</span>, no icon, no sparkline).</li>
+        <li><span class="ev">T-compose</span> <span class="ev">buildUsageKpiItems</span> is the only place that resolves <span class="ev">deltaKey &rarr; kpis.deltas</span>; the card itself stays domain-free and imports nothing from <span class="ev">@cloudzero/pulse/domain</span>. Per-metric null guards replace the coarse <span class="ev">sections.deltas.isError</span> gate.</li>
+        <li><span class="ev">T-barrel</span> Remove the <span class="ev">UsageKpiRow</span>/<span class="ev">UsageKpiItem</span> export from <span class="ev">libs/ui/pulse/src/index.ts</span>, add <span class="ev">UsageKpiCard</span>. Keep the existing <span class="ev">usage-kpi-</span> testid prefix.</li>
+      </ul>
+
+      <h3>Files</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Package</th><th>Files</th></tr></thead>
+          <tbody>
+            <tr><td>pulse/domain</td><td class="src">derive-usage-kpis.ts (+test), use-usage-dashboard.ts (+new test)</td></tr>
+            <tr><td>design-system</td><td class="src">scroll-carousel.tsx (+test)</td></tr>
+            <tr><td>ui/pulse</td><td class="src">usage-kpi-descriptors.ts (new), usage-kpi-card.tsx (new, +test), usage-kpi-row.tsx (deleted), usage-dashboard.tsx, index.ts</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Explicitly out of scope</h3>
+      <ul>
+        <li>Livestream's own <span class="ev">kpi-tile.tsx</span> and <span class="ev">kpi-tiles-row.tsx</span> stay untouched. No reuse in either direction.</li>
+        <li>No backend change in <span class="ev">feature-ai-telemetry-pipeline</span>.</li>
+        <li><span class="ev">aiPartitionValuesQuery</span> itself is untouched. It stays fine for its existing indexed-dimension callers; it is simply not used here.</li>
+        <li>Nothing promoted into a shared package. The descriptor list stays Usage-local.</li>
+      </ul>
+    </div>
+  </details>
+
+  <footer>
+    Opposition verdict REVISE, all 8 findings resolved &middot; citations re-verified against 778e454a7 &middot; plan.json is the source of truth
+  </footer>
+  </div>
+</main>

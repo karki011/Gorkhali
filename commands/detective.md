@@ -80,7 +80,18 @@ Obtain the canonical baselineFingerprint with portable
 available. Do not invent or approximate it.
 
 ## Other output
-Write {TEAM_DIR}/sessions/{TICKET}/investigation.html using reference/detective/report-template.md.
+Author {TEAM_DIR}/sessions/{TICKET}/investigation.candidate.html for the artifact target, using
+reference/detective/report-template.md for content and skills/gorkhali/references/review-html.md for
+voice, shell and structure: paste assets/review-shell.css verbatim, keep page-specific CSS in a second
+style block, lead with the finding in plain English, and put the traced evidence in a collapsed
+<details> appendix. Promote it with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs
+detective --source {TEAM_DIR}/sessions/{TICKET}/defect-proof.json --candidate
+{TEAM_DIR}/sessions/{TICKET}/investigation.candidate.html --out
+{TEAM_DIR}/sessions/{TICKET}/investigation.html --target artifact`, then publish with
+`Artifact(file_path: "{TEAM_DIR}/sessions/{TICKET}/investigation.html", favicon: "<one emoji>",
+description: "<one sentence>")` and give the user the returned URL. Republish the same file_path on
+later rounds; omit favicon on a republish. If publishing fails or is declined, regenerate with
+`--target file` and open the local page.
 Then return a conversation summary: hypothesis + confidence; key evidence (commit SHA, file, line); recommended fix approach; files to modify; who to consult (if bus factor = 1).
 ```
 

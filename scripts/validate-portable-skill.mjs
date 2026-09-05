@@ -533,6 +533,7 @@ export function validateSkill(skillDirectory = defaultSkillDirectory) {
 
   const required = [
     'manifest.json',
+    'assets/review-shell.css',
     'references/capabilities.md',
     'references/models.md',
     'references/model-policy.json',
