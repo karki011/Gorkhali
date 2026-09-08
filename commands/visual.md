@@ -43,6 +43,18 @@ review, shipping, or completion. It also never replaces explicit user
 confirmation. There is no autonomous mode, code modification, or visual fix
 loop.
 
+### Design-fidelity work
+
+When Surveyor runs against a design artifact, set the browser viewport explicitly
+before capturing evidence — `agent-browser` defaults to 1440x900, which will not
+match a design built at a different viewport. Treat each finding as a hypothesis:
+the owning Engineer confirms or disproves it by measurement (computed styles,
+rendered widths) and closes the dispute with a play assertion, never further chat.
+For a multi-wave visual effort, the recommended cadence is one pass after each
+visual wave and one more after integration — each still requires `--surveyor` or
+an explicit user request per the activation rule above; it never triggers on its
+own.
+
 ## Procedure
 
 1. Determine the affected routes from arguments, the approved plan, or changed

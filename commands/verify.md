@@ -112,6 +112,21 @@ verify context:
 - **Specialists** — run exactly the roles in this verification's `requiredSpecialists`, without reclassifying the diff. For `justice`, create `{SESSION_DIR}/reviews/specialists/`, then delete only `{SESSION_DIR}/reviews/specialists/justice.json` immediately before spawning it, and bind each role's evidence to this verification's Inspector artifact; `commands/review.md` steps 5, 6 and 8 own the verdict shape and the fail/blocked reduction.
 - **Recording** — the merged review records through the portable helper, after this verification artifact. The recorded payload carries the `independence` disclosure (`reference/schemas/review.md`) Auditor wrote onto its own artifact - today's honest default is `basis: "same-model-independent-context"`, `evidenceTier: "requested"`, since balanced and deep resolve to the same delegate model on claude-code and model identity itself is only requested-tier evidence until `project-docs/seat-provenance-design.md`'s served-tier probe lands. User visual confirmation is bound to verification and is not a review artifact. The optional RPSL preset is not part of normal verify.
 
+## Design-fidelity work
+
+When the intent names a design artifact (a Figma file, a Claude Design bundle, a
+pixel reference), treat the design as a measurable spec, not just a screenshot.
+Inspector must assert computed values (`getComputedStyle`) for ladder-driven
+components against the design's px/ms/token table, and assert rendered widths at
+the screen level for integration tasks — passing play tests prove behavior, not
+measurements, and a screen can pass every play test while still rendering at the
+wrong width. Recommend the user or Chief run `/gorkhali:visual --surveyor` once
+after each visual wave and again after integration; treat every Surveyor finding as
+a hypothesis for the owning Engineer to confirm or disprove by measurement, and
+close each dispute with a play assertion in the test file, not further chat. Set
+the browser viewport explicitly whenever Surveyor runs — `agent-browser` defaults
+to 1440x900, which will not match a design built at a different viewport.
+
 ## Result
 
 Report the ordered evidence: Inspector checks, Steward result, affected Inspector rerun,

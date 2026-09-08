@@ -57,5 +57,8 @@ Findings name the route, viewport/state, expected behavior, actual behavior, and
 screenshot path. After any navigation or state change, take a fresh snapshot
 before reusing element references.
 
+A hook blocks Surveyor's `agent-records/` write; Chief writes it from its own
+artifacts, `result.json` and screenshots.
+
 End by stating that Surveyor evidence is advisory and the user must still confirm
 the UI through the normal visual-verification checklist.
