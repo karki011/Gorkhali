@@ -58,7 +58,19 @@ Every `reference/…` pointer below names the canonical text for that rule. Foll
      re-dispatch, since no delegated role runs above sonnet.
    - All agents: `mode: "bypassPermissions"`.
    - SOLO route: spawn 1 `subagent_type: engineer` with full task scope
-   - SHADOWS route: spawn parallel `subagent_type: engineer` agents with `isolation: "worktree"`
+   - SHADOWS route: create every worktree for the wave BEFORE spawning any engineer, cut
+     from the feature branch (not `main`) when one exists. Give each worktree a real
+     `node_modules` — on macOS APFS, `cp -cR` an existing `node_modules` into place
+     (~11s for 400MB) instead of a symlink; a symlinked `node_modules` breaks vitest
+     browser mode and Storybook test runners for every story. Spawn parallel
+     `subagent_type: engineer` agents with `isolation: "worktree"`, each pointed at its
+     pre-created path — engineers must not call `EnterWorktree` themselves: it re-binds
+     the parent Chief session to that worktree and blocks Chief's git access until the
+     agent goes idle. Merge each verified task branch back with `--no-ff` and remove its
+     worktree once merged. Chief never ends a Bash command with its cwd inside a
+     worktree; use `git -C <abs path>` from the repo root instead. A dependency task
+     (touches `package.json`) runs alone in the main checkout with no worktree, and the
+     human is told the checkout is locked for its duration
    - Anti-repetition: search `learnings/INDEX.md`, inject corrections into agent prompts
    - **Context discipline at spawn** (`reference/agents.md` → Context Discipline):
      spawn prompts reference FILE PATHS for the agent to read itself — never paste large file bodies

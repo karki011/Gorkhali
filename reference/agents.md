@@ -102,6 +102,15 @@ Slots are static: execute-wave agents use their task's index from `plan.json`;
 every other spawn site has a fixed slot in that file's Spawn-Site Slot Table.
 Never count slots at runtime.
 
+## Messaging Live Agents
+
+Address a running agent by the suffixed name its spawn returned (`engineer-varek-2`),
+never the bare roster name (`engineer-varek`) — a bare name can resume a stale agent
+from an earlier wave instead of the one Chief means to reach. Every destructive
+instruction sent to a live agent (`rm -rf`, `kill`, `npm ci`, a forced git operation)
+must state which process or checkout it owns, so a wrong recipient can recognize the
+mismatch and refuse rather than execute it against the wrong worktree.
+
 ## Pre-Dispatch Routing Table (the ONE definition)
 
 Before spawning any wave of agents - one task (DIRECT) or many (SOLO/SHADOWS) -
@@ -124,6 +133,11 @@ columns:
   "Articulate before you escalate" above. This column cell IS that scope
   check, not a separate step; escalating above the floor without a concrete
   per-subtask reason recorded here is a routing error.
+
+For a SHADOWS wave, also record each task's worktree path and its `node_modules`
+mode (real APFS copy vs symlink) — inline in the **Scope (files)** cell or as a line
+beneath the table — so a stale-worktree or symlinked-`node_modules` failure traces
+back to the table that created it.
 
 This is the single canonical definition of the pre-dispatch table.
 `agents/chief.md`, `commands/execute.md`, and `commands/start.md`'s DIRECT route

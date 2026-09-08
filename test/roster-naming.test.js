@@ -81,8 +81,9 @@ const POLICY_PROSE = [
   },
   {
     file: 'commands/execute.md',
-    match: 'SHADOWS route: spawn parallel `subagent_type: engineer`',
-    why: 'route description; the wake-bookkeeping bullet fixes the name for both routes',
+    match: '`subagent_type: engineer` agents with `isolation: "worktree"`, each pointed at its',
+    why: 'SHADOWS route/worktree-procedure description; the wake-bookkeeping bullet '
+      + 'fixes the name for both routes',
   },
   {
     file: 'commands/execute.md',
