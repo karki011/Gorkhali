@@ -72,14 +72,16 @@ Agent call:
     verdict; on REVISE also address each challenge (and this gate feedback, if any: ...). Write the briefing in
     plain English per `skills/gorkhali/references/planning.md` -> "The briefing is written in plain English".
     Record the verdict, then return: do not author or publish anything else. Return ONLY: verdict
-    recorded, changed task ids.
+    recorded, changed task ids, and the brief fields (briefing, decision, outcome, scope, evidence,
+    risks, open_questions, assumptions, alternatives) - or Chief extracts them from `plan.json` via
+    the same jq projection below.
 ```
 
 `plan.json` never guesses its verdict: the finalize pass only runs after `plan-check.json` exists. Chief passes paths, not the challenges' text; a REVISE round is finalize → Opposition → finalize again.
 
 Spawn `explore-farwick` (native `Explore`, same `research` model) alongside only when the blast radius is unfamiliar or crosses repos; it returns a <=40-line survey that Chief forwards to the planner inline. Never spawn it to answer a question Chief could settle from `intent.json`.
 
-After each planner pass, Chief reads `jq '.briefing, .oppositionVerdict, [.tasks[] | {id, files, dependsOn}]' plan.json` and nothing else from it.
+After each planner pass, Chief reads `jq '.briefing, .decision, .outcome, .scope, .evidence, .risks, .open_questions, .assumptions, .alternatives, .oppositionVerdict, [.tasks[] | {id, files, dependsOn}]' plan.json` and nothing else from it.
 
 ## Anti-Repetition Check
 

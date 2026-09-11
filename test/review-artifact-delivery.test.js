@@ -93,7 +93,7 @@ test('review.artifact is a declared capability with a local-file fallback', () =
 
 test('both portable protocols present the chat brief only, with no page authoring', () => {
   const planning = flat('skills', 'gorkhali', 'references', 'planning.md');
-  assert.match(planning, /A plan gate presents only the What\/Problem\/How brief in chat/i);
+  assert.match(planning, /A plan gate presents the complete brief in chat/i);
   assert.match(planning, /no page,\s*no artifact,\s*no HTML generation,\s*no validator run/i);
   assert.match(planning, /available on request/i);
   assert.doesNotMatch(planning, /validate-review-html/);

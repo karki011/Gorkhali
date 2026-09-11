@@ -676,7 +676,7 @@ test('portable planning validates canonical JSON and presents the brief in chat 
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
   const normalized = planning.replace(/\s+/g, ' ');
   assert.match(normalized, /Validate canonical JSON through the state engine/i);
-  assert.match(normalized, /A plan gate presents only the What\/Problem\/How brief in chat/i);
+  assert.match(normalized, /A plan gate presents the complete brief in chat/i);
   assert.match(normalized, /no page, no artifact, no HTML generation, no validator run/i);
   assert.doesNotMatch(normalized, /validate-review-html\.mjs/i);
   assert.match(skill, /\[Planning\]\(references\/planning\.md\)/);

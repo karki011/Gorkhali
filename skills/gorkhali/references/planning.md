@@ -93,7 +93,8 @@ node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --ty
 ```
 
 Validate canonical JSON through the state engine before presenting the plan
-gate. A plan gate presents only the What/Problem/How brief in chat: no page,
+gate. A plan gate presents the complete brief in chat - What, Problem, How,
+Evidence, Scope, Risks, Open questions, and the approval question: no page,
 no artifact, no HTML generation, no validator run. Write it in plain English
 for an engineer from another team - one or two sentences per field, leading
 with the conclusion, keeping file and symbol names out of the prose and

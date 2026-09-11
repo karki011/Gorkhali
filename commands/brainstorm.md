@@ -100,7 +100,7 @@ cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `r
    - **Scope** — `briefing.scope`
    - **Risks** — `briefing.risks`
    - **Open questions**
-   - Say that implementation detail - files, tasks, waves, and dependency order - is available on request.
+   - Say that more detail - the full approach dossiers (benefits, tradeoffs, what breaks, when to pick), the evidence list, open questions, and the cheapest experiment - is available on request.
    - **Pick A / B / C** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 
