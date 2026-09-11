@@ -1,171 +1,38 @@
-# Gorkhali Shadows -- Shared Context (Core)
+# Gorkhali Shared Context
 
-> **Every `/gorkhali:*` subcommand MUST load this file first.**
+Every `/gorkhali:*` command reads this before its own phases start.
 
-## Governance
+## Paths and Session Model
 
-1. Read repo `AGENTS.md` + `.claude/rules/`
-2. Coding principles (first found): repo `.claude/rules/coding-principles.md` → `{PLUGIN_ROOT}/reference/coding-principles.md` → defaults
+`lib/paths.js` resolves one data root: `$GORKHALI_DATA`, else `$HOME/.gorkhali`. Everything mutable lives under it, never inside the project checkout. Inside the root: `repos/<repo>/sessions/<task>/`, where `<repo>` is a slug derived from the git remote and `<task>` is the ticket or task id.
 
-<context>
+`lib/session.js` owns that session directory: `plan.json`, `progress.json`, and a `scratch/` folder for anything a task needs to keep that is not the plan or the progress record. `openSession` creates the directory and a data-root sentinel marking which session is active; reopening an existing session never touches its `plan.json`. `closeSession`, `activeSession`, `readPlan`, `writePlan`, `readProgress`, and `appendProgress` cover the rest. No command writes these paths by hand.
 
-## Paths
+## User Preferences
 
-```
-PLUGIN_ROOT = self-resolved, env-free (deterministic). The CANONICAL Bash bootstrap - the ONE copy;
-              every commands/ site cites it as {PR_BOOTSTRAP} rather than restating it:
-              PR="$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)"; PR="${PR%/}"
-              then: node "$PR/scripts/..."  (or node -p "require('$PR/scripts/...')", etc.)
+`lib/preferences.js` reads a capped, twenty-line preferences file: a per-repo copy first, a global copy only when the per-repo one is missing, never both merged together. Both live under the data root, never inside the project, and are never committed.
 
-              Rules (each is load-bearing; sites cite this section, never restate it):
-              - $PR never survives across Bash calls (each is a FRESH shell): a site needing $PR
-                PREPENDS {PR_BOOTSTRAP} in the SAME command, then uses bare "$PR/scripts/...".
-                Always re-resolve from disk, never an inherited $PR — pure self-resolve.
-                NEVER process.env.CLAUDE_PLUGIN_ROOT / ${CLAUDE_PLUGIN_ROOT} / ${...:-$HOME/.claude/gorkhali}
-                (hooks/hooks.json keeps ${CLAUDE_PLUGIN_ROOT}: Claude Code substitutes it at
-                hook-exec — the one reliable surface).
-              - EMPTY-GUARD (REQUIRED — a fresh machine / dev clone has no cache dir, so $PR resolves
-                EMPTY and an unguarded `node "$PR/scripts/..."` becomes `node "/scripts/..."` → crash).
-                By context:
-                • GATE-CRITICAL (path resolution that must succeed) — fail READABLE, never crash:
-                    [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
-                • ADVISORY (checkpoints, cost-link, cost-report, compress — already 'never error / never blocks') — SKIP SILENTLY:
-                    [ -n "$PR" ] && node "$PR/scripts/..."
-              - The 8 checkpoint one-liners in start.md/execute.md/resume.md predate this form and carry
-                their own literal `PR="${PR:-...}"` shape — pinned verbatim by test/portable-skill.test.js.
+Every planner prompt, every brainstorm-phase prompt, every Opposition prompt, and every Engineer prompt carries the preference text verbatim, opened by the exact line `## User Preferences (verbatim)`. Omit the whole block when there is no preference text to show; never invent a substitute header.
 
-Symbolic placeholders — defined HERE only (single home); resolve per-repo, never hardcode:
-{TEST_CMD} {LINT_CMD} {BUILD_CMD} {TYPECHECK_CMD} = discovery protocol in skills/gorkhali/references/verification.md
-{PKG_MGR}  = repo-detect.js `package_manager` fact (§_shared-repo-detection.md)
-{DEV_PORT} = repo dev-server config
+## Tracker Adapter
 
-REPO_NAME = resolved by detectRepo()/gorkhali_detect_repo() through the ONE shared codec; the codec
-            comment owns the precedence — do NOT restate it (it drifted before).
-            `node "$PR/scripts/repo-detect.js" --json` prints it (plus aliases and data_root).
-TEAM_DIR  = ${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}   # default ~/.gorkhali; override with GORKHALI_DATA env
-SESSION_DIR     = {TEAM_DIR}/sessions/{TICKET}   # Phase 0: checkpoints live at {SESSION_DIR}/checkpoints/
-CONTRACTS       = {TEAM_DIR}/sessions/{TICKET}/contracts/
-DECISIONS_GLOBAL   = {TEAM_DIR}/decisions/global.md
-DECISIONS_SESSION  = {TEAM_DIR}/sessions/{TICKET}/decisions.md
-LEARNINGS       = {TEAM_DIR}/learnings/
-LEARNINGS_INDEX = {TEAM_DIR}/learnings/INDEX.md
-LEARNINGS_EDGES = {TEAM_DIR}/learnings/EDGES.md
-GLOBAL_PATTERNS = ${GORKHALI_DATA:-~/.gorkhali}/global/patterns/INDEX.md
-GLOBAL_EDGES    = ${GORKHALI_DATA:-~/.gorkhali}/global/patterns/EDGES.md
-```
+`lib/tracker.js` resolves one provider, from an explicit override or from preferences, and returns four descriptors: fetch, start, done, comment. Two providers are runnable directly, one through a command line tool and one through an external tool a command calls by name, never by guessing its shape. The third, none, hands back every descriptor as null, so a command that consults it does nothing rather than acting on a ticket system that was never configured. A command executes whichever descriptor it needs as plain prose steps; nothing here is a script to invoke.
 
-</context>
+## Role and Tier
 
-## Checkpoints
+Six roles, three tiers, one tier-to-model mapping per host:
 
-Advisory session progress markers. Every `commands/` checkpoint site writes ONE line of the same
-shape: the `PR="${PR:-...}"` resolve-with-fallback line (deliberately NOT the canonical {PR_BOOTSTRAP} -
-see §Paths), an `if [ -n "$PR" ]` guard, `printf '%s\n' '{"ticket":"{TICKET}"}'` piped
-into `scripts/lib/checkpoint.js`'s `write` sub-command with `{SESSION_DIR}/checkpoints` plus that
-site's phase label, closed by `|| :`.
+| Role | Tier |
+|------|------|
+| Engineer | balanced |
+| Inspector | economy |
+| Auditor | deep |
+| Opposition | balanced |
+| Detective | deep |
+| Surveyor | balanced |
 
-Semantics - the single home; sites cite this section instead of restating it: advisory only, never
-blocks; `resume` reads the latest; empty `$PR` skips silently; `|| :` fails open. Phase labels are
-lowercase kebab-case, and both the per-site label set and the one-liner's literal shape are pinned
-by `test/portable-skill.test.js` - the sites stay verbatim and change only together with that test.
+`lib/tiers.js` resolves a role to its tier (`config/role-tiers.json`) and a tier to a model for the active host (`config/hosts/`). An explicit model on the spawn always wins over the resolved one; an unrecognized host inherits whatever model is already running.
 
-<constraints>
+## Precedence
 
-## Core Disciplines
-
-15 rules preventing observed failures. Full enforcement details: `reference/governance.md`.
-
-1. **Feature branch** — never default/protected branches (configurable via `git.protected_branches` / `GORKHALI_PROTECTED_BRANCHES`)
-2. **Verify** — run commands, read output, confirm
-3. **Anti-repetition** — scan INDEX.md before planning
-4. **Opposition** — the one plan critic; challenges every plan and writes `plan-check.json`
-5. **Simplify** — after verify pass
-6. **Intent check** — diff vs contract
-7. **Smart PR** — ready-for-review PR with the 3-section body
-8. **Jira transition** — after push/PR
-9. **Learnings** — read + write every session
-10. **Auto-SHADOWS** — 4+ files → parallel agents
-11. **Root cause** — reproduce → trace → confirm → fix
-12. **Parallel agents** — independent files → concurrent spawn
-13. **Subagent-driven** — all edits via Agent tool
-14. **Workflow delegation** — BIG gateless fan-out → RECOMMEND a Claude Code dynamic workflow (user triggers; Chief can't self-launch). See `reference/workflow-delegation.md`.
-15. **Output contract** — script/skill output is minimal-field, counted, truncated-with-escape-hatch, `help[N]`-hinted, fails loud on unknown flags; human-facing deliverables (plans, research, reports, summaries) are self-contained HTML, never markdown. See `reference/output-contract.md`.
-16. **Response shape** — the conversational response leads with the decision, names where the run stands, measures instead of hedging, ranks and caps findings, and carries no preamble or closer. See `reference/response-shape.md` and § Response Shape below.
-
-</constraints>
-
-### Self-Check (before "done")
-
-All true? Feature branch, verify ran, anti-repetition, opposition, simplify, intent, learnings, subagent-only. If ANY no → fix first.
-
-## Response Shape
-
-Governs the prose Chief writes to the human. Script output stays under `reference/output-contract.md`;
-the last line stays under § Final Status Block below. Full contract and the conditions that override
-it: `reference/response-shape.md`.
-
-1. **Decision first** — first line is the verdict, route, or result. A report token (`[{ROUTE}]`,
-   `[PLANNED]`) already satisfies this.
-2. **Say where the run is** — "Gate 2 of 3 cleared: …". The reader does not carry state between turns.
-3. **Measure, never hedge** — `4m12s, $0.38, 6 files`, not "a while" or "a fair amount". Unknown is
-   stated as unknown, with why.
-4. **Rank then cap** — findings by severity, five visible, remainder as a count plus where to read it.
-5. **Errors: cause, then fix** — no "uh oh", no apology.
-6. **Blockers first** — the blocker leads; its explanation follows.
-7. **Tangents wait** — one line, at the end, as an offer.
-8. **No preamble, no recap, no closer** — not "Great question", "Let me", "Hope this helps", "Let me
-   know if you need anything else". The Final Status Block is the ending.
-
-Overridden by: an explicit request to explain or walk through, a destructive action needing
-confirmation, genuine ambiguity, an options question, the host's own system prompt, and any gate,
-invariant, or Core Discipline that requires words this would cut. Shape never suppresses a required
-disclosure, an authorization request, or a stated gap.
-
-## Final Status Block
-
-Every `/gorkhali:*` skill ENDS its response with one single-line work-state signal — last line, nothing after it:
-
-- 🟢 = done & verified
-- 🟡 = done but needs a specific non-routine follow-up — name it
-- 🔴 = blocked — state the blocker
-
-One line, one color. Examples:
-
-- `🟢 Wired usePagination into the list view; tests green`
-- `🟡 Code updated — set STRIPE_KEY in env before testing`
-- `🔴 Blocked: missing DB credential, cannot run migration`
-
-## Learning & Self-Correction
-- When user corrects or rejects an approach: STOP, acknowledge the correction, record it to `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/learnings/{domain}.md` as `CORRECTION [{keyword}]: [{wrong}] — [{right}] [failed] ({date})`, then resume with corrected approach. Never repeat a corrected mistake.
-- Before proposing any approach: scan learnings INDEX.md for matching corrections. Corrections with `[validated:5+]` = auto-apply. `[failed]` = blocked (must explain why different). Never ignore past failures.
-- If a fix attempt fails twice with the same error class: STOP patching. The approach is wrong. Re-plan from scratch with failure context. Do not stack patches on a wrong hypothesis.
-- After EVERY verification pass: run `simplify` on all changed files. Not optional. Not "if time permits." If simplify produces changes, re-verify before proceeding.
-
-<context_management>
-
-## Context Management
-
-| Threshold | Action |
-|-----------|--------|
-| <30% | Full capacity |
-| 30-40% | Caution — consider compact |
-| 40-60% | **Compact NOW** |
-| >60% | Emergency — finish step, fresh session |
-
-Compact with hints. Subagents for heavy reads. After compact: re-read `intent.md` + contracts.
-
-</context_management>
-
-## Preamble Tiers
-
-Canonical registry: `scripts/preamble-tier.js` (`node scripts/preamble-tier.js <command> --json`).
-This table is a rendering of it — `test/preamble-tier.test.js` fails on any drift, so edit the registry, never just this table.
-
-| Tier | Commands | Shared Contexts |
-|------|----------|----------------|
-| **T1** | status, sessions, health, learn, scout, evolve, grill | `_shared.md` |
-| **T2** | verify, fix, validate, eval, detective, brainstorm, close, greploop, loop, q, wire | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` (+ `_shared-detective.md` on the detective trigger) |
-| **T3** | review, pr-review, contract, recruit, visual, visualflow | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` |
-| **T4** | start, execute, wrap, resume, pause | `_shared.md` + `_shared-repo-detection.md` + `_shared-auto-learning.md` + `_shared-shadows.md` + `_shared-discipline.md` + `_shared-contracts.md` + `_shared-detective.md` |
-
-> **Repo Brain** (on-demand, not a tier): `_shared-brain.md` — grep-only recall of `{TEAM_DIR}/brain/cards/`. Loaded ad hoc by `scout.md` / `start.md` Phase A; never auto-included by any tier above.
+User intent beats auto-detection. Safety beats efficiency. When a rule above and a user's stated wish conflict, the user's wish wins unless following it would be unsafe; when speed and safety conflict, safety wins.

@@ -287,11 +287,6 @@ test('documented checkpoint writes provide JSON stdin and fail open', () => {
     'execute.md:dispatch-wave-complete',
     'execute.md:execution-json-written',
     'execute.md:plan-loaded',
-    'resume.md:resume-restore',
-    'start.md:brainstorm-gate1-approved',
-    'start.md:phase-a-context',
-    'start.md:phase-b-route',
-    'start.md:plan-gate-approved',
   ];
   const checkpointWrites = fs.readdirSync(path.join(REPO_ROOT, 'commands'))
     .filter((entry) => entry.endsWith('.md'))
@@ -359,8 +354,6 @@ test('comment contract keeps its committed bytes, structure, and digest', () => 
 test('runtime comment pointers use one bounded, recursively discovered dispatch', () => {
   const promptFiles = commentPointerFiles().filter((file) => file !== PORTABLE_ROLES);
   assert.deepEqual(promptFiles.map((file) => path.relative(REPO_ROOT, file)).sort(), [
-    'agents/auditor.md',
-    'agents/engineer.md',
     'agents/steward.md',
     'reference/agent-protocols/engineer-conventions.md',
   ]);
@@ -522,7 +515,20 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
   const resolver = path.join(cachedPlugin, 'host-support', 'resolve-runtime.mjs');
   const commands = fs.readdirSync(path.join(cachedPlugin, 'commands'))
     .filter((entry) => entry.endsWith('.md') && !entry.startsWith('_'))
-    .map((entry) => entry.slice(0, -3));
+    .map((entry) => entry.slice(0, -3))
+    // 'start', 'pause', 'resume', 'status', 'learn', 'verify', 'fix', 'review',
+    // 'visual', 'wrap', 'greploop' and 'close' dropped their Preamble Tier
+    // blockquote in the lean rewrite (the tier system is retired
+    // command-by-command; the rest follow in a later sweep). See
+    // commands/start.md, commands/pause.md, commands/resume.md,
+    // commands/status.md, commands/learn.md, commands/verify.md,
+    // commands/fix.md, commands/review.md, commands/visual.md,
+    // commands/wrap.md, commands/greploop.md, commands/close.md and
+    // commands/_shared.md.
+    .filter((entry) => ![
+      'start', 'pause', 'resume', 'status', 'learn', 'verify', 'fix', 'review',
+      'visual', 'wrap', 'greploop', 'close',
+    ].includes(entry));
   const expectedPreambles = {
     T1: ['_shared.md'],
     T2: ['_shared.md', '_shared-repo-detection.md', '_shared-auto-learning.md'],
@@ -562,7 +568,10 @@ test('installed-cache resolver loads deterministic preambles for every workflow'
       assert.ok(file.startsWith(path.join(realPlugin, 'commands')));
       assert.ok(fs.existsSync(file), `${command} preamble is missing: ${file}`);
     }
-    if (['verify', 'fix', 'detective'].includes(command)) {
+    // 'verify' and 'fix' dropped out of this loop above along with their
+    // Preamble Tier blockquote, so only 'detective' still carries the
+    // conditional _shared-detective.md preamble here.
+    if (command === 'detective') {
       assert.ok(runtime.conditional_preamble_files.some((entry) => entry.file.endsWith('_shared-detective.md')));
     }
   }
@@ -672,15 +681,12 @@ test('portable validator requires every bundled planning and AI review resource'
 });
 
 test('portable planning validates canonical JSON and presents the brief in chat with no HTML step', () => {
-  const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
   const normalized = planning.replace(/\s+/g, ' ');
   assert.match(normalized, /Validate canonical JSON through the state engine/i);
   assert.match(normalized, /A plan gate presents the complete brief in chat/i);
   assert.match(normalized, /no page, no artifact, no HTML generation, no validator run/i);
   assert.doesNotMatch(normalized, /validate-review-html\.mjs/i);
-  assert.match(skill, /\[Planning\]\(references\/planning\.md\)/);
-  assert.doesNotMatch(skill, /validate-review-html\.mjs/i, 'router must not duplicate phase procedure');
 });
 
 test('official skill validator accepts the canonical skill when available', (context) => {
@@ -1095,14 +1101,12 @@ test('capability contract preserves all required degradation paths', () => {
 
 test('portable workflow makes delegation an automatic, native Chief decision', () => {
   const read = (file) => fs.readFileSync(path.join(SKILL_ROOT, file), 'utf8').replace(/\s+/g, ' ');
-  const skill = read('SKILL.md');
   const execution = read('references/execution.md');
   const roles = read('references/roles.md');
   const capabilities = read('references/capabilities.md');
   const models = read('references/models.md');
   const verification = read('references/verification.md');
 
-  assert.match(skill, /\[Execution\]\(references\/execution\.md\)/);
   assert.match(execution, /current agent for one tightly coupled scope/i);
   assert.match(execution, /serial isolated passes/i);
   assert.match(execution, /parallel delegates only for proven independent scopes/i);
@@ -1124,7 +1128,6 @@ test('portable workflow makes delegation an automatic, native Chief decision', (
 
 test('minimum-sufficient solution policy is ordered, automatic, inherited, and safety bounded', () => {
   const read = (file) => fs.readFileSync(path.join(SKILL_ROOT, file), 'utf8').replace(/\s+/g, ' ');
-  const skill = read('SKILL.md');
   const planning = read('references/planning.md');
   const execution = read('references/execution.md');
   const verification = read('references/verification.md');
@@ -1143,7 +1146,6 @@ test('minimum-sufficient solution policy is ordered, automatic, inherited, and s
     cursor = next;
   }
 
-  assert.match(skill, /Prefer omission, reuse, standard or native behavior, and installed dependencies before custom machinery/i);
   assert.match(execution, /selected minimum-sufficient solution/i);
   assert.match(verification, /may not remove approved behavior, validation, compatibility, accessibility, security controls, or evidence/i);
   assert.match(verification, /rerun every affected correctness check/i);
@@ -1155,7 +1157,6 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
     'utf8',
   );
   const start = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'start', 'SKILL.md'), 'utf8');
-  const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const state = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'state.md'), 'utf8');
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
   const verification = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'verification.md'), 'utf8');
@@ -1181,12 +1182,6 @@ test('portable lifecycle authority is explicit, validated, and provider mechanic
   assert.match(start, /no implicit PR lifecycle/i);
   assert.match(start, /PR shipping requires separate, explicit authorization/i);
   assert.doesNotMatch(start, /codex-compatibility|commands\/start|_shared/i);
-  assert.match(skill, /scripts\/gorkhali-state\.mjs` is the sole lifecycle authority/i);
-  assert.match(skill, /`direct`.*None; implementation authorization is still required/is);
-  assert.match(skill, /`plan`.*Approved plan/is);
-  assert.match(skill, /`brainstorm`.*Approved direction, then approved plan/is);
-  assert.match(skill, /`full`.*Approved direction, plan, and wiring/is);
-  assert.match(skill, /`--mode to-plan` is permanently plan-only/i);
   assert.match(state, /schema_version: 1/i);
   assert.match(state, /older sessions must synthesize missing\s+pending values/i);
   assert.match(state, /worktree_fingerprint/i);

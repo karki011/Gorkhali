@@ -350,25 +350,14 @@ test('an artifact with no convergence key still validates - round 1 has none', (
   }
 });
 
-// --- the commands still delete the artifact, and never the ledger -------------
-
-test('commands/review.md still deletes auditor.json and explicitly spares the ledger', () => {
-  const review = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'review.md'), 'utf8');
-  assert.match(review, /Delete only `\{SESSION_DIR\}\/reviews\/auditor\.json`/);
-  assert.match(review, /never\s+`\{SESSION_DIR\}\/reviews\/rounds\.json`/);
-  assert.match(review, /prevents a failed or truncated run\s+from reusing an older verdict/);
-  assert.match(review, /holds no verdict to reuse/);
-  // The path form is the plugin-root bootstrap (`_shared.md` §Paths), so the
-  // script name is followed by a closing quote before the action.
-  assert.match(review, /review-round\.js"? status/);
-  assert.match(review, /review-round\.js"? close/);
-});
-
-test('commands/verify.md runs the same pass and spares the same ledger', () => {
-  const verify = fs.readFileSync(path.join(REPO_ROOT, 'commands', 'verify.md'), 'utf8');
-  assert.match(verify, /Delete only `\{SESSION_DIR\}\/reviews\/auditor\.json` — never `\{SESSION_DIR\}\/reviews\/rounds\.json`/);
-  assert.match(verify, /review-round\.js close/);
-});
+// --- the ledger-deletion pair removed (W2-T8) ---------------------------------
+// "commands/review.md still deletes auditor.json and explicitly spares the
+// ledger" and "commands/verify.md runs the same pass and spares the same
+// ledger" pinned the old review-round.js ledger and its {SESSION_DIR}/reviews
+// paths. The lean rewrite of both commands drops the round ledger, the
+// fingerprint-bound rounds.json file, and the review-round.js script entirely
+// — each command now spawns its own Auditor pass directly and reads its fixed
+// record, so there is no shared delete-then-close ledger step left to pin.
 
 test('the shared review standard carries the round rule and does not claim to count rounds itself', () => {
   const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');

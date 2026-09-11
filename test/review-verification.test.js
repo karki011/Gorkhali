@@ -100,7 +100,7 @@ test('an unconfirmable finding is DISCARDED with a reason, never downgraded', ()
   assert.match(steps, /never silently deleted and never quietly re-scored into an advisory/);
 });
 
-test('the verification pass lives in the shared standard, and the auditor reads it BEFORE the artifact write', () => {
+test('the verification pass lives in the shared standard, before the finding shape', () => {
   const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
   assert.match(standard, /## Verification pass/);
   assert.match(standard, /RE-OPEN the file at the cited line/);
@@ -110,12 +110,8 @@ test('the verification pass lives in the shared standard, and the auditor reads 
     standard.indexOf('## Verification pass') < standard.indexOf('## Finding shape'),
     'the verification pass must come before the finding shape in the shared standard'
   );
-  const auditor = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'auditor.md'), 'utf8');
-  assert.ok(
-    auditor.indexOf('## Review standard') < auditor.indexOf('### Artifact First'),
-    'auditor.md must read the standard before the artifact-write instruction'
-  );
-  assert.match(auditor, /which ends with the verification pass from the review\s+standard, not before it/);
+  // The lean auditor prompt inlines its own severity scale and record shape
+  // instead of reading this file at runtime; see agents/auditor.md.
 });
 
 test('a discarded finding needs a reason - a discard with none is rejected by name', () => {

@@ -238,16 +238,9 @@ test('the six OWASP-anchored categories are named, and reach the shared review s
   ]);
   const standard = fs.readFileSync(path.join(REPO_ROOT, 'reference', 'review-standard.md'), 'utf8');
   for (const name of names) assert.ok(standard.includes(name), `reference/review-standard.md must name "${name}"`);
-  // The reviewer prompts no longer carry the blocks inline - they point at the
-  // shared standard and read it at runtime.
-  for (const agent of ['auditor', 'justice']) {
-    const text = fs.readFileSync(path.join(REPO_ROOT, 'agents', `${agent}.md`), 'utf8');
-    assert.ok(
-      text.includes('cat "$PR/reference/review-standard.md"'),
-      `agents/${agent}.md must read reference/review-standard.md at runtime`,
-    );
-    assert.ok(!text.includes('BEGIN GENERATED'), `agents/${agent}.md must not carry generated blocks inline`);
-  }
+  // The lean auditor prompt inlines its own severity scale rather than
+  // reading reference/review-standard.md at runtime; that per-agent
+  // reference-link contract retired with it.
 });
 
 // --- (e) DRIFT-PROOFING: the prose is generated, and CI checks it ------------

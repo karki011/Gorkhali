@@ -24,13 +24,13 @@ const AGENT_CEILINGS = {
   'auditor.md': 4720, // +REVIEW.md as highest-priority review-only instruction when present
   'chief.md': 10350,
   'clerk.md': 3830,
-  'detective.md': 2590,
+  'detective.md': 3340, // lean rewrite inlines the defect-proof gate and git recipes, dropping the HTML report
   'engineer.md': 7310,
   'inspector.md': 3010,
   'justice.md': 5540,
   'opposition.md': 6450,
   'steward.md': 4210,
-  'surveyor.md': 2510,
+  'surveyor.md': 2915, // lean rewrite inlines the visual protocol and auth fallback in place of reference/ links
 };
 
 const SHARED_CEILINGS = {

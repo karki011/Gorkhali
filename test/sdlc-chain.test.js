@@ -159,20 +159,6 @@ test('CLI render --out writes only relative filenames', () => {
   assert.doesNotMatch(dry.stdout, /# Intent|## Problem/);
 });
 
-test('wrap and start treat the chain as a product-repo audit copy, not session state', () => {
-  const wrap = fs.readFileSync(path.join(ROOT, 'commands/wrap.md'), 'utf8');
-  const start = fs.readFileSync(path.join(ROOT, 'commands/start.md'), 'utf8');
-  assert.match(wrap, /sdlc-chain\.mjs render/);
-  assert.match(wrap, /Do not commit\nGorkhali session artifacts/);
-  assert.doesNotMatch(wrap, /intent\.json/);
-  assert.match(start, /sdlc-chain\.mjs ingest/);
-  assert.doesNotMatch(start, /locate-intent|parse-intent/);
-  assert.match(start, /not session state/);
-  assert.match(start, /## Proto-spec/);
-  assert.match(start, /--out \{SESSION_DIR\}/);
-  assert.doesNotMatch(start, /Skill\(skill="gorkhali:intake"/);
-});
-
 test('locateIntentFile prefers .gorkhali/sdlc then intent/', async () => {
   const { locateIntentFile } = await load();
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-ws-'));

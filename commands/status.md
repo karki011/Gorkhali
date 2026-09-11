@@ -1,18 +1,20 @@
 ---
 name: status
-description: "Use when you want to check progress, view the task board, or get a status update — 'what are we working on', 'where are we'. Shows active session, running agents, pending items."
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+description: "Use when you want to check progress or get a status update - 'what are we working on', 'where are we'. The one notification surface: what is running, what is blocked on you, what shipped."
+user-invocable: true
 ---
 
-> **Preamble Tier: T1** — loads `_shared.md` only (canonical registry: `scripts/preamble-tier.js`)
+# /status
 
-# /gorkhali:status $ARGUMENTS
+The single place to re-read where a session stands. Reads the session folder only - no git, no tracker calls, nothing outward-facing.
 
-Task board from `{TEAM_DIR}/sessions/{TICKET}.json`. Fields: `assignments`, `contracts`, `verification`, `blockers`, `cost` — default is all five. `--fields a,b` in `$ARGUMENTS` narrows to just those; validate first (self-resolve `$PR` per `_shared.md`): `[ -f "$PR/scripts/lib/fields.js" ] && node "$PR/scripts/lib/fields.js" parse "<fields>" --valid assignments,contracts,verification,blockers,cost` — an unknown name reports the error and stops instead of rendering; a missing `scripts/lib/fields.js` in `$PR` (empty `$PR` or stale cache) skips validation and shows all five. Show:
-
-- **assignments** — Agent assignments and status (pending/active/done)
-- **contracts** — Contract completion status
-- **verification** — Verification results
-- **blockers** — Open blockers
-- **cost** — AI cost so far: `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-report.js" {TICKET}` and show its `Total:` line (skip silently if it fails or if `$PR` is empty — no plugin cache; telemetry batches ~60s so the figure may trail slightly)
+<instructions>
+1. Find the active session via `lib/session.js`'s `activeSession`. None - say so and stop.
+2. Read `plan.json` and `progress.json` for it (via `lib/session.js`).
+3. Show, in plain English:
+   - **Session** - repo, task, current phase.
+   - **Running** - tasks dispatched in `progress.json` with no matching completion entry yet.
+   - **Blocked on you** - a plan gate awaiting approval, or a wiring notification not yet acknowledged. This is the one place such a decision can always be re-read; it is not the only place it is ever shown - `start.md` and `resume.md` print it inline too, at the moment it arises.
+   - **Shipped** - tasks `progress.json` marks done.
+4. Show which preferences layer is in force (`lib/preferences.js`: repo, global, or none), from `_shared.md`'s User Preferences section, so it is clear what is steering the agents right now.
+</instructions>

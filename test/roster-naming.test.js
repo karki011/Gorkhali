@@ -95,11 +95,6 @@ const POLICY_PROSE = [
     why: 'blanket mode rule; the Step 2 scout spawn above carries the scout-* names',
   },
   {
-    file: 'commands/start.md',
-    match: '`mode: "bypassPermissions"` — always',
-    why: 'Core Discipline bullet stating the mode for every spawn; not a call site',
-  },
-  {
     file: 'reference/agents.md',
     match: 'All agents: `mode: "bypassPermissions"`',
     why: 'canonical blanket mode rule for every spawn site',

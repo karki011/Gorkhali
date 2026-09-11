@@ -70,10 +70,12 @@ test('every HTML review surface is a validator type', () => {
   const validator = read('skills', 'gorkhali', 'scripts', 'validate-review-html.mjs');
   assert.match(validator, /'visualflow', 'detective', 'review'/);
 
+  // commands/review.md dropped the HTML findings page in the lean rewrite
+  // (W2-T8) — Auditor's fixed record is the only artifact now. visualflow.md
+  // and detective.md are pre-rewrite files still on the old contract.
   for (const [file, type] of [
     [path.join('commands', 'visualflow.md'), 'visualflow'],
     [path.join('commands', 'detective.md'), 'detective'],
-    [path.join('commands', 'review.md'), 'review'],
   ]) {
     const command = flat(file);
     assert.match(command, new RegExp(`validate-review-html\\.mjs ${type}`), file);
@@ -145,14 +147,10 @@ test('an unreadable shell fails validation instead of silently passing', () => {
   assert.doesNotMatch(source, /catch \{ expected = null; \}/);
 });
 
-test('the findings page never becomes the review record', () => {
-  const command = flat('commands', 'review.md');
-  assert.match(command, /`auditor\.json` stays the artifact the verdict is read from/i);
-  assert.match(command, /never parsed back/i);
-  assert.match(command, /a page that failed to generate never turns a `fail` into a `pass`/i);
-  // A clean review has nothing to show, so it does not get a page.
-  assert.match(command, /Skip it entirely on a clean review/i);
-});
+// "the findings page never becomes the review record" test removed (W2-T8):
+// commands/review.md no longer authors an HTML findings page at all — Auditor's
+// own fixed record is the review artifact, so the premise this test pinned no
+// longer applies.
 
 // End-to-end regression on a real page that was rendered and visually checked,
 // rather than on a minimal synthetic one. The shell is spliced in at test time so

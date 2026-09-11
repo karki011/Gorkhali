@@ -10,13 +10,6 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-test('portable SKILL.md maps the four review surfaces without host slash-commands', () => {
-  const skill = read('skills/gorkhali/SKILL.md');
-  assert.ok(skill.includes('## Which review to run'));
-  assert.ok(skill.includes('| Someone else\'s pull request | `pr-review` |'));
-  assert.doesNotMatch(skill, /\/gorkhali:/);
-});
-
 test('adapter skills name the wrong surface for review, wrap, and pr-review', () => {
   const review = read('skills/review/SKILL.md');
   const wrap = read('skills/wrap/SKILL.md');

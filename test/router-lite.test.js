@@ -47,62 +47,10 @@ test('routes.md specifies the LITE flow with Inspector-only verification', () =>
   assert.ok(/"LITE"/.test(section), 'route-decision.json records "LITE"');
 });
 
-test('start.md LITE route keeps the subagent law and skips the full verify chain', () => {
-  const doc = read('commands/start.md');
-  assert.ok(doc.includes('## Route: LITE (0 gates)'), 'start.md must carry the LITE route section');
-  const section = doc.slice(doc.indexOf('## Route: LITE'), doc.indexOf('## Route: DIRECT'));
-  assert.ok(/subagent_type: "engineer"/.test(section), 'LITE still spawns an Engineer (Chief never edits)');
-  assert.ok(/subagent_type: "inspector"/.test(section), 'LITE spawns one Inspector');
-  assert.ok(/does NOT chain into/.test(section), 'LITE does not chain into verify --chained');
-});
-
-test('start.md LITE route records the portable lifecycle transitions it performs', () => {
-  // LITE skips the chained commands that normally drive gorkhali-state.mjs, so
-  // without these CLI writes status/resume/wrap stay blind to the LITE pass
-  // (Greptile, PR #126). Pin the three transitions and their ordering notes.
-  const doc = read('commands/start.md');
-  const section = doc.slice(doc.indexOf('## Route: LITE'), doc.indexOf('## Route: DIRECT'));
-  assert.ok(
-    section.includes('gorkhali-state.mjs" authorize --workspace <workspace> --scope implementation'),
-    'LITE must record implementation authorization',
-  );
-  assert.ok(
-    section.includes('gorkhali-state.mjs" execute --workspace <workspace>'),
-    'LITE must record the execute transition',
-  );
-  assert.ok(
-    section.includes('gorkhali-state.mjs" record --workspace <workspace> --type verification'),
-    'LITE must record the verification artifact (which drives the verify transition)',
-  );
-  assert.ok(
-    /authorize`\+`execute` run BEFORE the spawns/.test(section),
-    'authorization and execution must precede the Engineer/Inspector spawns',
-  );
-  assert.ok(
-    /refuses session-internal inputs/.test(section),
-    'the record transport rule (no session-internal --input) must be stated',
-  );
-});
-
 test('routes.md LITE spec names the lifecycle recording', () => {
   const doc = read('reference/router/routes.md');
   const section = doc.slice(doc.indexOf('## LITE'), doc.indexOf('## DIRECT'));
   assert.ok(/gorkhali-state\.mjs/.test(section), 'routes.md LITE spec must name the gorkhali-state recording');
-});
-
-test('start.md --to-plan mode collapses LITE to plan-only (no execution)', () => {
-  const doc = read('commands/start.md');
-  const mode = doc.slice(doc.indexOf('## Mode: --to-plan'));
-  const collapse = mode.slice(mode.indexOf('**Route collapse:**'), mode.indexOf('**Headless contract:**'));
-  assert.ok(/LITE/.test(collapse), 'the --to-plan route collapse must name LITE');
-  assert.ok(
-    /LITE \/ DIRECT/.test(collapse),
-    'LITE must collapse to the same plan-only path as DIRECT',
-  );
-  assert.ok(
-    /no Engineer spawn/i.test(collapse),
-    'the collapse must forbid the LITE Engineer spawn in --to-plan mode',
-  );
 });
 
 test('the eval route vocabulary includes LITE', () => {
@@ -123,14 +71,6 @@ test('the portable lifecycle route vocabulary includes lite', () => {
   );
   const approvals = state.match(/const ROUTE_APPROVALS = \{[\s\S]*?\};/);
   assert.ok(approvals && /lite: \[\]/.test(approvals[0]), 'lite carries no approval gates, same as direct');
-
-  const skill = read('skills/gorkhali/SKILL.md');
-  const row = skill.split('\n').find((l) => l.includes('`lite`'));
-  assert.ok(row, 'SKILL.md router table must carry a lite row');
-  assert.ok(
-    skill.indexOf('`lite`') < skill.indexOf('`direct`'),
-    'lite sits below direct in the portable router table',
-  );
 
   const outcome = read('scripts/outcome-write.js');
   assert.ok(

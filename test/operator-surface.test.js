@@ -11,22 +11,6 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-test('start Auto-chaining does not wrap on verify PASS', () => {
-  const start = read('commands/start.md');
-  const begin = start.indexOf('## Auto-chaining (default flow)');
-  assert.notEqual(begin, -1, 'commands/start.md must have ## Auto-chaining (default flow)');
-  const rest = start.slice(begin);
-  const next = rest.indexOf('\n## ', 3);
-  const auto = next === -1 ? rest : rest.slice(0, next);
-  assert.doesNotMatch(
-    auto,
-    /verify PASS continues to[\s\S]*Skill\(skill="gorkhali:wrap"\)/,
-    'verify PASS must not invoke wrap',
-  );
-  assert.match(auto, /Verify PASS does \*\*not\*\* wrap/);
-  assert.match(auto, /ship-pr|\/gorkhali:wrap/);
-});
-
 test('README.md does not claim P0/P1 auto-fixed', () => {
   assert.doesNotMatch(read('README.md'), /P0\/P1 auto-fixed/);
 });

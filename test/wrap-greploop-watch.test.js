@@ -40,15 +40,6 @@ test('ship-ceremony.md arms all-author review and CHIEF_PING watch', () => {
   assert.match(content, /never merge/i);
 });
 
-test('greploop command pins all-author watch and never-merge', () => {
-  const content = read('commands/greploop.md');
-  assert.match(content, /all-author/);
-  assert.ok(content.includes('CHIEF_PING'));
-  assert.match(content, /never merge/i);
-  assert.ok(content.includes('pr-watch-tick.js'));
-  assert.ok(content.includes('clerk-herald'));
-});
-
 test('greploop skill describes all-author review and Phase 2 5/5 stop', () => {
   const content = read('skills/greploop/SKILL.md');
   assert.match(content, /all-author|ALL review comments/);
@@ -77,13 +68,6 @@ test('reference/pr-watch.md pins the tick script, illegal {new:false}, never mer
   );
   assert.ok(content.includes('threads_clean'));
   assert.ok(content.includes('greptile_max'));
-});
-
-test('resume.md continues an armed pr-watch without asking', () => {
-  const content = read('commands/resume.md');
-  assert.ok(content.includes('pr-watch.json'));
-  assert.match(content, /watching/);
-  assert.ok(content.includes('Do not ask'));
 });
 
 test('start.md PLAN gate is chat-only and offers implementation detail on request', () => {

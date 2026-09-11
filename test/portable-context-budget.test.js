@@ -11,17 +11,12 @@ const START = path.join(ROOT, 'skills', 'start', 'SKILL.md');
 const GORKHALI = path.join(ROOT, 'skills', 'gorkhali');
 const ROUTER = path.join(GORKHALI, 'SKILL.md');
 const REFERENCES = path.join(GORKHALI, 'references');
-const PHASES = ['planning.md', 'execution.md', 'verification.md', 'shipping.md'];
 const ROLES = path.join(REFERENCES, 'roles.md');
 const COMMENT_CONTRACT = path.join(REFERENCES, 'comment-discipline.md');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 const bytes = (file) => Buffer.byteLength(read(file), 'utf8');
 const approximateTokens = (count) => Math.ceil(count / 4);
-
-function directReferenceLinks(markdown) {
-  return [...markdown.matchAll(/\]\(references\/([^)]+\.md)\)/g)].map((match) => match[1]);
-}
 
 test('portable router stays within its activated context budget', (t) => {
   const routerBytes = bytes(ROUTER);
@@ -57,16 +52,6 @@ test('portable role activation closure stays below its context budget', (t) => {
   t.diagnostic(measured.map(({ file, bytes: size }) => `${file}=${size}`).join(', '));
   t.diagnostic(`roles + comment contract: ${total} bytes / ~${approximateTokens(total)} tokens`);
   assert.ok(total <= 14_000, `portable role closure is ${total} bytes; budget is 14000`);
-});
-
-test('router exposes exactly four direct one-hop phase references', () => {
-  const links = directReferenceLinks(read(ROUTER));
-  assert.deepEqual(links, PHASES);
-  for (const phase of PHASES) {
-    const file = path.join(REFERENCES, phase);
-    assert.ok(fs.statSync(file).isFile(), `${phase} must exist`);
-    assert.equal(directReferenceLinks(read(file)).length, 0, `${phase} must not chain phase references`);
-  }
 });
 
 test('normal start adapter directly activates the portable router', () => {

@@ -61,13 +61,6 @@ const ALLOWLIST = new Map([
       reason: 'documents the source accepted by the legacy data migration',
     },
   ]],
-  ['commands/_shared.md', [
-    {
-      kind: 'gorkhali-bare-literal',
-      context: 'NEVER process.env.CLAUDE_PLUGIN_ROOT',
-      reason: 'names an anti-pattern for PLUGIN_ROOT resolution (code location), not a state-data-root default',
-    },
-  ]],
   ['evals/evals.json', [
     {
       kind: 'gorkhali-bare-literal',

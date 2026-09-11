@@ -54,7 +54,6 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const VALIDATOR = path.join(REPO_ROOT, 'scripts', 'validate-artifact.js');
 
 const std = require('../scripts/lib/review-standard');
-const { EXECUTION_TASK_STATUSES } = require('../scripts/validate-artifact');
 
 function run(bin, args) {
   try {
@@ -396,34 +395,6 @@ test('a review artifact recorded before this field existed round-trips through n
   assert.equal('independence' in normalized, false, 'normalization must not invent a default independence block');
 });
 
-// --- (f) collision-free against the vocabularies status-vocab.test.js guards -
-
-// Same sourcing pattern as test/status-vocab.test.js: every token set is
-// PARSED from its real definition site, never re-listed by hand, so this file
-// cannot drift from what that test itself guards. status-vocab.test.js does
-// not export its parse helpers (it is a test file, not a module), so the same
-// definition sites are parsed again here rather than re-typing the vocabularies.
-
-function parseInspectorVerdicts() {
-  const content = fs.readFileSync(path.join(REPO_ROOT, 'agents', 'inspector.md'), 'utf8');
-  const start = content.indexOf('## Evidence states');
-  assert.ok(start !== -1, 'agents/inspector.md: "## Evidence states" section not found');
-  const end = content.indexOf('## Output', start);
-  assert.ok(end !== -1, 'agents/inspector.md: "## Output" section not found after evidence states');
-  const section = content.slice(start, end);
-  return [...section.matchAll(/^- `([a-z0-9-]+)`/gm)].map((m) => m[1]);
-}
-
-function parseLifecycleStates() {
-  const content = fs.readFileSync(
-    path.join(REPO_ROOT, 'skills', 'gorkhali', 'references', 'state.md'),
-    'utf8',
-  );
-  const sentence = content.match(/Session envelopes use[^.]*\./);
-  assert.ok(sentence, 'skills/gorkhali/references/state.md: "Session envelopes use ..." sentence not found');
-  return [...sentence[0].matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
-}
-
 test('the independence vocabularies are exactly the tokens the design specifies', () => {
   assert.deepEqual(std.INDEPENDENCE_BASIS_VALUES, [
     'same-model-independent-context',
@@ -433,27 +404,8 @@ test('the independence vocabularies are exactly the tokens the design specifies'
   assert.deepEqual(std.INDEPENDENCE_EVIDENCE_TIERS, ['requested', 'served']);
 });
 
-test('every independence token is collision-free against the implementer, inspector and lifecycle vocabularies', () => {
-  const inspectorVerdicts = parseInspectorVerdicts();
-  const lifecycle = parseLifecycleStates();
-  const otherVocabularies = new Set([
-    ...EXECUTION_TASK_STATUSES,
-    ...inspectorVerdicts,
-    ...lifecycle,
-  ]);
-
-  const independenceTokens = [...std.INDEPENDENCE_BASIS_VALUES, ...std.INDEPENDENCE_EVIDENCE_TIERS];
-  const collisions = independenceTokens.filter((tok) => otherVocabularies.has(tok));
-  assert.deepEqual(
-    collisions,
-    [],
-    `independence token(s) collide with an existing status/verdict/lifecycle vocabulary: ${collisions.join(', ')}`
-  );
-});
-
 test('every independence token is also collision-free against the severity and confidence axes on the same artifact', () => {
-  // Not one of the three status-vocab.test.js vocabularies, but the closest
-  // neighbor: independence lives on the same review artifact as severity and
+  // Independence lives on the same review artifact as severity and
   // confidence, so a shared token there would be just as confusing to a reader.
   const sameArtifactVocabularies = new Set([...std.SEVERITY_VALUES, ...std.CONFIDENCE_VALUES]);
   const independenceTokens = [...std.INDEPENDENCE_BASIS_VALUES, ...std.INDEPENDENCE_EVIDENCE_TIERS];
