@@ -1,70 +1,33 @@
 ---
 name: visual
-description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Gorkhali Surveyor inspection only when explicitly requested."
+description: "Use when UI changes need human visual verification. Presents the user checklist by default; runs one optional read-only Surveyor inspection only when explicitly requested."
 argument-hint: "[/route1 /route2 ...] [--surveyor]"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+user-invocable: true
 ---
-
-> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /gorkhali:visual $ARGUMENTS
 
-Prepare a human visual-verification handoff. Gorkhali does not inspect the UI or
-claim a visual pass on the user's behalf by default.
-
-## Optional Surveyor mode
-
-Activate Surveyor only when `$ARGUMENTS` contains `--surveyor` or the user affirmatively
-asks to run, use, or invoke Gorkhali Surveyor in the current request. Merely naming,
-asking about, or negating Surveyor (for example, "do not use Gorkhali Surveyor") does not
-activate it. A UI diff, Figma link, screenshot, or required user verification
-never triggers Surveyor automatically.
-
-In optional Surveyor mode:
-
-1. Resolve the routes, expectations, states, and viewports, plus the canonical
-   current worktree path and exact Git branch.
-2. Apply the URL-resolution contract in
-   `reference/agent-protocols/visual-protocol.md`. If it requires user input, ask with
-   the manager link, worktree, and branch, then keep this Surveyor request pending
-   until the user supplies the exact Dev URL.
-3. Record a bounded delegation-v2 task with `role: "surveyor"` when a Gorkhali
-   session is active, then spawn exactly one read-only Surveyor named `surveyor-meridan`.
-4. Surveyor loads `agents/surveyor.md` and its references only inside that worker. It
-   inspects and returns advisory screenshots, findings, and observation gaps.
-5. Record the matching delegation result when state is active. Do not create a
-   review specialist artifact or add Surveyor to `requiredSpecialists`.
-6. Present the evidence to the user, then continue with the normal checklist.
-
-A missing, failed, or blocked Surveyor result never blocks ordinary verification,
-review, shipping, or completion. It also never replaces explicit user
-confirmation. There is no autonomous mode, code modification, or visual fix
-loop.
+A human visual-verification handoff. Gorkhali does not inspect the UI or claim a visual pass on the user's behalf by default.
 
 ## Procedure
 
-1. Determine the affected routes from arguments, the approved plan, or changed
-   files. If they cannot be determined, ask the user for the routes.
-2. For optional Surveyor, use the worktree-manager resolution above. For the
-   ordinary human checklist, use an explicit user URL or observed startup
-   output. Never assume a fixed application port.
-3. Present a short checklist containing:
-   - each URL or route to inspect;
-   - the expected behavior from the approved intent;
-   - every responsive viewport or parent/component state materially affected;
-   - important interactions, loading, empty, error, and permission states; and
-   - any known observation gap the user should be aware of.
-4. Ask the user to inspect the checklist and reply with either an explicit pass
-   or concrete issues. Do not interpret silence, a screenshot, or an agent's
-   opinion as user confirmation.
-5. If the user reports an issue, return it to normal scoped implementation and
-   deterministic verification. Do not auto-fix or start a visual fix loop.
-6. If the user explicitly confirms the UI, return that confirmation to
-   `/gorkhali:verify`. Verification records it once in its canonical evidence;
-   this command creates no specialist review artifact or competing state store.
+1. Determine the affected routes from `$ARGUMENTS`, the approved plan, or the changed files. If they cannot be determined, ask the user.
+2. Present a short checklist:
+   - each route or URL to inspect;
+   - the expected behavior;
+   - every viewport, state, or interaction materially affected;
+   - any known gap the user should know about.
+3. Ask the user to inspect it and reply with an explicit pass, or concrete issues. Silence, a screenshot, or an agent's opinion is never read as confirmation.
+4. If the user reports an issue, hand it to normal implementation and verification; do not auto-fix or start a visual loop here.
+5. If the user confirms, hand that confirmation back to `/gorkhali:verify`, which records it once.
 
-When invoked outside an active verification flow, stop after the user's reply
-and report the exact next command. Never claim shipping readiness from this
-command alone.
+## Optional Surveyor pass
+
+Run this only when `$ARGUMENTS` contains `--surveyor` or the user explicitly asks to run Surveyor. Naming or negating Surveyor does not activate it, and a UI diff or design link never triggers it automatically.
+
+Spawn exactly one read-only Surveyor. It resolves the exact dev URL itself, never guessing a port, and asks the user for one if it cannot find it. It inspects each route and returns advisory findings, screenshots, and observation gaps.
+
+Present Surveyor's evidence to the user, then continue with the normal checklist above. A missing, failed, or blocked Surveyor result never blocks verification, review, or shipping, and never replaces the user's own confirmation.
+
+When invoked outside an active verification flow, stop after the user's reply and name the next command. This command alone never confirms shipping readiness.

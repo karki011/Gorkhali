@@ -4,8 +4,6 @@
   "description": "Gorkhali provider-neutral Agent Skill and native compatibility distribution.",
   "author": "Subash Karki",
   "scripts": {
-    "test": "node --test \"test/*.test.js\"",
-    "validate:skill": "node scripts/validate-portable-skill.mjs skills/gorkhali",
-    "version:check": "node scripts/release-version.js --check"
+    "test": "node --test \"test/*.test.js\""
   }
 }

@@ -37,24 +37,24 @@ Same rule as above: this document does not restate those findings.
 
 | ID | Item | Status | Effort | Gate |
 |---|---|---|---|---|
-| B0 | Outcome recording (`scripts/outcome-write.js`) | DONE (uncommitted) | - | - |
-| B0b | Baseline miner (`scripts/baseline-report.js`) | DONE (uncommitted) | - | - |
+| B0 | Outcome recording (`scripts/outcome-write.js`) | SUPERSEDED 2026-09-11 | - | cost ledger removed, section 14 |
+| B0b | Baseline miner (`scripts/baseline-report.js`) | SUPERSEDED 2026-09-11 | - | cost ledger removed, section 14 |
 | R1 | Model bucketing fix in the report | DONE (uncommitted) | - | - |
 | A1 | Unattended spend cap + stuck detection | DONE (uncommitted) | - | - |
 | - | Version manifest sync (0.2.7 at the time; all three now 0.3.11, `npm run version:check` in sync) | DONE | - | - |
 | B2 | Eval baseline | IN PROGRESS | 1d | blocks B7/B8 deletions |
 | C1 | Config layer (`scripts/gorkhali-config.js`) | IN PROGRESS | 2d | blocks T1, T2, T3, greploop fix |
-| B1 | Unify model routing on `model-policy.json` | PENDING | 2d | needs C1 for host config |
-| B3 | Memory decay + validation accounting | PENDING | 3d | - |
+| B1 | Unify model routing on `model-policy.json` | SUPERSEDED 2026-09-11 | 2d | replaced by `config/role-tiers.json` + `lib/tiers.js`, section 14 |
+| B3 | Memory decay + validation accounting | SUPERSEDED 2026-09-11 | 3d | learnings store removed, section 14 |
 | A2 | AC-triage eval cases | PENDING | 1d | needs B2 |
 | B7/B8 | Doctrine dedup + approved deletions | PENDING | 5d | needs B2 |
 | T1 | Tracker abstraction (loop providers) | PENDING | 3d | needs C1 |
 | T3 | gorkhali-doctor | PENDING | 2d | needs C1 |
 | T2 | gorkhali-setup + Terminal bundling | PENDING | 3d | needs C1, after B7/B8 |
 | T5 | Dev-link for local skill edits | PENDING | 0.5d | needs T2 |
-| B4 | Codex CLI hook adapter | PENDING | 3d | - |
+| B4 | Codex CLI hook adapter | SUPERSEDED 2026-09-11 | 3d | Codex host dropped, section 14 |
 | T4 | De-CloudZero + license + CONTRIBUTING | PENDING | 2d | after B2, B7/B8 |
-| B5 | Per-role cost attribution | PENDING | 1d | partly collapsed into B0b |
+| B5 | Per-role cost attribution | SUPERSEDED 2026-09-11 | 1d | cost ledger removed, section 14 |
 | B6 | Down-pin measurement gate | PENDING | 1d | needs B1 |
 | B9 | Review finding disposition | DONE | 1d | schema+id+disposition, plus the miner table (B9b) |
 | B10 | Auditor finding schema + review standard | DONE | 2d | one scale, one shape, generated + drift-checked |
@@ -741,3 +741,24 @@ If measurement ever shows this system's verified completion rate or cost-per-com
 
 The **99.1% merge rate** is the current bar to beat.
 Any change that lowers it is a regression regardless of what else it improves.
+
+---
+
+## 14. 2026-09-11 - 2.0 lean rewrite
+
+**Author:** Subash Karki
+
+The plugin was rewritten around four keeps, not incrementally trimmed: subagent delegation with the never-edits hook, per-role model tiers with the spawn-gate hook, an independent Inspector and Auditor, and the Engineer's YAGNI ladder.
+The goal is that the user stays ON the loop, not IN it.
+Seven decisions were locked before execution and are recorded in full in `decisions.json`.
+
+1. **lean-shape** - the four keeps above are the whole shape; everything else is either a role focus or a script.
+2. **commands** - kept `start`, `pause`, `resume`, `verify`, `fix`, `review`, `wrap`, `greploop`, `close`, `status`, `learn`, and `visual`; folded brainstorm, wire, execute, contract, scout, and detective into `start` as phases; dropped `eval`, `evolve`, `health`, `validate`, `sessions`, `grill`, `recruit`, `loop`, `q`, `visualflow`, and `pr-review`.
+3. **agents** - kept Engineer, Inspector, Auditor (absorbing Steward and Justice), Opposition, Detective, and Surveyor; dropped Steward, Justice, Clerk (now wrap/close plumbing), Advisor, and the Chief agent file (now the `start` skill itself).
+4. **machinery** - kept two hooks, one role-to-tier table, one preferences file, and one `plan.json` per session; removed the five-route classifier, the self-updating knowledge layer, checkpoints, contracts, the cost ledger, the lifecycle state CLI, the wiring file, agent-record roster naming, and the prose-phrase test suite.
+5. **generic** - one tracker adapter (`jira`/`github`/`none`) instead of Jira-only logic; neutral role names; all user taste moved to the preferences file.
+6. **portable-hosts** - dropped the Codex and Kimi host shims and the portable manifest digest; Claude Code is the only supported host, with a three-line tier-to-model file as the only remaining host surface.
+7. **sequencing** - three waves, each leaving the plugin installable: (1) build the new skeleton beside the old tree, (2) move the five agents, ladder, hooks, and model table across, (3) delete the old tree, rewrite tests for scripts and hooks only, and bump the plugin version to 2.0.0.
+
+**Superseded by this rewrite.** B0, B0b, B1, B3, B4, and B5 in section 1's table now read SUPERSEDED 2026-09-11: the eval/outcome ledger, the `model-policy.json` generator, memory decay and the learnings store, the Codex hook adapter, and per-role cost attribution were removed outright by the `machinery` and `portable-hosts` decisions above, not carried forward in a new shape.
+Their rows keep their original text as history; nothing here is deleted or rewritten in place.

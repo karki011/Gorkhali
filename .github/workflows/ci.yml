@@ -1,8 +1,8 @@
 # Author: Subash Karki
-# First CI workflow for this repo. Deliberately minimal: run the test suite and
-# the schema-doc drift gate on every PR and on push to main. Plain push /
-# pull_request triggers only - no label/comment triggers, which can make a
-# workflow retrigger itself.
+# CI workflow for the lean plugin surface. Deliberately minimal: install and
+# run the test suite on every PR and on push to main. Plain push / pull_request
+# triggers only - no label/comment triggers, which can make a workflow
+# retrigger itself.
 name: CI
 
 on:
@@ -18,18 +18,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-      - name: Install ripgrep (T4 recipe dependency)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
-      - name: Plugin manifest versions are in sync
-        run: npm run version:check
+      - run: npm install
       - run: npm test
-      - name: Validate portable Agent Skill boundary
-        run: npm run validate:skill
-      - name: Validate every bundled Agent Skill
-        run: |
-          python3 -m pip install 'git+https://github.com/agentskills/agentskills.git@38a2ff82958afee88dadf4831509e6f7e9d8ef4e#subdirectory=skills-ref'
-          for skill_dir in skills/*; do
-            skills-ref validate "$skill_dir" || exit 1
-          done
-      - name: Schema docs are in sync
-        run: node scripts/gen-schema-docs.js --check

@@ -1,42 +1,13 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/response-shape.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-writer.js\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/greploop-gate.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec \"${CLAUDE_PLUGIN_ROOT}/hooks/chief-subagent-driven-law.sh\"",
-            "timeout": 3
+            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/never-edits.js\"",
+            "timeout": 5
           }
         ]
       },
@@ -45,37 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js\" spawn",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/engineer-model-gate.js\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/fix-loop-gate.js\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/routing-gate.js\"",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/test-file-gate.js\"",
+            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/role-model-gate.js\"",
             "timeout": 5
           }
         ]
@@ -87,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js\" start",
+            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/never-edits.js\" start",
             "timeout": 5
           }
         ]
@@ -99,84 +40,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/timing-capture.js\" stop",
+            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/never-edits.js\" stop",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/engineer-marker-state.js\" stop",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/wake-classifier.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/observation-writer.js\"",
-            "timeout": 3
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/observation-writer.js\"",
-            "timeout": 3
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-reader.js\"",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-marker.js\"",
-            "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/router-nudge.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-consolidator.js\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] || exit 0; exec node \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-consolidator.js\"",
-            "timeout": 10
           }
         ]
       }

@@ -4,14 +4,14 @@
     "name": "Subash Karki"
   },
   "metadata": {
-    "description": "Gorkhali — provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code.",
-    "version": "1.5.0"
+    "description": "Gorkhali - subagent delegation for Claude Code.",
+    "version": "2.0.0"
   },
   "plugins": [
     {
       "name": "gorkhali",
       "source": "./",
-      "description": "Provider-adaptive multi-agent development for Claude Code, Codex, and Kimi Code. Plans, decomposes, and executes features, fixes, and refactors with specialized shadow agents, contracts, and an auto-learning knowledge layer."
+      "description": "Subagent delegation for Claude Code. Plans, decomposes, and executes features, fixes, and refactors with model-tiered agents, independent verification and review, and one human plan approval gate."
     }
   ]
 }

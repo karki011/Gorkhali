@@ -1,169 +1,26 @@
 ---
 name: review
-description: "Run one independent Auditor review of the current verified diff. Adds Justice only for explicit risk triggers; UI confirmation remains a user verification step."
+description: "Run one independent Auditor review of the current diff. Read-only; reports findings in chat. Does not gate shipping or run checks."
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+user-invocable: true
 ---
-
-> **Preamble Tier: T3** — shared contexts per the canonical registry (`scripts/preamble-tier.js`)
 
 # /gorkhali:review
 
-Reviews YOUR verified local diff and gates the ship. Wrong surface:
-someone else's PR → `/gorkhali:pr-review` (advisory, no gate). Opening a PR
-→ `/gorkhali:wrap` (does not run Auditor). Tests → `/gorkhali:verify`.
+An on-demand second opinion on the current diff, separate from the review step inside `/gorkhali:verify`. Read-only: it never edits code, never runs a fix loop, and never blocks shipping by itself.
 
-## Review round procedure
+## Procedure
 
-This is the one procedure for a review round; `/gorkhali:verify` runs it as its
-review stage rather than restating it.
+1. Resolve the current diff and changed-file list. Read any repository review conventions that apply.
+2. Spawn one read-only Auditor over the whole diff. Auditor checks correctness, security, regressions, broken references and contracts, simplification opportunities, and any consumer left calling something the diff removed or renamed.
+3. Read Auditor's own fixed record for its verdict (`pass`, `fail`, or `blocked`) and its findings. Never take the verdict from chat alone. If the record is missing, ask Auditor once to resend it before reporting `blocked`.
 
-1. Resolve the active portable session and current worktree fingerprint.
-2. Require the latest portable verification artifact to be passed, current, and
-   bound to that fingerprint. If it is absent or stale, stop with `blocked` and
-   direct the caller to `/gorkhali:verify`; do not recreate Inspector evidence here.
-   Read its `requiredSpecialists` role-string array as the authoritative
-   selection; do not reclassify the diff in this command.
-3. Load the intent, repository rules, current changed-file list, and diff.
-   Run mechanical plan-compliance and pass the JSON to Auditor. `n/a` is not a
-   pass; `wrong` is blocking; `drift` is advisory unless required proof files
-   are missing:
+## Report
 
-   ```text
-   node <skill-directory>/scripts/sdlc-chain.mjs plan-compliance --session {SESSION_DIR} --changed <comma-separated repo-relative paths>
-   ```
-4. Read the round number before deleting anything:
+In chat, give:
 
-   ```text
-   {PR_BOOTSTRAP}
-   [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
-   node "$PR/scripts/review-round.js" status --reviews {SESSION_DIR}/reviews --session {SESSION_DIR}
-   ```
+- the verdict;
+- each finding, with file, line, and severity (`blocking` or `advisory`);
+- for a user-visible change, whether it still needs the user's own confirmation through `/gorkhali:visual`.
 
-   Delete only `{SESSION_DIR}/reviews/auditor.json` — never
-   `{SESSION_DIR}/reviews/rounds.json`, and never any other file — then
-   run one fresh, read-only Auditor pass using `agents/auditor.md`, telling it the
-   round number that command printed. The targeted delete prevents a failed or truncated run
-   from reusing an older verdict; the round ledger survives it because it is a
-   different file and holds no verdict to reuse — only the finding ids earlier
-   rounds raised, which is what tells a carried-over finding from a newly
-   invented one (B12). A missing ledger is round 1, which is the normal first
-   pass and not an error.
-5. Run exactly the roles named by verification's `requiredSpecialists`, without
-   reclassifying the diff. For each named role, create
-   `{SESSION_DIR}/reviews/specialists/`, delete only that role's
-   `{SESSION_DIR}/reviews/specialists/{role}.json` immediately before spawning
-   it, then spawn that role — the only role in the normal path is `justice`, at
-   `{SESSION_DIR}/reviews/specialists/justice.json`.
-
-   Do not delete, require, or spawn a role absent from the persisted array. An
-   empty array means Auditor is the only reviewer.
-6. Read Auditor's verdict from `{SESSION_DIR}/reviews/auditor.json`, not its final
-   message. If the file is missing or unreadable, give the same agent one
-   `SendMessage` resume (never a respawn). If it remains absent, record
-   `not_observed`/`blocked`, never an approval. For every required specialist,
-   read its named file rather than its final message and require: the matching
-   `role`; `verdict: pass|fail|blocked`; `findings` as an array; and
-   `observationGaps` as an array. Missing or invalid evidence is blocked.
-
-   When this procedure runs from `/gorkhali:verify`, the accepted Auditor result
-   must also carry exactly one passed check named
-   `user-verification-classification`: Auditor checks verification's
-   `userVerification` classification against the complete diff, and any
-   user-visible behavior paired with `required: false` is a blocking finding. A
-   missing, duplicate, failed, or skipped check blocks the review record.
-7. Close the round, but only once a valid Auditor artifact was actually read:
-
-   ```text
-   {PR_BOOTSTRAP}
-   [ -z "$PR" ] && { echo "gorkhali: plugin dir not found under ~/.claude/plugins/cache/gorkhali — run /plugin to install"; exit 0; }
-   node "$PR/scripts/review-round.js" close --reviews {SESSION_DIR}/reviews --session {SESSION_DIR} --fingerprint <current worktree fingerprint> --json
-   ```
-
-   Pass the fingerprint from `gorkhali-state.mjs fingerprint` — the same one this
-   round's verification is bound to. It is what separates a re-review of an
-   unchanged worktree from a round that followed an actual fix, and the fix-loop
-   count below is derived from it. An unstamped round still records; the count
-   just falls back to counting rounds, which escalates earlier than it needs to.
-
-   It stamps the finding ids, appends this round to the ledger, and returns
-   `reported`, `suppressed`, a `convergence` object and a `loop` object. On round
-   2 and later, itemize only the `reported` blocking findings and give the
-   non-blocking ones as the `suppressed` counts (`carriedOver` / `new`) — never
-   re-listed one by one. Skip this entirely when no artifact was written or the
-   review is `blocked`: an unrecorded round leaves the next pass at the same round
-   number, so a truncated run cannot advance convergence any more than it can
-   reuse a verdict.
-
-   Report `loop` verbatim alongside the verdict. It is the fix-loop standing the
-   ledger now holds (`reference/fix-loop.md`), and `loop.decision.escalate` means
-   the next fix loop is the one that must not silently happen — this command
-   still never starts one, but it is what makes the ceiling visible at the moment
-   it is reached rather than after another round.
-8. **Findings page (optional).** When the review reports findings and the runtime
-   can publish an artifact, author `{SESSION_DIR}/reviews/review.candidate.html`
-   for the artifact target from `{SESSION_DIR}/reviews/auditor.json`, following
-   `skills/gorkhali/references/review-html.md` for voice, shell and structure:
-   paste `assets/review-shell.css` verbatim, keep page-specific CSS in a second
-   style block, and lead in plain English with the verdict and the blocking
-   findings. Per-finding citations, quotes, `discardedFindings` and
-   `observationGaps` belong in the collapsed `<details>` appendix, not the lead.
-   Promote it with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs
-   review --source {SESSION_DIR}/reviews/auditor.json --candidate
-   {SESSION_DIR}/reviews/review.candidate.html --out {SESSION_DIR}/reviews/review.html
-   --target artifact`, then publish with `Artifact(file_path:
-   "{SESSION_DIR}/reviews/review.html", favicon: "<one emoji>", description: "<one
-   sentence>")` and give the user the returned URL. Republish the same `file_path`
-   on later rounds so one review keeps one URL; omit `favicon` on a republish. If
-   publishing fails or is declined, regenerate with `--target file` and open the
-   local page.
-
-   The page is a reading surface, never the record: `auditor.json` stays the
-   artifact the verdict is read from, the page is never parsed back, and a page
-   that failed to generate never turns a `fail` into a `pass`. Skip it entirely on
-   a clean review - an empty findings page earns nobody's attention.
-9. Record the merged outcome through the portable helper:
-
-   ```json
-   {
-     "verdict": "pass",
-     "independence": {
-       "basis": "same-model-independent-context",
-       "evidenceTier": "requested",
-       "label": "blind-verified (same model, independent context; model identity is requested-tier evidence)"
-     },
-     "findings": [],
-     "specialists": [
-       { "role": "justice", "verdict": "pass", "findings": [], "observationGaps": [] }
-     ],
-     "observationGaps": []
-   }
-   ```
-
-   The recorded payload carries the `independence` disclosure Auditor wrote onto its own
-   artifact (`reference/schemas/review.md`): today's honest default everywhere is
-   `basis: "same-model-independent-context"`, `evidenceTier: "requested"` - balanced and deep
-   resolve to the same delegate model on claude-code, so same-model review is common, and model identity itself is only
-   requested-tier evidence until `project-docs/seat-provenance-design.md`'s served-tier probe
-   lands. Copy it through unchanged; do not recompute or soften it here. When a required
-   independent check could not be obtained at all, the label instead reads `"accepted under
-   reduced assurance: <what was unavailable>"` - never a silent pass.
-
-   ```text
-   node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <workspace> --type review --status <status> --run <run-id> --input <review-file>
-   ```
-
-   Copy each valid required artifact unchanged into the review payload's
-   `specialists` array, and carry step 7's `convergence` object into the payload
-   unchanged when it exists. Do not introduce another reducer or fingerprint. A
-   specialist `fail` forces overall review status `failed`; a missing, invalid,
-   or `blocked` specialist forces `blocked`. Overall `passed` requires Auditor pass
-   and every role named by verification's `requiredSpecialists` to pass.
-
-The helper is authoritative for fingerprint and ordering: review must be newer
-than the current verification, and its single merged record binds all specialist
-evidence to that worktree fingerprint. Report findings with file/component,
-evidence, impact, and smallest remediation. Review is read-only; never auto-fix
-or start a fix loop. The optional RPSL preset is invoked explicitly for
-unusually deep review and is not part of this normal command.
+A `blocking` finding means the next step is `/gorkhali:fix`. An `advisory` finding is worth knowing and never blocks. This command writes no ship-level gate of its own; `/gorkhali:verify` and `/gorkhali:wrap` own that.

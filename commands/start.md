@@ -1,261 +1,70 @@
 ---
 name: start
-description: "Use when starting any new feature, bug fix, refactor, or task — a Jira ticket key (e.g., PROJ-123), 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes with multi-agent shadows."
+description: "Use when starting any new feature, bug fix, refactor, or task: a ticket key, 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes, with brainstorm, scout, and wiring folded in as phases."
 argument-hint: "<requirement>"
 allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
-# Hidden from the Claude Code / menu to deduplicate entries — the same-named skill is the single menu surface and delegates to this command, which remains the canonical procedure. Do not flip without re-checking menu duplication.
-user-invocable: false
+user-invocable: true
 ---
-
-> **Preamble Tier: T4** — loads ALL shared contexts (canonical registry: `scripts/preamble-tier.js`)
-> See `_shared.md` SS Preamble Tiers for the tier system.
 
 # /gorkhali:start "$ARGUMENTS"
 
-Adaptive router: context → classify → route(LITE|DIRECT|PLAN|BRAINSTORM|FULL) → verify.
-Each phase reads/writes artifacts in `{TEAM_DIR}/sessions/{TICKET}/`.
-No git operations until wrap. All work is local.
+The single entry point for new work. Reads `_shared.md` first, then runs the phases below in order; brainstorm and scout are optional, everything else always runs.
 
-> **Tip:** Run `/effort high` before starting. Gorkhali runs every agent at `high` (Chief pinned). Avoid `ultracode`/`xhigh` — under ultracode the runtime can wrap a gated phase in a background workflow that takes no mid-run input, silently bypassing Gorkhali's approval gates.
->
-> Run the session on Opus 5 (recommended) - its stronger instruction-following, built-in self-verification, and fewer steers make the subagent-driven flow and pause/resume more reliable. Agents inherit the session model unless their definition pins one.
+## Phase 1: Intake
 
-<subagent_law>
+Resolve the task id from `$ARGUMENTS`, or from the current session, or from the branch name. Open the session with `lib/session.js` - this creates `plan.json`, `progress.json`, and the scratch folder under the data root, never inside the project.
 
-## CORE DISCIPLINE: Subagent-Driven Work
+Fetch the ticket through the tracker adapter (`lib/tracker.js`): call its `fetch` descriptor. The provider it resolves comes from reading the preferences file, so nothing here names a provider directly. When the resolved provider is none, skip this silently - there is nothing to read. Read preferences and hold the text ready to inject verbatim, under the exact line `## User Preferences (verbatim)`, into every prompt built in the phases below.
 
-**The main LLM (Chief) NEVER implements code directly.** All code changes go through the Agent tool.
+Defect check: when the task reads as a bug, a regression, or a reported failure, hand it to Detective before anything else. Only a confirmed defect with a reproduction moves on to planning; anything short of that stops here and names the missing evidence.
 
-Every `reference/…` pointer in this file names the canonical text for that rule. Follow it there; this file never restates it.
+## Phase 2: Route
 
-- **Phase A + B:** Chief gathers context and classifies. This is coordinator work — call MCP tools, grep learnings, write `intent.json` / `route-decision.json` / `context.json`. It is NOT reading project source: that is the planner's job (`reference/planning.md` → Codebase Research, `research` profile). Phase B classification signals come from `git`, `wc`, and `grep -l` counts, not from opening files.
-- **Implementation:** ALWAYS spawn Engineer agent(s) via the Agent tool. Chief writes `intent.json` and `contracts/`; the planner writes `plan.json` and the review HTML; nobody but an Engineer edits project source files.
-- **If you catch yourself about to call Edit/Write on a project file:** STOP. Spawn an Engineer instead.
+Decide quick, plan, or full, and say the route plus a one-line reason. The user can change the route mid-session; when they do, say so and move to the new route's phases.
 
-Agent spawn rules (all routes):
-- `mode: "bypassPermissions"` — always
-- Spawn by `subagent_type` (engineer, auditor, inspector, detective, advisor, steward, justice, opposition). **Chief passes `model:` explicitly on every spawn** per `reference/agents.md` → Model Routing — the value resolved per role by `node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role <role> --host claude-code [--risk <level>]` (prepend `{PR_BOOTSTRAP}` per `_shared.md` §Paths — the session cwd is the consumer repo, so never invoke the resolver by relative path; empty `$PR` → fall back to the role's frontmatter pin) (`haiku` for economy roles, `sonnet` for the rest); Chief never invents a model ID (D3). Before each spawn, write that section's one-line scope check (`scope: … · floor-sufficient? … · reason`) visibly in Chief's output.
-- `floor-sufficient? N` means the subtask needs **re-decomposing**, not a bigger model — there is no tier above sonnet to route delegated work to.
-- SOLO (1-3 files): single Engineer, foreground
-- SHADOWS (4+ files): parallel Blades with `isolation: "worktree"`
-- Inject learnings corrections into every agent prompt
+- **quick** - trivial, well-understood, one or two files. Run Phase 5 to write a minimal `plan.json` that still names every field `lib/plan-schema.js` requires - `briefing` (`tackling`, `problem`, `how`), `decision` (`question`, `recommendation`, `rationale`, `status`), `outcome` (`goal`, `doneWhen`), `scope` (`in`, `out`), and one task with its own `id`, `description`, `files`, `action`, `acceptance_criteria`, and `verify` - short values are fine, an absent field is not. Then skip Phase 6's approval gate straight to dispatch - pause, resume, status, and wrap all read `plan.json`, so quick never skips writing it, only the human gate.
+- **plan** - normal scope. Write a plan, then stop at the one gate below.
+- **full** - ambiguous scope, competing approaches, or the user asked to brainstorm. Add the brainstorm phase before planning.
 
-</subagent_law>
+User intent beats auto-detection: an explicit route request from the user always wins over the model's own read of scope.
 
-## Phase A: Context
+## Phase 3: Brainstorm (full route, or on request)
 
-> All session artifacts live under `{TEAM_DIR}/sessions/{TICKET}/` (resolves to `${GORKHALI_DATA:-~/.gorkhali}/repos/{REPO_NAME}/sessions/{TICKET}/`), NOT inside the project directory. This prevents accidental git commits of gorkhali state. Product-repo `.gorkhali/sdlc/` and `intent/` markdown files are the committed audit chain, not session state.
+Produce two or three genuinely distinct approaches, not variations of one idea. Chat brief only, no page, no artifact: name each approach and its one real trade-off. The user picks: Pick A / B / C, or asks for another option. Record the pick before planning starts.
 
-1. Parse TICKET from $ARGUMENTS or `git branch --show-current` — a ticket is any match of `[A-Z][A-Z0-9]+-\d+` (e.g., PROJ-123). Accept any such key as-is; do not validate or resolve a project prefix.
-   `--to-plan` in $ARGUMENTS → note `mode: "to-plan"` in `route-decision.json`; behavior changes ONLY at the gates (see `## Mode: --to-plan`)
-2. Create `{TEAM_DIR}/sessions/{TICKET}/` — existing artifacts? ask resume or fresh
-2.4. **Ingest committed intent when present.** After the ticket id is known:
-   `node <skill-directory>/scripts/sdlc-chain.mjs ingest --workspace <workspace> --task {TICKET}`
-   If `found`, use `summary` as session intent. Foreign `draft` stays plan-only.
-   Not lifecycle state.
-2.5. Activate subagent enforcement and point the wake queue at this session (hooks can't inherit Chief env). Create the mutable data root lazily so a fresh plugin install needs no setup step. The pointer is scoped per-repo so a session in another repo can't clobber it — compute the repo name with the same `detectRepo` the consumer uses, and fall back to the bare pointer if it can't be resolved: `ROOT="${GORKHALI_DATA:-$HOME/.gorkhali}"; D="$ROOT/state"; mkdir -p "$D"; touch "$ROOT/.chief-active"; {PR_BOOTSTRAP}; REPO="$([ -n "$PR" ] && node -e 'process.stdout.write(require(process.argv[1]+"/scripts/lib/gorkhali-paths").detectRepo())' "$PR" 2>/dev/null || true)"; printf '%s' "{TEAM_DIR}/sessions/{TICKET}" > "$D/.active-wake-session${REPO:+.$REPO}"`
-2.6. Link session to cost ledger (silent, never blocks): `{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/cost-link.js" open {TICKET}` (advisory guard, `{PR_BOOTSTRAP}` per `_shared.md` §Paths - empty `$PR` skips silently)
-3. Jira MCP → fetch ticket + AC. Grep `learnings/INDEX.md` for the files this task will touch; do not paste the whole INDEX.
-3.2. **Jira lifecycle sync** (only when TICKET matches `[A-Z][A-Z0-9]+-\d+`; slug sessions skip silently). In order:
-   a. **Assign**: `atlassianUserInfo` → accountId; assign only when the ticket's `assignee` is null/empty OR `assignee.accountId` differs from it, via `editJiraIssue` to set it to the current user; already-mine → true skip, no redundant edit. Record as `assigned | already-mine | reassigned | skipped | unavailable` (reassigned = taken over from another assignee).
-   b. **Transition**: `getTransitionsForJiraIssue`, match a transition named "In Progress", "Start Progress", "In Development", or "Doing" (case-insensitive); already in an in-progress-like status → skip with a note; ticket in a terminal status (Done/Closed/Resolved) → skip with a note (never reopen); matched → `transitionJiraIssue`; no name matches → skip with a note (workflow differs) - never error, never force-pick. Honor `jira.auto_transition` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/gorkhali-config.js" get jira.auto_transition`): skip the transition, not the assignment, ONLY when it prints exactly `false`; unset prints nothing (exit 1) so the transition proceeds, mirroring `commands/close.md`.
-   c. **Label**: read `tracker.label` from the real reader (`{PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/scripts/gorkhali-config.js" get tracker.label`).
-      Unset prints nothing (exit 1), which means stamp NO label at all - record `skipped` and move on.
-      The label is a tracker-level concept and each provider applies it its own way; Jira is the only provider implemented today and its mechanism is the awkward one.
-      **Jira**: `getJiraIssue` returns `labels` in its default read field set, so take the current array from the ticket already fetched at step 3, and when the label is absent call `editJiraIssue` with the full existing array plus the label appended.
-      NEVER send `labels` containing only the new label: `editJiraIssue` takes a `fields` object with SET semantics and its MCP schema has no `update` verb, so there is no additive `{labels: [{add: ...}]}` form and a partial array DELETES every other label on the ticket.
-      Label already present → true skip, no redundant edit, exactly as (a) skips an already-mine assignment.
-      **GitHub** (when that provider lands): `gh issue edit --add-label` is genuinely additive, so it needs no read-modify-write - do not copy Jira's careful dance where it is unnecessary.
-      Record as `labeled | already-present | skipped | unavailable`.
-   d. **Guard** (non-blocking, independent per step): a, b, and c are guarded separately - unavailability or a failure in one never blocks the others from running, and a label failure never blocks the session. Log one line per failure and continue. Record each outcome independently (`assigned` result, transition result, and label result) in the `jira` block of `context.json` at step 4.
-3.5. Brain recall (optional, on-demand — never preloaded): grep `{TEAM_DIR}/brain/cards/`
-     by TICKET and touched file paths (recipes: `_shared-brain.md`). Cite matched card
-     `id`s in `context.json`; no matches → skip silently.
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-a-context || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
-4. **Defect proof gate**: bug/defect/incident/regression detected by keywords,
-   Jira type, or branch prefix → classify `workKind: "investigation"` in
-   `context.json` and `intent.json`, then spawn Detective (`subagent_type: "detective"`,
-   `name: "detective-colven"` per `reference/roster.md`) and write
-   `{SESSION_DIR}/defect-proof.json` per `reference/defect-proof.md`.
-   Gate per `reference/defect-proof.md`: only
-   `ready_for_fix` / `confirmed_defect` may proceed; everything else STOPS before
-   Engineer dispatch in `waiting_for_evidence` / `unconfirmed_defect`, recording the
-   missing evidence and next observation. Diagnostic instrumentation requires a
-   recorded, unexpired `DiagnosticGrant`; resume the proof gate after diagnostics.
+## Phase 4: Scout (optional, any route)
 
-## Phase B: Classify + Route
+When the codebase or the pattern to follow is unfamiliar, spawn read-only agents to gather context before planning. Skip it when the plan can already be written from what is known.
 
-READ `reference/router.md` for full algorithm.
+## Phase 5: Plan
 
-1. Gather signals (parallel, <5s): blast radius, patterns, novelty, history, ambiguity, AC
-2. Classify: hard overrides → uncertainty → scope → learnings correction → route
-3. Write `route-decision.json`. Report: `"[{ROUTE}] {rationale}"`
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints phase-b-route || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
+Write `plan.json` in the session directory and validate it with `lib/plan-schema.js` before presenting it; an invalid plan never reaches the gate below. Every planning prompt, and every Opposition prompt that reviews it, carries the preferences block from Phase 1. On the quick route, this is still a real `plan.json` with every required field populated, just smaller - one task, short values - and it still must validate.
 
-## Proto-spec (after intent.json)
+## Phase 6: Plan Approval (the one HUMAN GATE, skipped on the quick route)
 
-No product-repo `.gorkhali/sdlc/` until wrap. Operator running start → Status `accepted`; foreign `draft` from 2.4 stays plan-only.
+The quick route skips straight from Phase 5 to Phase 7 - dispatch never waits on approval when the route itself was the approval. Every other route presents the plan as a chat brief only, no page, no artifact, no HTML:
 
-- lite/direct: no interview.
-- plan+: ask only what ticket, utterance, ingest, and code cannot answer.
+- **What**: `briefing.tackling`
+- **Problem**: `briefing.problem`
+- **How**: `briefing.how`. A How without evidence is an assumption - say so.
+- **Evidence**
+- **Scope**
+- **Risks**
+- **Open questions**
+- **Approve?**
 
-`node <skill-directory>/scripts/sdlc-chain.mjs render --session {SESSION_DIR} --out {SESSION_DIR} --task {TICKET}`
-Session-local projections. Chief never edits project source.
+Write it in plain English, one or two sentences a field, no file or symbol names in the prose. Say that implementation detail - files, tasks, waves, and dependency order - is available on request. Never degrade to a task-only gate. Feedback goes back into the plan and Opposition reruns before the brief is shown again.
 
-## Route: LITE (0 gates)
+Safety beats efficiency here: a plan that trades away a real safeguard for speed does not pass this gate on the strength of being fast.
 
-Trivial scope only — the router picks LITE (per `reference/router/algorithm.md` step 5); the user never does.
+## Phase 7: Wiring Notification
 
-1. Phase A + B run as today (session activate, chief-active sentinel, cost-link,
-   classification) — every hook stays armed. If `workKind` is `investigation`,
-   the defect-proof gate applies in full — LITE never bypasses it.
-2. Write `intent.json` with task scope; `route-decision.json` records `"LITE"`.
-3. Render the pre-dispatch routing table per `reference/agents.md` → Pre-Dispatch
-   Routing Table (`Wave` is `1`), then **spawn ONE Engineer** — the subagent law
-   is absolute: Chief never edits project files, not even one-liners
-   (`hooks/chief-subagent-driven-law.sh` blocks it):
-   ```
-   Agent call:
-     description: "Engineer: {1-line task summary}"
-     subagent_type: "engineer"
-     name: "engineer-norvale"
-     mode: "bypassPermissions"
-     model: "<resolved>"   # node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role engineer --host claude-code → `sonnet`
-     prompt: |
-       You are an ENGINEER — implementation agent.
-       {task description from intent.json}
-       {relevant learnings/corrections}
-       {file paths to modify}
-       Self-review your changes before returning.
-   ```
-4. **Inspector-only verification:** spawn ONE Inspector
-   (`subagent_type: "inspector"`, `name: "inspector-halden"` — the per-task
-   verifier derivation for the single implicit task, per `reference/roster.md`,
-   `model:` resolved per role → `haiku`) to run the discovered checks and write
-   `{SESSION_DIR}/verification.json`. This does NOT chain into
-   `Skill(skill="gorkhali:verify", args="--chained")` — Steward, Justice, and
-   Auditor are skipped on this route.
-5. **Record the lifecycle transitions LITE actually performed** (cheap CLI state
-   writes, no extra spawns) — skipping them leaves `gorkhali-state.mjs status`
-   reporting the session mid-flight and wrap/resume blind to the LITE pass:
-   ```
-   {PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/skills/gorkhali/scripts/gorkhali-state.mjs" authorize --workspace <workspace> --scope implementation
-   {PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/skills/gorkhali/scripts/gorkhali-state.mjs" execute --workspace <workspace>
-   {PR_BOOTSTRAP}; [ -n "$PR" ] && node "$PR/skills/gorkhali/scripts/gorkhali-state.mjs" record --workspace <workspace> --type verification --status <passed|failed> --input <external-temp-evidence-file>
-   ```
-   (`authorize`+`execute` run BEFORE the spawns above; `record` after the Inspector
-   returns. `record --type verification` drives the verify transition itself. The
-   passed-evidence contract is `skills/gorkhali/references/verification.md`:
-   ≥1 passed check, `requiredSpecialists: []`, and a `userVerification`
-   classification — `{ "required": false }` for LITE's trivial scope; if the
-   Inspector classifies user verification as required, LITE was the wrong route —
-   do NOT record, chain to `gorkhali:verify` for the full pipeline instead. The
-   record transport refuses session-internal inputs, so stage the evidence copy at
-   an external temp path, not `{SESSION_DIR}`.)
-6. On Inspector FAIL → record the failed verification, then chain to
-   `Skill(skill="gorkhali:fix")` (fix-loop ceiling
-   unchanged, owned by `hooks/loop-controller.js`). On PASS → report
-   `"[LITE] {summary} -- verified"` and STOP. No auto-wrap Clerk spawn: tell the
-   user to run `/gorkhali:wrap` when ready — wrap's ship gate requires the full
-   `/gorkhali:verify` review pass, which LITE deliberately skipped.
+Before dispatch, print a short notification of the wave plan: which tasks run together, which wait on which. This is not a gate - it never blocks - but it is interruptible: the user can stop it and ask for a change before any agent spawns.
 
-## Route: DIRECT (0 gates)
+## Phase 8: Execution Dispatch
 
-1. Write `intent.json` with task scope. If `workKind` is `investigation`, reread
-   `{SESSION_DIR}/defect-proof.json` and require the complete
-   `ready_for_fix` / `confirmed_defect` contract from
-   `reference/defect-proof.md`; otherwise STOP in
-   `waiting_for_evidence` / `unconfirmed_defect`.
-2. Per-spawn Engineer lifecycle state is owned by validated hooks.
-2.5. **Dispatch table (mandatory, before the spawn below):** render the pre-dispatch routing
-   table exactly as defined in `reference/agents.md` → Pre-Dispatch Routing Table, populated
-   from `intent.json` (file targets) and the roster-assigned `name` (`engineer-norvale`, DIRECT's
-   fixed slot per `reference/roster.md` Spawn-Site Slot Table). `Wave` is always `1` for DIRECT
-   — there is no wave fan-out. The `Model` column carries the value resolved for the role by
-   `resolve-profile.mjs` under `$PR/skills/gorkhali/scripts/` (Engineer → `sonnet` on this host), never a hand-picked ID.
-3. **Spawn Engineer agent** via Agent tool:
-   ```
-   Agent call:
-     description: "Engineer: {1-line task summary}"
-     subagent_type: "engineer"
-     name: "engineer-norvale"
-     mode: "bypassPermissions"
-     model: "<resolved>"   # node "$PR/skills/gorkhali/scripts/resolve-profile.mjs" --role engineer --host claude-code → `sonnet`; `reference/agents.md` → Model Routing
-     # effort is the session's `high` — there is no per-spawn effort param.
-     prompt: |
-       You are an ENGINEER — implementation agent.
-       {task description from intent.json}
-       {acceptance criteria from Jira}
-       {relevant learnings/corrections}
-       {file paths to modify}
-       Self-review your changes before returning.
-   ```
-4. Wait for the Engineer's durable result.
-5. After Engineer returns → independent
-   `Skill(skill="gorkhali:verify", args="--chained")` (chained flow). For a
-   confirmed defect, the verifier must rerun the recorded reproduction and the
-   focused regression check. The implementing Engineer's self-review or test
-   result is not independent verification. Before marking the direct scope
-   done, write its independent
-   `{SESSION_DIR}/scope-verifications/{task-id}.json` record per
-   `reference/defect-proof.md`.
-   - Chain onward per `## Auto-chaining`.
-6. Escalation path AFTER the fix-loop is exhausted (not the immediate response): escalate to PLAN route. >3 files touched → log correction.
+Spawn one agent per task. Each agent's name is built from its role and task id, `{role}-{taskId}`, with no separate naming registry to keep in sync. Each task's model comes from its role's tier resolved against the active host. Every Engineer prompt carries the preferences block from Phase 1.
 
-## Route: PLAN (1 gate)
+Every task gets its own Inspector afterward: read-only, runs the checks it discovers, writes the record. No single verification pass covers two tasks at once.
 
-1. Intent (Chief writes `intent.json`) → **spawn `planner-drafton`, draft pass** (`research` profile, blocking, spawn spec in `reference/planning.md` → Codebase Research). The planner researches the codebase and drafts the decision-first `plan.json` (`_meta.version: 3`, no HTML yet, `oppositionVerdict` unset) per `reference/agents.md` and `reference/schemas/plan.md`: briefing (`tackling`, `problem`, `how`), decision, outcome, scope, architecture, evidence, alternatives, risks, validation, and task contracts must be complete before the gate. For standard/deep plans, require decision implications, substantive tradeoffs, risk triggers/recovery, and executable task dossiers; populated-but-generic fields do not pass the gate. A How without supporting evidence is an assumption. A refuted or stale premise still stops planning. Chief ingests `jq '.briefing, .decision, .outcome, .scope, .evidence, .risks, .open_questions, .assumptions, .alternatives, .oppositionVerdict, [.tasks[] | {id, files, dependsOn}]'` - every field the gate presents, plus the task table shown only on request - and never Reads `plan.json` whole.
-2. Deliberation: planner ↔ Opposition (`opposition-parlow`, the one plan critic, writes `plan-check.json`), 2 rounds per `reference/router/deliberation.md`. Opposition returns its verdict line only. After EVERY verdict, PROCEED included, Chief re-spawns `planner-drafton` for the **finalize pass** with the `plan-check.json` PATH, not its contents: it records `oppositionVerdict` and addresses challenges on REVISE. The finalize pass returns the verdict plus the same brief fields Chief already ingests via the jq projection in step 1, so the gate in step 3 has evidence, scope, risks, and open questions to present. A REVISE round therefore runs finalize → Opposition → finalize.
-3. **HUMAN GATE**: approve plan (`--to-plan` mode: this gate is replaced per `## Mode: --to-plan`). The chat brief is the only presentation of this gate: no page, no artifact. Write it in plain English for an engineer from another team - one or two sentences per field, leading with the conclusion, keeping file and symbol names out of the prose and attached instead as a trailing code chip, and never simplified into something false. Collect approval and feedback in chat using this brief - never tasks:
-   - **What** — `briefing.tackling`
-   - **Problem** — `briefing.problem`
-   - **How** — `briefing.how` (a How without supporting evidence is an assumption; record it in `assumptions`)
-   - **Evidence**
-   - **Scope**
-   - **Risks**
-   - **Open questions**
-   - **Approve?**
-   Say that implementation detail - files, tasks, waves, and dependency order - is available on request.
-   Material feedback goes back to `planner-drafton` (re-spawn with the feedback and the `plan.json` path), which updates `plan.json`, and Opposition reruns before fresh generation; presentation-only feedback leaves JSON unchanged and the planner regenerates from the same source plus that feedback. Chief never edits either file. Never degrade to a task-only gate.
-   Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints plan-gate-approved || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
-4. Contracts. >5 files → `Skill(skill="gorkhali:wire")`.
-5. **Spawn Engineer(s)** via `Skill(skill="gorkhali:execute")`: execute rechecks
-   defect proof, spawns agents per plan, and requires independent verification
-   for every implementation scope
-6. `Skill(skill="gorkhali:verify", args="--chained")`, then chain onward per `## Auto-chaining`.
-
-## Route: BRAINSTORM (2 gates)
-
-`Skill(skill="gorkhali:brainstorm")` → **GATE 1** (pick direction)
-Checkpoint: `PR="${PR:-$(ls -dt "$HOME"/.claude/plugins/cache/gorkhali/gorkhali/*/ 2>/dev/null | head -1)}"; PR="${PR%/}"; if [ -n "$PR" ]; then printf '%s\n' '{"ticket":"{TICKET}"}' | node "$PR/scripts/lib/checkpoint.js" write {SESSION_DIR}/checkpoints brainstorm-gate1-approved || :; fi` (advisory - semantics: `_shared.md` §Checkpoints).
-→ PLAN route → **GATE 2** (approve plan)
-
-## Route: FULL (3 gates)
-
-`Skill(skill="gorkhali:brainstorm")` → **GATE 1** → Plan → **GATE 2** → `Skill(skill="gorkhali:wire")` → **GATE 3** → `Skill(skill="gorkhali:execute")` → `Skill(skill="gorkhali:verify", args="--chained")`, then chain onward per `## Auto-chaining`.
-
-## Auto-chaining (default flow)
-
-Verify FAIL threads `--chained` into `Skill(skill="gorkhali:fix")` and re-verifies until pass or the fix-loop ceiling (`hooks/loop-controller.js`). Verify PASS does **not** wrap. Stop and tell the user to run `/gorkhali:wrap` when they want a PR — wrap records `authorize --scope ship-pr` and is never implied by implementation or a passing verify. Plan-approval gates still stop PLAN/FULL.
-
-Unattended Mission Control (`commands/loop.md`) is the exception: that loop may auto-chain wrap because it is acting as the operator.
-
-> The `args="--chained"` token threaded into the `gorkhali:verify` calls above is what makes verify/fix run autonomously (auto-invoke fix, auto-proceed past fix-packet approval). Its ABSENCE is the safe standalone default: verify/fix fall back to gated report+suggest and wait for the human. So a dropped token degrades to MORE gating, never less.
-
-Between phases: if heavy context, `Skill(skill="gorkhali:pause")`. Resume reads `route-decision.json`.
-
-## Mode: --to-plan (plan-only, no human present)
-
-Activated when $ARGUMENTS contains `--to-plan` (noted in `route-decision.json` at Phase A step 1). Planning runs headless and produces a plan only — it NEVER executes. There is no queue: the plan lands in the session dir as `plan.json` and the run stops.
-
-> Without `--to-plan` the gated flow above applies unchanged. In this mode NOTHING EVER EXECUTES — no Engineer implementation spawns, no verify, no fix, no wrap, and no git mutations. This mode creates NO worktree; it runs in the normal repo (the session dir already lives outside the repo).
-
-**Route collapse:**
-- LITE / DIRECT → still produce a compact decision-first `plan.json` (plan-only — even trivial work produces a plan); the same `_meta.version: 3` contract applies, with concise sections and no unnecessary fan-out. LITE never enters its execution path in this mode: no Engineer spawn, no Inspector verify.
-- BRAINSTORM / FULL → collapse to PLAN-grade planning. No human is present to pick a direction: pick the conservative option and record the alternatives in the plan for the human who reviews it later.
-
-**Headless contract:**
-- NEVER ask the user questions in this mode. Pick recommended defaults; record every assumption made in an `assumptions[]` array inside `plan.json`.
-- Run the Opposition review of `plan.json` INLINE when nested agent spawns are unavailable; a human still reviews the plan before any execution. On failure: revise ONCE, then record the finding in `plan.json` with `selfCheck: "flagged"` + a finding summary.
-
-**EXIT:** `planner-drafton` (draft pass, then the finalize pass after the inline Opposition review) writes `plan.json` to the session dir with `oppositionVerdict` recorded, for the human who reviews it later as the same chat brief. Then print exactly one report line — `[PLANNED] {TICKET} — {N} files, {summary}` — and STOP. Prohibited in this mode: Engineer implementation spawns, verify, fix, wrap, git mutations, worktree creation, or opening browsers.
+The tracker adapter's start and done descriptors mark the ticket in progress and done when the resolved provider supports it. When the provider is none, these are no-ops - nothing to mark, nothing to fail.
