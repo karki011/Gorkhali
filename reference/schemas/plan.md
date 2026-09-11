@@ -61,38 +61,38 @@ after the human or delegated approval is recorded separately.
 {
   "_meta": { "version": 3, "...": "..." },
   "depth": "standard",
-  "problem": "The current planning gate exposes execution mechanics without explaining the decision",
+  "problem": "The ingest endpoint has no rate limit, so a single noisy client can starve every other tenant",
   "decision": {
-    "question": "Approve a decision-first plan and HTML review contract?",
-    "recommendation": "Lead with evidence and rationale, then show tasks as an appendix",
-    "rationale": ["Users must understand why the plan is correct before approving implementation"],
+    "question": "Approve a per-tenant token-bucket limiter on the ingest endpoint?",
+    "recommendation": "Add a per-tenant token-bucket limiter in the ingest middleware",
+    "rationale": ["A shared limit already caused a tenant outage last quarter"],
     "status": "pending"
   },
   "outcome": {
-    "goal": "Every plan gate communicates a researched recommendation",
-    "doneWhen": ["Decision brief appears before the first task"]
+    "goal": "One noisy tenant can no longer degrade ingest latency for others",
+    "doneWhen": ["A tenant over its bucket gets a 429, other tenants are unaffected"]
   },
-  "scope": { "in": ["plan artifacts and AI-authored review HTML"], "out": [], "constraints": ["offline HTML"] },
+  "scope": { "in": ["ingest middleware", "per-tenant limiter config"], "out": ["billing changes"], "constraints": ["no new external dependency"] },
   "crossCutting": {
     "security": { "status": "n/a", "detail": "No new auth or data surface" },
     "privacy": { "status": "n/a", "detail": "No PII" },
-    "observability": { "status": "n/a", "detail": "No new runtime signal" },
+    "observability": { "status": "reviewed", "detail": "Emits a 429-rate metric per tenant" },
     "rollout": { "status": "n/a", "detail": "Backward-compatible" },
     "docs": { "status": "n/a", "detail": "No docs drift" }
   },
   "solution_shape": {
-    "summary": "One machine artifact with a generated human review surface",
-    "components": ["plan validator", "AI-authored review", "review safety validator"],
-    "dataFlow": ["plan.json", "validate JSON", "author HTML", "validate HTML", "human approval"]
+    "summary": "A per-tenant token bucket enforced in the ingest middleware",
+    "components": ["ingest middleware", "token-bucket limiter", "per-tenant config"],
+    "dataFlow": ["request arrives", "tenant bucket checked", "allow or 429", "metric emitted"]
   },
-  "evidence": [{ "claim": "The v2 schema only requires task mechanics", "source": "scripts/validate-artifact.js", "status": "verified" }],
-  "alternatives": [{ "name": "Task-first plan", "tradeoffs": ["Fast to emit but weak to review"], "reason": "Rejected" }],
+  "evidence": [{ "claim": "A single tenant's burst traffic previously saturated the shared limit", "source": "incident-2026-06-postmortem.md", "status": "verified" }],
+  "alternatives": [{ "name": "Global rate limit only", "tradeoffs": ["Simpler but does not isolate tenants"], "reason": "Rejected" }],
   "assumptions": [],
   "open_questions": [],
   "risks": [],
   "validation": {
-    "strategy": "Schema, review-safety, and end-to-end tests",
-    "definitionOfDone": ["A canonical v3 plan validates and produces a safe AI-authored review"],
+    "strategy": "Unit tests on the limiter plus an integration test against the ingest endpoint",
+    "definitionOfDone": ["A tenant exceeding its bucket receives 429 while other tenants keep succeeding"],
     "checks": ["npm test"]
   },
   "route": "solo",
@@ -100,15 +100,15 @@ after the human or delegated approval is recorded separately.
   "tasks": [
     {
       "id": "T1",
-      "description": "Validate the AI-authored decision review before presentation",
-      "read_first": ["skills/gorkhali/scripts/validate-review-html.mjs"],
-      "action": "Enforce the review HTML safety and decision-fidelity contract",
-      "files": ["skills/gorkhali/scripts/validate-review-html.mjs"],
+      "description": "Add a per-tenant token-bucket limiter to the ingest middleware",
+      "read_first": ["src/ingest/middleware.js"],
+      "action": "Enforce a per-tenant token bucket before the request reaches the handler",
+      "files": ["src/ingest/middleware.js"],
       "dependsOn": [],
-      "acceptance_criteria": ["Unsafe or decision-incomplete review HTML cannot replace the accepted page"],
-      "verify": "node --test test/validate-review-html.test.js",
-      "risk": "A generated page may omit decision-critical text",
-      "recovery": "Regenerate from canonical plan.json or fall back to the chat review",
+      "acceptance_criteria": ["A tenant over its bucket gets a 429, other tenants keep succeeding"],
+      "verify": "node --test test/ingest-rate-limit.test.js",
+      "risk": "A misconfigured bucket size could throttle legitimate traffic",
+      "recovery": "Revert the limiter and fall back to the prior shared limit",
       "profile": "balanced"
     }
   ]

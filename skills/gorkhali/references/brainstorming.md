@@ -136,7 +136,8 @@ Use these exact JSON field shapes so every host produces the same contract:
   appears. Symbol names and file paths ride beside a claim as a citation, never
   threaded through a sentence. Simplify only down to the truth; a detail that
   changes the decision stays, said plainly. The mechanical depth belongs in
-  `evidence` and `approaches[]`, which the review page collapses.
+  `evidence` and `approaches[]`, which stay available on request rather than
+  leading the gate.
 - `decision`: `{ question, outcome, audience: [], nonGoals: [], constraints: [],
   evaluationCriteria: [], successSignal }`. `nonGoals` and `successSignal` are
   required on every new v3 frame. `successSignal` is an observable, not a vibe.
@@ -165,26 +166,20 @@ Use these exact JSON field shapes so every host produces the same contract:
   actual choice or delegated authority separately; never infer it from the
   recommendation.
 
-After validating the portable JSON, generate a review page using
-`<skill-directory>/references/review-html.md` and run
-`<skill-directory>/scripts/validate-review-html.mjs` against
-it - except on a `quick` or `--simple` brainstorm, which presents the same
-What/Problem/How brief and Pick A/B/C in chat and skips HTML. Order the page as:
-What, Problem, and How first; then current direction; a comparison table of
-the distinct approaches; frame and stance; evidence; divergence lanes;
-connections and clusters; convergence funnel and shortlist; dissent; cheapest
-experiment; open questions; direction gate. Put detailed approach cards in
-collapsed `<details>` with no `open` attribute; the comparison table must
-appear in `<main>` before any details. Treat this as an exploration workbench,
-not a plan dossier. Choose the delivery target from the capability ledger:
-`artifact` when the runtime exposes an artifact publishing tool, otherwise
-`file`. Publish an accepted artifact and give the user its URL; open an accepted
-file with the host's normal preview. A publishing failure falls back to the
-`file` target. JSON remains the source of truth and a generated page is
-never parsed back. If page generation or opening is unavailable, present the
-same What/Problem/How brief in chat, then Pick A/B/C. A How without supporting
-evidence is an assumption. The input may be a direct v3 payload or the
-portable state envelope.
+After validating the portable JSON, convergence presents the brief in chat:
+no page, no artifact, no HTML generation, no validator run. Write it in plain
+English for an engineer from another team - one or two sentences per field,
+leading with the conclusion, keeping file and symbol names out of the prose
+and attached instead as a trailing code chip, and never simplified into
+something false. It leads with What (`briefing.tackling`), Problem
+(`briefing.problem`), and How (`briefing.how`), then the recommendation and a
+comparison of the distinct approaches, then evidence and the cheapest
+experiment, then open questions and the direction gate: Pick A/B/C. Say that
+divergence detail - ideas, clusters, and the full approach dossiers - is
+available on request. Treat this as an exploration workbench, not a plan
+dossier. JSON remains the source of truth. A How without supporting evidence
+is an assumption. The input may be a direct v3 payload or the portable state
+envelope.
 
 ## Anti-Patterns
 

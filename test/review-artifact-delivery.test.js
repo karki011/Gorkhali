@@ -68,9 +68,7 @@ test('the shell owns the chassis and the page owns everything else', () => {
 
 test('every HTML review surface is a validator type', () => {
   const validator = read('skills', 'gorkhali', 'scripts', 'validate-review-html.mjs');
-  assert.match(validator, /'plan', 'brainstorm', 'visualflow', 'detective', 'review'/);
-  // Only the two decision gates carry canonical-string checks.
-  assert.match(validator, /const GATE_TYPES = new Set\(\['plan', 'brainstorm'\]\)/);
+  assert.match(validator, /'visualflow', 'detective', 'review'/);
 
   for (const [file, type] of [
     [path.join('commands', 'visualflow.md'), 'visualflow'],
@@ -93,35 +91,39 @@ test('review.artifact is a declared capability with a local-file fallback', () =
   assert.match(capabilities, /never changes the review's voice, structure, validation, or approval gate/i);
 });
 
-test('both portable protocols pick the delivery target from the capability ledger', () => {
+test('both portable protocols present the chat brief only, with no page authoring', () => {
   const planning = flat('skills', 'gorkhali', 'references', 'planning.md');
-  assert.match(planning, /validate-review-html\.mjs --target artifact\|file/);
-  assert.match(planning, /a failed publish falls back to `file`/i);
-  assert.match(planning, /plain-English voice of \[review-html\.md\]/i);
+  assert.match(planning, /A plan gate presents only the What\/Problem\/How brief in chat/i);
+  assert.match(planning, /no page,\s*no artifact,\s*no HTML generation,\s*no validator run/i);
+  assert.match(planning, /available on request/i);
+  assert.doesNotMatch(planning, /validate-review-html/);
 
   const brainstorming = flat('skills', 'gorkhali', 'references', 'brainstorming.md');
-  assert.match(brainstorming, /`artifact` when the runtime exposes an artifact publishing tool, otherwise `file`/);
+  assert.match(brainstorming, /convergence presents the brief in chat/i);
+  assert.match(brainstorming, /no page,\s*no artifact,\s*no HTML generation,\s*no validator run/i);
   assert.match(brainstorming, /quoted verbatim onto the human gate, so write it in plain English/i);
+  assert.doesNotMatch(brainstorming, /validate-review-html/);
 });
 
-test('both native gates validate for the artifact target and publish the accepted page', () => {
-  for (const [file, artifactFile] of [
-    [path.join('commands', 'start.md'), 'plan.html'],
-    [path.join('commands', 'brainstorm.md'), 'brainstorm.html'],
-  ]) {
+test('both native gates present the chat brief only, with no page authoring', () => {
+  for (const file of [path.join('commands', 'start.md'), path.join('commands', 'brainstorm.md')]) {
     const gate = flat(file);
-    assert.match(gate, new RegExp(`validate-review-html\\.mjs \\w+ --source [^ ]*${artifactFile.replace('.html', '\\.json')}[^|]*--target artifact`), file);
-    assert.match(gate, new RegExp(`Artifact\\(file_path: "\\{[A-Z_]+\\}[^"]*${artifactFile.replace('.', '\\.')}"`), file);
-    assert.match(gate, /omit `favicon` on a republish/i, file);
-    assert.match(gate, /never present a URL a publish result did not return/i, file);
-    assert.match(gate, /regenerate with `--target file`/i, file);
+    for (const field of ['What', 'Problem', 'How', 'Evidence', 'Scope', 'Risks', 'Open questions']) {
+      assert.match(gate, new RegExp(`\\*\\*${field}\\*\\*`), `${file} missing ${field}`);
+    }
+    assert.match(gate, /available on request/i, file);
+    assert.doesNotMatch(gate, /candidate\.html/, file);
+    assert.doesNotMatch(gate, /validate-review-html/, file);
+    assert.doesNotMatch(gate, /Artifact\(file_path/, file);
   }
 });
 
-test('the planner authors the review page but never publishes it', () => {
+test('the planner records the opposition verdict and returns, without authoring a review page', () => {
   const planning = flat('reference', 'planning.md');
-  assert.match(planning, /Do NOT publish it; Chief owns the artifact URL/);
-  assert.match(planning, /Republish the same `file_path` on every revision round so the URL is stable/i);
+  assert.match(planning, /Record the verdict, then return/i);
+  assert.doesNotMatch(planning, /candidate\.html/);
+  assert.doesNotMatch(planning, /validate-review-html/);
+  assert.doesNotMatch(planning, /Artifact\(file_path/);
 });
 
 test('the bundled review-page contract stays a required portable resource', () => {
@@ -155,6 +157,11 @@ test('the findings page never becomes the review record', () => {
 // End-to-end regression on a real page that was rendered and visually checked,
 // rather than on a minimal synthetic one. The shell is spliced in at test time so
 // this fixture cannot drift from the bundled chassis.
+// The fixture is still shaped like a plan review (it predates the type narrowing
+// to visualflow/detective/review), but it stays: it is the only browser-verified
+// long document in the corpus, and running it through the validator as `review`
+// still exercises the full shell, safety, and structure contract those three
+// surviving types share.
 test('a real, browser-verified page still satisfies the whole contract', () => {
   const fixture = read('test', 'fixtures', 'review-page', 'plan.example.html');
   assert.match(fixture, /__GORKHALI_SHELL__/, 'fixture must not inline the shell');
@@ -169,7 +176,7 @@ test('a real, browser-verified page still satisfies the whole contract', () => {
   fs.writeFileSync(candidate, page);
 
   const result = spawnSync(process.execPath, [
-    path.join(SKILL_ROOT, 'scripts', 'validate-review-html.mjs'), 'plan',
+    path.join(SKILL_ROOT, 'scripts', 'validate-review-html.mjs'), 'review',
     '--source', path.join(ROOT, 'test', 'fixtures', 'review-page', 'plan.json'),
     '--candidate', candidate,
     '--out', out,

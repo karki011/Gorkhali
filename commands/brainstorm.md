@@ -89,11 +89,9 @@ cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `r
 
    Write the `briefing` fields in plain English (`skills/gorkhali/references/brainstorming.md` → briefing shape). They are quoted verbatim onto the gate, so their prose is the gate's readability.
 
-   **Page vs chat.** FULL, `--council`, or an architecture-grade session: have the active AI author `{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from that canonical JSON, for the artifact target, following `skills/gorkhali/references/review-html.md` for voice, structure, and design. It leads with What (`briefing.tackling`), Problem (`briefing.problem`), and How (`briefing.how`), then the recommendation and a comparison table of the distinct approaches, then evidence and experiment. Detailed cards live in collapsed `<details>` with no `open` attribute. Promote only a valid candidate with `node {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs brainstorm --source {TEAM_DIR}/sessions/{TICKET}/brainstorm.json --candidate {TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html --out {TEAM_DIR}/sessions/{TICKET}/brainstorm.html --target artifact`. Then publish it with `Artifact(file_path: "{TEAM_DIR}/sessions/{TICKET}/brainstorm.html", favicon: "<one emoji>", description: "<one sentence: what direction this decides>")` and give the user the returned URL before GATE 1. Republish the same `file_path` on later rounds to keep one stable URL; omit `favicon` on a republish. If the publish fails or is declined, regenerate with `--target file` and open the local page instead, and say which happened.
+   **Chat-only convergence.** Every path (FULL, `--council`, architecture-grade, or `--simple`) presents the same brief in chat: no page, no artifact. Write it in plain English for an engineer from another team - one or two sentences per field, leading with the conclusion, keeping file and symbol names out of the prose and attached instead as a trailing code chip, and never simplified into something false. It leads with What (`briefing.tackling`), Problem (`briefing.problem`), and How (`briefing.how`), then the recommendation and a comparison of the distinct approaches, then evidence and experiment. A How without supporting evidence is an assumption.
 
-   **`--simple` (and clearer brainstorms that took the simple path):** skip the page. Present the same What/Problem/How brief, comparison, and Pick A/B/C in chat. Still write `brainstorm.json` first. A How without supporting evidence is an assumption.
-
-   Feedback and direction selection happen in chat: material feedback updates `brainstorm.json`; presentation-only feedback leaves JSON unchanged. Regenerate a fresh candidate from the applicable source plus feedback, validate/promote it, and republish to the same `file_path` only when the user asks for another page review. If generation, validation, publishing, or opening is unavailable, use chat-only approval with the reason stated; never present a URL a publish result did not return. Every path still ends at GATE 1.
+   Feedback and direction selection happen in chat: material feedback updates `brainstorm.json`; presentation-only feedback leaves JSON unchanged and the brief regenerates from the same source plus that feedback. Every path still ends at GATE 1.
 2. **HUMAN GATE** — chat brief (no tasks), then pick:
    - **What** — `briefing.tackling`
    - **Problem** — `briefing.problem`
@@ -102,6 +100,7 @@ cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `r
    - **Scope** — `briefing.scope`
    - **Risks** — `briefing.risks`
    - **Open questions**
+   - Say that implementation detail - files, tasks, waves, and dependency order - is available on request.
    - **Pick A / B / C** — pick number/name, "none" (1 more round, max 2 total), or refinement
 3. Record and lock decision → hand off to PLAN phase
 
@@ -113,10 +112,7 @@ cards; it does not block, re-loop, or write `plan-check.json`. Full protocol: `r
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/brainstorm.json`** during Diverge, before Convergence's human
 gate: the complete decision-first v3 contract, including `decision`, `evidence`, `openQuestions`, 2-3 approach cards, `recommendedDefault`, `cheapestExperiment`, and `directionGate`. Schema:
-`reference/schemas/brainstorm.md`. The active AI authors
-`{TEAM_DIR}/sessions/{TICKET}/brainstorm.candidate.html` from it; the review HTML validator promotes
-a safe accepted `{TEAM_DIR}/sessions/{TICKET}/brainstorm.html`, which this host publishes as an
-artifact for the gate.
+`reference/schemas/brainstorm.md`. The gate presents this JSON as the chat brief; no page is authored or published.
 
 **Write `{TEAM_DIR}/sessions/{TICKET}/decisions.json`:** `_meta` header + `decisions[]` array with id, decision, status "locked", rationale, alternatives. When Council Mode ran, also record `councilUsed: true`, `peerRankings` (aggregate rank per anonymized approach), and `chairmanRationale` — so the deliberation is auditable and feeds learnings.
 

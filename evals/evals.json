@@ -411,13 +411,13 @@
       "id": 49,
       "kind": "convention",
       "skill": "gorkhali",
-      "prompt": "render this saved v3 Gorkhali plan for review in an agent runtime with no browser plugin or MCP server",
-      "setup": "Command execution and local file viewing are available. The installed portable skill contains references/review-html.md and scripts/validate-review-html.mjs; the input is a valid portable state envelope.",
+      "prompt": "present this saved v3 Gorkhali plan for review, including in a headless run with no chat surface to render into",
+      "setup": "The input is a valid portable v3 plan.json state envelope with all required fields populated.",
       "expected_check": {
         "type": "llm-judge",
-        "criteria": "The skill validates the saved v3 JSON first, has the active agent create a self-contained decision-first plan.html using the bundled review HTML guidance, validates the generated page, and keeps JSON as the source of truth. It must not invoke a bundled renderer, browser plugin, MCP server, npm install, or parse HTML back into the plan. If a page cannot be written or viewed, it gives the same decision-first review in chat and reports the fallback."
+        "criteria": "The skill presents the plan as the chat brief: What, Problem, How, Evidence, Scope, Risks, Open questions, and Approve, terse and decision-first, with implementation detail (task list, file-level detail) shown only if requested. It treats plan.json as the sole source of truth and does not create, validate, or open any HTML page, invoke a bundled renderer, browser plugin, or MCP server. In a headless run it presents the same chat brief read back from plan.json on resume rather than a page."
       },
-      "expected_behavior": "The active agent generates and validates a self-contained review page for this decision, opens it directly when possible, and otherwise preserves the canonical JSON while presenting the review hierarchy in chat."
+      "expected_behavior": "The active agent presents the plan's decision hierarchy as a chat brief with implementation detail available on request, and never produces an HTML review page for this gate."
     },
     {
       "id": 50,

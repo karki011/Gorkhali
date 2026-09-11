@@ -92,14 +92,15 @@ Record canonical artifacts through the engine:
 node <skill-directory>/scripts/gorkhali-state.mjs record --workspace <path> --type <brainstorm|plan|decisions> --status passed --input <json-file>
 ```
 
-Validate canonical JSON before creating any human review page. When a review
-page is useful, follow [review HTML guidance](review-html.md), generate the
-disposable HTML from the validated JSON, and run
-`scripts/validate-review-html.mjs --target artifact|file` before presenting it.
-Publish an artifact and give its URL, or open a file; a failed publish falls back
-to `file`. If file writing is unavailable, present one fenced `json` block; if
-HTML generation or viewing is unavailable, preserve JSON and present the same
-What/Problem/How brief in chat.
+Validate canonical JSON through the state engine before presenting the plan
+gate. A plan gate presents only the What/Problem/How brief in chat: no page,
+no artifact, no HTML generation, no validator run. Write it in plain English
+for an engineer from another team - one or two sentences per field, leading
+with the conclusion, keeping file and symbol names out of the prose and
+attached instead as a trailing code chip, and never simplified into
+something false. Say that implementation detail - files, tasks, waves, and
+dependency order - is available on request. If chat rendering is somehow
+unavailable, present the same brief as one fenced `json` block.
 
 ## Plan Quality Rules
 
@@ -165,17 +166,17 @@ Use evidence states, not unsupported numeric confidence: `verified`,
 result, or authoritative URL. Keep unresolved questions explicit and mark
 whether they block approval.
 
-### Human review order
+### Chat brief order
 
-A review page chooses its design but must use this order:
+The plan gate presents this order in chat:
 
 1. Plain-English briefing: What (`briefing.tackling`), Problem
    (`briefing.problem`), and How (`briefing.how`).
 2. Evidence, scope, risks, and open questions, then the approval question.
-3. Outcome, architecture, alternatives, assumptions, and validation.
-4. Execution appendix inside a collapsed `<details>` element with no `open`
-   attribute: affected files, waves, task dossiers, and dependencies.
-5. Plan check, review provenance, and unrecognized compatibility fields.
+
+Implementation detail - outcome, architecture, alternatives, assumptions,
+validation, plan check, review provenance, affected files, waves, task
+dossiers, and dependencies - is available on request, never shown by default.
 
 The first screen must answer what is being tackled, the problem, how the
 recommendation works, what evidence supports that How, what remains uncertain,
