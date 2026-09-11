@@ -23,7 +23,7 @@ function write(repoRoot, relPath, contents) {
   fs.writeFileSync(full, contents);
 }
 
-test('node repo: package.json scripts win over the pnpm stack default', () => {
+test('node repo: package.json scripts win over the pnpm stack default, run through pnpm', () => {
   const repo = makeRepo();
   write(repo, 'pnpm-lock.yaml', '');
   write(
@@ -40,19 +40,38 @@ test('node repo: package.json scripts win over the pnpm stack default', () => {
   );
 
   const result = discoverChecks(repo);
-  assert.deepEqual(result.test, { command: 'node --test test/*.test.js', provenance: 'package.json scripts.test' });
-  assert.deepEqual(result.lint, { command: 'biome lint .', provenance: 'package.json scripts.lint' });
-  assert.deepEqual(result.build, { command: 'tsup src/index.ts', provenance: 'package.json scripts.build' });
-  assert.deepEqual(result.typecheck, { command: 'tsc --noEmit', provenance: 'package.json scripts.typecheck' });
+  assert.deepEqual(result.test, { command: 'pnpm run test', provenance: 'package.json scripts.test' });
+  assert.deepEqual(result.lint, { command: 'pnpm run lint', provenance: 'package.json scripts.lint' });
+  assert.deepEqual(result.build, { command: 'pnpm run build', provenance: 'package.json scripts.build' });
+  assert.deepEqual(result.typecheck, { command: 'pnpm run typecheck', provenance: 'package.json scripts.typecheck' });
 });
 
-test('node repo: an alternate typecheck key (type-check) is accepted', () => {
+test('node repo: an alternate typecheck key (type-check) is accepted and run through npm by default', () => {
   const repo = makeRepo();
   write(repo, 'package.json', JSON.stringify({ scripts: { test: 'npm run jest', 'type-check': 'tsc -p .' } }));
 
   const result = discoverChecks(repo);
-  assert.equal(result.typecheck.command, 'tsc -p .');
+  assert.equal(result.typecheck.command, 'npm run type-check');
   assert.equal(result.typecheck.provenance, 'package.json scripts.type-check');
+});
+
+test('node repo: yarn.lock present runs scripts through yarn (no "run")', () => {
+  const repo = makeRepo();
+  write(repo, 'yarn.lock', '');
+  write(repo, 'package.json', JSON.stringify({ scripts: { test: 'jest', lint: 'eslint .' } }));
+
+  const result = discoverChecks(repo);
+  assert.equal(result.test.command, 'yarn test');
+  assert.equal(result.lint.command, 'yarn lint');
+});
+
+test('node repo: bun.lockb present runs scripts through bun run', () => {
+  const repo = makeRepo();
+  write(repo, 'bun.lockb', '');
+  write(repo, 'package.json', JSON.stringify({ scripts: { build: 'vite build' } }));
+
+  const result = discoverChecks(repo);
+  assert.equal(result.build.command, 'bun run build');
 });
 
 test('node repo with no scripts falls back to the lockfile stack default', () => {

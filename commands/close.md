@@ -17,20 +17,27 @@ Resolve the PR from the current branch or the active session. Run
 Anything other than `MERGED` stops here: state the actual PR state, and
 point to `/gorkhali:greploop` if review is still open.
 
-## 2. Tracker done
+## 2. Clear the session sentinel
+
+Call `lib/session.js`'s `closeSession` to remove the `.session-active`
+sentinel, unconditionally, before any tracker, branch, or worktree cleanup
+below - so a later cleanup failure can never leave the repository locked to
+Gorkhali-only edits. The session directory itself is untouched by this call.
+
+## 3. Tracker done
 
 Resolve the tracker adapter (`lib/tracker.js`), which reads the preferences
 file to pick the provider, and run its `done` and `comment` descriptors for
 the ticket, noting the PR number and merge commit in the comment. A `none`
 provider makes both a no-op - say so, do not block.
 
-## 3. Clean up
+## 4. Clean up
 
 Delete the local and remote copies of `headRefName`. If a worktree was used
 for this task, remove it too. Skip cleanly whatever is already gone; log
 each action and its result.
 
-## 4. Report
+## 5. Report
 
 One line: ticket, PR number, merge commit, tracker result, cleanup result.
 The session directory stays exactly where `lib/session.js` put it - nothing

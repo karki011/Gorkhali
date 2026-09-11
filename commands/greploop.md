@@ -13,12 +13,18 @@ always a human action.
 
 ## Loop
 
+After wrap opens the PR, and again between every round below, wait for the
+external review check to complete or a fixed 3-minute interval, whichever
+comes first, before calling `tick` - an idle tick with zero new items taken
+right after the PR opens does not consume a round.
+
 Call `tick(prNumber)` from `lib/pr-watch.js`. `stop: true` with
 `reason: merged` or `closed` ends the loop - report and stop. `reason:
 clean` (every thread resolved) also ends it cleanly.
 
-Otherwise, for each open thread `tick` returned, fetch its comment text and
-author, then classify it:
+Otherwise, classify every item `tick` returned - `kind: 'thread'`, `'review'`,
+or `'comment'` alike; a review or comment already carries its `body` and
+`author`, an open thread's comment text and author still need a fetch:
 
 - **actionable** - a real problem stated clearly enough to fix.
 - **informational** - worth reading, nothing to change.
@@ -30,11 +36,13 @@ An actionable comment from the external reviewer named in preferences
 (a `reviewer: <login>` line) may be fixed directly by one Engineer in this
 same worktree. An actionable comment from anyone else - a human, or a bot
 preferences does not name - gets a reply and a tag, never an automatic
-edit. Push any fix before replying on that thread. Reply on every
-classified thread, tagging its author, then resolve it. Loop back to `tick`
-after each pass.
+edit. Push any fix before replying. Reply on every classified item, tagging
+its author; a thread also gets resolved after the reply, a top-level review
+or issue comment has no resolve action so a reply is the whole response.
+Loop back to `tick` after each pass, waiting the same 3-minute interval
+first.
 
-Stop after five rounds even if threads remain; report exactly what is left
+Stop after five rounds even if items remain; report exactly what is left
 and why.
 
 ## Human decisions

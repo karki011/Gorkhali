@@ -14,7 +14,8 @@ repeat their work.
 ## 1. Require passed evidence
 
 Read `progress.json` (`lib/session.js`'s `readProgress`) and confirm every
-task in the plan has an Inspector entry with verdict `pass`. Read
+task in the plan has an Inspector entry with verdict `pass`, cross-checked
+against `{SESSION_DIR}/inspector.json`, the Inspector's persisted record. Read
 `{SESSION_DIR}/reviews/auditor.json` and confirm `verdict: pass`. Either
 missing, `fail`, or `blocked` stops wrap here: name the exact gap and point
 to `/gorkhali:verify` or `/gorkhali:review`. Never infer a pass from chat or
@@ -22,7 +23,7 @@ a stale file.
 
 ## 2. Write the PR brief
 
-Read `plan.json`. Render a short PR body from what these sources actually
+A quick-route `plan.json` has exactly one task; that is normal, not a gap. Read `plan.json`. Render a short PR body from what these sources actually
 say, never invented text - a source with nothing to report gets one line
 saying so:
 

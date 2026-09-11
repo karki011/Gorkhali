@@ -23,7 +23,7 @@ function stubGh(responses) {
   };
 }
 
-function threadsResponse(nodes, truncated = false) {
+function threadsResponse(nodes, truncated = false, reviewNodes = [], commentNodes = []) {
   return JSON.stringify({
     data: {
       repository: {
@@ -31,6 +31,14 @@ function threadsResponse(nodes, truncated = false) {
           reviewThreads: {
             pageInfo: { hasNextPage: truncated },
             nodes,
+          },
+          reviews: {
+            pageInfo: { hasNextPage: false },
+            nodes: reviewNodes,
+          },
+          comments: {
+            pageInfo: { hasNextPage: false },
+            nodes: commentNodes,
           },
         },
       },
@@ -56,6 +64,7 @@ test('tick stops on a merged PR without fetching threads', () => {
     reason: 'merged',
     unresolvedCount: 0,
     threads: [],
+    items: [],
   });
 });
 
@@ -84,6 +93,47 @@ test('tick classifies each thread as resolved or open and keeps polling while an
     { id: 't1', status: 'resolved' },
     { id: 't2', status: 'open' },
   ]);
+  assert.deepEqual(result.items, [
+    { id: 't1', status: 'resolved', kind: 'thread' },
+    { id: 't2', status: 'open', kind: 'thread' },
+  ]);
+});
+
+test('tick includes top-level PR reviews and issue comments in items, tagged by kind', () => {
+  const run = stubGh([
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    threadsResponse(
+      [{ id: 't1', isResolved: false }],
+      false,
+      [{ id: 'r1', author: { login: 'reviewer1' }, body: 'Looks mostly good, one nit.' }],
+      [{ id: 'c1', author: { login: 'bot' }, body: 'CI failed on lint.' }]
+    ),
+  ]);
+  const result = tick(42, { runGh: run });
+  assert.equal(result.unresolvedCount, 1, 'unresolvedCount still counts threads only');
+  assert.deepEqual(result.items, [
+    { id: 't1', status: 'open', kind: 'thread' },
+    { id: 'r1', kind: 'review', author: 'reviewer1', body: 'Looks mostly good, one nit.' },
+    { id: 'c1', kind: 'comment', author: 'bot', body: 'CI failed on lint.' },
+  ]);
+});
+
+test('a review with an empty body is dropped, an issue comment is kept regardless', () => {
+  const run = stubGh([
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    threadsResponse(
+      [],
+      false,
+      [{ id: 'r1', author: { login: 'reviewer1' }, body: '' }],
+      [{ id: 'c1', author: { login: 'bot' }, body: '' }]
+    ),
+  ]);
+  const result = tick(42, { runGh: run });
+  assert.deepEqual(
+    result.items.map((i) => i.id),
+    ['c1'],
+    'empty-body review is filtered, empty-body comment is not'
+  );
 });
 
 test('tick reports clean and stops once every thread is resolved', () => {

@@ -22,7 +22,7 @@ Defect check: when the task reads as a bug, a regression, or a reported failure,
 
 Decide quick, plan, or full, and say the route plus a one-line reason. The user can change the route mid-session; when they do, say so and move to the new route's phases.
 
-- **quick** - trivial, well-understood, one or two files. Skip straight to dispatch.
+- **quick** - trivial, well-understood, one or two files. Run Phase 5 to write a minimal `plan.json` that still names every field `lib/plan-schema.js` requires - `briefing` (`tackling`, `problem`, `how`), `decision` (`question`, `recommendation`, `rationale`, `status`), `outcome` (`goal`, `doneWhen`), `scope` (`in`, `out`), and one task with its own `id`, `description`, `files`, `action`, `acceptance_criteria`, and `verify` - short values are fine, an absent field is not. Then skip Phase 6's approval gate straight to dispatch - pause, resume, status, and wrap all read `plan.json`, so quick never skips writing it, only the human gate.
 - **plan** - normal scope. Write a plan, then stop at the one gate below.
 - **full** - ambiguous scope, competing approaches, or the user asked to brainstorm. Add the brainstorm phase before planning.
 
@@ -38,11 +38,11 @@ When the codebase or the pattern to follow is unfamiliar, spawn read-only agents
 
 ## Phase 5: Plan
 
-Write `plan.json` in the session directory and validate it with `lib/plan-schema.js` before presenting it; an invalid plan never reaches the gate below. Every planning prompt, and every Opposition prompt that reviews it, carries the preferences block from Phase 1.
+Write `plan.json` in the session directory and validate it with `lib/plan-schema.js` before presenting it; an invalid plan never reaches the gate below. Every planning prompt, and every Opposition prompt that reviews it, carries the preferences block from Phase 1. On the quick route, this is still a real `plan.json` with every required field populated, just smaller - one task, short values - and it still must validate.
 
-## Phase 6: Plan Approval (the one HUMAN GATE)
+## Phase 6: Plan Approval (the one HUMAN GATE, skipped on the quick route)
 
-Present the plan as a chat brief only, no page, no artifact, no HTML:
+The quick route skips straight from Phase 5 to Phase 7 - dispatch never waits on approval when the route itself was the approval. Every other route presents the plan as a chat brief only, no page, no artifact, no HTML:
 
 - **What**: `briefing.tackling`
 - **Problem**: `briefing.problem`

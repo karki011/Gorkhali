@@ -11,15 +11,15 @@ Verify the current diff. This command never edits code, never writes tests, and 
 
 ## Step 1: Inspector runs the checks
 
-Spawn one read-only Inspector. It discovers the test, lint, build, and typecheck commands with `lib/checks.js`, runs each one, and records the exact command, its provenance, and its result.
+Spawn one read-only Inspector. It discovers the test, lint, build, and typecheck commands with `lib/checks.js`, runs each one, and records the exact command, its provenance, and its result. It writes this record to `{SESSION_DIR}/inspector.json` and appends a line to `progress.json`.
 
-Read Inspector's fixed record for its verdict:
+Read Inspector's record at `{SESSION_DIR}/inspector.json` for its verdict:
 
 - `pass` - every discovered check passed.
 - `fail` - a discovered check failed.
-- `not_observed` - nothing failed, but a check did not run.
+- `not_observed` - nothing failed, but a discovered check did not run.
 
-A missing Inspector result blocks verification, and so does a failing one. Report the exact failing or missing checks and name `/gorkhali:fix` as the next step.
+A check type `discoverChecks` resolved to no command is `absent`, not `not_observed` - it is excluded from the verdict and never blocks; a Python repo that only exposes `test` still verifies cleanly. Only a failing or missing (`not_observed`) discovered check blocks. A missing Inspector record blocks verification, and so does a `fail` verdict. Report the exact failing or missing checks and name `/gorkhali:fix` as the next step.
 
 ## Step 2: Auditor reviews the diff
 

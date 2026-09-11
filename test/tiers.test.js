@@ -8,7 +8,7 @@ const { tierForRole, modelForTier } = require('../lib/tiers.js');
 test('tierForRole maps each of the six roles to its tier', () => {
   assert.equal(tierForRole('engineer'), 'balanced');
   assert.equal(tierForRole('inspector'), 'economy');
-  assert.equal(tierForRole('auditor'), 'deep');
+  assert.equal(tierForRole('auditor'), 'balanced');
   assert.equal(tierForRole('opposition'), 'balanced');
   assert.equal(tierForRole('detective'), 'deep');
   assert.equal(tierForRole('surveyor'), 'balanced');
