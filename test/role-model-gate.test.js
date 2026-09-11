@@ -3,8 +3,9 @@
 // Agent/Task spawn whose explicit `model:` contradicts the model its role's
 // tier resolves to on config/hosts/claude-code.json. FAIL-OPEN: any
 // ambiguity, missing model, non-tiered role, or unparseable stdin ALLOWS.
-// Spawns the real hook process (seam-integration pattern), matching
-// engineer-model-gate.test.js: JSON payload on stdin, assert on stdout only.
+// Spawns the real hook process (seam-integration pattern, the same pattern
+// every hook test in this suite follows): JSON payload on stdin, assert on
+// stdout only.
 'use strict';
 
 const { test } = require('node:test');

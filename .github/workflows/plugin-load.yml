@@ -1,7 +1,6 @@
 # Author: Subash Karki
-# Load-layer gate. The CI workflow proves the repo's *contents* are consistent
-# (schemas, drift, portable-skill boundary); this one proves the plugin those
-# contents describe actually LOADS in Claude Code.
+# Load-layer gate. The CI workflow proves the test suite passes; this one
+# proves the plugin the repo describes actually LOADS in Claude Code.
 #
 # The two are not the same check. A malformed hooks/hooks.json passes every one
 # of the unit tests and still leaves the installed plugin at "failed to load",
@@ -16,7 +15,7 @@ on:
       - skills/**
       - commands/**
       - agents/**
-      - scripts/**
+      - lib/**
       - .github/workflows/plugin-load.yml
   push:
     branches: [main]
@@ -26,7 +25,7 @@ permissions:
 
 jobs:
   syntax:
-    name: every hook and script parses
+    name: every hook and lib entry point parses
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -36,31 +35,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - name: Parse every JS, Python, and shell entry point
+      - name: Parse every JS entry point
         run: |
           set -euo pipefail
           status=0
-          for file in hooks/*.js hooks/*.mjs hooks/*.cjs \
-                      scripts/*.js scripts/*.mjs scripts/lib/*.js scripts/lib/*.cjs \
-                      skills/gorkhali/scripts/*.mjs skills/gorkhali/scripts/lib/*; do
+          for file in hooks/*.js hooks/*.mjs hooks/*.cjs lib/*.js; do
             [ -e "$file" ] || continue
-            case "$file" in *.sh) continue ;; esac
             node --check "$file" || { echo "::error file=$file::does not parse"; status=1; }
           done
-          # sh -n rejects bash syntax these scripts legitimately use; every one
-          # of them declares a bash shebang, so check them with bash.
-          for file in hooks/*.sh scripts/*.sh scripts/lib/*.sh; do
-            [ -e "$file" ] || continue
-            bash -n "$file" || { echo "::error file=$file::does not parse"; status=1; }
-          done
-          # scripts/compress is a Python entry point run as `python3 -m compress`,
-          # so a syntax error there is a load failure this job would otherwise miss.
-          while IFS= read -r file; do
-            python3 -m py_compile "$file" || { echo "::error file=$file::does not parse"; status=1; }
-          done < <(find scripts hooks -name '*.py' -not -path '*/__pycache__/*')
           exit $status
 
   load:

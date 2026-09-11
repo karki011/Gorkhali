@@ -1,7 +1,8 @@
 // Author: Subash Karki
 // never-edits.test.js - drives hooks/never-edits.js end to end through its
 // own start/stop modes and its default PreToolUse decision, as a real child
-// process (seam-integration pattern, matching engineer-model-gate.test.js).
+// process (seam-integration pattern, the same pattern every hook test in
+// this suite follows).
 'use strict';
 
 const { test } = require('node:test');

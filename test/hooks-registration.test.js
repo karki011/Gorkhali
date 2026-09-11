@@ -1,5 +1,5 @@
 // Author: Subash Karki
-// hooks-registration.test.js — hooks/hooks.json registers exactly the four
+// hooks-registration.test.js - hooks/hooks.json registers exactly the four
 // entries the two lean hook programs need: never-edits.js on the Edit
 // matcher plus SubagentStart/SubagentStop (one enforcement unit), and
 // role-model-gate.js on Agent|Task. Every command must also stay a silent
