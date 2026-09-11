@@ -19,9 +19,10 @@ point to `/gorkhali:greploop` if review is still open.
 
 ## 2. Tracker done
 
-Resolve the tracker adapter (`lib/tracker.js`) and run its `done` and
-`comment` descriptors for the ticket, noting the PR number and merge commit
-in the comment. A `none` provider makes both a no-op - say so, do not block.
+Resolve the tracker adapter (`lib/tracker.js`), which reads the preferences
+file to pick the provider, and run its `done` and `comment` descriptors for
+the ticket, noting the PR number and merge commit in the comment. A `none`
+provider makes both a no-op - say so, do not block.
 
 ## 3. Clean up
 

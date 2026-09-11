@@ -43,6 +43,15 @@ function editPayload(sessionId, filePath) {
   };
 }
 
+function writePayload(sessionId, filePath) {
+  return {
+    tool_name: 'Write',
+    session_id: sessionId,
+    cwd: REPO,
+    tool_input: { file_path: filePath },
+  };
+}
+
 test('allows any edit when no gorkhali session is active', () => {
   const dataDir = tmpDataDir();
   const res = run(undefined, editPayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
@@ -112,4 +121,22 @@ test('allows an Edit whose target path resolves inside the session directory', (
   const target = path.join(sessionDir, 'progress.json');
   const res = run(undefined, editPayload('s1', target), dataDir);
   assert.equal(res.code, 0);
+});
+
+test('allows an Edit to the preferences file under the data root, and still denies a project file, with an active session', () => {
+  const dataDir = tmpDataDir();
+  const sessionDir = path.join(dataDir, 'repos', 'test-repo', 'sessions', 'W1-T8');
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, '.session-active'), JSON.stringify({
+    repo: 'test-repo',
+    task: 'W1-T8',
+    sessionDir,
+  }));
+
+  const prefsPath = path.join(dataDir, 'repos', 'test-repo', 'preferences.md');
+  const allowedRes = run(undefined, editPayload('s1', prefsPath), dataDir);
+  assert.equal(allowedRes.code, 0);
+
+  const deniedRes = run(undefined, writePayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
+  assert.equal(deniedRes.code, 2);
 });

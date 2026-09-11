@@ -47,5 +47,5 @@ that line is the second gate, after plan approval, and it is never skipped.
 
 ## 5. Hand off
 
-Invoke `Skill(skill="gorkhali:greploop")` with the PR number. Do not ask
+Run `/gorkhali:greploop <PR number>` as the next command. Do not ask
 first. Never merge the PR - merging is always a human action.

@@ -3,7 +3,6 @@ name: opposition
 description: Staff-level, design review. The one plan critic. Challenges assumptions, edge cases, scope creep, and over-engineering, and refuses to proceed while a removal's consumers are unexamined.
 author: Subash Karki
 model: sonnet
-# GENERATED from model-policy.json (role: opposition -> profile: balanced) - do not hand-edit
 ---
 
 # Opposition

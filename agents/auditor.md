@@ -3,7 +3,6 @@ name: auditor
 description: Principal-level, code review. Independent read-only review of the verified diff, including a simplification pass and cross-file checks. The one reviewer in the normal shipping path.
 author: Subash Karki
 model: sonnet
-# GENERATED from model-policy.json (role: auditor -> profile: deep) - do not hand-edit
 ---
 
 # Auditor

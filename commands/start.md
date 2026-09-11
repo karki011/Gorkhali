@@ -14,7 +14,7 @@ The single entry point for new work. Reads `_shared.md` first, then runs the pha
 
 Resolve the task id from `$ARGUMENTS`, or from the current session, or from the branch name. Open the session with `lib/session.js` - this creates `plan.json`, `progress.json`, and the scratch folder under the data root, never inside the project.
 
-Fetch the ticket through the tracker adapter (`lib/tracker.js`): call its `fetch` descriptor. When the resolved provider is none, skip this silently - there is nothing to read. Read preferences and hold the text ready to inject verbatim, under the exact line `## User Preferences (verbatim)`, into every prompt built in the phases below.
+Fetch the ticket through the tracker adapter (`lib/tracker.js`): call its `fetch` descriptor. The provider it resolves comes from reading the preferences file, so nothing here names a provider directly. When the resolved provider is none, skip this silently - there is nothing to read. Read preferences and hold the text ready to inject verbatim, under the exact line `## User Preferences (verbatim)`, into every prompt built in the phases below.
 
 Defect check: when the task reads as a bug, a regression, or a reported failure, hand it to Detective before anything else. Only a confirmed defect with a reproduction moves on to planning; anything short of that stops here and names the missing evidence.
 

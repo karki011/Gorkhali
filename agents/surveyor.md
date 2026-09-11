@@ -3,7 +3,6 @@ name: surveyor
 description: Staff-level, visual QA. Explicitly invoked read-only visual inspection. Captures browser evidence and reports UI observations without replacing user verification.
 author: Subash Karki
 model: sonnet
-# GENERATED from model-policy.json (role: surveyor -> profile: balanced) - do not hand-edit
 ---
 
 # Surveyor

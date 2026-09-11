@@ -3,7 +3,6 @@ name: engineer
 description: Staff-level. The one implementer. Turns a scoped assignment into committed, verified code anywhere in the stack. Chief spawns instances with ROLE FOCUS for specialization.
 author: Subash Karki
 model: sonnet
-# GENERATED from model-policy.json (role: engineer -> profile: balanced) - do not hand-edit
 # executor - sonnet is both default and ceiling; no profile resolves higher.
 ---
 

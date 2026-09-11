@@ -16,8 +16,10 @@
 // The default mode ALLOWS when: no gorkhali session is active (the
 // .session-active sentinel is absent); every target path resolves inside
 // the active session's own directory (plan.json, progress.json, scratch/,
-// ...); or a marker younger than MARKER_MAX_AGE_MS names this exact repo
-// and session id (a live subagent is editing). Otherwise it exits 2.
+// ...); every target path resolves inside the Gorkhali data root (nothing
+// under it is project code, e.g. the preferences file); or a marker younger
+// than MARKER_MAX_AGE_MS names this exact repo and session id (a live
+// subagent is editing). Otherwise it exits 2.
 'use strict';
 
 const fs = require('fs');
@@ -101,6 +103,19 @@ function insideSessionDir(sessionDir, targets, cwd) {
   });
 }
 
+// Every target resolves inside the Gorkhali data root - nothing under it is
+// project code (preferences.md, session state, editor markers, ...), so the
+// orchestrator writing there directly, e.g. appending to the preferences
+// file, is fine.
+function insideDataRoot(targets, cwd) {
+  if (targets.length === 0) return false;
+  const root = path.resolve(paths.dataRoot(cwd));
+  return targets.every((target) => {
+    const resolved = path.resolve(cwd, target);
+    return resolved === root || resolved.startsWith(root + path.sep);
+  });
+}
+
 function decide(payload) {
   const cwd = payload.cwd || process.cwd();
   if (!fs.existsSync(paths.sentinelPath(cwd))) return 0;
@@ -108,6 +123,8 @@ function decide(payload) {
   const active = session.activeSession(cwd);
   const targets = targetPaths(payload.tool_input || {});
   if (active && insideSessionDir(active.sessionDir, targets, cwd)) return 0;
+
+  if (insideDataRoot(targets, cwd)) return 0;
 
   if (markerMatches(cwd, String(payload.session_id || ''))) return 0;
 
