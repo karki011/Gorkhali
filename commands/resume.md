@@ -50,7 +50,7 @@ Resume from a paused session by reading the state artifact.
    ```
 
 6. **Continue from last phase**:
-   - Phase B → re-enter planning (plan.json loaded)
+   - Phase B → re-enter planning: re-present the same gate brief from `plan.json` before asking for approval
    - Phase C → create remaining contracts
    - Phase D → dispatch pending tasks
    - Verify → re-run verification

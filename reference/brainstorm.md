@@ -88,19 +88,11 @@ Native session-file layout for the canonical convergence contract:
 1. **Write `brainstorm.json`** with `_meta.version: 3` (schema:
    `reference/schemas/brainstorm.md`). This is the source of truth; nothing
    downstream reads chat prose.
-2. **Review page:** Skip the page on `--simple` / `quick` — present What/Problem/How
-   and Pick A/B/C in chat. Otherwise have the active AI author `{SESSION_DIR}/brainstorm.candidate.html` from the
-   canonical JSON, in the canonical page order, for the artifact target and in the voice, structure, and
-   design of `skills/gorkhali/references/review-html.md`. Promote only a valid candidate with `node
-   {PLUGIN_ROOT}/skills/gorkhali/scripts/validate-review-html.mjs brainstorm --source
-   {SESSION_DIR}/brainstorm.json --candidate {SESSION_DIR}/brainstorm.candidate.html --out
-   {SESSION_DIR}/brainstorm.html --target artifact`. Publish the accepted page with
-   `Artifact(file_path: "{SESSION_DIR}/brainstorm.html", favicon: "<one emoji>", description: "<one
-   sentence>")`, give the user the returned URL, and collect feedback and direction selection in chat.
-   Apply feedback to `brainstorm.json`; regenerate, validate/promote, and republish to the same
-   `file_path` before any requested re-review, so the URL stays stable. If publishing fails or is
-   declined, regenerate with `--target file` and open the local page. If generation, validation, or
-   opening is unavailable, present the same hierarchy in chat and record the capability fallback.
+2. **Chat-only presentation:** every path (`--simple`, `quick`, or otherwise) presents What,
+   Problem, How, the recommendation, a comparison of the distinct approaches, evidence, and experiment
+   in chat, then Pick A/B/C. No page is authored or published; `brainstorm.json` is the only artifact.
+   Collect feedback and direction selection in chat and apply material feedback to `brainstorm.json`;
+   presentation-only feedback leaves the JSON unchanged and only the presented brief regenerates.
 3. Human picks one OR asks for more exploration (max 2 rounds total).
 4. On decision → write to `intent.json`:
    - `approach`: chosen approach name

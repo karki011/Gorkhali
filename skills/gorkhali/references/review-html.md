@@ -1,15 +1,14 @@
 # AI-authored review pages
 
-Five surfaces share this contract: `plan` and `brainstorm` are decision gates,
-and `visualflow`, `detective` and `review` are reading surfaces over an artifact
-that carries no approval question. Everything below applies to all five; only the
-decision gates have canonical strings the validator checks for.
+Three surfaces share this contract: `visualflow`, `detective` and `review` are
+reading pages over an artifact that carries no approval question and no
+canonical-string contract. Everything below applies to all three.
 
-`plan` and `brainstorm` review pages are disposable decision surfaces.
+Each page is a disposable reading surface.
 The canonical JSON artifact remains the source of truth; no review page is ever parsed back or manually patched.
 
-A review page has one job: let a human decide.
-It is read once, by a person who has not been in the session, who needs to understand what is being proposed and say yes or no.
+A review page has one job: let a human understand what happened or what is there.
+It is read once, by a person who has not been in the session, who needs to follow the reasoning without re-doing the work.
 Everything below serves that.
 
 ## Voice: plain English first
@@ -34,22 +33,17 @@ Move them out of the sentence instead: keep the prose plain and carry the file, 
 
 Visible, in `<main>`, before any collapsed section:
 
-1. **What** (`briefing.tackling`), **Problem** (`briefing.problem`), **How** (`briefing.how`), each in plain English.
-2. The recommendation and, for a brainstorm, the selected approach.
-3. The evidence behind the How. A How with no supporting evidence is an assumption, and the page must show which it is.
-4. Scope, risks, and open questions.
-5. The approval question, last and unmissable.
-
-For a brainstorm, a comparison `<table>` of the distinct approaches must appear in `<main>` before any collapsed section.
+1. **What** this page is about, **what happened or what was found**, and **how** the reader should read it, each in plain English.
+2. The evidence: what was traced, checked, or found, with citations.
+3. Scope, risks, and open questions.
 
 Collapsed in `<details>` at the bottom, never with an `open` attribute:
 
 - The task list, file inventory, and wave or dependency order.
 - Acceptance criteria, verify commands, and schema or contract detail.
-- Anything a reader needs only after they have already decided yes.
+- Anything a reader needs only after they already understand the conclusion.
 
 Task and file inventories are never the main page.
-Preserve the approval question, recommendation, selected approach, and outcome verbatim from the canonical JSON: the validator checks for them, and a reworded approval question is a different question.
 
 ## Shell and extension
 
@@ -132,8 +126,8 @@ There is no review renderer, template, component kit, or provider API.
 The same instruction applies in every compatible agent runtime:
 
 ```text
-Read the validated canonical {plan|brainstorm}.json and write a complete
-{plan|brainstorm}.candidate.html review page beside it, for the {artifact|file} target.
+Read the validated canonical {visualflow|detective|review} JSON and write a complete
+{visualflow|detective|review}.candidate.html review page beside it, for the {artifact|file} target.
 
 On the artifact target, paste assets/review-shell.css verbatim as the first style block,
 sentinels included, and put any page-specific CSS in a second style block that does not
@@ -157,7 +151,7 @@ generated page.
 Run the validator after generation:
 
 ```text
-node <skill-directory>/scripts/validate-review-html.mjs <plan|brainstorm> \
+node <skill-directory>/scripts/validate-review-html.mjs <visualflow|detective|review> \
   --source <canonical-json> \
   --candidate <candidate.html> \
   --out <accepted.html> \
@@ -167,11 +161,11 @@ node <skill-directory>/scripts/validate-review-html.mjs <plan|brainstorm> \
 `--target` defaults to `file`.
 
 The validator is a static safety and document-structure gate, not a renderer, HTML sanitizer, or replacement for the canonical artifact validator.
-It checks that the candidate is a bounded, self-contained static document, contains the canonical decision strings required for the relevant review type, and can be promoted without replacing a previously accepted artifact on failure.
+It checks that the candidate is a bounded, self-contained static document and can be promoted without replacing a previously accepted artifact on failure.
 A valid candidate is copied to a temporary sibling and atomically renamed to `--out`.
 
 Both targets reject executable or network-capable constructs: scripts, embedded frames or objects, forms and controls, event-handler attributes, refresh metas, URL-bearing attributes, and CSS imports or URL/image-set values.
-Both require exactly one `h1` and one `main`, the canonical briefing strings, approval question, recommendation, outcome, and selected approach in the visible `<main>` lead before any collapsed `<details>` appendix, a details appendix in `<main>` for a `plan`, `detective` or `review` page, and a comparison table in `<main>` before any details for a brainstorm review.
+Both require exactly one `h1` and one `main`, and a details appendix in `<main>` for a `detective` or `review` page.
 Both reject explicit hidden attributes, dialogs, and CSS display/visibility hiding.
 
 The `file` target additionally requires the full document shell and the CSP meta, and rejects SVG and every non-fragment href.

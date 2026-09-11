@@ -597,7 +597,7 @@ test('portable bundle manifest versions every public contract', async () => {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   assert.deepEqual(manifest, {
     name: 'gorkhali',
-    bundle_version: '2.9.0',
+    bundle_version: '2.10.0',
     contract_resource_digest: manifest.contract_resource_digest,
     contract_versions: {
       capability_ledger: 1,
@@ -671,16 +671,14 @@ test('portable validator requires every bundled planning and AI review resource'
   }
 });
 
-test('planning instructions enforce JSON validation before AI-generated HTML', () => {
+test('portable planning validates canonical JSON and presents the brief in chat with no HTML step', () => {
   const skill = fs.readFileSync(path.join(SKILL_ROOT, 'SKILL.md'), 'utf8');
   const planning = fs.readFileSync(path.join(SKILL_ROOT, 'references', 'planning.md'), 'utf8');
   const normalized = planning.replace(/\s+/g, ' ');
-  const validateJson = normalized.search(/Validate canonical JSON/i);
-  const generate = normalized.search(/generate the disposable HTML/i);
-  const validateHtml = normalized.search(/validate-review-html\.mjs/i);
-  assert.ok(validateJson >= 0 && validateJson < generate && generate < validateHtml);
-  assert.match(normalized, /review HTML guidance/i);
-  assert.match(normalized, /file writing is unavailable.*fenced `json` block/i);
+  assert.match(normalized, /Validate canonical JSON through the state engine/i);
+  assert.match(normalized, /A plan gate presents the complete brief in chat/i);
+  assert.match(normalized, /no page, no artifact, no HTML generation, no validator run/i);
+  assert.doesNotMatch(normalized, /validate-review-html\.mjs/i);
   assert.match(skill, /\[Planning\]\(references\/planning\.md\)/);
   assert.doesNotMatch(skill, /validate-review-html\.mjs/i, 'router must not duplicate phase procedure');
 });
@@ -752,7 +750,7 @@ test('every role resolves to a declared semantic profile and a missing host inhe
   const policy = JSON.parse(fs.readFileSync(path.join(SKILL_ROOT, 'references', 'model-policy.json'), 'utf8'));
   for (const [role, profile] of Object.entries(policy.roles)) {
     const result = resolveProfile({ role });
-    assert.equal(result.bundle_version, '2.9.0');
+    assert.equal(result.bundle_version, '2.10.0');
     assert.equal(result.requested_profile, profile);
     assert.equal(result.model, null);
     assert.equal(result.effort, null);
@@ -990,7 +988,7 @@ test('portable CLI entrypoints execute through a symlinked skill installation', 
   const resolver = runJson(path.join(linkedSkill, 'scripts', 'resolve-profile.mjs'), [
     '--role', 'chief', '--host', 'claude-code',
   ]);
-  assert.equal(resolver.bundle_version, '2.9.0');
+  assert.equal(resolver.bundle_version, '2.10.0');
   assert.equal(resolver.model, null);
 
   const impact = runJson(path.join(linkedSkill, 'scripts', 'inspect-impact.mjs'), [

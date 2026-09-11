@@ -525,7 +525,7 @@ What: five product-facing fixes after a 2026-08-26 judgment of brainstorm, plann
 
 1. One-page map of the four review surfaces (Auditor, Justice, wrap→greploop, pr-review) on the gorkhali, wrap, review, and pr-review intros so users pick a *decision*, not four interchangeable commands.
 2. pr-review as the skill-book product: five-line human checklist, intent sources `ticket` | `issue` | `pr-body` (`inferred` illegal), `REVIEW.md` when present, advisory / no-post / no-gate.
-3. Brainstorm v3 requires `decision.nonGoals` + `decision.successSignal`; `--simple` (and the clearer path) skips HTML; council/HTML stay FULL.
+3. Brainstorm v3 requires `decision.nonGoals` + `decision.successSignal`; `--simple` (and the clearer path) skips HTML; council/HTML stay FULL. Superseded 2026-09-10 - see the note under "Council-by-default and mandatory HTML on simple brainstorms" in section 12.
 4. Depth-gated `crossCutting` on standard/deep plans (security, privacy, observability, rollout, docs); write `oppositionVerdict` (legacy `devilsAdvocateVerdict` still read); `contract` is an optional projection of an approved plan, not a fifth source of truth.
 5. Wrap hygiene: defense-brief does not default to stale `review-panel.json` / RPSL; wrap always *invokes* greploop (tests + sole writer of `greptile.status`) and greploop capability-gates itself; LITE/DIRECT wrap tells the user to run verify first because wrap does not run Auditor.
 
@@ -709,6 +709,8 @@ P1 reconfirmed this: do not add a reviewer agent, numeric scores, or a low-risk 
 **Council-by-default and mandatory HTML on simple brainstorms.**
 Rejected in P1. `--simple` and the clearer path stay chat Pick A/B/C. FULL keeps council/HTML.
 Revives only if measured sessions show users asking for the HTML that `--simple` skipped, not because a design-doc template exists.
+
+**2026-09-10 supersession.** The plan and brainstorm gates no longer publish a page at all. The chat brief (What, Problem, How, Evidence, Scope, Risks, Open questions, Approve/Pick) is the only gate presentation for both gates, terse in the ELI5 spirit, with implementation detail shown only on request; headless modes leave plan.json/brainstorm.json for the human to read as the same chat brief on resume. This reverses the gate half of PR #17 (`2d162e7`) one release later. Visual flow, detective, and review pages are unaffected.
 
 **Mandatory RPSL / review-panel on wrap.**
 Rejected in P1. Defense-brief sources that were not produced this session stay `None flagged this session`. `--deep-review` is the opt-in.

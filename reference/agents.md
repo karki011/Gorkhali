@@ -62,7 +62,7 @@ that omits it.
   **reasoning / review roles** (Auditor, Justice, Detective, Advisor) → `sonnet`.
 - **Research and plan authoring** (`planner-drafton`, `explore-farwick`, `scout-*`) → `opus` via
   `--profile research`. These spawns read the codebase and write session artifacts (`plan.json`,
-  `plan.candidate.html`, research notes); they never edit project source.
+  research notes); they never edit project source.
 - **Orchestration** (Chief) → the session model. Chief reads tickets, learnings, and `jq` extracts of
   session artifacts; it does not read project source or author `plan.json`.
 

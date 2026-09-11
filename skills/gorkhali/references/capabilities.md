@@ -87,7 +87,7 @@ change artifact schemas, approval gates, route semantics, or completion rules.
 | Web research | Verify current external facts. | Ask for supplied sources or mark the claim unverified. |
 | Issue integration | Read and update lifecycle state directly. | Use user-provided context and prepare an update for publishing. |
 | Review publishing | Create or update a review request. | Prepare title, body, evidence, and exact next action. |
-| Review artifact | Publish the plan or brainstorm review page as a hosted artifact and hand the user its URL. | Write the same page as a self-contained local file and open it with the host's file preview. |
+| Review artifact | Publish the visual flow, investigation report, or review findings page as a hosted artifact and hand the user its URL. | Write the same page as a self-contained local file and open it with the host's file preview. |
 
 Record every fallback used in the session capability artifact. Never silently
 convert an unavailable check into a pass.

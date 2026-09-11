@@ -11,12 +11,11 @@ import { TextDecoder } from 'node:util';
 import { isMainModule } from './lib/portable.mjs';
 
 const MAX_BYTES = 512 * 1024;
-// plan and brainstorm are decision gates: their canonical strings must survive onto
-// the page. visualflow, detective and review are surfaces over artifacts with no
-// decision-string contract, so they are held to the shell, safety and structure rules only.
-const SUPPORTED_TYPES = new Set(['plan', 'brainstorm', 'visualflow', 'detective', 'review']);
-const GATE_TYPES = new Set(['plan', 'brainstorm']);
-const APPENDIX_TYPES = new Set(['plan', 'detective', 'review']);
+// The three surviving surfaces are reading pages over an artifact with no
+// approval question and no canonical-string contract, so they are held to the
+// shell, safety and structure rules only.
+const SUPPORTED_TYPES = new Set(['visualflow', 'detective', 'review']);
+const APPENDIX_TYPES = new Set(['detective', 'review']);
 const SUPPORTED_TARGETS = new Set(['file', 'artifact']);
 const TITLE_SCAN_BYTES = 8 * 1024;
 const FORBIDDEN_TAG_NAMES = new Set([
@@ -78,14 +77,7 @@ const rawOffset = (marks, scannedIndex) => {
   return base.raw + (scannedIndex - base.scanned);
 };
 
-const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
-
-const isEnvelope = (artifact) => isObject(artifact) && isText(artifact.artifact_type) && isObject(artifact.evidence);
-
-const normalizedArtifact = (artifact) => isEnvelope(artifact) ? artifact.evidence : artifact;
-
-const normalizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
 const decodeEntities = (value) => String(value)
   .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
@@ -213,75 +205,10 @@ const elementRegion = (tags, name, { after = 0, before = Number.POSITIVE_INFINIT
   return null;
 };
 
-const textFromHtml = (html) => {
-  const tags = scanTags(html);
-  let cursor = 0;
-  let visible = '';
-  for (let index = 0; index < tags.length; index += 1) {
-    const tag = tags[index];
-    if (tag.start < cursor) continue;
-    visible += ` ${html.slice(cursor, tag.start)}`;
-    cursor = tag.end;
-    if (!tag.closing && RAW_TEXT_TAGS.has(tag.name)) {
-      const closingIndex = tags.findIndex((candidate, candidateIndex) => (
-        candidateIndex > index && candidate.closing && candidate.name === tag.name
-      ));
-      if (closingIndex >= 0) {
-        cursor = tags[closingIndex].end;
-        index = closingIndex;
-      }
-    }
-  }
-  return normalizeText(decodeEntities(`${visible} ${html.slice(cursor)}`));
-};
-
 const attribute = (tag, name) => tag.attributes.get(name) ?? null;
 const decodedAttribute = (tag, name) => {
   const value = attribute(tag, name);
   return value == null ? null : decodeEntities(value);
-};
-
-const requiredStrings = (type, artifact) => {
-  if (!GATE_TYPES.has(type)) return { errors: [], values: [] };
-  const data = normalizedArtifact(artifact);
-  const errors = [];
-  if (!isObject(data)) return { errors: ['canonical source must contain an object'], values: [] };
-
-  const required = (value, label) => {
-    if (!isText(value)) errors.push(`canonical ${label}: required non-empty string`);
-    return isText(value) ? normalizeText(value) : null;
-  };
-
-  if (type === 'plan') {
-    return {
-      errors,
-      values: [
-        required(data.briefing?.tackling, 'briefing.tackling'),
-        required(data.briefing?.problem, 'briefing.problem'),
-        required(data.briefing?.how, 'briefing.how'),
-        required(data.decision?.question, 'decision.question'),
-        required(data.decision?.recommendation, 'decision.recommendation'),
-        required(data.outcome?.goal, 'outcome.goal'),
-      ].filter(Boolean),
-    };
-  }
-
-  const selectedId = data.recommendedDefault?.id;
-  const selected = Array.isArray(data.approaches)
-    ? data.approaches.find((approach) => isObject(approach) && approach.id === selectedId)
-    : null;
-  return {
-    errors,
-    values: [
-      required(data.briefing?.tackling, 'briefing.tackling'),
-      required(data.briefing?.problem, 'briefing.problem'),
-      required(data.briefing?.how, 'briefing.how'),
-      required(data.decision?.question, 'decision.question'),
-      required(selected?.name, 'recommended approach name'),
-      required(data.recommendedDefault?.reason, 'recommendedDefault.reason'),
-      required(data.directionGate?.question, 'directionGate.question'),
-    ].filter(Boolean),
-  };
 };
 
 const cspIndex = (html) => {
@@ -420,6 +347,11 @@ const reservedSelectorIn = (css) => {
   return null;
 };
 
+// `artifact` (the parsed --source JSON) is accepted but no longer inspected: the
+// three surviving types have no canonical-string contract. It stays required and
+// parsed only because visualflow.md, detective.md and review.md each already
+// invoke this script with --source; dropping the argument is a follow-up change
+// for whenever one of those commands is next opened.
 export function validateReviewHtml(type, artifact, html, {
   byteLength = Buffer.byteLength(String(html), 'utf8'),
   target = 'file',
@@ -431,8 +363,6 @@ export function validateReviewHtml(type, artifact, html, {
   if (!Number.isFinite(byteLength) || byteLength > MAX_BYTES) errors.push(`candidate exceeds ${MAX_BYTES} byte limit`);
   if (String(html).includes('\0')) errors.push('candidate contains a NUL byte');
 
-  const source = requiredStrings(type, artifact);
-  errors.push(...source.errors);
   const candidate = String(html);
   const { scanned: active, marks: commentMarks } = stripComments(candidate);
   const scannedTags = scanTags(active);
@@ -530,16 +460,9 @@ export function validateReviewHtml(type, artifact, html, {
   const firstDetails = tags.find((tag) => (
     tag.name === 'details' && tag.start >= mainStart && tag.end <= mainEnd
   ));
-  const firstTable = tags.find((tag) => (
-    tag.name === 'table' && tag.start >= mainStart && tag.end <= mainEnd
-  ));
-  // These three carry a body of supporting detail that must not lead the page:
-  // task inventories, traced evidence, per-finding citations and gaps.
+  // detective and review carry a body of supporting detail that must not lead
+  // the page: traced evidence, per-finding citations, and gaps.
   if (APPENDIX_TYPES.has(type) && !firstDetails) errors.push(`${type} review must include a details element in main`);
-  if (type === 'brainstorm' && !firstTable) errors.push('brainstorm review must include a table in main');
-  else if (type === 'brainstorm' && firstDetails && firstTable.start >= firstDetails.start) {
-    errors.push('brainstorm comparison table must appear before details');
-  }
   if (tags.some((tag) => (
     tag.name === 'details'
     && tag.start >= mainStart
@@ -548,12 +471,7 @@ export function validateReviewHtml(type, artifact, html, {
   ))) {
     errors.push('details must not have an open attribute');
   }
-  const decisionContent = active.slice(mainStart, firstDetails?.start ?? mainEnd);
-  const visibleText = textFromHtml(decisionContent);
-  for (const value of source.values) {
-    if (!visibleText.includes(value)) errors.push(`missing canonical review text: ${value}`);
-  }
-  return { ok: errors.length === 0, errors, requiredText: source.values };
+  return { ok: errors.length === 0, errors };
 }
 
 const parseArgs = (argv) => {
@@ -587,7 +505,7 @@ const promote = (candidateBytes, output) => {
   }
 };
 
-const usage = 'Usage: node validate-review-html.mjs <plan|brainstorm|visualflow|detective|review> --source <canonical-json> --candidate <candidate.html> --out <accepted.html> [--target file|artifact]';
+const usage = 'Usage: node validate-review-html.mjs <visualflow|detective|review> --source <canonical-json> --candidate <candidate.html> --out <accepted.html> [--target file|artifact]';
 
 const main = () => {
   const options = parseArgs(process.argv.slice(2));
