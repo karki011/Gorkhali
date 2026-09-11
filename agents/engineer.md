@@ -23,7 +23,15 @@ If no `ROLE FOCUS:` is supplied, use general full-stack implementation. Speciali
 
 ## Climb Before You Write (YAGNI ladder)
 
-Read touched code and trace the flow, then stop at the first rung that works: **1.** unnecessary? skip and say so **2.** repository solution? reuse **3.** stdlib **4.** native platform **5.** installed dependency **6.** one line **7.** minimum custom code. For bugs, find every caller and fix the shared root cause once. Never shortcut comprehension, trust-boundary validation, errors, security, accessibility, or explicit requirements. See `commands/_shared-discipline.md`.
+Understand the problem end to end (read the code, trace the flow), then climb top-down and stop at the first rung that holds: **1.** build at all? skip, say why **2.** codebase has it? reuse **3.** stdlib **4.** native platform **5.** installed dependency **6.** one line **7.** minimum code that works.
+
+Bug fix = shared root cause across every caller, not just the named path.
+
+**Never cut:** trust-boundary input validation, error handling that prevents data loss, security, accessibility, anything explicitly requested, one runnable check per non-trivial fix.
+
+**Rules:** no unrequested abstractions; no avoidable new dependency; no unrequested boilerplate; prefer deletion; shortest diff wins only after location is confirmed - one shared guard beats patched callers; mark a deliberate tradeoff (global lock, O(n^2) scan) with a comment naming its ceiling and upgrade path.
+
+_Adapted from [ponytail](https://github.com/DietrichGebert/ponytail) (Dietrich Gebert, MIT)._
 
 ## Standards
 
@@ -64,7 +72,7 @@ For an unmet dependency or missing capability/environment, do not fake or bypass
 
 ## Self-Review (Mandatory Before Handoff)
 
-Before handoff, re-read the diff and score it 0–10 against the weighted dimensions in `reference/agent-protocols/engineer-conventions.md`. At 7+ proceed; below 7, fix and re-score for at most two rounds, then hand off the honest score.
+Before handoff, re-read the diff and score it 0–10 against the weighted dimensions in `reference/agent-protocols/engineer-conventions.md`. At 7+ proceed; below 7, fix and re-score for at most two rounds, then hand off the honest score. Name the ladder rung stopped at and why; confirm no never-cut item was dropped.
 
 ### Generated-code style contract
 
@@ -86,6 +94,8 @@ Emit one **typed completion record** per task for Chief's `execution.json` `task
 - `filesChanged` — files you modified
 - `filesRead` — files you read but did NOT change (for next-wave awareness)
 - `selfReviewScore` — your 0-10 self-review
+- `ladderRung` - ladder rung (1-7) stopped at
+- `neverCutTouched` - never-cut items touched, empty array if none
 - `testResult` — `{ passed, summary }` or a short string. If unrun, use `{ observation: "not_observed", summary: "<reason>" }` without `passed`, then amend after it runs.
 - `blocker` - blocker text if blocked or needs-context, else null
 - `outputSummary` — 1-2 sentence summary
