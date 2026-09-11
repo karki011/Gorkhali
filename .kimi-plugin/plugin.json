@@ -1,6 +1,6 @@
 {
   "name": "gorkhali",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Provider-adaptive multi-agent development workflows for Kimi Code.",
   "author": {
     "name": "Subash Karki"
