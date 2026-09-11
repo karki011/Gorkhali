@@ -1,7 +1,18 @@
 {
   "name": "gorkhali-skill",
   "private": true,
-  "description": "Gorkhali provider-neutral Agent Skill and native compatibility distribution.",
+  "description": "Multi-agent orchestration plugin for Claude Code with delegated implementation, independent verification, review, and human approval.",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "ai-agents",
+    "coding-agent",
+    "multi-agent",
+    "agent-orchestration",
+    "developer-tools",
+    "software-engineering",
+    "code-review"
+  ],
   "author": "Subash Karki",
   "scripts": {
     "test": "node --test \"test/*.test.js\""

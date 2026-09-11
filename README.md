@@ -1,4 +1,6 @@
-# GORKHALI - You Govern. They Execute.
+# Gorkhali — Multi-Agent Orchestration for Claude Code
+
+**You Govern. They Execute.**
 
 [![CI](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml/badge.svg)](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml)
 [![version](https://img.shields.io/badge/version-2.0.0-blue)](.claude-plugin/plugin.json)
@@ -6,8 +8,8 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Named for the soldiers of Gorkha - disciplined, loyal, and relentless.**
-Gorkhali is a subagent delegation plugin for Claude Code.
-It plans a change, hands the implementation to spawned agents, verifies and reviews the result independently, and only ships when you say so.
+
+Gorkhali is an open-source multi-agent orchestration and coding-agent plugin for Claude Code. It plans software changes, delegates implementation to specialized AI agents, independently verifies and reviews the result, and keeps the human in control of approval and merge decisions.
 
 ## What Gorkhali is
 
