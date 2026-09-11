@@ -1,17 +1,22 @@
 {
   "name": "gorkhali",
   "version": "2.0.0",
-  "description": "Gorkhali - subagent delegation for Claude Code. Plans, decomposes, and executes features, fixes, and refactors with model-tiered agents, independent verification and review, and one human plan approval gate.",
+  "description": "Gorkhali - multi-agent orchestration for Claude Code. Plans, delegates, verifies, reviews, and ships software changes with specialized coding agents and one human approval gate.",
   "author": {
     "name": "Subash Karki"
   },
   "homepage": "https://github.com/karki011/Gorkhali",
   "repository": "https://github.com/karki011/Gorkhali",
   "keywords": [
-    "orchestration",
+    "claude-code",
+    "claude-code-plugin",
+    "ai-agents",
+    "coding-agent",
     "multi-agent",
-    "agents",
-    "workflow",
+    "agent-orchestration",
+    "developer-tools",
+    "software-engineering",
+    "code-review",
     "verification"
   ]
 }
