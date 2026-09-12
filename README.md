@@ -1,103 +1,141 @@
-# Gorkhali
+<p align="center">
+  <img src="assets/gorkhali-hero.png" alt="Gorkhali: Your next PR, with a process. Engineer builds, Inspector checks, Auditor reviews. Built for Claude Code. Controlled by you." width="100%" />
+</p>
 
-**Lean engineering orchestration for Claude Code.**
+<p align="center">
+  <a href="https://github.com/karki011/Gorkhali/actions/workflows/ci.yml"><img src="https://github.com/karki011/Gorkhali/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-D9FE66?style=flat-square&labelColor=14221C" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/built_for-Claude_Code-D9FE66?style=flat-square&labelColor=14221C" alt="Built for Claude Code" />
+</p>
 
-Gorkhali turns a request into an approved plan, delegates implementation, checks
-the integrated result, and opens a pull request with independent review evidence.
-Version **3.0.1** adds concise communication and evidence handoffs to the MVP.
+<p align="center">
+  <strong>Give Claude Code a workflow you can trust and a process you can follow.</strong><br />
+  Approved plans. Focused implementation. Independent checks and review.<br />
+  You decide what gets built and what gets merged.
+</p>
 
-## Fewer roles, clear responsibilities
+<p align="center">
+  <a href="#get-started"><strong>Get started</strong></a> &nbsp; / &nbsp;
+  <a href="#from-request-to-reviewed-pr">How it works</a> &nbsp; / &nbsp;
+  <a href="project-docs/architecture.md">Read the architecture</a>
+</p>
 
-The normal path uses **Engineer**, **Inspector**, and **Auditor**. Engineer writes
-and commits the change. Inspector runs repository checks. Auditor independently
-reviews correctness, requirement fit, security, compatibility, and complexity.
-Opposition helps with ambiguous or high-risk plans; Detective diagnoses unclear
-or repeated failures. Small work does not pay for either specialist by default.
+## Less orchestration on your plate
 
-Risk routing is deterministic: balanced implementation and review, economy checks,
-and deep reasoning only when risk or failure warrants it. No model call decides
-which model to call. Every plan needs approval; the user controls shipping and merge.
+An AI-written change still needs a plan, checks, review, and a clear handoff.
+**Gorkhali coordinates that work inside Claude Code**, with a small set of roles
+and evidence attached to the change being reviewed.
 
-## Install
+| Build with a clear plan | Keep the review independent | Pick up interrupted work |
+| :--- | :--- | :--- |
+| Approve the scope before implementation starts. Work stays divided into coherent tasks. | Engineer implements. Inspector runs checks. Auditor reviews the integrated diff in a separate context. | Checkpoints preserve progress. Resume reconciles Git and invalidates stale verification before continuing. |
 
-In Claude Code:
+**Parallel when the work is independent. Sequential when it needs coordination.**
+Eligible Engineers work in isolated Git worktrees. Changes are integrated before
+the final checks and review.
+
+## Get started
+
+Run these commands in Claude Code:
 
 ```text
 /plugin marketplace add karki011/Gorkhali
 /plugin install gorkhali@gorkhali
-/gorkhali:start "Describe the change"
+/gorkhali:start "Add a CSV export to the reports page"
 ```
 
-Requires Git, Node.js 20+, and a Claude Code version that supplies subagent identity
-in tool hooks and supports Agent worktree isolation. GitHub shipping additionally
-requires authenticated `gh` and an `origin` remote. Update Claude Code if subagent
-identity is absent; the edit gate does not guess identity from another live agent.
+Gorkhali inspects the repository and proposes a plan. Approve it, then let the
+orchestrator delegate the work and bring back the verification and review results.
+Shipping needs your authorization; merging stays with you.
 
-Claude Code is the only supported host. Logical routing, scheduling, recovery, and
-Git state live in ordinary JavaScript modules; Claude-specific hooks, prompts, and
-model mapping stay at the boundary. Other hosts and a generic host framework are
-outside this MVP.
+**You'll need:** Git, Node.js 20+, and Claude Code with subagent identity in tool
+hooks and Agent worktree isolation. Opening GitHub PRs also needs authenticated
+`gh` and an `origin` remote. Claude Code is the only supported host today.
 
-## Commands
+## From request to reviewed PR
 
-| Command | Purpose |
-| --- | --- |
-| `/gorkhali:start` | Plan, approve, route, and execute new work |
-| `/gorkhali:pause` | Stop dispatch and save a stable handoff |
-| `/gorkhali:resume` | Reconcile Git and recover interrupted work |
-| `/gorkhali:status` | Read progress, blockers, and verification freshness |
-| `/gorkhali:verify` | Run checks, independent review, and bounded repair |
-| `/gorkhali:wrap` | Open a PR and own its external review loop |
-| `/gorkhali:close` | Finish cleanup after human merge |
+| Step | What happens | Your control |
+| :--- | :--- | :--- |
+| **01 · Plan** | The orchestrator turns your request into scoped tasks and acceptance criteria. | Approve the plan before implementation. |
+| **02 · Build** | Engineers implement in isolated worktrees. Eligible independent tasks can run together. | Scope changes come back for a decision. |
+| **03 · Check** | Inspector runs discovered repository checks on the integrated result. | See what passed, failed, or could not be observed. |
+| **04 · Review** | Auditor independently examines correctness, requirements, security, and regressions. | Confirm applicable user-visible behavior with a human checklist. |
+| **05 · Ship** | Gorkhali opens the PR and tracks external review feedback. | Authorize shipping. Merge when you're ready. |
+
+The default execution trio is **Engineer, Inspector, Auditor**. Opposition joins
+when planning is ambiguous or high risk. Detective joins when a failure needs
+diagnosis. Model tiers follow deterministic risk rules, with bounded escalation
+and repair attempts.
+
+## Stop for the day. Keep the thread of the work.
+
+```text
+/gorkhali:pause
+/gorkhali:resume
+```
+
+Pause creates an explicit handoff. Automatic checkpoints also support recovery
+after an interruption without a prior pause, provided the session plan is readable.
+Resume compares saved state with current Git reality. Changed content or Git
+identity makes old verification stale; meaningful scope changes require approval.
+
+Session data stays outside your project in `~/.gorkhali` by default. Gorkhali adds
+no hosted service or daemon of its own.
+
+## Eight commands. One workflow.
+
+| Command | Use it to |
+| :--- | :--- |
+| `/gorkhali:start` | Plan and begin a feature, fix, or refactor |
+| `/gorkhali:pause` | Save a stable handoff and stop dispatch |
+| `/gorkhali:resume` | Reconcile Git and continue prior work |
+| `/gorkhali:status` | See progress, blockers, and verification state |
+| `/gorkhali:verify` | Run checks, independent review, and bounded recovery |
+| `/gorkhali:wrap` | Open the PR and follow external review |
+| `/gorkhali:close` | Clean up the session after human merge |
 | `/gorkhali:learn` | Save an explicitly requested working preference |
 
-## Conservative parallel work
+## See the evidence
 
-Tasks run sequentially unless both explicitly declare `parallelSafe: true`, have
-no dependency, and own disjoint files and logical resources. Directory overlap and
-case aliases conflict; uncertain paths and high-conflict risks stay serial. Each
-Engineer uses an isolated worktree aligned to the wave's exact base commit.
-Integration checks every source commit against ownership and current task/dependency
-revisions, then applies commits in
-plan order. Conflicts stop for scoped resolution. One integrated Inspector follows
-all waves by default, followed by one Auditor.
+The repository includes automated tests for routing, real temporary Git worktrees,
+stale evidence, recovery, and hook enforcement. CI also installs the plugin into a
+scratch Claude configuration to check that it loads.
 
-## Evidence survives interruption
+[Explore the recorded MVP acceptance results](project-docs/acceptance.md) ·
+[Read the implementation contracts](project-docs/architecture.md) ·
+[Watch the two short product reels](marketing/README.md)
 
-Checkpoints record meaningful transitions automatically. Pause adds a stable handoff;
-resume works without it. Verification is bound to HEAD, branch/worktree identity,
-index, and tracked/untracked content, so an edit to an already-dirty file invalidates
-an old pass. Auditor also names the exact Inspector record it reviewed.
-User-visible changes require an explicit human checklist confirmation.
+Version **3.0.1** adds concise communication and evidence handoffs. Historical live
+acceptance receipts describe the version they tested; they are not a guarantee for
+every repository or a token-saving benchmark.
 
-Mutable state stays outside the project in `~/.gorkhali` (override with
-`GORKHALI_DATA`). Existing v2 plans remain valid and execute sequentially without
-new metadata. Legacy sessions resume with stale verification and must verify again.
-One lead owns session state; agents write separate completion/evidence records.
+<details>
+<summary><strong>Compatibility, boundaries, and upgrading from v2</strong></summary>
 
-## Upgrading from v2
+- Existing v2 plans remain valid and run sequentially without the new scheduling metadata. Legacy verification must run again.
+- Standalone `review`, `fix`, `visual`, and PR-review-loop commands were removed. Use `verify` and `wrap`. The optional visual agent was removed; human visual confirmation remains.
+- Every implementation plan needs approval, including quick work. Merge is always human-controlled.
+- Hooks enforce workflow discipline, not an OS sandbox for hostile repository code. Repository checks execute with the user's permissions.
+- Repositories with submodules or special tracked files currently block fingerprinting. See the architecture before adopting Gorkhali for those layouts.
+- Update Claude Code if subagent identity is unavailable; the edit gate does not guess an agent's identity.
+- Override the external data directory with `GORKHALI_DATA`. Only one orchestrator should own a session.
 
-This release removes the standalone review, fix, visual, and PR-review-loop commands
-and the optional visual agent. Use `verify` for review, repair, and visual confirmation;
-use `wrap` for PR review. Removed commands have no compatibility stubs. The quick route
-now requires plan approval too. All plugin manifests use 3.0.1.
+</details>
 
-## Development and limits
+<details>
+<summary><strong>Contributing and local checks</strong></summary>
 
 ```sh
 npm test
 ```
 
-Tests exercise policy, real temporary Git worktrees, stale evidence, recovery, and
-hook decisions. CI also installs the plugin into a scratch Claude configuration.
-Live Claude acceptance and deterministic fault tests are recorded in the
-[PRD acceptance record](project-docs/acceptance.md). Repeat the
-[acceptance checklist](project-docs/architecture.md#live-acceptance) for future releases.
+Repeat the [live acceptance checklist](project-docs/architecture.md#live-acceptance)
+when preparing a release. [ROADMAP.md](ROADMAP.md) preserves historical decisions;
+the current architecture and runtime contracts take precedence.
 
-Hooks enforce lead editing discipline; they are not an OS sandbox for hostile
-repository code. Checks may execute repository scripts. Repositories with submodules
-or special tracked files block fingerprinting until separately supported. There is
-no automatic merge, external service, daemon, or model-based routing system.
+</details>
 
-See [architecture and contracts](project-docs/architecture.md) for implementation
-boundaries. [ROADMAP.md](ROADMAP.md) preserves explicitly historical decisions.
+---
+
+**Make the next change with a process behind it.**
+[Start with Gorkhali](#get-started) · [Report an issue](https://github.com/karki011/Gorkhali/issues) · [MIT license](LICENSE)
