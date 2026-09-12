@@ -29,6 +29,25 @@ external documentation tool or framework is mandatory.
 For an abstraction, name its present responsibility, actual caller, and why a
 simpler expression would be worse. Future flexibility alone is insufficient.
 
+## Simplification before handoff
+
+Review your task's diff for clarity before running focused checks and committing.
+Simplify where it makes the current change easier to understand; leave already clear
+code alone. Stay within approved files and responsibilities, and follow repository
+conventions rather than imposing a language, framework, or personal style.
+
+- Reduce needless nesting, redundant logic, and pass-through abstractions.
+- Prefer clear names and explicit control flow over clever or compressed expressions.
+- Preserve useful boundaries, test seams, and comments that explain decisions.
+- Preserve observable behavior during refactoring, including errors, side effects,
+  evaluation order, and public contracts, except for the approved behavior change.
+- Do not trade readability for fewer lines or broaden the task into unrelated cleanup.
+
+Check the resulting behavior; intended equivalence is not evidence of equivalence.
+Record material simplifications in the completion summary. If simplification is
+needed after integrated verification, return it through a scoped Engineer repair
+and fresh integrated Inspector and Auditor verification.
+
 ## Execution and handoff
 
 On isolated dispatch, call `prepareWorktree(cwd, baseHead, integrationRoot)` from

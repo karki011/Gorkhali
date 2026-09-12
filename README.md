@@ -105,7 +105,8 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
-Version **3.0.1** adds concise communication and evidence handoffs. Historical live
+Version **3.0.2** adds scoped code simplification to the Engineer's existing workflow,
+building on concise communication and evidence handoffs. Historical live
 acceptance receipts describe the version they tested; they are not a guarantee for
 every repository or a token-saving benchmark.
 
