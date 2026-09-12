@@ -31,3 +31,8 @@ Call `recordInspector(sessionDir, record, cwd)` from `lib/verification.js` with:
 It validates passing evidence against current check discovery and content and
 assigns an evidence ID. Return the persisted record. The orchestrator checkpoints
 it; do not concurrently append shared progress. Passing checks never replace Auditor.
+
+Return the complete evidence record without repeating it in a prose checklist.
+Briefly explain any failure or blocker, preserving exact command/error details and
+the distinction between absent, unobserved, failed, and passed checks. Concision
+never permits omitting checks or shortening required evidence.

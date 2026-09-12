@@ -36,3 +36,8 @@ fingerprint from the evidence actually reviewed. Use verdict `pass`, `fail`, or
 `blocked`. Set `independence.basis` to `independent-context` for this separate agent context.
 Independent context is mandatory; reduced assurance must block shipping
 until an independent review can be obtained. Return the record for checkpointing.
+
+Write findings in concise, normal prose with the concrete trigger, impact, evidence,
+and location needed to assess them. Preserve uncertainty and relevant conditions;
+do not cap finding counts or omit defects to meet a length target. Return the
+complete evidence record without duplicating every finding in another summary.
