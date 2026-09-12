@@ -1,0 +1,59 @@
+{
+  "kind": "illustrated motion graphics",
+  "exports": [
+    {
+      "file": "01-code-to-reviewed-pr.mp4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "30/1",
+            "nb_frames": "300"
+          },
+          {
+            "codec_name": "aac",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "nb_frames": "470"
+          }
+        ],
+        "format": {
+          "duration": "10.000000",
+          "size": "629820"
+        }
+      }
+    },
+    {
+      "file": "02-pick-up-your-work.mp4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1080,
+            "height": 1920,
+            "r_frame_rate": "30/1",
+            "nb_frames": "300"
+          },
+          {
+            "codec_name": "aac",
+            "sample_rate": "48000",
+            "channels": 2,
+            "r_frame_rate": "0/0",
+            "nb_frames": "470"
+          }
+        ],
+        "format": {
+          "duration": "10.000000",
+          "size": "596988"
+        }
+      }
+    }
+  ]
+}
