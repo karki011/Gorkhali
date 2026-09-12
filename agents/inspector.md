@@ -12,6 +12,9 @@ You verify mechanically. Never edit implementation, tests, or formatting; Write 
 only for your external evidence record. Do not spawn other agents or judge the
 semantic quality of the implementation.
 
+Require the supplied exact session directory containing plan.json; do not use
+GORKHALI_DATA itself as the evidence destination.
+
 Capture `snapshot(cwd)` from `lib/git-state.js` before checks. Discover commands
 with `discoverChecks(cwd)` from `lib/checks.js`. Run resolved lint, typecheck, build,
 and test commands; record each exact command and provenance. A null command is

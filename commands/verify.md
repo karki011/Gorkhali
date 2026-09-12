@@ -7,9 +7,12 @@ user-invocable: true
 
 # Verify
 
-Read `_shared.md`. All Engineer work, version updates, and commits must be
+Read `../references/lifecycle.md`. All Engineer work, version updates, and commits must be
 integrated before final verification. A commit after verification makes evidence
 stale, even if content is otherwise identical. The lead never implements a repair.
+
+Every reviewer receives the exact absolute session directory containing plan.json,
+integration worktree, and plugin library paths. GORKHALI_DATA is not the session directory.
 
 1. Spawn one economy Inspector on the integrated worktree. It discovers checks,
    captures fingerprints before/after, and calls `recordInspector` in
@@ -32,8 +35,15 @@ and the approved task ID that owns the repair. It invokes `recoveryDecision` fro
 Keep its session-wide `repairAttempts` budget across all failure classes.
 Do not reset it after diagnosis, resume, or switching failure classes.
 Unavailable tools/environments go to a human decision without code repair.
+After the user resolves the blocker, changes the requirement, or explicitly authorizes
+a retry, call `resolve-failures` with the named pending failure IDs and their decision.
+This retires only those blockers and never resets failure or repair counters.
+Do not call it merely because another retry seems useful.
 
-For a clear failure dispatch one scoped Engineer. For unclear causes or a repeated
+For a clear failure dispatch one scoped Engineer with Agent `isolation:"worktree"`.
+Pass the full approved task, returned attempt assignment, exact base, integration
+root, absolute plugin root/library paths, and session directory. Follow start's prepareWorktree, completion, `result`,
+and `integrate` contract for repairs too. For unclear causes or a repeated
 same-class repair failure, Detective diagnoses before another repair. Persist the
 failure class and diagnostic evidence in progress. A completed diagnosis does not
 consume another Engineer attempt. Budget exhaustion stops with the remaining

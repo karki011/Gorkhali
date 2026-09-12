@@ -7,7 +7,7 @@ user-invocable: true
 
 # Pause
 
-Read `_shared.md`. Stop dispatching immediately. Collect or stop running Engineers
+Read `../references/lifecycle.md`. Stop dispatching immediately. Collect or stop running Engineers
 and record their worktree paths, task IDs, commits, uncommitted files, and blockers
 in progress. Preserve incomplete work; do not integrate or clean up silently.
 Clear `activeEngineers` only after they have stopped. Call CLI `pause`, which

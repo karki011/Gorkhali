@@ -7,7 +7,7 @@ user-invocable: true
 
 # Status
 
-Read `_shared.md`; call CLI `status`. Report session, current phase, running and
+Read `../references/lifecycle.md`; call CLI `status`. Report session, current phase, running and
 integrated tasks, pending tasks, human decisions, and PR link. Compare checkpoint
 and current fingerprints: display verification as stale on any divergence, without
 mutating state. A wave notification is informational, not an approval gate.

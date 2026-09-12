@@ -45,6 +45,7 @@ function change(dir, file, content) {
   git(dir, ['add', file]); git(dir, ['commit', '-qm', `change ${file}`]);
 }
 function evidence(dir, repo, userVisible = false) {
+  if (!fs.existsSync(path.join(dir, 'plan.json'))) fs.writeFileSync(path.join(dir, 'plan.json'), JSON.stringify(plan()));
   const inspector = recordInspector(dir, { role: 'inspector', verdict: 'pass', worktree_unchanged: true, fingerprint: snapshot(repo).fingerprint,
     checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
   recordAuditor(dir, { verdict: 'pass', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [], userVisible, independence: { basis: 'independent-context' } }, repo);
@@ -228,6 +229,8 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   const remote = path.join(root, 'remote.git');
   git(repo, ['init', '--bare', '-q', remote]);
   git(repo, ['remote', 'add', 'origin', remote]);
+  git(repo, ['push', 'origin', 'HEAD:refs/heads/trunk']);
+  git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
   const dir = run('open', { task: 'task' }, repo);
   run('branch', { name: 'feature/mvp' }, repo);
   const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
@@ -249,4 +252,196 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   assert.equal(run('ship', { authorized: true }, repo), 'https://github.com/example/repo/pull/1');
   assert.equal(fs.readFileSync(logFile, 'utf8').split('\n').filter((line) => line.startsWith('pr create ')).length, 1);
   assert.equal(git(repo, ['ls-remote', 'origin', 'refs/heads/feature/mvp']).split('\t')[0], snapshot(repo).head);
+});
+
+test('interrupted integration reconstructs applied commits after Git resets them away', (t) => {
+  const { repo, data, worktree } = fixture(t);
+  const p = plan(); const base = snapshot(repo).head; const a = worktree('reset-recovery');
+  change(a, 'a.txt', 'implemented'); const record = completion(p.tasks[0], base, a);
+  const journal = integrate(p, [record], data, repo);
+  delete journal[0].integratedHead;
+  fs.writeFileSync(path.join(data, 'integration.json'), JSON.stringify(journal));
+  git(repo, ['reset', '--hard', base]);
+  integrate(p, [record], data, repo);
+  assert.equal(fs.readFileSync(path.join(repo, 'a.txt'), 'utf8'), 'implemented');
+  assert.notEqual(snapshot(repo).head, base);
+});
+
+test('task revisions and dependent revisions invalidate completed journal entries', (t) => {
+  const { repo, worktree } = fixture(t);
+  run('open', { task: 'task' }, repo); const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo); const a = worktree('revision-a'); change(a, 'a.txt', 'first');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  const revised = plan([{ id: 'a', files: ['a.txt', 'b.txt'], action: 'also change b' }]);
+  run('plan', { plan: revised }, repo); run('approve', { confirmed: true }, repo);
+  assert.deepEqual(run('dispatch', {}, repo).wave, ['a']);
+  const { taskRevisions } = require('../lib/execution');
+  const withDependency = plan([{ id: 'a', files: ['a.txt'] }, { id: 'b', files: ['b.txt'], dependsOn: ['a'] }]);
+  const before = taskRevisions(withDependency).get('b');
+  withDependency.tasks[0].action = 'new requirement';
+  assert.notEqual(taskRevisions(withDependency).get('b'), before);
+});
+
+test('ownership validation rejects forbidden intermediate commits even when reverted', (t) => {
+  const { repo, worktree } = fixture(t); const base = snapshot(repo).head;
+  const a = worktree('intermediate-owner'); change(a, 'b.txt', 'forbidden'); change(a, 'b.txt', 'base b\n'); change(a, 'a.txt', 'allowed');
+  assert.throws(() => completion(plan().tasks[0], base, a), /ownership in commit history/);
+});
+
+test('legacy glob ownership runs serially and accepts matching added, edited and deleted files', (t) => {
+  const { repo, worktree, data } = fixture(t); const base = snapshot(repo).head;
+  const p = plan([{ id: 'glob', files: ['*.txt'] }]); const a = worktree('legacy-glob');
+  change(a, 'a.txt', 'changed'); change(a, 'new.txt', 'added');
+  git(a, ['rm', 'b.txt']); git(a, ['commit', '-qm', 'delete matching file']);
+  const record = completion(p.tasks[0], base, a);
+  integrate(p, [record], data, repo);
+  assert.deepEqual(record.filesChanged, ['a.txt', 'b.txt', 'new.txt']);
+  assert.equal(fs.existsSync(path.join(repo, 'b.txt')), false);
+});
+
+test('partial wave integration keeps its remaining Engineer active', (t) => {
+  const { repo, worktree } = fixture(t);
+  run('open', { task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo); const a = worktree('partial-a'); change(a, 'a.txt', 'first');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  assert.deepEqual(run('status', {}, repo).checkpoint.activeEngineers, ['b']);
+  assert.throws(() => run('pause', {}, repo), /running Engineers/);
+  assert.throws(() => run('dispatch', {}, repo), /running wave/);
+});
+
+test('explicit resume reactivates the requested session and enforces divergence reconciliation', (t) => {
+  const { repo } = fixture(t);
+  for (const task of ['first', 'second']) { run('open', { task }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo); }
+  run('resume', { task: 'first' }, repo);
+  assert.equal(session.activeSession(repo).task, 'first');
+  change(repo, 'a.txt', 'outside change');
+  run('resume', {}, repo);
+  assert.throws(() => run('dispatch', {}, repo), /reconciliation/);
+  run('reconcile', { scope: 'changed', reason: 'Approved requirement changed with the external commit' }, repo);
+  assert.throws(() => run('dispatch', {}, repo), /approval/);
+  run('approve', { confirmed: true }, repo);
+  assert.deepEqual(run('dispatch', {}, repo).wave, ['a']);
+});
+
+test('final verification cannot pass before approved tasks integrate', (t) => {
+  const { repo } = fixture(t); const dir = run('open', { task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo); evidence(dir, repo);
+  assert.throws(() => run('verify', {}, repo), /approval/);
+  run('approve', { confirmed: true }, repo); run('dispatch', {}, repo);
+  assert.throws(() => run('verify', {}, repo), /completion evidence/);
+});
+
+test('failed Engineer results increment once and escalate the second implementation failure', (t) => {
+  const { repo } = fixture(t); run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const first = run('dispatch', {}, repo).assignments[0];
+  const record = { taskId: 'a', attemptId: first.attemptId, status: 'failed', summary: 'implementation failed' };
+  const failure = run('result', { record }, repo);
+  assert.equal(run('result', { record }, repo).alreadyRecorded, true);
+  assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 1);
+  const repair = run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo);
+  run('result', { record: { ...record, attemptId: repair.assignment.attemptId } }, repo);
+  assert.equal(run('route', {}, repo).tasks[0].tier, 'deep');
+  assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 2);
+});
+
+test('parallel peer integration preserves failed attempt recovery and blocks ordinary redispatch', (t) => {
+  const { repo, worktree } = fixture(t);
+  run('open', { task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const failed = wave.assignments.find((item) => item.id === 'b');
+  const failure = run('result', { record: { taskId: 'b', attemptId: failed.attemptId, status: 'failed', summary: 'implementation failed' } }, repo);
+  const a = worktree('good-peer'); change(a, 'a.txt', 'implemented');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  assert.throws(() => run('dispatch', {}, repo), /bounded recovery/);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'b' }, repo).next, 'engineer');
+});
+
+test('blocked Engineer cannot become a code repair by omitting infrastructure flag', (t) => {
+  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const assignment = run('dispatch', {}, repo).assignments[0];
+  const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'blocked', summary: 'missing tool' } }, repo);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'tool', repairTaskId: 'a' }, repo).next, 'human');
+  assert.throws(() => run('dispatch', {}, repo), /bounded recovery/);
+});
+
+test('explicit human resolution unlocks revised and restored tasks without resetting counters', (t) => {
+  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const assignment = run('dispatch', {}, repo).assignments[0];
+  const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'needs-context', summary: 'clarify requirement' } }, repo);
+  run('progress', { entry: { repairAttempts: 2, implementationFailures: 2 } }, repo);
+  run('plan', { plan: plan([{ id: 'a', files: ['a.txt'], action: 'clarified behavior' }]) }, repo);
+  run('approve', { confirmed: true }, repo);
+  assert.throws(() => run('dispatch', {}, repo), /bounded recovery/);
+  assert.throws(() => run('resolve-failures', { failureIds: [failure.id], reason: 'clarified' }, repo), /Explicit human/);
+  run('resolve-failures', { confirmed: true, failureIds: [failure.id], reason: 'User clarified revised requirement and authorized continuation' }, repo);
+  assert.equal(run('dispatch', {}, repo).wave[0], 'a');
+  assert.equal(run('status', {}, repo).checkpoint.repairAttempts, 2);
+  assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 2);
+});
+
+test('human can release a restored environment without revising the task', (t) => {
+  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const assignment = run('dispatch', {}, repo).assignments[0];
+  const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'blocked', summary: 'tool unavailable' } }, repo);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'tool', repairTaskId: 'a' }, repo).next, 'human');
+  run('resolve-failures', { confirmed: true, failureIds: [failure.id], reason: 'User restored tool and asked to continue' }, repo);
+  assert.equal(run('dispatch', {}, repo).wave[0], 'a');
+});
+
+test('active and saved session identity survives origin changes without leaking to another clone', (t) => {
+  const { repo, root, worktree } = fixture(t);
+  const dir = run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  git(repo, ['remote', 'add', 'origin', 'https://example.invalid/one/repo.git']);
+  assert.equal(run('resume', {}, repo).plan.tasks[0].id, 'a');
+  git(repo, ['remote', 'set-url', 'origin', 'https://example.invalid/fork/repo.git']);
+  assert.equal(run('status', {}, repo).checkpoint.phase, 'approved');
+  const linked = worktree('linked-identity');
+  assert.equal(session.activeMatchesRepo(session.activeSession(linked), linked), true);
+  const alias = path.join(root, 'alias'); fs.symlinkSync(repo, alias);
+  assert.equal(session.activeMatchesRepo(session.activeSession(alias), alias), true);
+  const other = path.join(root, 'other', 'repo'); fs.mkdirSync(other, { recursive: true }); git(other, ['init', '-q']);
+  git(other, ['remote', 'add', 'origin', 'https://example.invalid/fork/repo.git']);
+  assert.equal(session.activeMatchesRepo(session.activeSession(other), other), false);
+  assert.throws(() => run('status', {}, other), /Task ID/);
+  session.closeSession(repo);
+  assert.equal(run('resume', { task: 'task' }, repo).plan.tasks[0].id, 'a');
+  assert.equal(session.activeSession(repo).sessionDir, dir);
+  git(repo, ['remote', 'remove', 'origin']);
+  assert.equal(run('status', {}, repo).checkpoint.phase, 'approved');
+});
+
+test('ship rejects the actual remote default branch before pushing and close rejects unrelated PRs', (t) => {
+  const { repo, root, worktree } = fixture(t);
+  const remote = path.join(root, 'remote.git'); git(repo, ['init', '--bare', '-q', remote]);
+  git(repo, ['remote', 'add', 'origin', remote]); git(repo, ['branch', '-M', 'trunk']); git(repo, ['push', 'origin', 'trunk']); git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
+  const originalRemote = git(remote, ['rev-parse', 'trunk']).trim();
+  const dir = run('open', { task: 'task' }, repo); const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo); const a = worktree('default-guard'); change(a, 'a.txt', 'updated');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo); evidence(dir, repo); run('verify', {}, repo);
+  assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /origin default branch/);
+  assert.equal(git(remote, ['rev-parse', 'trunk']).trim(), originalRemote);
+  run('progress', { entry: { pr: 'https://github.com/example/repo/pull/23' } }, repo);
+  assert.throws(() => run('close', { pr: 22 }, repo), /session's shipped PR/);
+  assert.equal(session.activeSession(repo).task, 'task');
+  const bin = path.join(root, 'bin'); fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\nprintf \'{"state":"MERGED","url":"https://github.com/other/repo/pull/23","mergeCommit":{"oid":"abc"}}\'\n', { mode: 0o755 });
+  const prior = process.env.PATH; process.env.PATH = bin + path.delimiter + prior; t.after(() => { process.env.PATH = prior; });
+  assert.throws(() => run('close', { pr: 23 }, repo), /repository and PR/);
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\nprintf \'{"state":"MERGED","url":"https://github.com/example/repo/pull/23","mergeCommit":{"oid":"abc"}}\'\n', { mode: 0o755 });
+  assert.equal(run('close', { pr: 23 }, repo).state, 'MERGED');
+  assert.equal(session.activeSession(repo), null);
+});
+
+test('Inspector rejects the data root when the exact session directory was omitted', (t) => {
+  const { repo, data } = fixture(t); run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo);
+  assert.throws(() => recordInspector(data, { verdict: 'fail', fingerprint: snapshot(repo).fingerprint, checks: [] }, repo), /exact session directory/);
+  assert.equal(fs.existsSync(path.join(data, 'inspector.json')), false);
 });

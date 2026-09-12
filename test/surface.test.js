@@ -7,8 +7,9 @@ const { execFileSync } = require('node:child_process');
 const { tierForRole, modelForTier } = require('../lib/tiers');
 const root = path.join(__dirname, '..');
 test('only MVP commands and roles are discoverable', () => {
-  const commands = fs.readdirSync(path.join(root, 'commands')).filter((name) => !name.startsWith('_')).map((name) => name.replace('.md', '')).sort();
+  const commands = fs.readdirSync(path.join(root, 'commands')).map((name) => name.replace('.md', '')).sort();
   assert.deepEqual(commands, ['close', 'learn', 'pause', 'resume', 'start', 'status', 'verify', 'wrap']);
+  assert.match(fs.readFileSync(path.join(root, 'skills/gorkhali/SKILL.md'), 'utf8'), /^user-invocable: false$/m);
   const roles = fs.readdirSync(path.join(root, 'agents')).map((name) => name.replace('.md', '')).sort();
   assert.deepEqual(roles, ['auditor', 'detective', 'engineer', 'inspector', 'opposition']);
   for (const role of roles) {

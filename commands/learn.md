@@ -7,7 +7,7 @@ user-invocable: true
 
 # /learn "$ARGUMENTS"
 
-There is no learnings store here - just the capped preferences file `_shared.md`'s Context and authority section describes, plus a scratch note for anything narrower.
+There is no learnings store here - just the capped preferences file `../references/lifecycle.md`'s Context and authority section describes, plus a scratch note for anything narrower.
 
 <instructions>
 1. Decide what `$ARGUMENTS` is:

@@ -7,7 +7,7 @@ user-invocable: true
 
 # Wrap
 
-Read `_shared.md`. Require one integrated Inspector record and its matching Auditor
+Read `../references/lifecycle.md`. Require one integrated Inspector record and its matching Auditor
 record via CLI `verify`; no extra standalone review artifact exists. Version bumps
 and commits happen through Engineer before this verification, never afterward.
 Bump manifests consistently: major for removed public contracts, minor for compatible
@@ -23,8 +23,10 @@ Checkpoint the PR result. Never merge automatically.
 ## Internal external-review loop
 
 Use `review-state` after external checks finish or a bounded wait, not tight polling.
-Classify new thread/review/comment IDs and persist handled IDs, PR head, round count,
-and pending human decisions in progress. Stop after five actionable rounds or when
+Read the inline comments, authors, locations, PR head, and check results returned.
+Send classifications (`actionable`, `informational`, or `false-positive`) to
+`review-state`; it persists handled IDs, content versions, PR head, check results,
+and actionable rounds. Changed feedback on an existing ID needs classification again. Stop after five actionable rounds or when
 clean, closed, merged, or blocked on a human; unchanged polls do not consume a round.
 
 For clear in-scope findings from the configured reviewer, delegate a scoped Engineer

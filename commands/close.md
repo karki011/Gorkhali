@@ -7,7 +7,7 @@ user-invocable: true
 
 # Close
 
-Read `_shared.md`; call CLI `close` with the PR number. It requires MERGED, records
+Read `../references/lifecycle.md`; call CLI `close` with the PR number. It requires the session's exact shipped PR URL to be MERGED, records
 completion, and releases the active session before optional cleanup. Then use the
 configured tracker adapter to mark done if authorized; none is a no-op.
 Remove only task-owned clean worktrees and merged feature branches. Preserve dirty

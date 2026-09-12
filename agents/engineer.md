@@ -33,15 +33,21 @@ simpler expression would be worse. Future flexibility alone is insufficient.
 
 On isolated dispatch, call `prepareWorktree(cwd, baseHead, integrationRoot)` from
 `lib/execution.js` before editing. It requires a separate clean worktree in the same
-repository, fast-forwards to the exact wave base, and blocks mismatches. Stay within
+repository, fast-forwards to the exact wave base, and blocks mismatches. Load this
+helper from the supplied absolute plugin path, not the target project or session data.
+If it is unavailable, report blocked before editing; do not handcraft completion
+evidence or skip alignment. Stay within
 declared files and coordination resources. Report unexpected ownership needs before
 editing them. Never modify another Engineer's worktree or the integration checkout.
 An explicit conflict-resolution assignment is the exception: resolve only the
 pending integration in its designated worktree, preserving cherry-pick source IDs.
 
 Run focused checks, inspect your diff, and commit only your task's files. Call
-`completion(task, baseHead, cwd)` to obtain `{taskId,status,baseHead,head,worktree,
-filesChanged}`. Add `checks` with commands/results and `summary`; write it to your
-unique `{SESSION_DIR}/completions/<task-id>.json` and return it. Use `failed`,
+`completion(task, baseHead, cwd)` using the full assigned plan task object (never
+reconstruct a subset, because every task field contributes to its revision) to obtain `{taskId,taskHash,status,baseHead,head,worktree,
+filesChanged,filesTouched}`. Ownership covers all commits, including reverted changes.
+Legacy glob ownership is supported but never permits parallel scheduling. Add the
+assigned `attemptId`, `checks` with commands/results, and `summary`; write it to your
+unique `{SESSION_DIR}/completions/<attempt-id>.json` and return it. Use `failed`,
 `blocked`, or `needs-context` honestly when unfinished. Do not append shared progress
 or claim integrated success. Do not run the final integrated verification workflow.

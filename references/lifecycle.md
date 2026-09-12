@@ -27,7 +27,10 @@ CLI actions and request fields:
 | plan | `{plan}` | Validates, stores plan, checkpoints |
 | approve | `{confirmed:true}` after explicit user approval | Binds approval to this plan |
 | route | `{}` | Waves, task assignments, Auditor model, and conditional Opposition |
-| dispatch | `{}` | Checkpoints the next wave and its base commit before spawning |
+| dispatch | `{}` | Checkpoints the next wave, base, task hashes, and unique attempt assignments |
+| result | `{record}` with taskId, attemptId, status, summary | Records each Engineer outcome once; failures enter bounded recovery |
+| resolve-failures | `{confirmed:true,failureIds,reason}` after explicit human decision | Retires named blockers after clarification, environment restoration, or authorized retry; preserves all counters |
+| reconcile | `{scope:"unchanged" or "changed",reason}` | Records Git/scope evidence; changed scope requires approval |
 | integrate | `{records:[...]}` | Checks ownership, integrates commits, checkpoints |
 | snapshot | `{}` | HEAD, branch, worktree, dirty files, content fingerprint |
 | diff | `{baseHead}` full commit ID | Integrated diff for the approved scope |
@@ -37,7 +40,7 @@ CLI actions and request fields:
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
 | verify | `{}` | Requires current Inspector, Auditor, and applicable human evidence |
 | ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one |
-| review-state | `{pr}` numeric | Reads external review state |
+| review-state | `{pr,classifications:[{id,classification}]}` | Reads inline bodies/authors/locations, head/checks; checkpoints classified feedback and bounded rounds |
 | close | `{pr}` numeric | Requires merge, records completion, releases session |
 
 An explicit task can also be provided in request JSON. Model/risk policy lives

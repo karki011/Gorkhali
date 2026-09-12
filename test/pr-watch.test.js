@@ -79,7 +79,7 @@ test('tick stops on a closed PR without fetching threads', () => {
 
 test('tick classifies each thread as resolved or open and keeps polling while any is open', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse([
       { id: 't1', isResolved: true },
       { id: 't2', isResolved: false },
@@ -101,7 +101,7 @@ test('tick classifies each thread as resolved or open and keeps polling while an
 
 test('tick includes top-level PR reviews and issue comments in items, tagged by kind', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse(
       [{ id: 't1', isResolved: false }],
       false,
@@ -120,7 +120,7 @@ test('tick includes top-level PR reviews and issue comments in items, tagged by 
 
 test('a review with an empty body is dropped, an issue comment is kept regardless', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse(
       [],
       false,
@@ -138,7 +138,7 @@ test('a review with an empty body is dropped, an issue comment is kept regardles
 
 test('tick reports clean and stops once every thread is resolved', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse([
       { id: 't1', isResolved: true },
       { id: 't2', isResolved: true },
@@ -152,7 +152,7 @@ test('tick reports clean and stops once every thread is resolved', () => {
 
 test('a PR with zero review threads is open, not clean', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse([]),
   ]);
   const result = tick(42, { runGh: run });
@@ -162,7 +162,7 @@ test('a PR with zero review threads is open, not clean', () => {
 
 test('a truncated thread listing never reports clean even with zero unresolved', () => {
   const run = stubGh([
-    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL }),
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [] }),
     threadsResponse([{ id: 't1', isResolved: true }], true),
   ]);
   const result = tick(42, { runGh: run });
@@ -184,4 +184,47 @@ test('tick surfaces a gh failure as an error', () => {
 test('tick surfaces unparseable gh output as an error', () => {
   const run = stubGh(['not json']);
   assert.throws(() => tick(42, { runGh: run }), /unparseable JSON/);
+});
+
+test('inline-only feedback contains author, text and location while pending checks prevent clean', () => {
+  const run = stubGh([
+    JSON.stringify({ number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'new-head', statusCheckRollup: [{ status: 'IN_PROGRESS', conclusion: '' }] }),
+    threadsResponse([{ id: 'inline', isResolved: true, path: 'a.js', line: 3, comments: { pageInfo: { hasNextPage: false }, nodes: [{ id: 'c', author: { login: 'reviewer' }, body: 'Fix the condition', path: 'a.js', line: 3 }] } }]),
+  ]);
+  const result = tick(42, { runGh: run });
+  assert.equal(result.stop, false);
+  assert.equal(result.head, 'new-head');
+  assert.equal(result.items[0].comments[0].author, 'reviewer');
+  assert.equal(result.items[0].comments[0].body, 'Fix the condition');
+  assert.equal(result.items[0].comments[0].line, 3);
+});
+
+test('review rounds persist across head changes, ignore duplicate classifications and stop at the cap', () => {
+  const { reviewTransition } = require('../lib/pr-watch');
+  const observed = { head: 'a', checks: [], items: [{ id: 'one', kind: 'thread', status: 'open' }], unresolvedCount: 1, stop: false };
+  const first = reviewTransition({}, observed, [{ id: 'one', classification: 'actionable' }]);
+  assert.equal(first.reviewRound, 1);
+  const duplicate = reviewTransition(first, observed, [{ id: 'one', classification: 'actionable' }]);
+  assert.equal(duplicate.reviewRound, 1);
+  assert.equal(reviewTransition(first, { ...observed, head: 'b' }).headChanged, true);
+  assert.throws(() => reviewTransition({ reviewRound: 5 }, observed, [{ id: 'one', classification: 'actionable' }]), /budget/);
+  assert.equal(reviewTransition({ reviewRound: 4 }, observed, [{ id: 'one', classification: 'actionable' }]).next, 'human');
+});
+
+test('new feedback on an existing thread is classified again', () => {
+  const { reviewTransition } = require('../lib/pr-watch');
+  const initial = { head: 'abc', checks: [], stop: false, unresolvedCount: 1, items: [{ id: 't', kind: 'thread', status: 'open', comments: [{ id: 'c1', body: 'first' }] }] };
+  const saved = reviewTransition({}, initial, [{ id: 't', classification: 'actionable' }]);
+  const changed = { ...initial, items: [{ ...initial.items[0], comments: [...initial.items[0].comments, { id: 'c2', body: 'another defect' }] }] };
+  assert.equal(reviewTransition(saved, changed).pendingItems.length, 1);
+  assert.equal(reviewTransition(saved, changed, [{ id: 't', classification: 'actionable' }]).reviewRound, 2);
+});
+
+test('threadless approved review finishes after classification; awaiting review stays pending', () => {
+  const { reviewTransition } = require('../lib/pr-watch');
+  const view = { number: 42, state: 'OPEN', url: VIEW_URL, headRefOid: 'abc', statusCheckRollup: [], reviewDecision: 'APPROVED' };
+  const observed = tick(42, { runGh: stubGh([JSON.stringify(view), threadsResponse([], false, [{ id: 'r', author: { login: 'reviewer' }, body: 'Looks good' }])]) });
+  assert.equal(reviewTransition({}, observed, [{ id: 'r', classification: 'informational' }]).next, 'review_complete');
+  const waiting = tick(42, { runGh: stubGh([JSON.stringify({ ...view, reviewDecision: '' }), threadsResponse([])]) });
+  assert.equal(waiting.stop, false);
 });

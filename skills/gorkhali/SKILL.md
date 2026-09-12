@@ -1,12 +1,13 @@
 ---
 name: gorkhali
+user-invocable: false
 description: Plan, delegate, verify, pause, resume, and ship engineering work with Claude Code. Use for features, fixes, refactors, investigations, review, recovery, or progress checks.
 ---
 
 # Gorkhali
 
 One orchestrator, three normal roles: Engineer implements, Inspector checks,
-Auditor independently judges the integrated diff. Read `commands/_shared.md`.
+Auditor independently judges the integrated diff. Read `../../references/lifecycle.md`.
 Claude Code is the only supported host. Planning belongs to the orchestrator;
 there is no additional Planner agent.
 

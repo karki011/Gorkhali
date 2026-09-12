@@ -37,9 +37,14 @@ are rejected before dispatch. A migration/public-contract/destructive task alway
 runs serially; its independent consumers may parallelize after it integrates.
 
 Each completion names task, base commit, result commit, worktree, actual changed
-files, focused checks, and status. Integration checks these against Git, validates
+files, all touched history paths, task hash, attempt ID, focused checks, and status.
+Every outcome is recorded once; pending failures cannot bypass bounded repair through
+normal dispatch. Integration checks these against Git, validates
 dependency ancestry, and journals each source commit before applying it with a
-cherry-pick source marker. On interruption, that marker prevents replay. A conflict
+cherry-pick source marker. On interruption, markers in actual current Git history prevent replay. Persisted
+applied lists alone never prove presence. Missing commits are reapplied only when
+current history is a valid prefix; task and transitive dependency revisions invalidate
+old completions after a plan change. Legacy globs authorize changes serially. A conflict
 is preserved and delegated; nothing resets away user work. One writer owns integration.
 
 ## Evidence and checkpoints
@@ -59,8 +64,12 @@ Checkpoint schema includes phase, wave, HEAD, branch/worktree, dirty files,
 fingerprint, integrated/pending tasks, active Engineers, blockers, verification,
 approved plan hash, repair count, PR, and next transition. Atomic rename protects
 individual records; the checkpoint and Git journal are authoritative on recovery.
+An external identity record pins each physical Git common directory to its state
+ID, so adding or changing origin does not orphan sessions. Separate clones never
+inherit an active task merely because they share a remote or folder name.
 Only the lead appends shared progress. Resume inspects Git rather than replaying
-an uncertain action; legacy verification never gets a synthetic pass.
+an uncertain action; legacy verification never gets a synthetic pass. Explicit resume
+reactivates the selected session, and divergence requires a recorded scope reconciliation.
 
 Pause stops/collects Engineers before clearing active state. Interrupted Engineers'
 worktrees and dirty files are preserved. Changed approved scope/dependencies require
@@ -68,7 +77,9 @@ a new plan decision; unchanged approved work resumes automatically.
 
 ## Approval and boundaries
 
-Every route requires explicit plan approval. User authorization already given for
+Shipping resolves the actual origin default branch and refuses to push it directly.
+Close requires the merged PR URL recorded by this session and preserves another
+active task. Every route requires explicit plan approval. User authorization already given for
 that exact plan counts. Shipping requires explicit authorization and current evidence.
 The lead's editing tools cannot write implementation. Its Bash access while active
 is limited to the installed lifecycle CLI. Only the exact live Engineer identity gets
@@ -80,13 +91,18 @@ scripts still execute with user permissions. This is not a hostile-code sandbox.
 Two Engineer repairs are allowed per session. Diagnosis does not reset the counter.
 An unclear/repeated/flaky failure gets Detective; tool/environment failure goes to a
 human. Exhaustion stops. Every repair requires fresh integrated verification.
+An explicit `resolve-failures` transition records the human decision after clarification
+or environment restoration; it retires named blockers without resetting counters.
 Wrap owns external review with five actionable rounds maximum, persisted item IDs,
+feedback content versions, remote head/checks, inline bodies/authors/locations,
 and human decisions for ambiguous or unapproved scope. Posting comments requires
 communication authorization. Human merge is never automated.
 
 ## Live acceptance
 
-Before publishing a release, use the installed plugin in disposable repositories:
+Use the installed plugin in disposable repositories for role/worktree acceptance,
+and deterministic fault fixtures for the recovery/gating cases below. The completed
+MVP evidence is in [the PRD acceptance record](acceptance.md).
 
 - A small task produces one Engineer, one Inspector, one independent Auditor.
 - Two independent tasks use distinct aligned worktrees, integrate in order, then

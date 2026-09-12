@@ -33,5 +33,6 @@ An agent's visual opinion never supplies human confirmation.
 Call `recordAuditor(sessionDir,record,cwd)` with `{role:"auditor",verdict,inspectorId,
 fingerprint,independence:{basis,reason},userVisible,findings}`. Copy Inspector ID and
 fingerprint from the evidence actually reviewed. Use verdict `pass`, `fail`, or
-`blocked`. Independent context is mandatory; reduced assurance must block shipping
+`blocked`. Set `independence.basis` to `independent-context` for this separate agent context.
+Independent context is mandatory; reduced assurance must block shipping
 until an independent review can be obtained. Return the record for checkpointing.

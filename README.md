@@ -57,7 +57,8 @@ Tasks run sequentially unless both explicitly declare `parallelSafe: true`, have
 no dependency, and own disjoint files and logical resources. Directory overlap and
 case aliases conflict; uncertain paths and high-conflict risks stay serial. Each
 Engineer uses an isolated worktree aligned to the wave's exact base commit.
-Integration checks actual changed files and dependencies, then applies commits in
+Integration checks every source commit against ownership and current task/dependency
+revisions, then applies commits in
 plan order. Conflicts stop for scoped resolution. One integrated Inspector follows
 all waves by default, followed by one Auditor.
 
@@ -89,8 +90,9 @@ npm test
 
 Tests exercise policy, real temporary Git worktrees, stale evidence, recovery, and
 hook decisions. CI also installs the plugin into a scratch Claude configuration.
-A passing test suite is separate from live end-to-end Claude acceptance. Run the
-[acceptance checklist](project-docs/architecture.md#live-acceptance) before release.
+Live Claude acceptance and deterministic fault tests are recorded in the
+[PRD acceptance record](project-docs/acceptance.md). Repeat the
+[acceptance checklist](project-docs/architecture.md#live-acceptance) for future releases.
 
 Hooks enforce lead editing discipline; they are not an OS sandbox for hostile
 repository code. Checks may execute repository scripts. Repositories with submodules
