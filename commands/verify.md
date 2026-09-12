@@ -1,41 +1,54 @@
 ---
 name: verify
-description: "Run the repository's correctness checks and obtain an independent review of the diff. Reports failures; it never edits code to make a check pass."
-allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+description: Independently check and review the integrated result, with bounded repair and applicable human confirmation.
+allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob"]
 user-invocable: true
 ---
 
-# /gorkhali:verify
+# Verify
 
-Verify the current diff. This command never edits code, never writes tests, and never makes a failing check pass by itself.
+Read `../references/lifecycle.md`. All Engineer work, version updates, and commits must be
+integrated before final verification. A commit after verification makes evidence
+stale, even if content is otherwise identical. The lead never implements a repair.
 
-## Step 1: Inspector runs the checks
+Every reviewer receives the exact absolute session directory containing plan.json,
+integration worktree, and plugin library paths. GORKHALI_DATA is not the session directory.
 
-Spawn one read-only Inspector. It discovers the test, lint, build, and typecheck commands with `lib/checks.js`, runs each one, and records the exact command, its provenance, and its result. It writes this record to `{SESSION_DIR}/inspector.json` and appends a line to `progress.json`.
+1. Spawn one economy Inspector on the integrated worktree. It discovers checks,
+   captures fingerprints before/after, and calls `recordInspector` in
+   `lib/verification.js`. Record its result through CLI `progress`.
+2. Only after `requireInspector` accepts the current evidence, spawn one Auditor
+   in an independent context. Use CLI `route`'s Auditor model, which combines integrated risk signals
+   and current failure counters. Auditor calls `recordAuditor` with the exact
+   Inspector ID and fingerprint. Record that result through `progress`.
+3. For `userVisible:true`, present a concrete checklist with expected results.
+   Wait for an explicit human pass; silence, screenshots alone, and agent opinion
+   are not confirmation. Only then call `human-confirmation`.
+4. Call CLI `verify`. Only its success means the session is verified.
 
-Read Inspector's record at `{SESSION_DIR}/inspector.json` for its verdict:
+## Internal recovery
 
-- `pass` - every discovered check passed.
-- `fail` - a discovered check failed.
-- `not_observed` - nothing failed, but a discovered check did not run.
+On failure classify the evidence: clear/local, unclear, repeated same class,
+flaky/concurrent/cross-cutting, or infrastructure. Call CLI `recover` with the failing evidence ID, failure class, diagnostic flags,
+and the approved task ID that owns the repair. It invokes `recoveryDecision` from
+`lib/recovery.js`, persists counters, and returns the assignment/model before spawn.
+Keep its session-wide `repairAttempts` budget across all failure classes.
+Do not reset it after diagnosis, resume, or switching failure classes.
+Unavailable tools/environments go to a human decision without code repair.
+After the user resolves the blocker, changes the requirement, or explicitly authorizes
+a retry, call `resolve-failures` with the named pending failure IDs and their decision.
+This retires only those blockers and never resets failure or repair counters.
+Do not call it merely because another retry seems useful.
 
-A check type `discoverChecks` resolved to no command is `absent`, not `not_observed` - it is excluded from the verdict and never blocks; a Python repo that only exposes `test` still verifies cleanly. Only a failing or missing (`not_observed`) discovered check blocks. A missing Inspector record blocks verification, and so does a `fail` verdict. Report the exact failing or missing checks and name `/gorkhali:fix` as the next step.
+For a clear failure dispatch one scoped Engineer with Agent `isolation:"worktree"`.
+Pass the full approved task, returned attempt assignment, exact base, integration
+root, absolute plugin root/library paths, and session directory. Follow start's prepareWorktree, completion, `result`,
+and `integrate` contract for repairs too. For unclear causes or a repeated
+same-class repair failure, Detective diagnoses before another repair. Persist the
+failure class and diagnostic evidence in progress. A completed diagnosis does not
+consume another Engineer attempt. Budget exhaustion stops with the remaining
+findings and a human decision. No unbounded retry or automatic budget reset.
 
-## Step 2: Auditor reviews the diff
-
-When Inspector's verdict is `pass`, spawn one read-only Auditor over the current diff. Auditor checks correctness, security, regressions, broken references and contracts, and simplification opportunities, then writes its own fixed record with a verdict of `pass`, `fail`, or `blocked`.
-
-A `fail` or `blocked` verdict stops here too. Report Auditor's findings and name `/gorkhali:fix` as the next step.
-
-## User visual confirmation
-
-When the diff changes anything a user would see, prepare the `/gorkhali:visual` checklist and wait for the user's explicit pass or list of issues before calling verification done. Silence, a screenshot, or an agent's opinion is never confirmation.
-
-## Result
-
-Report Inspector's checks, Auditor's verdict and findings, and user visual confirmation when it applied. End with:
-
-- `done` - Inspector passed, Auditor passed, and visual confirmation is either not needed or given.
-- `blocked` - a failing or missing check, or a failing or blocked review, with the exact evidence.
-
-This command reports only. It never fixes findings itself and never proceeds to shipping on its own.
+After any repair, integrate committed changes and rerun the integrated Inspector
+and Auditor. Previous passing evidence is stale. Update the plan and obtain
+approval only if the repair materially changes the approved scope/dependencies.

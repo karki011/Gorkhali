@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Gorkhali - subagent delegation for Claude Code.",
-    "version": "2.0.0"
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "gorkhali",
       "source": "./",
-      "description": "Subagent delegation for Claude Code. Plans, decomposes, and executes features, fixes, and refactors with model-tiered agents, independent verification and review, and one human plan approval gate."
+      "description": "Lean engineering orchestration for Claude Code with risk-aware delegation, integrated verification, independent review, and recoverable sessions."
     }
   ]
 }

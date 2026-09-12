@@ -1,79 +1,103 @@
-# Gorkhali — Multi-Agent Orchestration for Claude Code
+# Gorkhali
 
-**You Govern. They Execute.**
+**Lean engineering orchestration for Claude Code.**
 
-[![CI](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml/badge.svg)](https://github.com/karki011/Gorkhali/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-2.0.0-blue)](.claude-plugin/plugin.json)
-[![tests](https://img.shields.io/badge/tests-passing-brightgreen)](test/)
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+Gorkhali turns a request into an approved plan, delegates implementation, checks
+the integrated result, and opens a pull request with independent review evidence.
+Version **3.0.0** is the MVP following the proof of concept.
 
-**Named for the soldiers of Gorkha - disciplined, loyal, and relentless.**
+## Fewer roles, clear responsibilities
 
-Gorkhali is an open-source multi-agent orchestration and coding-agent plugin for Claude Code. It plans software changes, delegates implementation to specialized AI agents, independently verifies and reviews the result, and keeps the human in control of approval and merge decisions.
+The normal path uses **Engineer**, **Inspector**, and **Auditor**. Engineer writes
+and commits the change. Inspector runs repository checks. Auditor independently
+reviews correctness, requirement fit, security, compatibility, and complexity.
+Opposition helps with ambiguous or high-risk plans; Detective diagnoses unclear
+or repeated failures. Small work does not pay for either specialist by default.
 
-## What Gorkhali is
-
-Gorkhali keeps the user on the loop, not in it, while enforcing its rules in code rather than in prose.
-A `never-edits` hook stops the orchestrating session from calling Edit or Write directly; every change goes through a spawned agent.
-Each role resolves to a fixed model tier (Inspector on economy, Engineer and Opposition on balanced, Auditor and Detective on deep), and a second hook denies any spawn whose explicit model contradicts its role's tier.
-Verification and review are independent: an Inspector runs the discovered lint, build, test, and typecheck commands and records evidence, then a separate Auditor reviews the diff read-only against that evidence.
-There is exactly one human gate: the plan, presented as What, Problem, How, Evidence, Scope, Risks, and Open questions, which you approve or send back.
-After `wrap` opens the pull request, `greploop` drives it through all-author review until it is clean or a human has to decide; merging stays a human action.
-The Engineer climbs a YAGNI ladder before writing code: skip, reuse, standard library, platform, dependency, one line, minimum code, in that order, and never cuts trust-boundary validation, error handling, security, or a runnable check.
+Risk routing is deterministic: balanced implementation and review, economy checks,
+and deep reasoning only when risk or failure warrants it. No model call decides
+which model to call. Every plan needs approval; the user controls shipping and merge.
 
 ## Install
+
+In Claude Code:
 
 ```text
 /plugin marketplace add karki011/Gorkhali
 /plugin install gorkhali@gorkhali
+/gorkhali:start "Describe the change"
 ```
 
-Prerequisites: git and the Claude Code CLI. Recommended: the `gh` CLI for PR flows, an Atlassian MCP server if the tracker is Jira.
+Requires Git, Node.js 20+, and a Claude Code version that supplies subagent identity
+in tool hooks and supports Agent worktree isolation. GitHub shipping additionally
+requires authenticated `gh` and an `origin` remote. Update Claude Code if subagent
+identity is absent; the edit gate does not guess identity from another live agent.
+
+Claude Code is the only supported host. Logical routing, scheduling, recovery, and
+Git state live in ordinary JavaScript modules; Claude-specific hooks, prompts, and
+model mapping stay at the boundary. Other hosts and a generic host framework are
+outside this MVP.
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `/gorkhali:start` | Entry point for new work: intake, route, optional brainstorm and scout, plan, the one approval gate, then dispatch. |
-| `/gorkhali:pause` | Records where the session stands. No git operations. |
-| `/gorkhali:resume` | Restores a paused or prior session's plan and progress. |
-| `/gorkhali:verify` | Runs discovered checks and an independent review; never edits code to make a check pass. |
-| `/gorkhali:fix` | Repairs the exact failures verification named; never guesses at a different problem. |
-| `/gorkhali:review` | An on-demand, read-only second opinion on the current diff. |
-| `/gorkhali:wrap` | Validates passed verification and review, then opens a ready-for-review PR. |
-| `/gorkhali:greploop` | Drives an open PR through all-author review until clean or a human decides. |
-| `/gorkhali:close` | Post-merge closeout: tracker to done, branch and worktree cleanup. |
-| `/gorkhali:status` | The one notification surface: what is running, blocked, or shipped. |
-| `/gorkhali:learn` | Appends one preference line, or a task-scoped scratch note. |
-| `/gorkhali:visual` | Hands UI changes to a human checklist; runs a read-only Surveyor only if asked. |
+| Command | Purpose |
+| --- | --- |
+| `/gorkhali:start` | Plan, approve, route, and execute new work |
+| `/gorkhali:pause` | Stop dispatch and save a stable handoff |
+| `/gorkhali:resume` | Reconcile Git and recover interrupted work |
+| `/gorkhali:status` | Read progress, blockers, and verification freshness |
+| `/gorkhali:verify` | Run checks, independent review, and bounded repair |
+| `/gorkhali:wrap` | Open a PR and own its external review loop |
+| `/gorkhali:close` | Finish cleanup after human merge |
+| `/gorkhali:learn` | Save an explicitly requested working preference |
 
-## Preferences
+## Conservative parallel work
 
-Gorkhali reads a capped, twenty-line preferences file: a per-repo copy first, and only when that is missing, a global fallback.
-Both live under the data root (`$GORKHALI_DATA`, or `$HOME/.gorkhali` by default) as `repos/<repo>/preferences.md` and `preferences.md`, never inside the project checkout, and are never committed.
-`/gorkhali:learn` is how a preference gets written; every planner, brainstorm, Opposition, and Engineer prompt carries the text back verbatim.
+Tasks run sequentially unless both explicitly declare `parallelSafe: true`, have
+no dependency, and own disjoint files and logical resources. Directory overlap and
+case aliases conflict; uncertain paths and high-conflict risks stay serial. Each
+Engineer uses an isolated worktree aligned to the wave's exact base commit.
+Integration checks every source commit against ownership and current task/dependency
+revisions, then applies commits in
+plan order. Conflicts stop for scoped resolution. One integrated Inspector follows
+all waves by default, followed by one Auditor.
 
-## Ticket tracker
+## Evidence survives interruption
 
-The tracker adapter resolves to `jira`, `github`, or `none`, in this order: an explicit override, then a `tracker: jira|github|none` line in the preferences file, then `none`.
-Each provider exposes the same four operations: fetch, start, done, and comment.
-Jira runs over an Atlassian MCP server. GitHub Issues support exists in the adapter but has not yet had its manual `gh` smoke test recorded, so treat it as untested until that run is logged.
-With `none`, every operation is inert and Gorkhali works from git alone.
+Checkpoints record meaningful transitions automatically. Pause adds a stable handoff;
+resume works without it. Verification is bound to HEAD, branch/worktree identity,
+index, and tracked/untracked content, so an edit to an already-dirty file invalidates
+an old pass. Auditor also names the exact Inspector record it reviewed.
+User-visible changes require an explicit human checklist confirmation.
 
-## What changed in 2.0
+Mutable state stays outside the project in `~/.gorkhali` (override with
+`GORKHALI_DATA`). Existing v2 plans remain valid and execute sequentially without
+new metadata. Legacy sessions resume with stale verification and must verify again.
+One lead owns session state; agents write separate completion/evidence records.
 
-This is a full rewrite of the plugin surface, not an incremental release.
+## Upgrading from v2
 
-- Removed the five-route classifier, the difficulty-based router, and the self-updating knowledge layer.
-- Removed session checkpoints, contracts, the cost ledger, the lifecycle state CLI, and decision contracts.
-- Removed the roster naming system; an agent's name is now its role and task id by construction.
-- Removed the alternate-host shims and the portable manifest; Claude Code is the only supported host.
-- Folded brainstorm, scout, wire, execute, and contract into `/gorkhali:start` as phases instead of separate commands.
-- Dropped `eval`, `evolve`, `health`, `validate`, `sessions`, `grill`, `recruit`, `loop`, `q`, `visualflow`, and `pr-review` as commands nobody used.
-- Consolidated Steward and Justice into Auditor, and folded Clerk into the wrap and close procedures.
+This release removes the standalone review, fix, visual, and PR-review-loop commands
+and the optional visual agent. Use `verify` for review, repair, and visual confirmation;
+use `wrap` for PR review. Removed commands have no compatibility stubs. The quick route
+now requires plan approval too. All plugin manifests use 3.0.0.
 
-See `ROADMAP.md` for the full list of locked decisions behind this rewrite.
+## Development and limits
 
-## Author
+```sh
+npm test
+```
 
-Built by [Subash Karki](https://github.com/karki011). Star the repo if Gorkhali earns it.
+Tests exercise policy, real temporary Git worktrees, stale evidence, recovery, and
+hook decisions. CI also installs the plugin into a scratch Claude configuration.
+Live Claude acceptance and deterministic fault tests are recorded in the
+[PRD acceptance record](project-docs/acceptance.md). Repeat the
+[acceptance checklist](project-docs/architecture.md#live-acceptance) for future releases.
+
+Hooks enforce lead editing discipline; they are not an OS sandbox for hostile
+repository code. Checks may execute repository scripts. Repositories with submodules
+or special tracked files block fingerprinting until separately supported. There is
+no automatic merge, external service, daemon, or model-based routing system.
+
+See [architecture and contracts](project-docs/architecture.md) for implementation
+boundaries. [ROADMAP.md](ROADMAP.md) preserves explicitly historical decisions.

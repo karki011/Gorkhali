@@ -1,8 +1,7 @@
 {
-  "engineer": "balanced",
-  "inspector": "economy",
-  "auditor": "balanced",
-  "opposition": "balanced",
-  "detective": "deep",
-  "surveyor": "balanced"
+  "engineer": { "default": "balanced", "allowed": ["balanced", "deep"] },
+  "inspector": { "default": "economy", "allowed": ["economy"] },
+  "auditor": { "default": "balanced", "allowed": ["balanced", "deep"] },
+  "opposition": { "default": "balanced", "allowed": ["balanced", "deep"] },
+  "detective": { "default": "deep", "allowed": ["deep"] }
 }

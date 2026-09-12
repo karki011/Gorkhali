@@ -1,68 +1,20 @@
-# Per-user mutable state (not shared)
-/config.yaml
-/sessions/
-/events/
-/observations/
-/state/
-/repos/
-
-# Runtime markers + audit logs (per-session, not shared)
-.chief-active
-.engineer-editing
-.engineer-editing.d/
-# legacy pre-0.8.0 marker names kept one release
-.apex-active
-.blade-editing
-audit/
-
-# Learnings are per-user (INDEX.md structure is tracked, content is not)
-learnings/*.md
-!learnings/.gitkeep
-
-# Global patterns content is per-user
-global/patterns/*.md
-!global/patterns/.gitkeep
-
-# Board app (local only)
-board-app/
-
-# Story chronicles (personal)
-story/
-
-
-# Dispatches (archived)
-dispatches/
-
-# Build artifacts
+# Local dependencies and generated output
 node_modules/
 dist/
-.vite/
-
-# Legacy
-.board-sync-errors.log
-.server.log
-crew-dashboard.html
-crew-diagram.html
-
-# OS
+coverage/
 .DS_Store
+*.log
 
-# Local tool artifacts / scratch
+# Private state and local experiments
+.gorkhali/
+.claude/worktrees/
 .playwright-mcp/
-.ruff_cache/
-board-v2*.png
-
-# Archive (restorable, not shared)
 .archive/
 .swarm/
+board-app/
+story/
+dispatches/
 ruvector.db
 *.db
 *.db-shm
 *.db-wal
-
-# AgentDB
-*.rvf
-*.rvf.lock
-
-# Docs (local research/design docs, not tracked)
-docs/

@@ -1,0 +1,168 @@
+{
+  "recordedAt": "2026-09-12",
+  "pluginVersion": "3.0.0",
+  "automatedTests": 150,
+  "liveRuns": {
+    "single": {
+      "claudeCodeVersion": "2.1.269",
+      "sessionId": "a47872eb-0482-4641-b950-0554d10ad44d",
+      "agents": {
+        "gorkhali:engineer": 1,
+        "gorkhali:inspector": 1,
+        "gorkhali:auditor": 1
+      },
+      "calls": [
+        {
+          "subagent_type": "gorkhali:engineer",
+          "model": "sonnet",
+          "isolation": "worktree"
+        },
+        {
+          "subagent_type": "gorkhali:inspector",
+          "model": "haiku",
+          "isolation": null
+        },
+        {
+          "subagent_type": "gorkhali:auditor",
+          "model": "sonnet",
+          "isolation": null
+        }
+      ],
+      "integratedHead": "9aee4aed1934197b4a64b7b253ad5db98a0bf99a",
+      "fingerprint": "cbbcf284c92822a24c09864fda273e90656ff94a3e7fabbe49236ab49f2211c1",
+      "inspectorId": "ddb91cdd-51a9-4f3b-9eda-8ff3828e93a8",
+      "auditorId": "92ec611d-7426-4a2d-b8c7-0dffd960d3f2",
+      "auditorInspectorId": "ddb91cdd-51a9-4f3b-9eda-8ff3828e93a8",
+      "verification": "passed",
+      "repairAttempts": 0,
+      "verificationFailures": 0,
+      "costUsd": 1.0780067500000001,
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "freshProcessResumePauseResume": "passed"
+    },
+    "parallel": {
+      "claudeCodeVersion": "2.1.269",
+      "sessionId": "4b06e880-fce8-49bb-8581-796b02b79f69",
+      "agents": {
+        "gorkhali:engineer": 2,
+        "gorkhali:inspector": 1,
+        "gorkhali:auditor": 1
+      },
+      "calls": [
+        {
+          "subagent_type": "gorkhali:engineer",
+          "model": "sonnet",
+          "isolation": "worktree"
+        },
+        {
+          "subagent_type": "gorkhali:engineer",
+          "model": "sonnet",
+          "isolation": "worktree"
+        },
+        {
+          "subagent_type": "gorkhali:inspector",
+          "model": "haiku",
+          "isolation": null
+        },
+        {
+          "subagent_type": "gorkhali:auditor",
+          "model": "sonnet",
+          "isolation": null
+        }
+      ],
+      "integratedHead": "4c0a543d81a2af17ae29a8029a1995609159f824",
+      "fingerprint": "3c1336a6e1bd87532d81e9a4191fd244bddcf243623e39ef56fe26eb6fdecd51",
+      "inspectorId": "cb27cf90-e5f0-46bd-ad21-3ecb1ed3e7c1",
+      "auditorId": "96123051-994b-4f17-bb66-8faf23001005",
+      "auditorInspectorId": "cb27cf90-e5f0-46bd-ad21-3ecb1ed3e7c1",
+      "verification": "passed",
+      "repairAttempts": 0,
+      "verificationFailures": 0,
+      "costUsd": 1.3594195500000001,
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "engineersOverlapped": true,
+      "distinctEngineerWorktrees": 2
+    },
+    "recovery": {
+      "claudeCodeVersion": "2.1.269",
+      "sessionId": "b708ef6c-1386-4123-ba91-5b5bca0a84a5",
+      "agents": {
+        "gorkhali:inspector": 3,
+        "gorkhali:engineer": 1,
+        "gorkhali:auditor": 1
+      },
+      "calls": [
+        {
+          "subagent_type": "gorkhali:inspector",
+          "model": "haiku",
+          "isolation": null
+        },
+        {
+          "subagent_type": "gorkhali:inspector",
+          "model": "haiku",
+          "isolation": null
+        },
+        {
+          "subagent_type": "gorkhali:engineer",
+          "model": "sonnet",
+          "isolation": "worktree"
+        },
+        {
+          "subagent_type": "gorkhali:inspector",
+          "model": "haiku",
+          "isolation": null
+        },
+        {
+          "subagent_type": "gorkhali:auditor",
+          "model": "opus",
+          "isolation": null
+        }
+      ],
+      "integratedHead": "10af9897977d4a0d7e09af674c5e7ec3e192730d",
+      "fingerprint": "49bd6d9124e58ed0065ae7ec1fc645aedc53037092e5915721fd633dc93523fc",
+      "inspectorId": "a5709de6-0fbc-4a9d-87b8-b0b869ef71c0",
+      "auditorId": "5ee9ea95-7bf3-426c-bc7a-ef1d8a5d49b0",
+      "auditorInspectorId": "a5709de6-0fbc-4a9d-87b8-b0b869ef71c0",
+      "verification": "passed",
+      "repairAttempts": 1,
+      "verificationFailures": 1,
+      "costUsd": 1.27865435,
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5",
+        "claude-opus-5"
+      ]
+    }
+  },
+  "publicCommands": [
+    "gorkhali:close",
+    "gorkhali:learn",
+    "gorkhali:pause",
+    "gorkhali:resume",
+    "gorkhali:start",
+    "gorkhali:status",
+    "gorkhali:verify",
+    "gorkhali:wrap"
+  ],
+  "roles": [
+    "gorkhali:auditor",
+    "gorkhali:detective",
+    "gorkhali:engineer",
+    "gorkhali:inspector",
+    "gorkhali:opposition"
+  ],
+  "observations": [
+    "Normal runs used no conditional specialists; parallel Engineers overlapped before one integrated Inspector and Auditor.",
+    "The parallel planner initially named the wrong test runner; Engineers used the repository-native runner and integrated checks passed. Planning instructions now explicitly require discovering the actual runner.",
+    "The recovery Engineer was not given the absolute helper path and returned a handcrafted record; integration independently validated it against Git. Prompts now require absolute helper paths and blocking rather than bypassing preparation.",
+    "The recovery run used an extra initial Inspector because its first evidence went to the data root. recordInspector now rejects destinations without plan.json, and reviewer prompts require the exact session path.",
+    "The lead hook rejected out-of-contract shell attempts; the workflows recovered using the bounded lifecycle CLI.",
+    "These are small disposable fixtures, not evidence that arbitrary repository tasks or hostile code are safe."
+  ]
+}

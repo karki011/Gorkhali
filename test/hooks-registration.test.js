@@ -60,7 +60,7 @@ test('the four commands point at exactly two distinct target files, both present
 
 test('SubagentStart and SubagentStop target the same file as the Edit matcher (never-edits enforcement unit)', () => {
   const doc = JSON.parse(fs.readFileSync(HOOKS_JSON_PATH, 'utf-8'));
-  const editEntry = doc.hooks.PreToolUse.find((e) => e.matcher === 'Edit|Write|MultiEdit|NotebookEdit');
+  const editEntry = doc.hooks.PreToolUse.find((e) => e.matcher === 'Edit|Write|MultiEdit|NotebookEdit|Bash');
   assert.ok(editEntry, 'expected a PreToolUse entry for the Edit matcher');
   const editFile = targetFile(editEntry.hooks[0].command);
 
@@ -73,7 +73,7 @@ test('SubagentStart and SubagentStop target the same file as the Edit matcher (n
 
 test('the Agent|Task matcher targets a different file than the Edit matcher', () => {
   const doc = JSON.parse(fs.readFileSync(HOOKS_JSON_PATH, 'utf-8'));
-  const editEntry = doc.hooks.PreToolUse.find((e) => e.matcher === 'Edit|Write|MultiEdit|NotebookEdit');
+  const editEntry = doc.hooks.PreToolUse.find((e) => e.matcher === 'Edit|Write|MultiEdit|NotebookEdit|Bash');
   const agentEntry = doc.hooks.PreToolUse.find((e) => e.matcher === 'Agent|Task');
   assert.ok(agentEntry, 'expected a PreToolUse entry for the Agent|Task matcher');
 

@@ -1,7 +1,7 @@
 {
   "name": "gorkhali",
-  "version": "2.0.0",
-  "description": "Gorkhali - multi-agent orchestration for Claude Code. Plans, delegates, verifies, reviews, and ships software changes with specialized coding agents and one human approval gate.",
+  "version": "3.0.0",
+  "description": "Lean engineering orchestration for Claude Code: approved plans, isolated Engineers, integrated checks, independent review, and resilient recovery.",
   "author": {
     "name": "Subash Karki"
   },

@@ -1,18 +1,16 @@
 ---
 name: pause
-description: "Use when stepping away or saving progress mid-session - 'pause', 'stopping for now'. Records where things stand. No git operations. Ship -> wrap; continue -> resume."
+description: Stop dispatch and create a stable structured handoff checkpoint.
+allowed-tools: ["Agent", "Read", "Write", "Bash"]
 user-invocable: true
 ---
 
-# /pause
+# Pause
 
-Record where this session stands so `/resume` can pick it up later. Nothing here touches git: no commit, no branch change, no push.
-
-<instructions>
-1. Find the active session via `lib/session.js`'s `activeSession`. None found - say so plainly and stop; there is nothing to pause.
-2. Read `plan.json` for that session (via `lib/session.js`'s `readPlan`) to see the current phase, if a plan exists yet.
-3. Append one entry to `progress.json` (via `lib/session.js`'s `appendProgress`): the phase, and a short note of what just finished and what is next. Use the user's own words when `$ARGUMENTS` gives one; otherwise summarize the last completed step yourself.
-4. Print a one-line resume hint: "Paused at {phase}. Run `/resume {task}` to continue."
-</instructions>
-
-That is the whole surface. No separate handoff packet, no session log file, no learnings capture - the session directory (`_shared.md`'s Paths and Session Model) already holds everything `/resume` needs.
+Read `../references/lifecycle.md`. Stop dispatching immediately. Collect or stop running Engineers
+and record their worktree paths, task IDs, commits, uncommitted files, and blockers
+in progress. Preserve incomplete work; do not integrate or clean up silently.
+Clear `activeEngineers` only after they have stopped. Call CLI `pause`, which
+refuses a stable pause while Engineers remain active. The checkpoint preserves
+the next valid transition, wave, Git identity, task state, and verification.
+Report the phase and resume hint. Pause improves recovery; it is never required.

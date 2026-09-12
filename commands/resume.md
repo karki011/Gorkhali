@@ -1,21 +1,31 @@
 ---
 name: resume
-description: "Use when continuing PREVIOUS work from a paused or prior session - 'resume', 'pick up where we left off'. Restores the plan and progress. New scope -> start; approved plan already running -> just keep working."
-argument-hint: "<task>"
+description: Recover interrupted work, reconcile Git and pending operations, and continue the approved scope.
+allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob"]
 user-invocable: true
 ---
 
-# /resume "$ARGUMENTS"
+# Resume
 
-Continue a session that was paused or interrupted.
+Read `../references/lifecycle.md` and call CLI `resume`. A session needs a readable plan; when
+missing, list available sessions and request the intended task.
 
-<instructions>
-1. Resolve the task id from `$ARGUMENTS`. Missing - use `lib/session.js`'s `activeSession` for the current one.
-2. Read `plan.json` and `progress.json` for that task (via `lib/session.js`'s `readPlan` / `readProgress`).
-   - No `plan.json` for that task - say no session was found, list the task ids under this repo's sessions folder (`_shared.md`'s Paths and Session Model), and ask which one to resume.
-3. Show the last `progress.json` entry and the plan's recorded phase.
-4. Re-present the same chat brief `start.md`'s **Phase 6: Plan Approval** shows, sourced from `plan.json`'s briefing fields, so the user re-confirms before anything continues: What, Problem, How, Evidence, Scope, Risks, Open questions, Approve?
-5. On approval, continue from the recorded phase: `start.md`'s **Phase 7: Wiring Notification** and **Phase 8: Execution Dispatch**, or straight into dispatch if the plan was already past the gate when the session paused.
-</instructions>
+The result contains current and previous state. An unchanged fingerprint and
+unchanged approved plan continue automatically from `next`, without re-approval.
+Changed HEAD, index, worktree, branch, or untracked content invalidates verification.
+Inspect the intervening diff and task dependency/ownership changes. Call `reconcile`
+with the scope classification and concrete Git evidence; dispatch, repair, integration,
+and verification stay blocked until reconciliation. Ask for a new
+plan decision only when divergence materially changes approved scope/dependencies.
+Legacy sessions reconstruct a checkpoint but their old verification is always stale.
 
-No staleness check against git HEAD, no portable handoff packet, no cost or ticket-provider calls here - those belong to `start.md`'s own phases, not to resuming one.
+Before restarting a wave, reconcile `activeEngineers`, saved completion records,
+and `integration.json` against Git. A pending cherry-pick is a blocked integration,
+not a fresh task. `integrate` recognizes committed source markers after a crash;
+never blindly dispatch an already-integrated task. Preserve dirty work for recovery.
+A PR created before a checkpoint is recovered by `ship`'s existing-PR lookup.
+
+Explicitly selecting a task reactivates that session for subsequent commands.
+Current task and dependency hashes determine completed work, never task IDs alone.
+Persist agent outcomes with `result` and any remaining blockers through `progress`. If a
+phase is uncertain, report that uncertainty instead of guessing completion.
