@@ -17,9 +17,9 @@ test('only MVP commands and roles are discoverable', () => {
     assert.equal(text.match(/^model:\s*(\S+)/m)[1], modelForTier(tierForRole(role)));
   }
 });
-test('package and plugin versions agree on the breaking MVP release', () => {
+test('package and plugin versions agree on the current release', () => {
   const plugin = require('../.claude-plugin/plugin.json');
-  assert.equal(plugin.version, '3.0.0');
+  assert.equal(plugin.version, '3.0.1');
   assert.equal(require('../.claude-plugin/marketplace.json').metadata.version, plugin.version);
   assert.equal(require('../package.json').version, plugin.version);
 });
