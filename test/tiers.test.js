@@ -5,13 +5,13 @@ const assert = require('node:assert/strict');
 
 const { tierForRole, modelForTier } = require('../lib/tiers.js');
 
-test('tierForRole maps each of the six roles to its tier', () => {
+test('tierForRole maps each of the five roles to its tier', () => {
   assert.equal(tierForRole('engineer'), 'balanced');
   assert.equal(tierForRole('inspector'), 'economy');
   assert.equal(tierForRole('auditor'), 'balanced');
   assert.equal(tierForRole('opposition'), 'balanced');
   assert.equal(tierForRole('detective'), 'deep');
-  assert.equal(tierForRole('surveyor'), 'balanced');
+  assert.equal(tierForRole('surveyor'), null);
 });
 
 test('tierForRole is case-insensitive and returns null for unknown roles', () => {
@@ -26,12 +26,12 @@ test('modelForTier resolves each tier on the claude-code host', () => {
   assert.equal(modelForTier('deep', 'claude-code'), 'opus');
 });
 
-test('modelForTier lets an explicit override win regardless of host', () => {
+test('modelForTier lets an explicit override apply only on Claude Code', () => {
   assert.equal(modelForTier('deep', 'claude-code', 'haiku'), 'haiku');
-  assert.equal(modelForTier('deep', 'unknown-host', 'sonnet'), 'sonnet');
+  assert.equal(modelForTier('deep', 'unknown-host', 'sonnet'), null);
 });
 
 test('modelForTier falls back to inheriting the active model for an unknown host', () => {
   assert.equal(modelForTier('balanced', 'unknown-host'), null);
-  assert.equal(modelForTier('balanced', undefined), null);
+  assert.equal(modelForTier('balanced', undefined), 'sonnet');
 });

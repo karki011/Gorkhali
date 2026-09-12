@@ -1,3 +1,9 @@
+# Historical roadmap
+
+Everything below records earlier experiments and superseded decisions. It is not
+the current runtime contract. See README.md and project-docs/architecture.md for
+the Claude Code MVP.
+
 # Gorkhali Roadmap
 
 **Author:** Subash karki

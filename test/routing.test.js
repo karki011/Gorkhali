@@ -75,3 +75,33 @@ test('buildExecutionWaves serializes independent tasks unless parallel safety is
 
   assert.deepEqual(buildExecutionWaves(tasks), [['one'], ['two']]);
 });
+
+test('scheduler rejects unknown and cyclic dependencies when invoked directly', () => {
+  assert.throws(() => buildExecutionWaves([{ id: 'a', dependsOn: ['missing'] }]), /unknown/);
+  assert.throws(() => buildExecutionWaves([{ id: 'a', dependsOn: ['b'] }, { id: 'b', dependsOn: ['a'] }]), /cycle/);
+  assert.throws(() => buildExecutionWaves([{ id: 'a' }, { id: 'a' }]), /duplicate/);
+});
+
+test('directory ownership, aliases, globs and missing evidence stay conservative', () => {
+  const a = { id: 'a', parallelSafe: true, files: ['src/'] };
+  for (const files of [['src/a.js'], ['./SRC/a.js'], ['src/*.js'], [], undefined, ['../escape']]) {
+    assert.equal(canRunInParallel(a, { id: 'b', parallelSafe: true, files }), false);
+  }
+  assert.equal(canRunInParallel({ ...a, coordinationKeys: ['db'] }, { id: 'b', files: ['docs/a'], coordinationKeys: ['db'], parallelSafe: true }), false);
+});
+
+test('failure scores cap and role thresholds have boundary coverage', () => {
+  assert.equal(scoreRisk({ implementationFailures: 99, verificationFailures: 99 }), 4);
+  assert.equal(tierForTask('auditor', { riskSignals: { security: true } }), 'balanced');
+  assert.equal(tierForTask('auditor', { riskSignals: { security: true, migration: true } }), 'deep');
+  assert.equal(tierForTask('engineer', { riskSignals: { security: true, publicContract: true, migration: true } }), 'balanced');
+  assert.equal(tierForTask('unknown'), null);
+});
+
+test('unknown risk signals and malformed graph evidence cannot enable concurrency', () => {
+  const a = { id: 'a', files: ['a'], parallelSafe: true, riskSignals: { destructiveDat: true } };
+  const b = { id: 'b', files: ['b'], parallelSafe: true };
+  assert.equal(canRunInParallel(a, b), false);
+  assert.throws(() => buildExecutionWaves([null]), /valid task/);
+  assert.throws(() => buildExecutionWaves([{ id: 'a', dependsOn: 'b' }]), /string array/);
+});

@@ -80,7 +80,7 @@ test('allows an Edit while a subagent marker is live', () => {
   const marker = path.join(dataDir, 'editors', 'test-repo', 'a1');
   assert.ok(fs.existsSync(marker), 'start mode should write a marker file');
 
-  const res = run(undefined, editPayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
+  const res = run(undefined, { ...editPayload('s1', path.join(REPO, 'lib/paths.js')), agent_id: 'a1' }, dataDir);
   assert.equal(res.code, 0);
 });
 
@@ -139,4 +139,38 @@ test('allows an Edit to the preferences file under the data root, and still deni
 
   const deniedRes = run(undefined, writePayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
   assert.equal(deniedRes.code, 2);
+});
+
+test('another live Engineer never grants implementation edits to the lead or reviewer', () => {
+  const dataDir = tmpDataDir();
+  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  run('start', { agent_id: 'a1', agent_type: 'engineer', session_id: 's1', cwd: REPO }, dataDir);
+  assert.equal(run(undefined, editPayload('s1', 'index.js'), dataDir).code, 2);
+  assert.equal(run(undefined, { ...editPayload('s1', 'index.js'), agent_id: 'reviewer' }, dataDir).code, 2);
+});
+
+test('reviewer start cannot acquire an editor marker', () => {
+  const dataDir = tmpDataDir();
+  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  run('start', { agent_id: 'a1', agent_type: 'auditor', session_id: 's1', cwd: REPO }, dataDir);
+  assert.equal(run(undefined, { ...editPayload('s1', 'index.js'), agent_id: 'a1' }, dataDir).code, 2);
+});
+
+test('lead Bash is restricted to the installed lifecycle entry point', () => {
+  const dataDir = tmpDataDir();
+  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  const bash = (command) => run(undefined, { tool_name: 'Bash', session_id: 's1', cwd: REPO, tool_input: { command } }, dataDir);
+  const cli = path.join(REPO, 'lib', 'cli.js');
+  assert.equal(bash(`node "${cli}" snapshot`).code, 0);
+  assert.equal(bash(`node "${cli}" open MVP-1`).code, 0);
+  assert.equal(bash(`node "${cli}" snapshot; touch index.js`).code, 2);
+  assert.equal(bash('python -c "open(\'index.js\',\'w\').write(\'x\')"').code, 2);
+  assert.equal(bash('echo x > index.js').code, 2);
+});
+
+test('a symlink under external state cannot authorize an implementation edit', () => {
+  const dataDir = tmpDataDir();
+  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  fs.symlinkSync(REPO, path.join(dataDir, 'escape'));
+  assert.equal(run(undefined, writePayload('s1', path.join(dataDir, 'escape', 'package.json')), dataDir).code, 2);
 });

@@ -61,8 +61,8 @@ function assertAllow(res) {
   assert.equal(res.stdout.trim(), '', 'an allow carries no decision JSON');
 }
 
-test('denies engineer (balanced tier) explicitly spawned on opus', () => {
-  assertDeny(run(spawn('engineer', { model: 'opus' })));
+test('allows Engineer escalation to deep', () => {
+  assertAllow(run(spawn('engineer', { model: 'opus' })));
 });
 
 test('denies auditor (balanced tier) explicitly spawned on haiku', () => {
@@ -73,7 +73,7 @@ test('allows engineer explicitly spawned on its own tier model (sonnet)', () => 
   assertAllow(run(spawn('engineer', { model: 'sonnet' })));
 });
 
-test('allows a full model id that contains the tier model as a substring', () => {
+test('allows a full model id that matches a versioned Claude model family', () => {
   assertAllow(run(spawn('engineer', { model: 'claude-sonnet-5' })));
 });
 
@@ -94,7 +94,7 @@ test('allows a non-Agent/Task tool untouched', () => {
 });
 
 test('strips a gorkhali: prefix before resolving the role', () => {
-  assertDeny(run(spawn('gorkhali:engineer', { model: 'opus' })));
+  assertAllow(run(spawn('gorkhali:engineer', { model: 'opus' })));
 });
 
 test('allows unparseable stdin', () => {
@@ -102,7 +102,7 @@ test('allows unparseable stdin', () => {
 });
 
 test('denies a spawn with no explicit model when its own agent frontmatter contradicts the tier', () => {
-  const dir = fixtureAgentsDir('engineer', 'opus');
+  const dir = fixtureAgentsDir('engineer', 'haiku');
   assertDeny(run(spawn('engineer', {}), dir));
 });
 
@@ -122,4 +122,9 @@ test('detective (deep tier) resolves to opus, matching its real agent frontmatte
 
 test('auditor (now balanced tier) resolves to sonnet, matching its real agent frontmatter', () => {
   assertAllow(run(spawn('auditor', {})));
+});
+
+test('denies difficulty escalation for Inspector and arbitrary family substrings', () => {
+  assertDeny(run(spawn('inspector', { model: 'sonnet' })));
+  assertDeny(run(spawn('engineer', { model: 'not-sonnet-anything' })));
 });

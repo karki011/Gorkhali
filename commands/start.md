@@ -1,70 +1,57 @@
 ---
 name: start
-description: "Use when starting any new feature, bug fix, refactor, or task: a ticket key, 'implement', 'build', 'fix', 'work on'. Plans, decomposes, and executes, with brainstorm, scout, and wiring folded in as phases."
-argument-hint: "<requirement>"
-allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+description: Start a feature, fix, or refactor with a small approved plan, risk-aware routing, and isolated Engineer work.
+allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob"]
 user-invocable: true
 ---
 
-# /gorkhali:start "$ARGUMENTS"
+# Start
 
-The single entry point for new work. Reads `_shared.md` first, then runs the phases below in order; brainstorm and scout are optional, everything else always runs.
+Read `_shared.md`. Open the session and inspect the request, current Git state,
+repo instructions, preferences, and relevant callers. If on the default branch,
+call CLI `branch` with an appropriate feature name before planning. Do not invoke Detective
+merely because the request describes a bug. Use it for unclear, repeated,
+flaky, timing-sensitive, or cross-cutting failures that need diagnosis.
 
-## Phase 1: Intake
+## Plan and approve
 
-Resolve the task id from `$ARGUMENTS`, or from the current session, or from the branch name. Open the session with `lib/session.js` - this creates `plan.json`, `progress.json`, and the scratch folder under the data root, never inside the project.
+The orchestrator plans. Quick work gets one short task; normal work gets coherent
+tasks; ambiguous work gets a brief discussion of alternatives. Optional read-only
+scouting is justified only by missing context. Opposition critiques only an
+ambiguous or high-risk plan, and re-runs only if that uncertainty remains.
 
-Fetch the ticket through the tracker adapter (`lib/tracker.js`): call its `fetch` descriptor. The provider it resolves comes from reading the preferences file, so nothing here names a provider directly. When the resolved provider is none, skip this silently - there is nothing to read. Read preferences and hold the text ready to inject verbatim, under the exact line `## User Preferences (verbatim)`, into every prompt built in the phases below.
+Write a valid plan using CLI `plan`. Required fields are the schema's briefing,
+decision, outcome, scope, and tasks with explicit acceptance criteria. Record
+`baseHead` from snapshot for the review range. Optional task fields are
+`dependsOn`, `parallelSafe`, `coordinationKeys`, and `riskSignals`.
+Use concrete repository-relative files or directories; globs stay sequential.
+Declare shared logical resources even if the files differ. Move a schema,
+migration, or public-contract change into a preceding serial task; only its
+independent consumers may then qualify for parallel work.
 
-Defect check: when the task reads as a bug, a regression, or a reported failure, hand it to Detective before anything else. Only a confirmed defect with a reproduction moves on to planning; anything short of that stops here and names the missing evidence.
+Present What, Problem, How, Evidence, Scope, Risks, and Open questions in plain
+English. Obtain approval for this exact plan, then call `approve`. Existing
+explicit approval counts; the quick route makes the plan smaller, not exempt.
 
-## Phase 2: Route
+## Execute
 
-Decide quick, plan, or full, and say the route plus a one-line reason. The user can change the route mid-session; when they do, say so and move to the new route's phases.
+Call `route` and show the wave composition and reasoning. Call `dispatch` before
+spawning, persisting the approved base commit and task IDs. For each ready task,
+spawn `gorkhali:engineer` with the selected model and `isolation: "worktree"`
+on the Agent call itself. Include the task, declared ownership, base commit,
+integration worktree path, session directory, and preferences. Do not use agent
+teams. Every Engineer must use `prepareWorktree` to verify/fast-forward its own
+clean worktree to the wave base before editing; host defaults can start elsewhere.
+A worktree that cannot be isolated or aligned blocks dispatch, never falls back
+to concurrent writes in the main checkout.
 
-- **quick** - trivial, well-understood, one or two files. Run Phase 5 to write a minimal `plan.json` that still names every field `lib/plan-schema.js` requires - `briefing` (`tackling`, `problem`, `how`), `decision` (`question`, `recommendation`, `rationale`, `status`), `outcome` (`goal`, `doneWhen`), `scope` (`in`, `out`), and one task with its own `id`, `description`, `files`, `action`, `acceptance_criteria`, and `verify` - short values are fine, an absent field is not. Then skip Phase 6's approval gate straight to dispatch - pause, resume, status, and wrap all read `plan.json`, so quick never skips writing it, only the human gate.
-- **plan** - normal scope. Write a plan, then stop at the one gate below.
-- **full** - ambiguous scope, competing approaches, or the user asked to brainstorm. Add the brainstorm phase before planning.
+Collect structured completion records. Use CLI `integrate` in plan order after
+the wave returns. Integration checks actual changes and dependency ancestry.
+Never mark a returned task integrated until Git and the journal prove it.
+Ownership violations require scope reconciliation. Conflicts stop integration;
+delegate resolution to a scoped Engineer in the integration worktree, preserve
+the cherry-pick source marker, then retry integration. Never reset away work.
 
-User intent beats auto-detection: an explicit route request from the user always wins over the model's own read of scope.
-
-## Phase 3: Brainstorm (full route, or on request)
-
-Produce two or three genuinely distinct approaches, not variations of one idea. Chat brief only, no page, no artifact: name each approach and its one real trade-off. The user picks: Pick A / B / C, or asks for another option. Record the pick before planning starts.
-
-## Phase 4: Scout (optional, any route)
-
-When the codebase or the pattern to follow is unfamiliar, spawn read-only agents to gather context before planning. Skip it when the plan can already be written from what is known.
-
-## Phase 5: Plan
-
-Write `plan.json` in the session directory and validate it with `lib/plan-schema.js` before presenting it; an invalid plan never reaches the gate below. Every planning prompt, and every Opposition prompt that reviews it, carries the preferences block from Phase 1. On the quick route, this is still a real `plan.json` with every required field populated, just smaller - one task, short values - and it still must validate.
-
-## Phase 6: Plan Approval (the one HUMAN GATE, skipped on the quick route)
-
-The quick route skips straight from Phase 5 to Phase 7 - dispatch never waits on approval when the route itself was the approval. Every other route presents the plan as a chat brief only, no page, no artifact, no HTML:
-
-- **What**: `briefing.tackling`
-- **Problem**: `briefing.problem`
-- **How**: `briefing.how`. A How without evidence is an assumption - say so.
-- **Evidence**
-- **Scope**
-- **Risks**
-- **Open questions**
-- **Approve?**
-
-Write it in plain English, one or two sentences a field, no file or symbol names in the prose. Say that implementation detail - files, tasks, waves, and dependency order - is available on request. Never degrade to a task-only gate. Feedback goes back into the plan and Opposition reruns before the brief is shown again.
-
-Safety beats efficiency here: a plan that trades away a real safeguard for speed does not pass this gate on the strength of being fast.
-
-## Phase 7: Wiring Notification
-
-Before dispatch, print a short notification of the wave plan: which tasks run together, which wait on which. This is not a gate - it never blocks - but it is interruptible: the user can stop it and ask for a change before any agent spawns.
-
-## Phase 8: Execution Dispatch
-
-Spawn one agent per task. Each agent's name is built from its role and task id, `{role}-{taskId}`, with no separate naming registry to keep in sync. Each task's model comes from its role's tier resolved against the active host. Every Engineer prompt carries the preferences block from Phase 1.
-
-Every task gets its own Inspector afterward: read-only, runs the checks it discovers, writes the record. No single verification pass covers two tasks at once.
-
-The tracker adapter's start and done descriptors mark the ticket in progress and done when the resolved provider supports it. When the provider is none, these are no-ops - nothing to mark, nothing to fail.
+Run subsequent dependency waves only after integration. Default to one Inspector
+and one Auditor after all waves. An intermediate Inspector is justified only when
+later tasks need a risky wave proven before proceeding. Finish via `verify`.

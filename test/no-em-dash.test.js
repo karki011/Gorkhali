@@ -1,7 +1,7 @@
 // Author: Subash Karki
 // no-em-dash.test.js - mechanical guard for the new tree: no U+2014 (em
 // dash) character in any file under commands/, agents/, lib/, config/,
-// hooks/, skills/ or test/. Chief note: eight wave-1 Engineers were told no
+// hooks/, skills/ or test/. Historical note: eight wave-1 Engineers were told no
 // em dashes and 11 of 14 new files had them anyway; prose rules do not
 // hold, tests do.
 'use strict';

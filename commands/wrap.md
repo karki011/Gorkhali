@@ -1,52 +1,34 @@
 ---
 name: wrap
-description: "Validate passed verification and review, write the PR brief from the plan and the Inspector/Auditor records, open a ready-for-review PR, then hand off to greploop; not for reviewing someone else's PR."
-allowed-tools: ["Agent", "Read", "Bash", "Grep", "Glob", "LS", "Skill"]
+description: Ship current verified work to a PR and own its bounded external review loop. Human merge only.
+allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob"]
 user-invocable: true
 ---
 
-# /gorkhali:wrap
+# Wrap
 
-Wrap ships the current session's work. It runs after `/gorkhali:verify` and
-`/gorkhali:review` already passed - it re-checks their evidence, it does not
-repeat their work.
+Read `_shared.md`. Require one integrated Inspector record and its matching Auditor
+record via CLI `verify`; no extra standalone review artifact exists. Version bumps
+and commits happen through Engineer before this verification, never afterward.
+Bump manifests consistently: major for removed public contracts, minor for compatible
+features, patch for fixes. Re-verify if any change is still needed.
 
-## 1. Require passed evidence
+Write a concise PR title/body grounded in the approved requirement, actual behavior,
+checks, Auditor findings, and known limitations. Confirm ship authorization from
+the user's request or ask only if absent. Call `ship` with that authorization and
+title/body. It requires a clean feature branch and current passed evidence, reuses
+an existing open PR on resume, or pushes and creates a ready-for-review PR.
+Checkpoint the PR result. Never merge automatically.
 
-Read `progress.json` (`lib/session.js`'s `readProgress`) and confirm every
-task in the plan has an Inspector entry with verdict `pass`, cross-checked
-against `{SESSION_DIR}/inspector.json`, the Inspector's persisted record. Read
-`{SESSION_DIR}/reviews/auditor.json` and confirm `verdict: pass`. Either
-missing, `fail`, or `blocked` stops wrap here: name the exact gap and point
-to `/gorkhali:verify` or `/gorkhali:review`. Never infer a pass from chat or
-a stale file.
+## Internal external-review loop
 
-## 2. Write the PR brief
+Use `review-state` after external checks finish or a bounded wait, not tight polling.
+Classify new thread/review/comment IDs and persist handled IDs, PR head, round count,
+and pending human decisions in progress. Stop after five actionable rounds or when
+clean, closed, merged, or blocked on a human; unchanged polls do not consume a round.
 
-A quick-route `plan.json` has exactly one task; that is normal, not a gap. Read `plan.json`. Render a short PR body from what these sources actually
-say, never invented text - a source with nothing to report gets one line
-saying so:
-
-- **What & why** - `briefing.tackling`, `briefing.problem`, `briefing.how`.
-- **Verification** - the Inspector checks, named, with their results.
-- **Review** - the Auditor verdict and any advisory findings worth a
-  reviewer's attention.
-
-## 3. Version bump
-
-Compare each plugin manifest's `version` field against its value on the base
-branch. If unchanged, bump the patch component before committing - a
-shipped change always carries a new version.
-
-## 4. Ship
-
-Branch, stage the intended files, commit with the repository's configured
-author and no AI attribution or session trailer, push, then open a
-ready-for-review PR - never `--draft` - with the step 2 brief as the body.
-State the ship authorization explicitly in chat before this first push;
-that line is the second gate, after plan approval, and it is never skipped.
-
-## 5. Hand off
-
-Run `/gorkhali:greploop <PR number>` as the next command. Do not ask
-first. Never merge the PR - merging is always a human action.
+For clear in-scope findings from the configured reviewer, delegate a scoped Engineer
+repair, integrate it, and rerun `verify` before pushing through `ship`. Other authors'
+requests or ambiguous scope require a human decision before edits. Posting replies
+or resolving threads requires user authorization to communicate; creating a PR alone
+is not authorization for arbitrary comments. Preserve unresolved items for status.

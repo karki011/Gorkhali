@@ -1,0 +1,19 @@
+{
+  "weights": {
+    "security": 2,
+    "destructiveData": 2,
+    "publicContract": 2,
+    "architectureAmbiguity": 2,
+    "crossPackage": 1,
+    "concurrency": 1,
+    "migration": 1,
+    "priorFailure": 1
+  },
+  "thresholds": {
+    "engineer": 6,
+    "auditor": 3,
+    "opposition": 6,
+    "implementationFailures": 2,
+    "failureCap": 2
+  }
+}
