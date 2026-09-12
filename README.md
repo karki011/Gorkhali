@@ -4,7 +4,7 @@
 
 Gorkhali turns a request into an approved plan, delegates implementation, checks
 the integrated result, and opens a pull request with independent review evidence.
-Version **3.0.0** is the MVP following the proof of concept.
+Version **3.0.1** adds concise communication and evidence handoffs to the MVP.
 
 ## Fewer roles, clear responsibilities
 
@@ -80,7 +80,7 @@ One lead owns session state; agents write separate completion/evidence records.
 This release removes the standalone review, fix, visual, and PR-review-loop commands
 and the optional visual agent. Use `verify` for review, repair, and visual confirmation;
 use `wrap` for PR review. Removed commands have no compatibility stubs. The quick route
-now requires plan approval too. All plugin manifests use 3.0.0.
+now requires plan approval too. All plugin manifests use 3.0.1.
 
 ## Development and limits
 
