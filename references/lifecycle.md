@@ -63,3 +63,17 @@ none means no tracker calls. Only mark a ticket done after merge.
 All shell tools and user-installed hooks execute with the user's OS permissions.
 This is a workflow discipline boundary, not a sandbox for hostile repository code.
 Keep implementation agents separate from the Inspector and Auditor contexts.
+
+## Communication
+
+Use concise, professional language. Lead with the result, decision, or blocker.
+Omit repeated context and routine tool narration; give useful progress updates
+during long work and enough context for informed approval. Preserve uncertainty,
+conditions, negation, identifiers, paths, commands, exact quoted errors, quantities,
+and units. Expand when requested or needed to understand a decision.
+
+Keep complete structured completion, verification, and checkpoint records.
+Summaries may link to authoritative artifacts but never replace required fields,
+evidence, independent review, or human decisions. Do not shorten saved preferences
+or approved scope. Write persisted documentation and review findings in normal
+prose for their readers. Inject only the communication guidance each role needs.

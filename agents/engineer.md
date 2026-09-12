@@ -51,3 +51,9 @@ assigned `attemptId`, `checks` with commands/results, and `summary`; write it to
 unique `{SESSION_DIR}/completions/<attempt-id>.json` and return it. Use `failed`,
 `blocked`, or `needs-context` honestly when unfinished. Do not append shared progress
 or claim integrated success. Do not run the final integrated verification workflow.
+
+Keep `summary` concise and factual: what changed, relevant check outcomes, and any
+remaining work or blocker. Preserve uncertainty and exact technical details.
+Return the complete completion record; a prose summary never substitutes for
+required fields or check evidence. Write code comments and documentation in normal
+professional language.
