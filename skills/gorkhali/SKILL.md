@@ -22,6 +22,10 @@ Route natural language to the following public commands:
 - Stop with a structured handoff: `pause`.
 - Explicitly save a durable preference: `learn`.
 
+At new-work intake, use any user-provided ticket/task number or URL. Otherwise ask
+whether they have one, allowing an explicit no-ticket answer. Follow the tracking
+protocol linked by `start`; persist the answer and reuse it on resume.
+
 Use the smallest coherent plan. Every implementation plan needs explicit
 approval, including quick work; approval already given for this exact plan
 counts. Resume does not ask again unless scope or dependencies changed.

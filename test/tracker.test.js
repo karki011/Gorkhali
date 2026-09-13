@@ -26,41 +26,7 @@ function withTmpDataRoot(fn) {
 test('defaults to none when nothing is configured', () => {
   const r = resolveTracker({});
   assert.equal(r.provider, 'none');
-  assert.deepEqual(r.ops, { fetch: null, start: null, done: null, comment: null });
-});
-
-test('none provider is fully inert', () => {
-  const r = resolveTracker({ provider: 'none' });
-  assert.equal(r.provider, 'none');
-  assert.equal(r.ops.fetch, null);
-  assert.equal(r.ops.start, null);
-  assert.equal(r.ops.done, null);
-  assert.equal(r.ops.comment, null);
-});
-
-test('github provider returns gh command strings for every op', () => {
-  const r = resolveTracker({ provider: 'github' });
-  assert.equal(r.provider, 'github');
-  const keys = Object.keys(r.ops).sort();
-  assert.deepEqual(keys, ['comment', 'done', 'fetch', 'start']);
-  for (const key of keys) {
-    assert.equal(r.ops[key].kind, 'gh');
-    assert.equal(typeof r.ops[key].command, 'string');
-    assert.ok(r.ops[key].command.startsWith('gh '));
-  }
-});
-
-test('jira provider returns MCP tool descriptors, never a runnable command', () => {
-  const r = resolveTracker({ provider: 'jira' });
-  assert.equal(r.provider, 'jira');
-  const keys = Object.keys(r.ops).sort();
-  assert.deepEqual(keys, ['comment', 'done', 'fetch', 'start']);
-  for (const key of keys) {
-    assert.equal(r.ops[key].kind, 'mcp');
-    assert.equal(typeof r.ops[key].tool, 'string');
-    assert.ok(r.ops[key].tool.startsWith('mcp__atlassian__'));
-    assert.equal(r.ops[key].command, undefined);
-  }
+  assert.deepEqual(r, { provider: 'none' });
 });
 
 test('an unknown provider falls back to none rather than throwing', () => {

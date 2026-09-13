@@ -13,6 +13,11 @@ call CLI `branch` with an appropriate feature name before planning. Do not invok
 merely because the request describes a bug. Use it for unclear, repeated,
 flaky, timing-sensitive, or cross-cutting failures that need diagnosis.
 
+Follow `../references/tracking.md` at intake. Bind any supplied ticket number/URL
+and fetch its requirements; otherwise ask whether the user has a ticket/task number
+to track the work. Persist their ticket or explicit no-ticket decision before plan
+approval. Reuse an existing session's tracking decision.
+
 ## Plan and approve
 
 The orchestrator plans. Quick work gets one short task; normal work gets coherent
@@ -36,7 +41,9 @@ explicit approval counts; the quick route makes the plan smaller, not exempt.
 
 ## Execute
 
-Call `route` and show the wave composition and reasoning. Call `dispatch` before
+Call `route` and show the wave composition and reasoning. Before the first dispatch,
+complete tracking stage `start`: preserve or set assignment and move to In Progress
+using the provider's actual workflow. Call `dispatch` before
 spawning, persisting the approved base commit and task IDs. For each ready task,
 spawn `gorkhali:engineer` with the selected model and `isolation: "worktree"`
 on the Agent call itself. Include the task, declared ownership, base commit,

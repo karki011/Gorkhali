@@ -17,6 +17,7 @@ sets product direction; this document records the concrete MVP contracts.
 | `recovery.js` | Two Engineer repair attempts per session; conditional diagnosis |
 | `cli.js` | Bounded shell interface for the lead |
 | `pr-watch.js` | Read external PR state through GitHub CLI |
+| `tracking.js`, `tracker-github.js` | Ticket identity, durable stage receipts, read-back reconciliation, and GitHub effects |
 
 The role prompts own reasoning and tool dispatch. JavaScript owns deterministic
 policy and verifiable transitions. No background runtime dispatches models on its own.
@@ -97,6 +98,24 @@ Wrap owns external review with five actionable rounds maximum, persisted item ID
 feedback content versions, remote head/checks, inline bodies/authors/locations,
 and human decisions for ambiguous or unapproved scope. Posting comments requires
 communication authorization. Human merge is never automated.
+
+## Ticket lifecycle
+
+Ticket intake asks for a number/URL when none was supplied, and persists either a
+bound Jira/GitHub ticket or the explicit no-ticket decision. Approval requires the
+intake receipt; dispatch/repair require assignment and In Progress read-back. Ship
+queues PR linking and In Review; external review waits for that receipt. Close
+records a verified merge and keeps the session active until Done is confirmed.
+
+`tracking.json` lives beside the checkpoint outside the repository. Pending update
+IDs and PR-link markers survive interruption. Every external mutation is followed
+by a fresh provider read; an uncertain outcome is reconciled before any retry.
+Successful earlier stages are not replayed on resume or review repairs. GitHub uses
+fixed `gh` argument arrays and Projects Status options. Jira uses the available
+connector's real tool schemas and records normalized read-back through the CLI.
+The latter is tool evidence supplied by the orchestrator, not independent server
+attestation. See [tracking protocol](../references/tracking.md) for field mapping,
+permissions, custom workflows, explicit no-ticket work, and recovery.
 
 ## Live acceptance
 

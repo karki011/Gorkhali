@@ -18,7 +18,10 @@ checks, Auditor findings, and known limitations. Confirm ship authorization from
 the user's request or ask only if absent. Call `ship` with that authorization and
 title/body. It requires a clean feature branch and current passed evidence, reuses
 an existing open PR on resume, or pushes and creates a ready-for-review PR.
-Checkpoint the PR result. Never merge automatically.
+Checkpoint the PR result. Follow `../references/tracking.md` to complete the pending
+`review` stage: link this exact PR on the ticket and move it to In Review. Do this
+for a recovered PR too; reuse completed tracking receipts. Report tracking failures
+without claiming that the PR creation failed. Never merge automatically.
 
 ## Internal external-review loop
 

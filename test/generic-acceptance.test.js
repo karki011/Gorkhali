@@ -5,7 +5,7 @@
 // tests/, git-initialised, no issue tracker and no gh) and a temp
 // GORKHALI_DATA with no preferences files, then drives only lib/ modules:
 // checks discovers pytest
-// via the stack default, tracker resolves none with all-null ops,
+// via the stack default, tracker resolves none,
 // preferences comes back empty with layer none, session opens and writes a
 // plan.json that plan-schema validates, and tiers resolves engineer to the
 // balanced tier. No live network, no MCP.
@@ -87,7 +87,7 @@ test('generic repo with no tracker and no preferences reaches the plan gate', ()
 
     const tracker = resolveTracker({ preferencesText: prefs.text });
     assert.equal(tracker.provider, 'none');
-    assert.deepEqual(tracker.ops, { fetch: null, start: null, done: null, comment: null });
+    assert.deepEqual(tracker, { provider: 'none' });
 
     const repo = 'generic-acceptance-fixture';
     const task = 'FIX-1';
