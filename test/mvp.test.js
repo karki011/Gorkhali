@@ -32,6 +32,12 @@ function fixture(t) {
   };
   return { repo, data, root, worktree };
 }
+// Existing lifecycle fixtures explicitly choose not to track a ticket.
+function openUntracked(input, cwd) {
+  const dir = run('open', input, cwd);
+  run('tracking-configure', { task: input.task, decision: 'none', confirmed: true, reason: 'Fixture has no ticket' }, cwd);
+  return dir;
+}
 function plan(tasks = [{ id: 'a', files: ['a.txt'] }]) {
   return {
     briefing: { tackling: 'test', problem: 'test', how: 'test' },
@@ -163,7 +169,7 @@ test('bounded recovery diagnoses repeated failures and stops after two Engineer 
 
 test('CLI refuses unapproved or overlapping dispatch and unstable pause', (t) => {
   const { repo } = fixture(t);
-  run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo);
+  openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
   assert.throws(() => run('dispatch', {}, repo), /approval/);
   run('approve', { confirmed: true }, repo);
   assert.deepEqual(run('dispatch', {}, repo).wave, ['a']);
@@ -190,7 +196,7 @@ test('a new Inspector run invalidates prior Auditor approval even on unchanged c
 
 test('CLI recovery persists its budget across resume and cannot replay one failure', (t) => {
   const { repo } = fixture(t);
-  const dir = run('open', { task: 'task' }, repo);
+  const dir = openUntracked({ task: 'task' }, repo);
   run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const failed = () => recordInspector(dir, { verdict: 'fail', fingerprint: snapshot(repo).fingerprint, checks: [] }, repo);
   const one = failed();
@@ -209,7 +215,7 @@ test('CLI recovery persists its budget across resume and cannot replay one failu
 
 test('changing approved plan content requires a new approval', (t) => {
   const { repo } = fixture(t);
-  run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const updated = plan([{ id: 'b', files: ['b.txt'] }]);
   run('plan', { plan: updated }, repo);
   assert.throws(() => run('dispatch', {}, repo), /approval/);
@@ -231,9 +237,19 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   git(repo, ['remote', 'add', 'origin', remote]);
   git(repo, ['push', 'origin', 'HEAD:refs/heads/trunk']);
   git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
-  const dir = run('open', { task: 'task' }, repo);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const tracking = require('../lib/tracking');
+  run('tracking-configure', { reference: 'https://example.atlassian.net/browse/TEST-1' }, repo);
+  const receipt = (name) => {
+    const tracked = tracking.read(dir);
+    run('tracking-observe', { observation: { attemptId: tracked.pending.id, ticketUrl: tracked.ticket.url,
+      source: 'fixture Jira read', observedAt: new Date().toISOString(), title: 'Test',
+      status: { id: name, name }, assignees: ['owner'], links: tracked.pending.pr ? [{ url: tracked.pending.pr, marker: tracked.pending.marker }] : [] } }, repo);
+  };
+  run('tracking-begin', { stage: 'intake' }, repo); receipt('To Do');
   run('branch', { name: 'feature/mvp' }, repo);
   const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  run('tracking-begin', { stage: 'start' }, repo); receipt('In Progress');
   evidence(dir, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /completion evidence/);
   const dispatched = run('dispatch', {}, repo);
@@ -247,11 +263,25 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   const previousPath = process.env.PATH; process.env.PATH = bin + path.delimiter + previousPath;
   t.after(() => { process.env.PATH = previousPath; });
   assert.equal(run('ship', { authorized: true, title: 'test', body: 'test' }, repo), 'https://github.com/example/repo/pull/1');
+  assert.equal(tracking.read(dir).pending.stage, 'review');
+  assert.throws(() => run('review-state', { pr: 1 }, repo), /review update/);
   // Simulate interruption after the external PR exists but before checkpointing it.
   run('progress', { entry: { pr: null, phase: 'verified' } }, repo);
   assert.equal(run('ship', { authorized: true }, repo), 'https://github.com/example/repo/pull/1');
   assert.equal(fs.readFileSync(logFile, 'utf8').split('\n').filter((line) => line.startsWith('pr create ')).length, 1);
   assert.equal(git(repo, ['ls-remote', 'origin', 'refs/heads/feature/mvp']).split('\t')[0], snapshot(repo).head);
+  receipt('In Review');
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\nprintf \'{"state":"OPEN","url":"https://github.com/example/repo/pull/1"}\'\n', { mode: 0o755 });
+  assert.throws(() => run('close', { pr: 1 }, repo), /not merged/);
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\nprintf \'{"state":"MERGED","url":"https://github.com/example/repo/pull/1","mergeCommit":{"oid":"fixture"}}\'\n', { mode: 0o755 });
+  assert.equal(run('close', { pr: 1 }, repo).needsTracking, true);
+  assert.equal(tracking.read(dir).pending.stage, 'done');
+  run('tracking-failure', { reason: 'Tracker unavailable' }, repo);
+  assert.ok(session.activeSession(repo), 'merge alone does not orphan a failed ticket update');
+  assert.equal(run('resume', {}, repo).tracking.error, 'Tracker unavailable');
+  receipt('Done');
+  assert.equal(run('close', { pr: 1 }, repo).state, 'MERGED');
+  assert.equal(session.activeSession(repo), null);
 });
 
 test('interrupted integration reconstructs applied commits after Git resets them away', (t) => {
@@ -269,7 +299,7 @@ test('interrupted integration reconstructs applied commits after Git resets them
 
 test('task revisions and dependent revisions invalidate completed journal entries', (t) => {
   const { repo, worktree } = fixture(t);
-  run('open', { task: 'task' }, repo); const p = plan();
+  openUntracked({ task: 'task' }, repo); const p = plan();
   run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('revision-a'); change(a, 'a.txt', 'first');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
@@ -302,7 +332,7 @@ test('legacy glob ownership runs serially and accepts matching added, edited and
 
 test('partial wave integration keeps its remaining Engineer active', (t) => {
   const { repo, worktree } = fixture(t);
-  run('open', { task: 'task' }, repo);
+  openUntracked({ task: 'task' }, repo);
   const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
   run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('partial-a'); change(a, 'a.txt', 'first');
@@ -314,7 +344,7 @@ test('partial wave integration keeps its remaining Engineer active', (t) => {
 
 test('explicit resume reactivates the requested session and enforces divergence reconciliation', (t) => {
   const { repo } = fixture(t);
-  for (const task of ['first', 'second']) { run('open', { task }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo); }
+  for (const task of ['first', 'second']) { openUntracked({ task }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo); }
   run('resume', { task: 'first' }, repo);
   assert.equal(session.activeSession(repo).task, 'first');
   change(repo, 'a.txt', 'outside change');
@@ -327,7 +357,7 @@ test('explicit resume reactivates the requested session and enforces divergence 
 });
 
 test('final verification cannot pass before approved tasks integrate', (t) => {
-  const { repo } = fixture(t); const dir = run('open', { task: 'task' }, repo);
+  const { repo } = fixture(t); const dir = openUntracked({ task: 'task' }, repo);
   run('plan', { plan: plan() }, repo); evidence(dir, repo);
   assert.throws(() => run('verify', {}, repo), /approval/);
   run('approve', { confirmed: true }, repo); run('dispatch', {}, repo);
@@ -335,7 +365,7 @@ test('final verification cannot pass before approved tasks integrate', (t) => {
 });
 
 test('failed Engineer results increment once and escalate the second implementation failure', (t) => {
-  const { repo } = fixture(t); run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const { repo } = fixture(t); openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const first = run('dispatch', {}, repo).assignments[0];
   const record = { taskId: 'a', attemptId: first.attemptId, status: 'failed', summary: 'implementation failed' };
   const failure = run('result', { record }, repo);
@@ -349,7 +379,7 @@ test('failed Engineer results increment once and escalate the second implementat
 
 test('parallel peer integration preserves failed attempt recovery and blocks ordinary redispatch', (t) => {
   const { repo, worktree } = fixture(t);
-  run('open', { task: 'task' }, repo);
+  openUntracked({ task: 'task' }, repo);
   const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
   run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo);
@@ -362,7 +392,7 @@ test('parallel peer integration preserves failed attempt recovery and blocks ord
 });
 
 test('blocked Engineer cannot become a code repair by omitting infrastructure flag', (t) => {
-  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  const { repo } = fixture(t); openUntracked({ task: 'task' }, repo);
   run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const assignment = run('dispatch', {}, repo).assignments[0];
   const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'blocked', summary: 'missing tool' } }, repo);
@@ -371,7 +401,7 @@ test('blocked Engineer cannot become a code repair by omitting infrastructure fl
 });
 
 test('explicit human resolution unlocks revised and restored tasks without resetting counters', (t) => {
-  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  const { repo } = fixture(t); openUntracked({ task: 'task' }, repo);
   run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const assignment = run('dispatch', {}, repo).assignments[0];
   const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'needs-context', summary: 'clarify requirement' } }, repo);
@@ -387,7 +417,7 @@ test('explicit human resolution unlocks revised and restored tasks without reset
 });
 
 test('human can release a restored environment without revising the task', (t) => {
-  const { repo } = fixture(t); run('open', { task: 'task' }, repo);
+  const { repo } = fixture(t); openUntracked({ task: 'task' }, repo);
   run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   const assignment = run('dispatch', {}, repo).assignments[0];
   const failure = run('result', { record: { taskId: 'a', attemptId: assignment.attemptId, status: 'blocked', summary: 'tool unavailable' } }, repo);
@@ -398,7 +428,7 @@ test('human can release a restored environment without revising the task', (t) =
 
 test('active and saved session identity survives origin changes without leaking to another clone', (t) => {
   const { repo, root, worktree } = fixture(t);
-  const dir = run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  const dir = openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
   git(repo, ['remote', 'add', 'origin', 'https://example.invalid/one/repo.git']);
   assert.equal(run('resume', {}, repo).plan.tasks[0].id, 'a');
   git(repo, ['remote', 'set-url', 'origin', 'https://example.invalid/fork/repo.git']);
@@ -423,7 +453,7 @@ test('ship rejects the actual remote default branch before pushing and close rej
   const remote = path.join(root, 'remote.git'); git(repo, ['init', '--bare', '-q', remote]);
   git(repo, ['remote', 'add', 'origin', remote]); git(repo, ['branch', '-M', 'trunk']); git(repo, ['push', 'origin', 'trunk']); git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
   const originalRemote = git(remote, ['rev-parse', 'trunk']).trim();
-  const dir = run('open', { task: 'task' }, repo); const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dir = openUntracked({ task: 'task' }, repo); const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('default-guard'); change(a, 'a.txt', 'updated');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo); evidence(dir, repo); run('verify', {}, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /origin default branch/);
@@ -441,7 +471,7 @@ test('ship rejects the actual remote default branch before pushing and close rej
 });
 
 test('Inspector rejects the data root when the exact session directory was omitted', (t) => {
-  const { repo, data } = fixture(t); run('open', { task: 'task' }, repo); run('plan', { plan: plan() }, repo);
+  const { repo, data } = fixture(t); openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
   assert.throws(() => recordInspector(data, { verdict: 'fail', fingerprint: snapshot(repo).fingerprint, checks: [] }, repo), /exact session directory/);
   assert.equal(fs.existsSync(path.join(data, 'inspector.json')), false);
 });

@@ -44,7 +44,9 @@ Run these commands in Claude Code:
 /gorkhali:start "Add a CSV export to the reports page"
 ```
 
-Gorkhali inspects the repository and proposes a plan. Approve it, then let the
+Gorkhali uses a ticket number or URL from your request, or asks whether you have one.
+You can explicitly continue without a ticket. It inspects the repository and
+proposes a plan. Approve it, then let the
 orchestrator delegate the work and bring back the verification and review results.
 Shipping needs your authorization; merging stays with you.
 
@@ -105,8 +107,10 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
-Version **3.0.2** adds scoped code simplification to the Engineer's existing workflow,
-building on concise communication and evidence handoffs. Historical live
+Version **3.1.0** adds ticket intake and lifecycle tracking. Jira and GitHub issues
+can follow work from assignment and In Progress to PR-linked In Review and Done
+after merge. GitHub status transitions use an existing Project Status field; Jira
+uses your connected tools and available workflow transitions. Historical live
 acceptance receipts describe the version they tested; they are not a guarantee for
 every repository or a token-saving benchmark.
 

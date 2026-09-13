@@ -10,6 +10,12 @@ user-invocable: true
 Read `../references/lifecycle.md` and call CLI `resume`. A session needs a readable plan; when
 missing, list available sessions and request the intended task.
 
+Read the returned `tracking` state and follow `../references/tracking.md`. Reuse
+the saved ticket/no-ticket decision and successful stage receipts. Complete pending
+updates by reading the provider before retrying; never replay assignment, an earlier
+status, or a PR-link comment blindly. Report tracker errors and ask for missing
+workflow/access information. Legacy sessions without a decision ask the ticket question once.
+
 The result contains current and previous state. An unchanged fingerprint and
 unchanged approved plan continue automatically from `next`, without re-approval.
 Changed HEAD, index, worktree, branch, or untracked content invalidates verification.

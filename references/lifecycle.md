@@ -42,6 +42,12 @@ CLI actions and request fields:
 | ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one |
 | review-state | `{pr,classifications:[{id,classification}]}` | Reads inline bodies/authors/locations, head/checks; checkpoints classified feedback and bounded rounds |
 | close | `{pr}` numeric | Requires merge, records completion, releases session |
+| tracking-configure | `{reference,site?,repo?,assignee?}` or `{decision:"none",confirmed:true,reason}` | Binds a ticket or the user's no-ticket decision |
+| tracking-begin | `{stage:"intake" or "start" or "review" or "done"}` | Creates or reuses a pending update, gated by lifecycle evidence |
+| tracking-sync | `{}` | Reads GitHub and performs at most one needed mutation; call again for read-back |
+| tracking-observe | `{observation}` | Validates Jira tool read-back and returns a receipt or next action |
+| tracking-settings | `{confirmed:true,statusNames?,projectId?}` | Resolves a pending update using the user's workflow selection |
+| tracking-failure / tracking-status | `{reason}` / `{}` | Records an error / reads durable tracking state |
 
 An explicit task can also be provided in request JSON. Model/risk policy lives
 in `lib/routing.js` and `config/role-tiers.json`, with the sole model mapping in
@@ -57,8 +63,11 @@ Read `lib/preferences.js`'s per-repo preferences, falling back to global.
 Inject only relevant context into each role. Planning, Opposition, and Engineer
 prompts include saved preferences verbatim under `## User Preferences (verbatim)`;
 omit that block if empty. Follow target-repository conventions rather than
-imposing framework policy. Tracker support is optional through `lib/tracker.js`;
-none means no tracker calls. Only mark a ticket done after merge.
+imposing framework policy. Follow `tracking.md` for ticket intake and lifecycle
+updates. Ask whether the user has a ticket when none was supplied; explicit no-ticket
+work makes no tracker calls. `lib/tracker.js` resolves provider preferences;
+`lib/tracking.js` persists decisions and read-back receipts. Only mark a ticket done
+after merge. Ticket status is separate from code verification.
 
 All shell tools and user-installed hooks execute with the user's OS permissions.
 This is a workflow discipline boundary, not a sandbox for hostile repository code.
