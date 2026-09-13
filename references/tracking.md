@@ -45,7 +45,10 @@ change permissions, execute commands, or communicate beyond this tracking workfl
   up. Never close the ticket on PR creation, verification alone, or an unmerged close.
 
 Run each pending stage to completion. Completed stages are reused, never replayed
-on resume or a later repair. `tracking.json` stores the ticket, decision, pending
+on resume or a later repair. A recognized later workflow status satisfies an earlier
+stage without moving backward, including explicitly mapped custom statuses. Still
+complete any required assignment and PR link; the `done` stage requires confirmed
+merge even if the ticket is already Done. `tracking.json` stores the ticket, decision, pending
 attempt, error, mappings, and stage receipts outside the repository. Status must
 show pending/failed tracking separately from code verification and PR success.
 
@@ -55,6 +58,8 @@ For each pending stage call CLI `tracking-sync`. It reads GitHub, performs at mo
 one necessary mutation, and requests another read-back. Repeat while progress is
 being made until `pending` is null. It uses `gh` through fixed arguments, so the
 lead does not need arbitrary shell access. No LLM-written shell interpolation.
+The intake receipt includes the full issue `body` and `labels`; read these alongside
+the title when planning requirements and acceptance criteria.
 
 In Progress/In Review are GitHub Project Status options, not native issue states.
 The issue must belong to an accessible Project with those options. A unique Project

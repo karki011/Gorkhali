@@ -84,6 +84,46 @@ test('unknown or ambiguous statuses block until an explicit mapping is selected'
   assert.throws(() => tracking.observe(dir, { ...obs, transitions: [...obs.transitions, { id: 'duplicate', name: 'Building' }] }), /2 matching/);
 });
 
+test('authorized replacement removes co-assignees even when the requested owner is present', (t) => {
+  const { dir, issue, model, finish } = githubFixture(t);
+  tracking.configure(dir, { reference: issue.html_url, assignee: 'owner', reassign: true, confirmed: true });
+  issue.assignees = [{ login: 'owner' }, { login: 'other-owner' }];
+  finish('intake'); finish('start');
+  assert.deepEqual(issue.assignees, [{ login: 'owner' }]);
+  assert.deepEqual(model.writes.filter((write) => write.assignees), [{ assignees: ['owner'] }]);
+});
+
+test('a sole requested owner needs no replacement write', (t) => {
+  const { dir, issue, model, finish } = githubFixture(t);
+  tracking.configure(dir, { reference: issue.html_url, assignee: 'owner', reassign: true, confirmed: true });
+  issue.assignees = [{ login: 'owner' }];
+  finish('intake'); finish('start');
+  assert.equal(model.writes.filter((write) => write.assignees).length, 0);
+});
+
+test('later default and custom workflow statuses satisfy earlier stages without backward transitions', (t) => {
+  for (const statusNames of [{}, { start: 'Building', review: 'Checking', done: 'Delivered' }]) {
+    for (const [stage, later] of [['start', 'review'], ['start', 'done'], ['review', 'done']]) {
+      const dir = fixture(t);
+      tracking.configure(dir, { reference: 'https://example.atlassian.net/browse/ENG-42', statusNames });
+      intake(dir); tracking.begin(dir, 'start');
+      if (stage === 'review') {
+        tracking.observe(dir, observation(dir, { assignees: ['owner'], status: { id: 'start', name: statusNames.start || 'In Progress' } }));
+        tracking.begin(dir, 'review', { pr });
+      }
+      const obs = observation(dir, { assignees: ['owner'], status: { id: later, name: (statusNames[later] || tracking.STATUS_NAMES[later][0]).toUpperCase() },
+        transitions: [{ id: 'backward', name: statusNames[stage] || tracking.STATUS_NAMES[stage][0] }] });
+      if (stage === 'review') {
+        assert.equal(tracking.observe(dir, obs).action.kind, 'link', 'advanced status still requires the PR link');
+        obs.links = [{ url: pr, marker: tracking.read(dir).pending.marker }];
+      }
+      tracking.observe(dir, obs);
+      tracking.requireStage(dir, stage);
+      assert.equal(tracking.read(dir).stages.done, undefined, 'earlier-stage evidence cannot complete the merge stage');
+    }
+  }
+});
+
 test('closed tickets and writes not visible in read-back cannot trigger repeated mutations', (t) => {
   const dir = fixture(t); intake(dir); tracking.begin(dir, 'start');
   assert.throws(() => tracking.observe(dir, observation(dir, { closed: true })), /already closed/);
@@ -104,7 +144,7 @@ test('ticket mismatch, stale evidence, incomplete reads, and invalid transitions
 
 function githubFixture(t) {
   const dir = fixture(t, 'https://github.com/owner/repo/issues/42');
-  const issue = { html_url: 'https://github.com/owner/repo/issues/42', title: 'Work', node_id: 'I_42', state: 'open', assignees: [] };
+  const issue = { html_url: 'https://github.com/owner/repo/issues/42', title: 'Work', body: null, labels: [], node_id: 'I_42', state: 'open', assignees: [] };
   const model = { status: 'Todo', comments: [], writes: [], loseResponse: false };
   const call = (args, body) => {
     if (args[1] === 'user') return { login: 'owner' };
@@ -131,6 +171,35 @@ function githubFixture(t) {
   }
   return { dir, model, issue, call, finish };
 }
+
+test('GitHub intake persists the full issue requirements and labels for planning', (t) => {
+  const { dir, issue, model, finish } = githubFixture(t);
+  issue.body = '## Requirements\nPreserve existing owners.\n\n## Acceptance criteria\n' + 'Retain every requirement.\n'.repeat(1000);
+  issue.labels = [{ id: 1, name: 'security', description: 'Trust boundary change' }];
+  finish('intake');
+  const receipt = tracking.read(dir).stages.intake;
+  assert.equal(receipt.body, issue.body);
+  assert.deepEqual(receipt.labels, issue.labels);
+  assert.equal(model.writes.length, 0);
+  const empty = githubFixture(t); empty.finish('intake');
+  assert.equal(tracking.read(empty.dir).stages.intake.body, '');
+  assert.deepEqual(tracking.read(empty.dir).stages.intake.labels, []);
+});
+
+test('GitHub review preserves an externally advanced Done status and closes only at done', (t) => {
+  const { dir, issue, model, finish } = githubFixture(t);
+  finish('intake'); finish('start');
+  model.status = 'Done'; model.writes.length = 0;
+  finish('review');
+  assert.equal(model.status, 'Done');
+  assert.equal(model.comments.length, 1);
+  assert.equal(model.writes.length, 1, 'only the PR link is written');
+  assert.equal(issue.state, 'open');
+  assert.equal(tracking.read(dir).stages.done, undefined);
+  finish('done');
+  assert.equal(issue.state, 'closed');
+  assert.equal(model.writes.length, 2, 'done closes the native issue without changing Project status');
+});
 
 test('GitHub driver assigns, updates Projects, links PR once across a lost response, and closes after merge stage', (t) => {
   const { dir, model, issue, call, finish } = githubFixture(t);
