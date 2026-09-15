@@ -360,6 +360,20 @@ test('release never deletes a protected branch and integrate records the Enginee
   assert.equal(git(repo, ['rev-parse', `refs/heads/${protectedName}`]).trim(), journal[0].sourceHead, 'the protected branch survives release');
 });
 
+test('release treats an already deleted Engineer branch as gone and still frees the worktree', (t) => {
+  const { repo, data, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const a = worktree('engineer-a');
+  const p = plan(); change(a, 'a.txt', 'from a');
+  integrate(p, [completion(p.tasks[0], base, a)], data, repo);
+  git(a, ['checkout', '-q', '--detach']);
+  git(repo, ['branch', '-D', 'engineer-a']);
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result.kept, []);
+  assert.deepEqual(result.released.map((item) => item.branch), [null]);
+  assert.ok(!fs.existsSync(a));
+});
+
 test('interrupted integration reconstructs applied commits after Git resets them away', (t) => {
   const { repo, data, worktree } = fixture(t);
   const p = plan(); const base = snapshot(repo).head; const a = worktree('reset-recovery');
