@@ -18,7 +18,15 @@ checks, Auditor findings, and known limitations. Confirm ship authorization from
 the user's request or ask only if absent. Call `ship` with that authorization and
 title/body. It requires a clean feature branch and current passed evidence, reuses
 an existing open PR on resume, or pushes and creates a ready-for-review PR.
-Checkpoint the PR result. Follow `../references/tracking.md` to complete the pending
+Checkpoint the PR result. `ship` also removes this session's Engineer worktrees whose
+commits are in the shipped branch and deletes their agent branches. It returns `kept`
+worktrees (integrated but dirty or ahead of their completion, with the files or commits)
+and `unintegrated` attempts (failed, blocked, or superseded, with their dirty files).
+Uncommitted content there bypassed ownership, completion, Inspector, and Auditor, so
+never merge or force-remove it. Raise each entry as one user decision: discard it, or
+amend the plan so an Engineer commits it through the normal path before re-verification.
+When the dirt is generated output the repository does not ignore, propose the ignore
+rule instead of a discard. Follow `../references/tracking.md` to complete the pending
 `review` stage: link this exact PR on the ticket and move it to In Review. Do this
 for a recovered PR too; reuse completed tracking receipts. Report tracking failures
 without claiming that the PR creation failed. Never merge automatically.

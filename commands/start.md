@@ -60,7 +60,8 @@ remain active until integrated. Use CLI `integrate` in plan order after
 the wave returns. Integration checks every source commit for ownership, current task/dependency
 revisions, and dependency ancestry. Partial integration keeps remaining peers active.
 Never mark a returned task integrated until Git and the journal prove it.
-Ownership violations require scope reconciliation. Conflicts stop integration;
+Ownership violations require scope reconciliation and, when the plan changes, a
+full re-presentation of the amended plan before the new approval. Conflicts stop integration;
 delegate resolution to a scoped Engineer in the integration worktree, preserve
 the cherry-pick source marker, then retry integration. Never reset away work.
 

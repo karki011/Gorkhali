@@ -35,11 +35,11 @@ CLI actions and request fields:
 | snapshot | `{}` | HEAD, branch, worktree, dirty files, content fingerprint |
 | diff | `{baseHead}` full commit ID | Integrated diff for the approved scope |
 | progress | `{entry:{phase,next,...}}` | Appends progress and checkpoints |
-| pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state |
+| pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state; status previews `worktrees` this session could release |
 | human-confirmation | `{confirmed:true}` after explicit user pass | Binds confirmation to content |
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
 | verify | `{}` | Requires current Inspector, Auditor, and applicable human evidence |
-| ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one |
+| ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one, then releases this session's integrated Engineer worktrees; returns `{url,worktrees:{released,kept,unintegrated}}` |
 | review-state | `{pr,classifications:[{id,classification}]}` | Reads inline bodies/authors/locations, head/checks; checkpoints classified feedback and bounded rounds |
 | close | `{pr}` numeric | Requires merge, records completion, releases session |
 | tracking-configure | `{reference,site?,repo?,assignee?}` or `{decision:"none",confirmed:true,reason}` | Binds a ticket or the user's no-ticket decision |
@@ -83,6 +83,9 @@ and units. Expand when requested or needed to understand a decision.
 
 Keep complete structured completion, verification, and checkpoint records.
 Summaries may link to authoritative artifacts but never replace required fields,
-evidence, independent review, or human decisions. Do not shorten saved preferences
+evidence, independent review, or human decisions. Any change to an approved plan,
+including widened task ownership, is presented the same way as the first approval:
+the full plan in plain English with the changed parts marked, never a request file
+or JSON. A yes or no question alone is not an approval request. Do not shorten saved preferences
 or approved scope. Write persisted documentation and review findings in normal
 prose for their readers. Inject only the communication guidance each role needs.
