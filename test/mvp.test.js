@@ -269,11 +269,18 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   assert.match(run('status', {}, repo).worktrees.error, /ENOTDIR/);
   fs.rmSync(path.join(dir, 'engineer-results'));
   const engineerPath = fs.realpathSync(a); const engineerHead = snapshot(a).head;
+  // The remote default is `trunk` and no local refs/remotes/origin/HEAD exists. A hook that put
+  // the Engineer on a branch of that name must not cost the default branch at ship time.
+  const journal = JSON.parse(fs.readFileSync(path.join(dir, 'integration.json'), 'utf8'));
+  journal[0].sourceBranch = 'trunk';
+  fs.writeFileSync(path.join(dir, 'integration.json'), JSON.stringify(journal));
+  git(a, ['checkout', '-q', '-b', 'trunk']);
+  assert.throws(() => git(repo, ['symbolic-ref', '-q', 'refs/remotes/origin/HEAD']), 'fixture has no local default-branch ref');
   const shipped = run('ship', { authorized: true, title: 'test', body: 'test' }, repo);
   assert.equal(shipped.url, 'https://github.com/example/repo/pull/1');
-  assert.deepEqual(shipped.worktrees, { released: [{ worktree: engineerPath, branch: 'engineer-ship', taskId: 'a', sourceHead: engineerHead, ignored: [] }], kept: [], unintegrated: [] });
+  assert.deepEqual(shipped.worktrees, { released: [{ worktree: engineerPath, branch: null, taskId: 'a', sourceHead: engineerHead, ignored: [] }], kept: [], unintegrated: [] });
   assert.ok(!fs.existsSync(a), 'ship removes the integrated Engineer worktree');
-  assert.throws(() => git(repo, ['rev-parse', '--verify', '-q', 'refs/heads/engineer-ship']), 'ship deletes the released agent branch');
+  assert.equal(git(repo, ['rev-parse', 'refs/heads/trunk']).trim(), engineerHead, 'ship never deletes the remote default branch');
   assert.equal(tracking.read(dir).pending.stage, 'review');
   assert.throws(() => run('review-state', { pr: 1 }, repo), /review update/);
   // Simulate interruption after the external PR exists but before checkpointing it.
