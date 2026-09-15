@@ -264,10 +264,14 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   t.after(() => { process.env.PATH = previousPath; });
   assert.deepEqual(run('status', {}, repo).worktrees.released.map((item) => item.branch), ['engineer-ship'], 'status previews releasable Engineer worktrees');
   assert.ok(fs.existsSync(a), 'status never removes a worktree');
+  // A broken results store degrades the report; it never fails status or ship.
+  fs.writeFileSync(path.join(dir, 'engineer-results'), 'not a directory');
+  assert.match(run('status', {}, repo).worktrees.error, /ENOTDIR/);
+  fs.rmSync(path.join(dir, 'engineer-results'));
   const engineerPath = fs.realpathSync(a); const engineerHead = snapshot(a).head;
   const shipped = run('ship', { authorized: true, title: 'test', body: 'test' }, repo);
   assert.equal(shipped.url, 'https://github.com/example/repo/pull/1');
-  assert.deepEqual(shipped.worktrees, { released: [{ worktree: engineerPath, branch: 'engineer-ship', taskId: 'a', sourceHead: engineerHead }], kept: [], unintegrated: [] });
+  assert.deepEqual(shipped.worktrees, { released: [{ worktree: engineerPath, branch: 'engineer-ship', taskId: 'a', sourceHead: engineerHead, ignored: [] }], kept: [], unintegrated: [] });
   assert.ok(!fs.existsSync(a), 'ship removes the integrated Engineer worktree');
   assert.throws(() => git(repo, ['rev-parse', '--verify', '-q', 'refs/heads/engineer-ship']), 'ship deletes the released agent branch');
   assert.equal(tracking.read(dir).pending.stage, 'review');
@@ -295,37 +299,65 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
 
 test('ship-time cleanup releases only clean Engineer worktrees whose commits are integrated', (t) => {
   const { repo, data, worktree } = fixture(t);
+  change(repo, '.gitignore', 'local.db\n');
   const base = snapshot(repo).head;
   const a = worktree('engineer-a'); const b = worktree('engineer-b'); const c = worktree('engineer-c'); const d = worktree('engineer-d'); const other = worktree('another-session');
   const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }, { id: 'c', files: ['c.txt'], parallelSafe: true }]);
   change(a, 'a.txt', 'from a'); change(b, 'b.txt', 'from b'); change(c, 'c.txt', 'from c');
+  const aHead = snapshot(a).head;
   integrate(p, [completion(p.tasks[0], base, a), completion(p.tasks[1], base, b), completion(p.tasks[2], base, c)], data, repo);
   change(b, 'b.txt', 'follow-up that nobody integrated');
   fs.writeFileSync(path.join(c, 'c.txt'), 'uncommitted edit');
-  // A blocked attempt never reaches the journal; only its persisted result knows the worktree.
+  // Ignored content is disposable by the repository's own rules; a branch switched after
+  // completion is not proven agent-owned and must survive.
+  fs.writeFileSync(path.join(a, 'local.db'), 'scratch');
+  git(a, ['checkout', '-q', '-b', 'keep-me']);
+  // Blocked attempts never reach the journal; only their persisted results know the worktree.
   fs.writeFileSync(path.join(d, 'd.txt'), 'half-finished work');
+  const e = worktree('engineer-e', aHead);
   fs.mkdirSync(path.join(data, 'engineer-results'));
-  fs.writeFileSync(path.join(data, 'engineer-results', 'blocked.json'), JSON.stringify({ taskId: 'd', attemptId: 'blocked', status: 'blocked', worktree: d }));
+  fs.writeFileSync(path.join(data, 'engineer-results', 'blocked-d.json'), JSON.stringify({ taskId: 'd', attemptId: 'blocked-d', status: 'blocked', worktree: d }));
+  fs.writeFileSync(path.join(data, 'engineer-results', 'blocked-e.json'), JSON.stringify({ taskId: 'e', attemptId: 'blocked-e', status: 'blocked', worktree: e, head: aHead }));
   const preview = releaseWorktrees(data, repo, false);
-  assert.deepEqual(preview.released.map((item) => item.branch), ['engineer-a']);
+  assert.deepEqual(preview.released.map((item) => [item.branch, item.ignored]), [['engineer-a', ['local.db']]]);
   assert.deepEqual(preview.kept.map((item) => [item.taskId, item.reason]), [['b', 'commits beyond the integrated completion'], ['c', 'uncommitted changes']]);
   assert.equal(preview.kept[0].commits.length, 1, 'kept entries name the commits beyond the integrated completion');
   assert.deepEqual(preview.kept[1].dirtyFiles, ['c.txt'], 'kept entries name the dirty files');
-  assert.deepEqual(preview.unintegrated.map((item) => [item.taskId, item.status, item.dirtyFiles]), [['d', 'blocked', ['d.txt']]]);
+  assert.deepEqual(preview.unintegrated.map((item) => [item.taskId, item.status, item.dirtyFiles]), [['d', 'blocked', ['d.txt']], ['e', 'blocked', []]],
+    'an attempt sharing another task\'s integrated commit is still unintegrated for its own task');
   assert.ok(fs.existsSync(a), 'preview removes nothing');
   const result = releaseWorktrees(data, repo);
   assert.deepEqual(result.released.map((item) => item.branch), ['engineer-a']);
   assert.ok(!fs.existsSync(a));
-  assert.throws(() => git(repo, ['rev-parse', '--verify', '-q', 'refs/heads/engineer-a']));
-  assert.ok(fs.existsSync(b) && fs.existsSync(c) && fs.existsSync(d) && fs.existsSync(other), 'unintegrated work and other sessions\' worktrees survive');
+  assert.throws(() => git(repo, ['rev-parse', '--verify', '-q', 'refs/heads/engineer-a']), 'the agent branch at its completion is deleted');
+  assert.equal(git(repo, ['rev-parse', 'refs/heads/keep-me']).trim(), aHead, 'a branch that is not proven agent-owned survives');
+  assert.ok(fs.existsSync(b) && fs.existsSync(c) && fs.existsSync(d) && fs.existsSync(e) && fs.existsSync(other), 'unintegrated work and other sessions\' worktrees survive');
   assert.match(git(repo, ['worktree', 'list']), /another-session/);
   assert.deepEqual(releaseWorktrees(data, repo).released, [], 'release is idempotent');
   // A worktree deleted by hand leaves only its Git registration behind; release prunes it.
   fs.rmSync(b, { recursive: true, force: true });
-  change(repo, 'b.txt', 'later integration of the follow-up is not needed for this test');
   assert.match(git(repo, ['worktree', 'list']), /engineer-b/);
   releaseWorktrees(data, repo);
   assert.doesNotMatch(git(repo, ['worktree', 'list']), /engineer-b/);
+});
+
+test('release never deletes a protected branch and integrate records the Engineer branch', (t) => {
+  const { repo, data, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const a = worktree('engineer-a');
+  const p = plan();
+  change(a, 'a.txt', 'from a');
+  const journal = integrate(p, [completion(p.tasks[0], base, a)], data, repo);
+  assert.equal(journal[0].sourceBranch, 'engineer-a');
+  // Simulate a hook that put the Engineer on a branch named like a default branch.
+  const protectedName = snapshot(repo).branch === 'main' ? 'master' : 'main';
+  journal[0].sourceBranch = protectedName;
+  git(a, ['checkout', '-q', '-b', protectedName]);
+  fs.writeFileSync(path.join(data, 'integration.json'), JSON.stringify(journal));
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result.released.map((item) => item.branch), [null]);
+  assert.ok(!fs.existsSync(a));
+  assert.equal(git(repo, ['rev-parse', `refs/heads/${protectedName}`]).trim(), journal[0].sourceHead, 'the protected branch survives release');
 });
 
 test('interrupted integration reconstructs applied commits after Git resets them away', (t) => {

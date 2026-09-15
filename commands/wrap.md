@@ -19,7 +19,9 @@ the user's request or ask only if absent. Call `ship` with that authorization an
 title/body. It requires a clean feature branch and current passed evidence, reuses
 an existing open PR on resume, or pushes and creates a ready-for-review PR.
 Checkpoint the PR result. `ship` also removes this session's Engineer worktrees whose
-commits are in the shipped branch and deletes their agent branches. It returns `kept`
+commits are in the shipped branch and deletes their agent branches. Ignored content goes
+with a released worktree, as the repository's own ignore rules make it disposable, and is
+listed under `ignored`. A `worktrees.error` means the report failed, not the ship. It returns `kept`
 worktrees (integrated but dirty or ahead of their completion, with the files or commits)
 and `unintegrated` attempts (failed, blocked, or superseded, with their dirty files).
 Uncommitted content there bypassed ownership, completion, Inspector, and Auditor, so
