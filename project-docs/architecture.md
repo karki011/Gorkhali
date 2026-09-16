@@ -102,6 +102,12 @@ controlled by `config/routing.json`'s `review.postShipAuditor` key (`optional` o
 keeps that decision unit-testable. A user-visible last Auditor still requires a
 current human confirmation bound to the Inspector's fingerprint before the waiver applies.
 
+Verification is a single pass at wrap. The lead collects the human visual pass
+first, then one Inspector and one Auditor on the final integrated commit. Every
+plan amendment after a passed verification is reported by the `plan` action as a
+`notice`, since it forces the whole pass to repeat; the lead batches amendments
+instead of verifying per wave.
+
 ## Approval and boundaries
 
 Shipping resolves the actual origin default branch and refuses to push it directly.

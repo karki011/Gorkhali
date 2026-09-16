@@ -11,13 +11,23 @@ Read `../references/lifecycle.md`. All Engineer work, version updates, and commi
 integrated before final verification. A commit after verification makes evidence
 stale, even if content is otherwise identical. The lead never implements a repair.
 
+Verification runs once, on the final integrated commit, normally entered from
+`wrap`. Running it after every wave repeats the Inspector and Auditor for each
+later amendment without adding assurance. Only a risky wave that later tasks
+depend on justifies an earlier Inspector, and never an earlier Auditor.
+
 Every reviewer receives the exact absolute session directory containing plan.json,
 integration worktree, and plugin library paths. GORKHALI_DATA is not the session directory.
 
-1. Spawn one economy Inspector on the integrated worktree. It discovers checks,
+1. For `userVisible:true`, present a concrete checklist with expected results
+   before any agent runs. Wait for an explicit human pass; silence, screenshots
+   alone, and agent opinion are not confirmation. A change request here is a plan
+   amendment, not a verification failure, and costs no Inspector or Auditor run.
+   Only after the pass call `human-confirmation`.
+2. Spawn one economy Inspector on the integrated worktree. It discovers checks,
    captures fingerprints before/after, and calls `recordInspector` in
    `lib/verification.js`. Record its result through CLI `progress`.
-2. Only after `requireInspector` accepts the current evidence, spawn one Auditor
+3. Only after `requireInspector` accepts the current evidence, spawn one Auditor
    in an independent context. Use CLI `route`'s Auditor model, which combines integrated risk signals
    and current failure counters. Auditor calls `recordAuditor` with the exact
    Inspector ID and fingerprint. Record that result through `progress`. Once a PR
@@ -25,9 +35,6 @@ integration worktree, and plugin library paths. GORKHALI_DATA is not the session
    routing puts it at deep tier or the plan changed since ship; otherwise the
    Inspector alone satisfies `verify` under `config/routing.json`'s
    `review.postShipAuditor` policy.
-3. For `userVisible:true`, present a concrete checklist with expected results.
-   Wait for an explicit human pass; silence, screenshots alone, and agent opinion
-   are not confirmation. Only then call `human-confirmation`.
 4. Call CLI `verify`. Only its success means the session is verified.
 
 ## Internal recovery
@@ -54,5 +61,6 @@ consume another Engineer attempt. Budget exhaustion stops with the remaining
 findings and a human decision. No unbounded retry or automatic budget reset.
 
 After any repair, integrate committed changes and rerun the integrated Inspector
-and Auditor. Previous passing evidence is stale. Update the plan and obtain
-approval only if the repair materially changes the approved scope/dependencies.
+and Auditor. Previous passing evidence is stale, including the human confirmation;
+re-present only the checklist items the repair could have changed. Update the plan
+and obtain approval only if the repair materially changes the approved scope/dependencies.

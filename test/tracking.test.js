@@ -75,6 +75,19 @@ test('existing assignees are preserved and explicit reassignment needs authoriza
   assert.deepEqual(tracking.observe(other, observation(other, { assignees: ['existing-owner'] })).action, { kind: 'assign', assignee: 'new-owner', replace: true });
 });
 
+test('Reviewing satisfies the review stage without a custom status mapping', (t) => {
+  const dir = fixture(t); intake(dir);
+  tracking.begin(dir, 'start');
+  tracking.observe(dir, observation(dir, { assignees: ['me-id'], status: { id: 'progress', name: 'In Progress' } }));
+  tracking.begin(dir, 'review', { pr });
+  const linked = tracking.observe(dir, observation(dir, { assignees: ['me-id'] }));
+  const links = [{ url: pr, marker: linked.pending.marker }];
+  const transitions = [{ id: 'transition-1', name: 'In Progress' }, { id: 'transition-9', name: 'Reviewing' }, { id: 'transition-3', name: 'Done' }];
+  assert.equal(tracking.observe(dir, observation(dir, { links, transitions })).action.id, 'transition-9');
+  tracking.observe(dir, observation(dir, { links, transitions, status: { id: 'reviewing', name: 'Reviewing' } }));
+  assert.doesNotThrow(() => tracking.requireStage(dir, 'review'));
+});
+
 test('unknown or ambiguous statuses block until an explicit mapping is selected', (t) => {
   const dir = fixture(t); intake(dir); tracking.begin(dir, 'start');
   const obs = observation(dir, { assignees: ['owner'], transitions: [{ id: 'custom', name: 'Building' }] });

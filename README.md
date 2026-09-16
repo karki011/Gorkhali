@@ -61,8 +61,8 @@ hooks and Agent worktree isolation. Opening GitHub PRs also needs authenticated
 | :--- | :--- | :--- |
 | **01 · Plan** | The orchestrator turns your request into scoped tasks and acceptance criteria. | Approve the plan before implementation. |
 | **02 · Build** | Engineers implement in isolated worktrees, or directly on the integration branch for a single low-risk task. Eligible independent tasks can run together. | Scope changes come back for a decision. |
-| **03 · Check** | Inspector runs discovered repository checks on the integrated result. | See what passed, failed, or could not be observed. |
-| **04 · Review** | Auditor independently examines correctness, requirements, security, and regressions. | Confirm applicable user-visible behavior with a human checklist. |
+| **03 · Check** | After you confirm user-visible behavior with a human checklist, Inspector runs discovered repository checks once on the final integrated result. | Shape the result first; design changes cost no agent run. |
+| **04 · Review** | Auditor independently examines correctness, requirements, security, and regressions on that same commit. | Read the findings before shipping. |
 | **05 · Ship** | Gorkhali opens the PR and tracks external review feedback. | Authorize shipping. Merge when you're ready. |
 
 The default execution trio is **Engineer, Inspector, Auditor**. Opposition joins
@@ -108,7 +108,11 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
-Version **3.3.0** adds branch-mode isolation: a single low-risk task in the last
+Version **3.3.1** makes verification a single pass at wrap: human visual review
+comes first and each design change is a plan amendment, then one Inspector and one
+Auditor run on the final integrated commit. The `plan` action reports when an
+amendment discards passed evidence, and Jira's `Reviewing` status maps to the
+review stage by default. Version **3.3.0** adds branch-mode isolation: a single low-risk task in the last
 pending wave, with no other active Engineers, runs directly on the integration
 branch instead of its own worktree. The active-session pointer is now keyed per
 checkout, so concurrent leads on one machine no longer see each other's session.

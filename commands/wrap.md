@@ -7,11 +7,13 @@ user-invocable: true
 
 # Wrap
 
-Read `../references/lifecycle.md`. Require one integrated Inspector record and its matching Auditor
-record via CLI `verify`; no extra standalone review artifact exists. Version bumps
-and commits happen through Engineer before this verification, never afterward.
-Bump manifests consistently: major for removed public contracts, minor for compatible
-features, patch for fixes. Re-verify if any change is still needed.
+Read `../references/lifecycle.md`. Wrap owns the single verification pass. Call CLI
+`verify` first; when it reports missing or stale evidence, run the `verify`
+procedure now, once, on the final integrated commit, then continue. No extra
+standalone review artifact exists. Version bumps and commits happen through
+Engineer before this verification, never afterward. Bump manifests consistently:
+major for removed public contracts, minor for compatible features, patch for
+fixes. Re-verify if any change is still needed.
 
 Write a concise PR title/body grounded in the approved requirement, actual behavior,
 checks, Auditor findings, and known limitations. Confirm ship authorization from
