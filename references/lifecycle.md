@@ -28,14 +28,14 @@ CLI actions and request fields:
 | approve | `{confirmed:true}` after explicit user approval | Binds approval to this plan |
 | route | `{}` | Waves, task assignments, Auditor model, and conditional Opposition |
 | dispatch | `{}` | Checkpoints the next wave, base, task hashes, and unique attempt assignments, each carrying its per-task `isolation` (worktree or branch) |
-| result | `{record}` with taskId, attemptId, status, summary | Records each Engineer outcome once; failures enter bounded recovery. A non-done branch-mode result with leftover commits or a dirty integration tree requires reconcile before recover |
+| result | `{record}` with taskId, attemptId, status, summary | Records each Engineer outcome once; failures enter bounded recovery. A non-done branch-mode result with leftover commits or dirty files requires reconcile before recover; the reconcile reason separately reports ownership for the commits and for the dirty files, since reconcile does not itself discard or commit them, the lead raises one decision to the user (discard or commit under the task's files) before recover, and `dispatch`/`recover` still reject a dirty integration tree in both modes |
 | resolve-failures | `{confirmed:true,failureIds,reason}` after explicit human decision | Retires named blockers after clarification, environment restoration, or authorized retry; preserves all counters |
 | reconcile | `{scope:"unchanged" or "changed",reason}` | Records Git/scope evidence; changed scope requires approval |
 | integrate | `{records:[...]}` | Checks ownership, integrates worktree-mode commits by cherry-pick or verifies branch-mode commits already on the integration branch, rejects a record whose isolation differs from its assignment, checkpoints |
 | snapshot | `{}` | HEAD, branch, worktree, dirty files, content fingerprint |
 | diff | `{baseHead}` full commit ID | Integrated diff for the approved scope |
 | progress | `{entry:{phase,next,...}}` | Appends progress and checkpoints |
-| pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state; status previews `worktrees` this session could release. An active branch-mode Engineer's own commits classify as `branchWork` (next `result`), never as divergence |
+| pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state; status previews `worktrees` this session could release. An active branch-mode Engineer's own commits classify as `branchWork` (next `result`), never as divergence, only while HEAD descends from its base on the same dispatched branch and worktree; a branch or worktree switch is divergence even at the same commit |
 | human-confirmation | `{confirmed:true}` after explicit user pass | Binds confirmation to content |
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
 | verify | `{}` | Requires current Inspector, Auditor, and applicable human evidence |

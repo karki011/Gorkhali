@@ -108,10 +108,17 @@ human. Exhaustion stops. Every repair requires fresh integrated verification.
 An explicit `resolve-failures` transition records the human decision after clarification
 or environment restoration; it retires named blockers without resetting counters.
 A branch-mode Engineer's own commits on top of its dispatched base are classified as
-in-progress work on resume/status, not divergence; but a non-done branch-mode result
-that leaves commits or a dirty tree on the integration branch forces a scope
-reconciliation, naming the leftover commits and their ownership status, before recover
-or integrate can touch that branch.
+in-progress work on resume/status, not divergence, but only while the checkout is
+still the dispatched branch and worktree; a branch or worktree switch is divergence
+even at the same commit. A non-done branch-mode result that leaves commits or dirty
+files on the integration branch forces a scope reconciliation, with the reason
+separately naming the leftover commits and their ownership status and the leftover
+dirty files and their ownership status, before recover or integrate can touch that
+branch. Reconcile only records the scope decision; it never discards, commits, merges,
+or force-removes those dirty files. When dirty files remain after reconciling, the
+lead raises one decision to the user: discard the listed files or commit them under
+the task's declared files themselves, and only then call recover. Dispatch and
+recover keep rejecting a dirty integration tree in both isolation modes.
 Wrap owns external review with five actionable rounds maximum, persisted item IDs,
 feedback content versions, remote head/checks, inline bodies/authors/locations,
 and human decisions for ambiguous or unapproved scope. Posting comments requires

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { git, snapshot } = require('../lib/git-state');
 const session = require('../lib/session');
 const { run } = require('../lib/cli');
-const { completion, integrate, prepareWorktree, releaseWorktrees, completedRecords, taskHash } = require('../lib/execution');
+const { completion, integrate, prepareWorktree, releaseWorktrees, completedRecords, taskHash, dirtyOutsideOwnership } = require('../lib/execution');
 const { recordInspector, requireInspector, recordAuditor, requireVerified } = require('../lib/verification');
 const { recoveryDecision } = require('../lib/recovery');
 
@@ -750,6 +750,27 @@ test('resume and status classify an active branch-mode Engineer\'s own commits a
   assert.equal(resumed.checkpoint.reconciliationRequired, false);
 });
 
+test('resume and status require reconciliation when the checkout switches to another branch at the same commit', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  // Same commit as the dispatched base, but no longer the dispatched branch: not the
+  // Engineer's own in-progress work even though HEAD still descends from the base.
+  git(repo, ['switch', '-c', 'other-branch']);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+});
+
 test('resume and status fall back to divergence when HEAD no longer descends from the branch-mode base', (t) => {
   const { repo } = fixture(t);
   openUntracked({ task: 'task' }, repo);
@@ -828,6 +849,53 @@ test('a failed branch-mode result with leftover commits inside ownership reconci
   assert.match(status.checkpoint.reconciliationReason, /all within declared ownership/);
   assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /reconciliation/);
   run('reconcile', { scope: 'unchanged', reason: status.checkpoint.reconciliationReason }, repo);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
+});
+
+test('dirtyOutsideOwnership reports tracked and untracked dirty files outside the task\'s files', (t) => {
+  const { repo } = fixture(t);
+  const task = { id: 'a', files: ['a.txt'] };
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'dirty in-ownership edit');
+  fs.writeFileSync(path.join(repo, 'b.txt'), 'dirty tracked edit outside ownership');
+  fs.writeFileSync(path.join(repo, 'c.txt'), 'untracked file outside ownership');
+  assert.deepEqual(dirtyOutsideOwnership(task, repo), ['b.txt', 'c.txt']);
+});
+
+test('a failed branch-mode result with dirty files outside ownership and no commits reports only the dirty clause', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  fs.writeFileSync(path.join(repo, 'b.txt'), 'dirty, never committed');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(failure.attemptId));
+  assert.match(status.checkpoint.reconciliationReason, /dirty files outside declared ownership: b\.txt/);
+  assert.doesNotMatch(status.checkpoint.reconciliationReason, /committed files/);
+  run('reconcile', { scope: 'changed', reason: status.checkpoint.reconciliationReason }, repo);
+});
+
+test('a failed branch-mode result with dirty files inside ownership and no commits reports the dirty clause as clean', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'dirty, never committed');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, /dirty files all within declared ownership/);
+  assert.doesNotMatch(status.checkpoint.reconciliationReason, /committed files/);
+  run('reconcile', { scope: 'unchanged', reason: status.checkpoint.reconciliationReason }, repo);
+  // Reconcile only records the scope decision; the human must still discard or commit the
+  // dirty file themselves, so recover keeps rejecting a dirty integration tree in either mode.
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /dirty/);
+  git(repo, ['checkout', '--', 'a.txt']);
   assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
 });
 
