@@ -11,9 +11,36 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const paths = require('../lib/paths');
 
 const HOOK = path.join(__dirname, '..', 'hooks', 'never-edits.js');
 const REPO = process.cwd();
+
+// Writes the sentinel the hook reads, through the same keyed path.js helper
+// the CLI uses, rather than the legacy fixed filename.
+function writeSentinel(dataDir, record = {}) {
+  const previous = process.env.GORKHALI_DATA;
+  process.env.GORKHALI_DATA = dataDir;
+  try {
+    const file = paths.sentinelPath(REPO);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(record));
+  } finally {
+    if (previous === undefined) delete process.env.GORKHALI_DATA; else process.env.GORKHALI_DATA = previous;
+  }
+}
+
+function writeLegacySentinel(dataDir, record) {
+  const previous = process.env.GORKHALI_DATA;
+  process.env.GORKHALI_DATA = dataDir;
+  try {
+    const file = paths.legacySentinelPath(REPO);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(record));
+  } finally {
+    if (previous === undefined) delete process.env.GORKHALI_DATA; else process.env.GORKHALI_DATA = previous;
+  }
+}
 
 function run(mode, input, dataDir) {
   const args = mode ? [HOOK, mode] : [HOOK];
@@ -60,14 +87,14 @@ test('allows any edit when no gorkhali session is active', () => {
 
 test('denies an Edit from the orchestrating session', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
   const res = run(undefined, editPayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
   assert.equal(res.code, 2);
 });
 
 test('allows an Edit while a subagent marker is live', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
 
   const startRes = run('start', {
     agent_id: 'a1',
@@ -86,7 +113,7 @@ test('allows an Edit while a subagent marker is live', () => {
 
 test('denies once the subagent marker is cleared by stop mode', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
 
   run('start', { agent_id: 'a1', agent_type: 'engineer', session_id: 's1', cwd: REPO }, dataDir);
   const stopRes = run('stop', { agent_id: 'a1', cwd: REPO }, dataDir);
@@ -101,7 +128,7 @@ test('denies once the subagent marker is cleared by stop mode', () => {
 
 test('denies when a live marker matches a different session id', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
 
   run('start', { agent_id: 'a1', agent_type: 'engineer', session_id: 's1', cwd: REPO }, dataDir);
   const res = run(undefined, editPayload('other-session', path.join(REPO, 'lib/paths.js')), dataDir);
@@ -112,11 +139,7 @@ test('allows an Edit whose target path resolves inside the session directory', (
   const dataDir = tmpDataDir();
   const sessionDir = path.join(dataDir, 'repos', 'test-repo', 'sessions', 'W1-T8');
   fs.mkdirSync(sessionDir, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, '.session-active'), JSON.stringify({
-    repo: 'test-repo',
-    task: 'W1-T8',
-    sessionDir,
-  }));
+  writeSentinel(dataDir, { repo: 'test-repo', task: 'W1-T8', sessionDir });
 
   const target = path.join(sessionDir, 'progress.json');
   const res = run(undefined, editPayload('s1', target), dataDir);
@@ -127,11 +150,7 @@ test('allows an Edit to the preferences file under the data root, and still deni
   const dataDir = tmpDataDir();
   const sessionDir = path.join(dataDir, 'repos', 'test-repo', 'sessions', 'W1-T8');
   fs.mkdirSync(sessionDir, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, '.session-active'), JSON.stringify({
-    repo: 'test-repo',
-    task: 'W1-T8',
-    sessionDir,
-  }));
+  writeSentinel(dataDir, { repo: 'test-repo', task: 'W1-T8', sessionDir });
 
   const prefsPath = path.join(dataDir, 'repos', 'test-repo', 'preferences.md');
   const allowedRes = run(undefined, editPayload('s1', prefsPath), dataDir);
@@ -143,7 +162,7 @@ test('allows an Edit to the preferences file under the data root, and still deni
 
 test('another live Engineer never grants implementation edits to the lead or reviewer', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
   run('start', { agent_id: 'a1', agent_type: 'engineer', session_id: 's1', cwd: REPO }, dataDir);
   assert.equal(run(undefined, editPayload('s1', 'index.js'), dataDir).code, 2);
   assert.equal(run(undefined, { ...editPayload('s1', 'index.js'), agent_id: 'reviewer' }, dataDir).code, 2);
@@ -151,14 +170,14 @@ test('another live Engineer never grants implementation edits to the lead or rev
 
 test('reviewer start cannot acquire an editor marker', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
   run('start', { agent_id: 'a1', agent_type: 'auditor', session_id: 's1', cwd: REPO }, dataDir);
   assert.equal(run(undefined, { ...editPayload('s1', 'index.js'), agent_id: 'a1' }, dataDir).code, 2);
 });
 
 test('lead Bash is restricted to the installed lifecycle entry point', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
   const bash = (command) => run(undefined, { tool_name: 'Bash', session_id: 's1', cwd: REPO, tool_input: { command } }, dataDir);
   const cli = path.join(REPO, 'lib', 'cli.js');
   assert.equal(bash(`node "${cli}" snapshot`).code, 0);
@@ -170,7 +189,14 @@ test('lead Bash is restricted to the installed lifecycle entry point', () => {
 
 test('a symlink under external state cannot authorize an implementation edit', () => {
   const dataDir = tmpDataDir();
-  fs.writeFileSync(path.join(dataDir, '.session-active'), '');
+  writeSentinel(dataDir);
   fs.symlinkSync(REPO, path.join(dataDir, 'escape'));
   assert.equal(run(undefined, writePayload('s1', path.join(dataDir, 'escape', 'package.json')), dataDir).code, 2);
+});
+
+test('a legacy-only sentinel still arms the hook for the lead', () => {
+  const dataDir = tmpDataDir();
+  writeLegacySentinel(dataDir, { repo: 'test-repo', task: 'W1-T8', sessionDir: path.join(dataDir, 'repos', 'test-repo', 'sessions', 'W1-T8') });
+  const res = run(undefined, editPayload('s1', path.join(REPO, 'lib/paths.js')), dataDir);
+  assert.equal(res.code, 2);
 });

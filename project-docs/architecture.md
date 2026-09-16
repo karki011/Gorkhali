@@ -81,6 +81,9 @@ individual records; the checkpoint and Git journal are authoritative on recovery
 An external identity record pins each physical Git common directory to its state
 ID, so adding or changing origin does not orphan sessions. Separate clones never
 inherit an active task merely because they share a remote or folder name.
+The active-session sentinel is keyed by the checkout's own real path, so a second
+worktree of the same repository never sees another checkout's session; a legacy
+global sentinel is still read once and cleaned up when it names this checkout.
 Only the lead appends shared progress. Resume inspects Git rather than replaying
 an uncertain action; legacy verification never gets a synthetic pass. Explicit resume
 reactivates the selected session, and divergence requires a recorded scope reconciliation.

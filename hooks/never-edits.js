@@ -112,10 +112,9 @@ function insideDataRoot(targets, cwd) {
 
 function decide(payload) {
   const cwd = payload.cwd || process.cwd();
-  if (!fs.existsSync(paths.sentinelPath(cwd))) return 0;
-
   const active = session.activeSession(cwd);
-  if (active?.identity && !session.activeMatchesRepo(active, cwd)) return 0;
+  if (!active) return 0;
+  if (active.identity && !session.activeMatchesRepo(active, cwd)) return 0;
   if (payload.tool_name === 'Bash' && !payload.agent_id) {
     const cli = path.join(__dirname, '..', 'lib', 'cli.js');
     const escaped = cli.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -18,6 +18,8 @@ while a session is active. Read/Grep/Glob remain available for repository contex
 or underscore. The CLI returns the session directory on `open`.
 Only the orchestrator updates shared plan/progress/checkpoint state; agents
 write their own completion/evidence records. Do not run two leads for one session.
+The active-session pointer is keyed by checkout, so several leads working in different
+checkouts on one machine never disturb each other's session, and `open` is idempotent.
 
 CLI actions and request fields:
 

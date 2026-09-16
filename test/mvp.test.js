@@ -531,8 +531,10 @@ test('active and saved session identity survives origin changes without leaking 
   assert.equal(run('resume', {}, repo).plan.tasks[0].id, 'a');
   git(repo, ['remote', 'set-url', 'origin', 'https://example.invalid/fork/repo.git']);
   assert.equal(run('status', {}, repo).checkpoint.phase, 'approved');
+  // The sentinel is keyed per checkout, so a linked worktree of the same repo
+  // never sees the main checkout's active session, even though its identity matches.
   const linked = worktree('linked-identity');
-  assert.equal(session.activeMatchesRepo(session.activeSession(linked), linked), true);
+  assert.equal(session.activeSession(linked), null);
   const alias = path.join(root, 'alias'); fs.symlinkSync(repo, alias);
   assert.equal(session.activeMatchesRepo(session.activeSession(alias), alias), true);
   const other = path.join(root, 'other', 'repo'); fs.mkdirSync(other, { recursive: true }); git(other, ['init', '-q']);
