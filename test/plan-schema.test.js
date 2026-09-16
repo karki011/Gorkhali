@@ -137,3 +137,32 @@ test('a dependency cycle is detected', () => {
   const errors = validatePlan(plan);
   assert.ok(errors.includes('tasks[].dependsOn: dependency cycle detected'));
 });
+
+test('plan-level and task-level isolation accept auto, worktree, or branch', () => {
+  for (const value of ['auto', 'worktree', 'branch']) {
+    const plan = validPlan();
+    plan.isolation = value;
+    plan.tasks[0].isolation = value;
+    assert.deepEqual(validatePlan(plan), []);
+  }
+});
+
+test('a plan without isolation set is still valid', () => {
+  assert.deepEqual(validatePlan(validPlan()), []);
+});
+
+test('plan-level isolation rejects unknown values and non-strings', () => {
+  for (const value of ['none', true, 1]) {
+    const plan = validPlan();
+    plan.isolation = value;
+    assert.ok(validatePlan(plan).includes('isolation: must be one of auto, worktree, branch'));
+  }
+});
+
+test('task-level isolation rejects unknown values and non-strings', () => {
+  for (const value of ['none', true, 1]) {
+    const plan = validPlan();
+    plan.tasks[0].isolation = value;
+    assert.ok(validatePlan(plan).includes('tasks[0].isolation: must be one of auto, worktree, branch'));
+  }
+});

@@ -7,8 +7,8 @@ const path = require('node:path');
 const { git, snapshot } = require('../lib/git-state');
 const session = require('../lib/session');
 const { run } = require('../lib/cli');
-const { completion, integrate, prepareWorktree, releaseWorktrees } = require('../lib/execution');
-const { recordInspector, requireInspector, recordAuditor, requireVerified } = require('../lib/verification');
+const { completion, integrate, prepareWorktree, releaseWorktrees, completedRecords, taskHash, dirtyOutsideOwnership } = require('../lib/execution');
+const { recordInspector, requireInspector, recordAuditor, requireVerified, auditorWaiver } = require('../lib/verification');
 const { recoveryDecision } = require('../lib/recovery');
 
 function fixture(t) {
@@ -56,6 +56,11 @@ function evidence(dir, repo, userVisible = false) {
     checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
   recordAuditor(dir, { verdict: 'pass', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [], userVisible, independence: { basis: 'independent-context' } }, repo);
   return inspector;
+}
+// A fresh Inspector pass alone, with no matching current Auditor record.
+function freshInspector(dir, repo) {
+  return recordInspector(dir, { role: 'inspector', verdict: 'pass', worktree_unchanged: true, fingerprint: snapshot(repo).fingerprint,
+    checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
 }
 
 test('fingerprint catches edits to already-dirty files, staging, deletion, untracked content and commits', (t) => {
@@ -194,6 +199,80 @@ test('a new Inspector run invalidates prior Auditor approval even on unchanged c
   assert.throws(() => requireVerified(data, repo), /Auditor/);
 });
 
+test('pre-ship, a fresh Inspector pass without a current Auditor still requires the Auditor', (t) => {
+  const { repo, data } = fixture(t);
+  evidence(data, repo);
+  session.writeJsonAtomic(path.join(data, 'checkpoint.json'), { phase: 'integrated' });
+  freshInspector(data, repo);
+  assert.throws(() => requireVerified(data, repo), /Auditor/);
+});
+
+test('once a PR exists a fresh Inspector pass alone satisfies verify when the last Auditor passed', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  evidence(dir, repo);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/1' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  const fresh = freshInspector(dir, repo);
+  const result = run('verify', {}, repo);
+  assert.equal(result.auditor, null);
+  assert.match(result.auditorWaived, /post-ship/);
+  assert.equal(result.inspector.id, fresh.id);
+});
+
+test('a failing latest Auditor record still blocks verify once a PR exists', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship-fail'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  const inspector = evidence(dir, repo);
+  recordAuditor(dir, { verdict: 'fail', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [] }, repo);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/2' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  freshInspector(dir, repo);
+  assert.throws(() => run('verify', {}, repo), /Auditor/);
+});
+
+test('a user-visible last Auditor still requires current human confirmation under the post-ship waiver', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship-visible'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  evidence(dir, repo, true);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/3' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  const fresh = freshInspector(dir, repo);
+  assert.throws(() => run('verify', {}, repo), /human/);
+  run('human-confirmation', { confirmed: true }, repo);
+  const result = run('verify', {}, repo);
+  assert.match(result.auditorWaived, /post-ship/);
+  assert.equal(result.inspector.id, fresh.id);
+});
+
+test('auditorWaiver applies only under the optional policy with a recorded pr and a passing last Auditor', () => {
+  const passing = { verdict: 'pass', findings: [] };
+  const blocking = { verdict: 'pass', findings: [{ severity: 'blocking' }] };
+  const failing = { verdict: 'fail', findings: [] };
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, passing, 'required'), null);
+  assert.match(auditorWaiver({ pr: 'https://example.com/pull/1' }, passing, 'optional'), /post-ship/);
+  assert.equal(auditorWaiver({}, passing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: '' }, passing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, failing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, blocking, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, null, 'optional'), null);
+});
+
 test('CLI recovery persists its budget across resume and cannot replay one failure', (t) => {
   const { repo } = fixture(t);
   const dir = openUntracked({ task: 'task' }, repo);
@@ -248,7 +327,7 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   };
   run('tracking-begin', { stage: 'intake' }, repo); receipt('To Do');
   run('branch', { name: 'feature/mvp' }, repo);
-  const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const p = plan(); p.isolation = 'worktree'; run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   run('tracking-begin', { stage: 'start' }, repo); receipt('In Progress');
   evidence(dir, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /completion evidence/);
@@ -396,7 +475,7 @@ test('interrupted integration reconstructs applied commits after Git resets them
 
 test('task revisions and dependent revisions invalidate completed journal entries', (t) => {
   const { repo, worktree } = fixture(t);
-  openUntracked({ task: 'task' }, repo); const p = plan();
+  openUntracked({ task: 'task' }, repo); const p = plan(); p.isolation = 'worktree';
   run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('revision-a'); change(a, 'a.txt', 'first');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
@@ -469,6 +548,7 @@ test('failed Engineer results increment once and escalate the second implementat
   assert.equal(run('result', { record }, repo).alreadyRecorded, true);
   assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 1);
   const repair = run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo);
+  assert.equal(repair.assignment.isolation, 'worktree');
   run('result', { record: { ...record, attemptId: repair.assignment.attemptId } }, repo);
   assert.equal(run('route', {}, repo).tasks[0].tier, 'deep');
   assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 2);
@@ -530,8 +610,10 @@ test('active and saved session identity survives origin changes without leaking 
   assert.equal(run('resume', {}, repo).plan.tasks[0].id, 'a');
   git(repo, ['remote', 'set-url', 'origin', 'https://example.invalid/fork/repo.git']);
   assert.equal(run('status', {}, repo).checkpoint.phase, 'approved');
+  // The sentinel is keyed per checkout, so a linked worktree of the same repo
+  // never sees the main checkout's active session, even though its identity matches.
   const linked = worktree('linked-identity');
-  assert.equal(session.activeMatchesRepo(session.activeSession(linked), linked), true);
+  assert.equal(session.activeSession(linked), null);
   const alias = path.join(root, 'alias'); fs.symlinkSync(repo, alias);
   assert.equal(session.activeMatchesRepo(session.activeSession(alias), alias), true);
   const other = path.join(root, 'other', 'repo'); fs.mkdirSync(other, { recursive: true }); git(other, ['init', '-q']);
@@ -550,7 +632,7 @@ test('ship rejects the actual remote default branch before pushing and close rej
   const remote = path.join(root, 'remote.git'); git(repo, ['init', '--bare', '-q', remote]);
   git(repo, ['remote', 'add', 'origin', remote]); git(repo, ['branch', '-M', 'trunk']); git(repo, ['push', 'origin', 'trunk']); git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
   const originalRemote = git(remote, ['rev-parse', 'trunk']).trim();
-  const dir = openUntracked({ task: 'task' }, repo); const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dir = openUntracked({ task: 'task' }, repo); const p = plan(); p.isolation = 'worktree'; run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('default-guard'); change(a, 'a.txt', 'updated');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo); evidence(dir, repo); run('verify', {}, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /origin default branch/);
@@ -571,4 +653,343 @@ test('Inspector rejects the data root when the exact session directory was omitt
   const { repo, data } = fixture(t); openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
   assert.throws(() => recordInspector(data, { verdict: 'fail', fingerprint: snapshot(repo).fingerprint, checks: [] }, repo), /exact session directory/);
   assert.equal(fs.existsSync(path.join(data, 'inspector.json')), false);
+});
+
+test('route computes isolation for every task and dispatch persists it on routing and assignments', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const single = plan();
+  run('plan', { plan: single }, repo); run('approve', { confirmed: true }, repo);
+  assert.equal(run('route', {}, repo).tasks[0].isolation, 'branch');
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.routing[0].isolation, 'branch');
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+});
+
+test('two parallel-safe tasks dispatch both as worktree', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const routed = run('route', {}, repo);
+  assert.deepEqual(routed.tasks.map((item) => item.isolation), ['worktree', 'worktree']);
+  const dispatched = run('dispatch', {}, repo);
+  assert.deepEqual(dispatched.routing.map((item) => item.isolation), ['worktree', 'worktree']);
+  assert.deepEqual(dispatched.assignments.map((item) => item.isolation), ['worktree', 'worktree']);
+});
+
+test('branch-mode dispatch commits directly on the integration branch and CLI integrate journals it without a cherry-pick', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'a.txt', 'branch mode commit');
+  const headBefore = snapshot(repo).head;
+  const record = { ...completion(p.tasks[0], dispatched.baseHead, repo, 'branch'), attemptId: dispatched.assignments[0].attemptId };
+  run('result', { record: { taskId: 'a', attemptId: record.attemptId, status: 'done' } }, repo);
+  const journal = run('integrate', { records: [record] }, repo);
+  assert.equal(snapshot(repo).head, headBefore, 'branch-mode integration never advances HEAD past the completion');
+  const entry = journal.find((item) => item.taskId === 'a');
+  assert.equal(entry.isolation, 'branch');
+  assert.equal(entry.integratedHead, record.head);
+  const commitMessage = git(repo, ['show', '-s', '--format=%B', record.head]);
+  assert.doesNotMatch(commitMessage, /cherry picked from/);
+  assert.equal(completedRecords(p, dir, repo).get('a').integratedHead, record.head);
+  // Calling integrate again with the same record is idempotent.
+  const headAfterFirst = snapshot(repo).head;
+  const secondJournal = run('integrate', { records: [record] }, repo);
+  assert.equal(snapshot(repo).head, headAfterFirst);
+  assert.equal(secondJournal.filter((item) => item.taskId === 'a').length, 1);
+});
+
+test('a branch-mode record whose commits touch a file outside ownership fails with the existing ownership message and leaves HEAD unchanged', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  change(repo, 'b.txt', 'outside ownership');
+  const head = snapshot(repo).head;
+  const record = { taskId: 'a', taskHash: taskHash(p.tasks[0]), status: 'done', baseHead: base, head, worktree: repo, filesChanged: ['b.txt'], isolation: 'branch' };
+  assert.throws(() => integrate(p, [record], data, repo), /ownership in commit history/);
+  assert.equal(snapshot(repo).head, head);
+});
+
+test('CLI integrate rejects a worktree-mode record presented under a branch assignment', (t) => {
+  const { repo, worktree } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  const a = worktree('engineer-a'); change(a, 'a.txt', 'from a');
+  const record = completion(p.tasks[0], dispatched.baseHead, a);
+  assert.throws(() => run('integrate', { records: [record] }, repo), /Isolation mode mismatch/);
+});
+
+test('CLI integrate rejects a branch-mode record presented under a worktree assignment', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'worktree');
+  change(repo, 'a.txt', 'direct commit');
+  const record = completion(p.tasks[0], dispatched.baseHead, repo, 'branch');
+  assert.throws(() => run('integrate', { records: [record] }, repo), /Isolation mode mismatch/);
+});
+
+test('a branch-mode record fails when the integration HEAD has moved past the recorded head', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan();
+  change(repo, 'a.txt', 'first commit');
+  const record = completion(p.tasks[0], base, repo, 'branch');
+  change(repo, 'a.txt', 'integration branch moved on');
+  const headBeforeIntegrate = snapshot(repo).head;
+  assert.throws(() => integrate(p, [record], data, repo), /does not match/);
+  assert.equal(snapshot(repo).head, headBeforeIntegrate);
+});
+
+test('a multi-record integrate rejects any branch-mode record', (t) => {
+  const { repo, data, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  const a = worktree('engineer-a'); change(a, 'a.txt', 'from a');
+  const worktreeRecord = completion(p.tasks[0], base, a);
+  change(repo, 'b.txt', 'branch mode commit');
+  const branchRecord = completion(p.tasks[1], base, repo, 'branch');
+  assert.throws(() => integrate(p, [worktreeRecord, branchRecord], data, repo), /one completion at a time/);
+});
+
+test('prepareWorktree in branch mode enforces the integration worktree, a clean tree, and the approved base', (t) => {
+  const { repo, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const other = worktree('not-integration-root');
+  assert.throws(() => prepareWorktree(other, base, repo, 'branch'), /Branch-mode Engineer/);
+  fs.writeFileSync(path.join(repo, 'scratch.txt'), 'dirty');
+  assert.throws(() => prepareWorktree(repo, base, repo, 'branch'), /Branch-mode Engineer/);
+  fs.rmSync(path.join(repo, 'scratch.txt'));
+  change(repo, 'a.txt', 'moved past base');
+  assert.throws(() => prepareWorktree(repo, base, repo, 'branch'), /Branch-mode Engineer/);
+  git(repo, ['reset', '--hard', base]);
+  const state = prepareWorktree(repo, base, repo, 'branch');
+  assert.equal(state.head, base);
+  assert.equal(snapshot(repo).head, base, 'branch mode never fast-forwards or otherwise moves HEAD');
+});
+
+test('releaseWorktrees ignores an integrated branch-mode operation and never reports the integration worktree', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan();
+  change(repo, 'a.txt', 'branch mode work');
+  const record = completion(p.tasks[0], base, repo, 'branch');
+  integrate(p, [record], data, repo);
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result, { released: [], kept: [], unintegrated: [] });
+});
+
+test('releaseWorktrees ignores an engineer-results attempt record whose worktree is the integration root', (t) => {
+  const { repo, data } = fixture(t);
+  fs.mkdirSync(path.join(data, 'engineer-results'));
+  fs.writeFileSync(path.join(data, 'engineer-results', 'branch-attempt.json'),
+    JSON.stringify({ taskId: 'a', attemptId: 'branch-attempt', status: 'done', worktree: repo, head: snapshot(repo).head }));
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result, { released: [], kept: [], unintegrated: [] });
+});
+
+test('status never lists the integration worktree for a branch-mode completion', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  change(repo, 'a.txt', 'branch mode via CLI');
+  const record = completion(p.tasks[0], dispatched.baseHead, repo, 'branch');
+  run('integrate', { records: [record] }, repo);
+  const status = run('status', {}, repo);
+  assert.deepEqual(status.worktrees, { released: [], kept: [], unintegrated: [] });
+});
+
+test('resume and status classify an active branch-mode Engineer\'s own commits as in-progress work, not divergence', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'a.txt', 'branch mode in progress');
+  // status is read-only preview: check it before resume persists a checkpoint at the new fingerprint.
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, true);
+  assert.equal(status.checkpoint.reconciliationRequired, false);
+  assert.equal(status.checkpoint.next, 'result');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, true);
+  assert.equal(resumed.checkpoint.next, 'result');
+  assert.equal(resumed.checkpoint.reconciliationRequired, false);
+});
+
+test('resume and status require reconciliation when the checkout switches to another branch at the same commit', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  // Same commit as the dispatched base, but no longer the dispatched branch: not the
+  // Engineer's own in-progress work even though HEAD still descends from the base.
+  git(repo, ['switch', '-c', 'other-branch']);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+});
+
+test('resume and status fall back to divergence when HEAD no longer descends from the branch-mode base', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  // Rewrites the dispatched base itself so it no longer shares ancestry with the new HEAD,
+  // simulating an unrelated Git rewrite rather than the branch-mode Engineer's own commits.
+  git(repo, ['commit', '--amend', '--allow-empty', '-qm', 'rewritten base']);
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+});
+
+test('resume and status still require reconciliation for a worktree-mode assignment with in-progress changes in the integration tree', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], isolation: 'worktree' }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'worktree');
+  change(repo, 'a.txt', 'unexpected direct edit');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+});
+
+test('a failed branch-mode result with leftover commits outside ownership blocks recover until reconciled', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'b.txt', 'outside ownership');
+  const leftoverHead = snapshot(repo).head;
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(failure.attemptId));
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(leftoverHead));
+  assert.match(status.checkpoint.reconciliationReason, /b\.txt/);
+  assert.match(status.checkpoint.reconciliationReason, /outside declared ownership/);
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /reconciliation/);
+  run('reconcile', { scope: 'changed', reason: status.checkpoint.reconciliationReason }, repo);
+  // Reconciling as "changed" requires a fresh approval, same as any other divergence; the
+  // reconciliation-specific block is gone but recover is still not authorized to proceed.
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /approval/);
+});
+
+test('a failed branch-mode result with leftover commits inside ownership reconciles as unchanged and recover succeeds', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  change(repo, 'a.txt', 'partial in-ownership work');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, /all within declared ownership/);
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /reconciliation/);
+  run('reconcile', { scope: 'unchanged', reason: status.checkpoint.reconciliationReason }, repo);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
+});
+
+test('dirtyOutsideOwnership reports tracked and untracked dirty files outside the task\'s files', (t) => {
+  const { repo } = fixture(t);
+  const task = { id: 'a', files: ['a.txt'] };
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'dirty in-ownership edit');
+  fs.writeFileSync(path.join(repo, 'b.txt'), 'dirty tracked edit outside ownership');
+  fs.writeFileSync(path.join(repo, 'c.txt'), 'untracked file outside ownership');
+  assert.deepEqual(dirtyOutsideOwnership(task, repo), ['b.txt', 'c.txt']);
+});
+
+test('a failed branch-mode result with dirty files outside ownership and no commits reports only the dirty clause', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  fs.writeFileSync(path.join(repo, 'b.txt'), 'dirty, never committed');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(failure.attemptId));
+  assert.match(status.checkpoint.reconciliationReason, /dirty files outside declared ownership: b\.txt/);
+  assert.doesNotMatch(status.checkpoint.reconciliationReason, /committed files/);
+  run('reconcile', { scope: 'changed', reason: status.checkpoint.reconciliationReason }, repo);
+});
+
+test('a failed branch-mode result with dirty files inside ownership and no commits reports the dirty clause as clean', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'dirty, never committed');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, /dirty files all within declared ownership/);
+  assert.doesNotMatch(status.checkpoint.reconciliationReason, /committed files/);
+  run('reconcile', { scope: 'unchanged', reason: status.checkpoint.reconciliationReason }, repo);
+  // Reconcile only records the scope decision; the human must still discard or commit the
+  // dirty file themselves, so recover keeps rejecting a dirty integration tree in either mode.
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /dirty/);
+  git(repo, ['checkout', '--', 'a.txt']);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
+});
+
+test('a failed branch-mode result with no leftover commits and a clean tree behaves exactly like a worktree-mode failure', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  const result = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not start' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, false);
+  assert.equal(status.checkpoint.next, 'recover');
+  assert.equal(run('recover', { failureId: result.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
 });

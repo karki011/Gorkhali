@@ -20,7 +20,11 @@ integration worktree, and plugin library paths. GORKHALI_DATA is not the session
 2. Only after `requireInspector` accepts the current evidence, spawn one Auditor
    in an independent context. Use CLI `route`'s Auditor model, which combines integrated risk signals
    and current failure counters. Auditor calls `recordAuditor` with the exact
-   Inspector ID and fingerprint. Record that result through `progress`.
+   Inspector ID and fingerprint. Record that result through `progress`. Once a PR
+   exists and the last Auditor passed, spawn the Auditor for a repair only when
+   routing puts it at deep tier or the plan changed since ship; otherwise the
+   Inspector alone satisfies `verify` under `config/routing.json`'s
+   `review.postShipAuditor` policy.
 3. For `userVisible:true`, present a concrete checklist with expected results.
    Wait for an explicit human pass; silence, screenshots alone, and agent opinion
    are not confirmation. Only then call `human-confirmation`.

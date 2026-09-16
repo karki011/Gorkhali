@@ -31,8 +31,9 @@ and evidence attached to the change being reviewed.
 | Approve the scope before implementation starts. Work stays divided into coherent tasks. | Engineer implements. Inspector runs checks. Auditor reviews the integrated diff in a separate context. | Checkpoints preserve progress. Resume reconciles Git and invalidates stale verification before continuing. |
 
 **Parallel when the work is independent. Sequential when it needs coordination.**
-Eligible Engineers work in isolated Git worktrees. Changes are integrated before
-the final checks and review.
+Most Engineers work in isolated Git worktrees. A single low-risk task with no other
+active Engineers can instead run directly on the integration branch. Changes are
+integrated before the final checks and review.
 
 ## Get started
 
@@ -59,7 +60,7 @@ hooks and Agent worktree isolation. Opening GitHub PRs also needs authenticated
 | Step | What happens | Your control |
 | :--- | :--- | :--- |
 | **01 · Plan** | The orchestrator turns your request into scoped tasks and acceptance criteria. | Approve the plan before implementation. |
-| **02 · Build** | Engineers implement in isolated worktrees. Eligible independent tasks can run together. | Scope changes come back for a decision. |
+| **02 · Build** | Engineers implement in isolated worktrees, or directly on the integration branch for a single low-risk task. Eligible independent tasks can run together. | Scope changes come back for a decision. |
 | **03 · Check** | Inspector runs discovered repository checks on the integrated result. | See what passed, failed, or could not be observed. |
 | **04 · Review** | Auditor independently examines correctness, requirements, security, and regressions. | Confirm applicable user-visible behavior with a human checklist. |
 | **05 · Ship** | Gorkhali opens the PR and tracks external review feedback. | Authorize shipping. Merge when you're ready. |
@@ -107,12 +108,19 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
-Version **3.1.0** adds ticket intake and lifecycle tracking. Jira and GitHub issues
-can follow work from assignment and In Progress to PR-linked In Review and Done
-after merge. GitHub status transitions use an existing Project Status field; Jira
-uses your connected tools and available workflow transitions. Historical live
-acceptance receipts describe the version they tested; they are not a guarantee for
-every repository or a token-saving benchmark.
+Version **3.3.0** adds branch-mode isolation: a single low-risk task in the last
+pending wave, with no other active Engineers, runs directly on the integration
+branch instead of its own worktree. The active-session pointer is now keyed per
+checkout, so concurrent leads on one machine no longer see each other's session.
+Once a PR exists and the last Auditor passed, verify accepts a current Inspector
+pass alone under a configurable post-ship review policy, since external reviewers
+re-review every push. Version **3.1.0** adds ticket intake and
+lifecycle tracking. Jira and GitHub issues can follow work from assignment and In
+Progress to PR-linked In Review and Done after merge. GitHub status transitions
+use an existing Project Status field; Jira uses your connected tools and available
+workflow transitions. Historical live acceptance receipts describe the version
+they tested; they are not a guarantee for every repository or a token-saving
+benchmark.
 
 <details>
 <summary><strong>Compatibility, boundaries, and upgrading from v2</strong></summary>

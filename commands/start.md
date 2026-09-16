@@ -29,7 +29,8 @@ Write a valid plan using CLI `plan`. Required fields are the schema's briefing,
 decision, outcome, scope, and tasks with explicit acceptance criteria. Derive task verification commands from actual repository scripts, CI, and test
 imports; never assume a runner from file names or install one just to check work. Record
 `baseHead` from snapshot for the review range. Optional task fields are
-`dependsOn`, `parallelSafe`, `coordinationKeys`, and `riskSignals`.
+`dependsOn`, `parallelSafe`, `coordinationKeys`, `riskSignals`, and `isolation`
+(`auto`, `worktree`, or `branch`, settable per plan or per task).
 Use concrete repository-relative files or directories; globs stay sequential.
 Declare shared logical resources even if the files differ. Move a schema,
 migration, or public-contract change into a preceding serial task; only its
@@ -41,17 +42,26 @@ explicit approval counts; the quick route makes the plan smaller, not exempt.
 
 ## Execute
 
-Call `route` and show the wave composition and reasoning. Before the first dispatch,
-complete tracking stage `start`: preserve or set assignment and move to In Progress
-using the provider's actual workflow. Call `dispatch` before
+Call `route` and show the wave composition and reasoning. `route` and `dispatch`
+report each task's `isolation` and why: a single low-risk last task with no other
+active Engineers runs in branch mode; everything else (parallel waves, other
+pending or dependent work, shared coordination keys, deep tier, or a prior
+implementation failure) stays isolated in its own worktree. Before the first
+dispatch, complete tracking stage `start`: preserve or set assignment and move to
+In Progress using the provider's actual workflow. Call `dispatch` before
 spawning, persisting the approved base commit and task IDs. For each ready task,
-spawn `gorkhali:engineer` with the selected model and `isolation: "worktree"`
-on the Agent call itself. Include the task, declared ownership, base commit,
-absolute plugin root/library paths, integration worktree path, session directory, unique `attemptId`, task hash, and preferences. Do not use agent
-teams. Every Engineer must use `prepareWorktree` to verify/fast-forward its own
-clean worktree to the wave base before editing; host defaults can start elsewhere.
-A worktree that cannot be isolated or aligned blocks dispatch, never falls back
-to concurrent writes in the main checkout.
+spawn `gorkhali:engineer` with the selected model. Pass `isolation: "worktree"` on
+the Agent call itself only when the assignment's isolation is worktree; when it is
+branch, spawn the Engineer without Agent isolation so it runs directly in the
+integration worktree, and tell it the mode. Include the task, declared ownership,
+base commit, absolute plugin root/library paths, integration worktree path, session
+directory, unique `attemptId`, task hash, and preferences. Do not use agent
+teams. Every Engineer must call `prepareWorktree` before editing: in worktree
+mode it verifies/fast-forwards the Engineer's own clean worktree to the wave
+base; in branch mode it verifies the integration worktree is already clean at
+that base, since there is no separate worktree to align. A worktree or base
+that cannot be verified blocks dispatch, never falls back to concurrent writes
+in the main checkout.
 
 Collect every structured outcome through CLI `result`, including failed, blocked,
 and needs-context outcomes. Persist `attemptId` exactly as dispatched. Failures must

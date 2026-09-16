@@ -18,11 +18,25 @@ workflow/access information. Legacy sessions without a decision ask the ticket q
 
 The result contains current and previous state. An unchanged fingerprint and
 unchanged approved plan continue automatically from `next`, without re-approval.
-Changed HEAD, index, worktree, branch, or untracked content invalidates verification.
-Inspect the intervening diff and task dependency/ownership changes. Call `reconcile`
-with the scope classification and concrete Git evidence; dispatch, repair, integration,
-and verification stay blocked until reconciliation. Ask for a new
-plan decision only when divergence materially changes approved scope/dependencies.
+Commits an active branch-mode Engineer made on top of its own dispatched base, on
+the same dispatched branch and worktree, are reported as in-progress work
+(`branchWork: true`, next `result`), not divergence; collect its result normally.
+A branch or worktree switch away from the dispatched checkout is never
+`branchWork`, even at the same commit; it is divergence like any other. Any other
+changed HEAD, index, worktree, branch, or untracked content invalidates
+verification. Inspect the intervening diff and task dependency/ownership changes.
+Call `reconcile` with the scope classification and concrete Git evidence; dispatch,
+repair, integration, and verification stay blocked until reconciliation. Ask for a
+new plan decision only when divergence materially changes approved scope/dependencies.
+A non-done branch-mode result with leftover commits or dirty files requires the same
+reconcile step before recover, and the reconcile reason separately reports whether
+the leftover commits and the leftover dirty files each stay within the task's
+declared ownership. Reconcile only records the scope decision; it never discards or
+commits leftover dirty files itself. When dirty files remain after reconciling,
+raise one decision to the user: either discard the listed files or commit them under
+the task's declared files, and only then call `recover`. The lead never merges,
+force-removes, or commits those files itself, and `dispatch`/`recover` keep
+rejecting a dirty integration tree in both isolation modes.
 Legacy sessions reconstruct a checkpoint but their old verification is always stale.
 
 Before restarting a wave, reconcile `activeEngineers`, saved completion records,
