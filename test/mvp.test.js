@@ -7,7 +7,7 @@ const path = require('node:path');
 const { git, snapshot } = require('../lib/git-state');
 const session = require('../lib/session');
 const { run } = require('../lib/cli');
-const { completion, integrate, prepareWorktree, releaseWorktrees } = require('../lib/execution');
+const { completion, integrate, prepareWorktree, releaseWorktrees, completedRecords, taskHash } = require('../lib/execution');
 const { recordInspector, requireInspector, recordAuditor, requireVerified } = require('../lib/verification');
 const { recoveryDecision } = require('../lib/recovery');
 
@@ -248,7 +248,7 @@ test('CLI ships integrated verified work and recovers an existing PR without ano
   };
   run('tracking-begin', { stage: 'intake' }, repo); receipt('To Do');
   run('branch', { name: 'feature/mvp' }, repo);
-  const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const p = plan(); p.isolation = 'worktree'; run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   run('tracking-begin', { stage: 'start' }, repo); receipt('In Progress');
   evidence(dir, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /completion evidence/);
@@ -396,7 +396,7 @@ test('interrupted integration reconstructs applied commits after Git resets them
 
 test('task revisions and dependent revisions invalidate completed journal entries', (t) => {
   const { repo, worktree } = fixture(t);
-  openUntracked({ task: 'task' }, repo); const p = plan();
+  openUntracked({ task: 'task' }, repo); const p = plan(); p.isolation = 'worktree';
   run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('revision-a'); change(a, 'a.txt', 'first');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
@@ -469,6 +469,7 @@ test('failed Engineer results increment once and escalate the second implementat
   assert.equal(run('result', { record }, repo).alreadyRecorded, true);
   assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 1);
   const repair = run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo);
+  assert.equal(repair.assignment.isolation, 'worktree');
   run('result', { record: { ...record, attemptId: repair.assignment.attemptId } }, repo);
   assert.equal(run('route', {}, repo).tasks[0].tier, 'deep');
   assert.equal(run('status', {}, repo).checkpoint.implementationFailures, 2);
@@ -550,7 +551,7 @@ test('ship rejects the actual remote default branch before pushing and close rej
   const remote = path.join(root, 'remote.git'); git(repo, ['init', '--bare', '-q', remote]);
   git(repo, ['remote', 'add', 'origin', remote]); git(repo, ['branch', '-M', 'trunk']); git(repo, ['push', 'origin', 'trunk']); git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
   const originalRemote = git(remote, ['rev-parse', 'trunk']).trim();
-  const dir = openUntracked({ task: 'task' }, repo); const p = plan(); run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dir = openUntracked({ task: 'task' }, repo); const p = plan(); p.isolation = 'worktree'; run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
   const wave = run('dispatch', {}, repo); const a = worktree('default-guard'); change(a, 'a.txt', 'updated');
   run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo); evidence(dir, repo); run('verify', {}, repo);
   assert.throws(() => run('ship', { authorized: true, title: 'test', body: 'test' }, repo), /origin default branch/);
@@ -571,4 +572,151 @@ test('Inspector rejects the data root when the exact session directory was omitt
   const { repo, data } = fixture(t); openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
   assert.throws(() => recordInspector(data, { verdict: 'fail', fingerprint: snapshot(repo).fingerprint, checks: [] }, repo), /exact session directory/);
   assert.equal(fs.existsSync(path.join(data, 'inspector.json')), false);
+});
+
+test('route computes isolation for every task and dispatch persists it on routing and assignments', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const single = plan();
+  run('plan', { plan: single }, repo); run('approve', { confirmed: true }, repo);
+  assert.equal(run('route', {}, repo).tasks[0].isolation, 'branch');
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.routing[0].isolation, 'branch');
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+});
+
+test('two parallel-safe tasks dispatch both as worktree', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const routed = run('route', {}, repo);
+  assert.deepEqual(routed.tasks.map((item) => item.isolation), ['worktree', 'worktree']);
+  const dispatched = run('dispatch', {}, repo);
+  assert.deepEqual(dispatched.routing.map((item) => item.isolation), ['worktree', 'worktree']);
+  assert.deepEqual(dispatched.assignments.map((item) => item.isolation), ['worktree', 'worktree']);
+});
+
+test('branch-mode dispatch commits directly on the integration branch and CLI integrate journals it without a cherry-pick', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'a.txt', 'branch mode commit');
+  const headBefore = snapshot(repo).head;
+  const record = { ...completion(p.tasks[0], dispatched.baseHead, repo, 'branch'), attemptId: dispatched.assignments[0].attemptId };
+  run('result', { record: { taskId: 'a', attemptId: record.attemptId, status: 'done' } }, repo);
+  const journal = run('integrate', { records: [record] }, repo);
+  assert.equal(snapshot(repo).head, headBefore, 'branch-mode integration never advances HEAD past the completion');
+  const entry = journal.find((item) => item.taskId === 'a');
+  assert.equal(entry.isolation, 'branch');
+  assert.equal(entry.integratedHead, record.head);
+  const commitMessage = git(repo, ['show', '-s', '--format=%B', record.head]);
+  assert.doesNotMatch(commitMessage, /cherry picked from/);
+  assert.equal(completedRecords(p, dir, repo).get('a').integratedHead, record.head);
+  // Calling integrate again with the same record is idempotent.
+  const headAfterFirst = snapshot(repo).head;
+  const secondJournal = run('integrate', { records: [record] }, repo);
+  assert.equal(snapshot(repo).head, headAfterFirst);
+  assert.equal(secondJournal.filter((item) => item.taskId === 'a').length, 1);
+});
+
+test('a branch-mode record whose commits touch a file outside ownership fails with the existing ownership message and leaves HEAD unchanged', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  change(repo, 'b.txt', 'outside ownership');
+  const head = snapshot(repo).head;
+  const record = { taskId: 'a', taskHash: taskHash(p.tasks[0]), status: 'done', baseHead: base, head, worktree: repo, filesChanged: ['b.txt'], isolation: 'branch' };
+  assert.throws(() => integrate(p, [record], data, repo), /ownership in commit history/);
+  assert.equal(snapshot(repo).head, head);
+});
+
+test('CLI integrate rejects a worktree-mode record presented under a branch assignment', (t) => {
+  const { repo, worktree } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  const a = worktree('engineer-a'); change(a, 'a.txt', 'from a');
+  const record = completion(p.tasks[0], dispatched.baseHead, a);
+  assert.throws(() => run('integrate', { records: [record] }, repo), /Isolation mode mismatch/);
+});
+
+test('CLI integrate rejects a branch-mode record presented under a worktree assignment', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'worktree');
+  change(repo, 'a.txt', 'direct commit');
+  const record = completion(p.tasks[0], dispatched.baseHead, repo, 'branch');
+  assert.throws(() => run('integrate', { records: [record] }, repo), /Isolation mode mismatch/);
+});
+
+test('a branch-mode record fails when the integration HEAD has moved past the recorded head', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan();
+  change(repo, 'a.txt', 'first commit');
+  const record = completion(p.tasks[0], base, repo, 'branch');
+  change(repo, 'a.txt', 'integration branch moved on');
+  const headBeforeIntegrate = snapshot(repo).head;
+  assert.throws(() => integrate(p, [record], data, repo), /moved past/);
+  assert.equal(snapshot(repo).head, headBeforeIntegrate);
+});
+
+test('a multi-record integrate rejects any branch-mode record', (t) => {
+  const { repo, data, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan([{ id: 'a', files: ['a.txt'], parallelSafe: true }, { id: 'b', files: ['b.txt'], parallelSafe: true }]);
+  const a = worktree('engineer-a'); change(a, 'a.txt', 'from a');
+  const worktreeRecord = completion(p.tasks[0], base, a);
+  change(repo, 'b.txt', 'branch mode commit');
+  const branchRecord = completion(p.tasks[1], base, repo, 'branch');
+  assert.throws(() => integrate(p, [worktreeRecord, branchRecord], data, repo), /one completion at a time/);
+});
+
+test('prepareWorktree in branch mode enforces the integration worktree, a clean tree, and the approved base', (t) => {
+  const { repo, worktree } = fixture(t);
+  const base = snapshot(repo).head;
+  const other = worktree('not-integration-root');
+  assert.throws(() => prepareWorktree(other, base, repo, 'branch'), /Branch-mode Engineer/);
+  fs.writeFileSync(path.join(repo, 'scratch.txt'), 'dirty');
+  assert.throws(() => prepareWorktree(repo, base, repo, 'branch'), /Branch-mode Engineer/);
+  fs.rmSync(path.join(repo, 'scratch.txt'));
+  change(repo, 'a.txt', 'moved past base');
+  assert.throws(() => prepareWorktree(repo, base, repo, 'branch'), /Branch-mode Engineer/);
+  git(repo, ['reset', '--hard', base]);
+  const state = prepareWorktree(repo, base, repo, 'branch');
+  assert.equal(state.head, base);
+  assert.equal(snapshot(repo).head, base, 'branch mode never fast-forwards or otherwise moves HEAD');
+});
+
+test('releaseWorktrees ignores an integrated branch-mode operation and never reports the integration worktree', (t) => {
+  const { repo, data } = fixture(t);
+  const base = snapshot(repo).head;
+  const p = plan();
+  change(repo, 'a.txt', 'branch mode work');
+  const record = completion(p.tasks[0], base, repo, 'branch');
+  integrate(p, [record], data, repo);
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result, { released: [], kept: [], unintegrated: [] });
+});
+
+test('status never lists the integration worktree for a branch-mode completion', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  change(repo, 'a.txt', 'branch mode via CLI');
+  const record = completion(p.tasks[0], dispatched.baseHead, repo, 'branch');
+  run('integrate', { records: [record] }, repo);
+  const status = run('status', {}, repo);
+  assert.deepEqual(status.worktrees, { released: [], kept: [], unintegrated: [] });
 });
