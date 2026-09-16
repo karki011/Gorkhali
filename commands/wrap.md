@@ -17,7 +17,8 @@ fixes. Re-verify if any change is still needed.
 
 Write a concise PR title/body grounded in the approved requirement, actual behavior,
 checks, Auditor findings, and known limitations. Confirm ship authorization from
-the user's request or ask only if absent. Call `ship` with that authorization and
+the user's request or plan approval, for example "approved, take it to a PR", and
+ask only if absent. Call `ship` with that authorization and
 title/body. It requires a clean feature branch and current passed evidence, reuses
 an existing open PR on resume, or pushes and creates a ready-for-review PR.
 Checkpoint the PR result. `ship` also removes this session's Engineer worktrees whose
