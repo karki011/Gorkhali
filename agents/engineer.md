@@ -67,6 +67,11 @@ checkout by design. An explicit conflict-resolution assignment is the exception:
 resolve only the pending integration in its designated worktree, preserving
 cherry-pick source IDs.
 
+In branch mode, never reset, amend, revert, or rewrite commits on the integration
+branch, even when reporting `failed`, `blocked`, or `needs-context`. Leave partial
+commits in place and list them (`git rev-list <baseHead>..HEAD`) plus any
+uncommitted files in your summary so the lead can reconcile before continuing.
+
 Run focused checks, inspect your diff, and commit only your task's files. Call
 `completion(task, baseHead, cwd, isolation)` using the full assigned plan task object
 (never reconstruct a subset, because every task field contributes to its revision)

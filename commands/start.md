@@ -56,10 +56,12 @@ branch, spawn the Engineer without Agent isolation so it runs directly in the
 integration worktree, and tell it the mode. Include the task, declared ownership,
 base commit, absolute plugin root/library paths, integration worktree path, session
 directory, unique `attemptId`, task hash, and preferences. Do not use agent
-teams. Every Engineer must use `prepareWorktree` to verify/fast-forward its own
-clean worktree to the wave base before editing; host defaults can start elsewhere.
-A worktree that cannot be isolated or aligned blocks dispatch, never falls back
-to concurrent writes in the main checkout.
+teams. Every Engineer must call `prepareWorktree` before editing: in worktree
+mode it verifies/fast-forwards the Engineer's own clean worktree to the wave
+base; in branch mode it verifies the integration worktree is already clean at
+that base, since there is no separate worktree to align. A worktree or base
+that cannot be verified blocks dispatch, never falls back to concurrent writes
+in the main checkout.
 
 Collect every structured outcome through CLI `result`, including failed, blocked,
 and needs-context outcomes. Persist `attemptId` exactly as dispatched. Failures must

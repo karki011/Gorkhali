@@ -107,6 +107,11 @@ An unclear/repeated/flaky failure gets Detective; tool/environment failure goes 
 human. Exhaustion stops. Every repair requires fresh integrated verification.
 An explicit `resolve-failures` transition records the human decision after clarification
 or environment restoration; it retires named blockers without resetting counters.
+A branch-mode Engineer's own commits on top of its dispatched base are classified as
+in-progress work on resume/status, not divergence; but a non-done branch-mode result
+that leaves commits or a dirty tree on the integration branch forces a scope
+reconciliation, naming the leftover commits and their ownership status, before recover
+or integrate can touch that branch.
 Wrap owns external review with five actionable rounds maximum, persisted item IDs,
 feedback content versions, remote head/checks, inline bodies/authors/locations,
 and human decisions for ambiguous or unapproved scope. Posting comments requires

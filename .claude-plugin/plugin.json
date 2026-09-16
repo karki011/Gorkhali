@@ -1,7 +1,7 @@
 {
   "name": "gorkhali",
   "version": "3.3.0",
-  "description": "Lean engineering orchestration for Claude Code: approved plans, isolated Engineers, integrated checks, independent review, and resilient recovery.",
+  "description": "Lean engineering orchestration for Claude Code: approved plans, isolated or in-place Engineer work, integrated checks, independent review, and resilient recovery.",
   "author": {
     "name": "Subash Karki"
   },

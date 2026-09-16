@@ -666,7 +666,7 @@ test('a branch-mode record fails when the integration HEAD has moved past the re
   const record = completion(p.tasks[0], base, repo, 'branch');
   change(repo, 'a.txt', 'integration branch moved on');
   const headBeforeIntegrate = snapshot(repo).head;
-  assert.throws(() => integrate(p, [record], data, repo), /moved past/);
+  assert.throws(() => integrate(p, [record], data, repo), /does not match/);
   assert.equal(snapshot(repo).head, headBeforeIntegrate);
 });
 
@@ -708,6 +708,15 @@ test('releaseWorktrees ignores an integrated branch-mode operation and never rep
   assert.deepEqual(result, { released: [], kept: [], unintegrated: [] });
 });
 
+test('releaseWorktrees ignores an engineer-results attempt record whose worktree is the integration root', (t) => {
+  const { repo, data } = fixture(t);
+  fs.mkdirSync(path.join(data, 'engineer-results'));
+  fs.writeFileSync(path.join(data, 'engineer-results', 'branch-attempt.json'),
+    JSON.stringify({ taskId: 'a', attemptId: 'branch-attempt', status: 'done', worktree: repo, head: snapshot(repo).head }));
+  const result = releaseWorktrees(data, repo);
+  assert.deepEqual(result, { released: [], kept: [], unintegrated: [] });
+});
+
 test('status never lists the integration worktree for a branch-mode completion', (t) => {
   const { repo } = fixture(t);
   openUntracked({ task: 'task' }, repo);
@@ -719,4 +728,119 @@ test('status never lists the integration worktree for a branch-mode completion',
   run('integrate', { records: [record] }, repo);
   const status = run('status', {}, repo);
   assert.deepEqual(status.worktrees, { released: [], kept: [], unintegrated: [] });
+});
+
+test('resume and status classify an active branch-mode Engineer\'s own commits as in-progress work, not divergence', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'a.txt', 'branch mode in progress');
+  // status is read-only preview: check it before resume persists a checkpoint at the new fingerprint.
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, true);
+  assert.equal(status.checkpoint.reconciliationRequired, false);
+  assert.equal(status.checkpoint.next, 'result');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, true);
+  assert.equal(resumed.checkpoint.next, 'result');
+  assert.equal(resumed.checkpoint.reconciliationRequired, false);
+});
+
+test('resume and status fall back to divergence when HEAD no longer descends from the branch-mode base', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  // Rewrites the dispatched base itself so it no longer shares ancestry with the new HEAD,
+  // simulating an unrelated Git rewrite rather than the branch-mode Engineer's own commits.
+  git(repo, ['commit', '--amend', '--allow-empty', '-qm', 'rewritten base']);
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+});
+
+test('resume and status still require reconciliation for a worktree-mode assignment with in-progress changes in the integration tree', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'], isolation: 'worktree' }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'worktree');
+  change(repo, 'a.txt', 'unexpected direct edit');
+  const resumed = run('resume', {}, repo);
+  assert.equal(resumed.changed, true);
+  assert.equal(resumed.branchWork, undefined);
+  assert.equal(resumed.checkpoint.reconciliationRequired, true);
+  assert.equal(resumed.checkpoint.next, 'reconcile');
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.branchWork, undefined);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+});
+
+test('a failed branch-mode result with leftover commits outside ownership blocks recover until reconciled', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  change(repo, 'b.txt', 'outside ownership');
+  const leftoverHead = snapshot(repo).head;
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(failure.attemptId));
+  assert.match(status.checkpoint.reconciliationReason, new RegExp(leftoverHead));
+  assert.match(status.checkpoint.reconciliationReason, /b\.txt/);
+  assert.match(status.checkpoint.reconciliationReason, /outside declared ownership/);
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /reconciliation/);
+  run('reconcile', { scope: 'changed', reason: status.checkpoint.reconciliationReason }, repo);
+  // Reconciling as "changed" requires a fresh approval, same as any other divergence; the
+  // reconciliation-specific block is gone but recover is still not authorized to proceed.
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /approval/);
+});
+
+test('a failed branch-mode result with leftover commits inside ownership reconciles as unchanged and recover succeeds', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  change(repo, 'a.txt', 'partial in-ownership work');
+  const failure = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not finish' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, true);
+  assert.equal(status.checkpoint.next, 'reconcile');
+  assert.match(status.checkpoint.reconciliationReason, /all within declared ownership/);
+  assert.throws(() => run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo), /reconciliation/);
+  run('reconcile', { scope: 'unchanged', reason: status.checkpoint.reconciliationReason }, repo);
+  assert.equal(run('recover', { failureId: failure.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
+});
+
+test('a failed branch-mode result with no leftover commits and a clean tree behaves exactly like a worktree-mode failure', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo);
+  const p = plan([{ id: 'a', files: ['a.txt'] }]);
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const dispatched = run('dispatch', {}, repo);
+  assert.equal(dispatched.assignments[0].isolation, 'branch');
+  const result = run('result', { record: { taskId: 'a', attemptId: dispatched.assignments[0].attemptId, status: 'failed', summary: 'could not start' } }, repo);
+  const status = run('status', {}, repo);
+  assert.equal(status.checkpoint.reconciliationRequired, false);
+  assert.equal(status.checkpoint.next, 'recover');
+  assert.equal(run('recover', { failureId: result.id, failureClass: 'implementation', repairTaskId: 'a' }, repo).next, 'engineer');
 });
