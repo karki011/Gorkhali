@@ -27,11 +27,11 @@ CLI actions and request fields:
 | plan | `{plan}` | Validates, stores plan, checkpoints |
 | approve | `{confirmed:true}` after explicit user approval | Binds approval to this plan |
 | route | `{}` | Waves, task assignments, Auditor model, and conditional Opposition |
-| dispatch | `{}` | Checkpoints the next wave, base, task hashes, and unique attempt assignments |
+| dispatch | `{}` | Checkpoints the next wave, base, task hashes, and unique attempt assignments, each carrying its per-task `isolation` (worktree or branch) |
 | result | `{record}` with taskId, attemptId, status, summary | Records each Engineer outcome once; failures enter bounded recovery |
 | resolve-failures | `{confirmed:true,failureIds,reason}` after explicit human decision | Retires named blockers after clarification, environment restoration, or authorized retry; preserves all counters |
 | reconcile | `{scope:"unchanged" or "changed",reason}` | Records Git/scope evidence; changed scope requires approval |
-| integrate | `{records:[...]}` | Checks ownership, integrates commits, checkpoints |
+| integrate | `{records:[...]}` | Checks ownership, integrates worktree-mode commits by cherry-pick or verifies branch-mode commits already on the integration branch, rejects a record whose isolation differs from its assignment, checkpoints |
 | snapshot | `{}` | HEAD, branch, worktree, dirty files, content fingerprint |
 | diff | `{baseHead}` full commit ID | Integrated diff for the approved scope |
 | progress | `{entry:{phase,next,...}}` | Appends progress and checkpoints |
@@ -56,6 +56,7 @@ Use CLI `route` for each role assignment; it invokes `tierForTask` and
 `modelForTier`, including Auditor over the union of integrated risk signals. `priorFailure` describes a
 failure before this session; counters describe this session, capped by policy.
 Opposition is justified by architecture ambiguity or the configured deep threshold.
+Isolation policy (worktree versus branch mode) lives in `routing.js` alongside tiering.
 
 ## Context and authority
 

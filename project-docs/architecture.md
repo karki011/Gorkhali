@@ -12,7 +12,7 @@ sets product direction; this document records the concrete MVP contracts.
 | `tiers.js`, `config/role-tiers.json` | Role defaults and allowed escalation; Claude model mapping |
 | `git-state.js` | Exact Git/content fingerprint with no repository writes |
 | `session.js` | Atomic plan, progress, and structured checkpoints |
-| `execution.js` | Align isolated worktrees, validate ownership, journal integration |
+| `execution.js` | Align isolated worktrees or verify an in-place branch-mode Engineer, validate ownership, journal integration |
 | `verification.js` | Bind checks, independent review, and human confirmation to state |
 | `recovery.js` | Two Engineer repair attempts per session; conditional diagnosis |
 | `cli.js` | Bounded shell interface for the lead |
@@ -37,16 +37,29 @@ logical resources. Unknown dependencies, cycles, duplicate IDs, and malformed me
 are rejected before dispatch. A migration/public-contract/destructive task always
 runs serially; its independent consumers may parallelize after it integrates.
 
+`isolationForTask` decides worktree versus branch mode per task. An explicit
+`worktree` on the task or plan always wins; a wave with more than one task or any
+other active Engineer forces worktree; an explicit `branch` then applies; otherwise
+another pending task, a pending dependent, a pending task sharing a coordination
+key, a deep Engineer tier, or any implementation failure this session also forces
+worktree. Only a single low-risk task with no other pending or active work runs in
+branch mode.
+
 Each completion names task, base commit, result commit, worktree, actual changed
-files, all touched history paths, task hash, attempt ID, focused checks, and status.
-Every outcome is recorded once; pending failures cannot bypass bounded repair through
-normal dispatch. Integration checks these against Git, validates
-dependency ancestry, and journals each source commit before applying it with a
-cherry-pick source marker. On interruption, markers in actual current Git history prevent replay. Persisted
-applied lists alone never prove presence. Missing commits are reapplied only when
-current history is a valid prefix; task and transitive dependency revisions invalidate
-old completions after a plan change. Legacy globs authorize changes serially. A conflict
-is preserved and delegated; nothing resets away user work. One writer owns integration.
+files, all touched history paths, task hash, attempt ID, focused checks, isolation
+mode, and status. Every outcome is recorded once; pending failures cannot bypass
+bounded repair through normal dispatch. Integration checks these against Git and
+validates dependency ancestry. Worktree-mode integration journals each source commit
+before applying it with a cherry-pick source marker; on interruption, markers in
+actual current Git history prevent replay, and persisted applied lists alone never
+prove presence. Missing commits are reapplied only when current history is a valid
+prefix. Branch-mode integration instead verifies the record's commits already sit
+on the integration branch at the recorded head, journals those existing commits
+without cherry-picking them, and the integration worktree is never released.
+Integration rejects a record whose isolation mode differs from the assignment's
+stored mode. Task and transitive dependency revisions invalidate old completions
+after a plan change. Legacy globs authorize changes serially. A conflict is
+preserved and delegated; nothing resets away user work. One writer owns integration.
 
 ## Evidence and checkpoints
 
