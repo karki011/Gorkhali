@@ -7,15 +7,18 @@ user-invocable: true
 
 # Wrap
 
-Read `../references/lifecycle.md`. Require one integrated Inspector record and its matching Auditor
-record via CLI `verify`; no extra standalone review artifact exists. Version bumps
-and commits happen through Engineer before this verification, never afterward.
-Bump manifests consistently: major for removed public contracts, minor for compatible
-features, patch for fixes. Re-verify if any change is still needed.
+Read `../references/lifecycle.md`. Wrap owns the single verification pass. Call CLI
+`verify` first; when it reports missing or stale evidence, run the `verify`
+procedure now, once, on the final integrated commit, then continue. No extra
+standalone review artifact exists. Version bumps and commits happen through
+Engineer before this verification, never afterward. Bump manifests consistently:
+major for removed public contracts, minor for compatible features, patch for
+fixes. Re-verify if any change is still needed.
 
 Write a concise PR title/body grounded in the approved requirement, actual behavior,
 checks, Auditor findings, and known limitations. Confirm ship authorization from
-the user's request or ask only if absent. Call `ship` with that authorization and
+the user's request or plan approval, for example "approved, take it to a PR", and
+ask only if absent. Call `ship` with that authorization and
 title/body. It requires a clean feature branch and current passed evidence, reuses
 an existing open PR on resume, or pushes and creates a ready-for-review PR.
 Checkpoint the PR result. `ship` also removes this session's Engineer worktrees whose

@@ -300,6 +300,17 @@ test('changing approved plan content requires a new approval', (t) => {
   assert.throws(() => run('dispatch', {}, repo), /approval/);
 });
 
+test('amending a plan after passed verification reports the discarded evidence', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo); run('approve', { confirmed: true }, repo);
+  assert.equal(run('plan', { plan: plan() }, repo).notice, undefined, 'no notice before any verification passed');
+  run('approve', { confirmed: true }, repo);
+  run('progress', { entry: { phase: 'verified', verification: 'passed', next: 'wrap' } }, repo);
+  const amended = run('plan', { plan: plan([{ id: 'b', files: ['b.txt'] }]) }, repo);
+  assert.match(amended.notice, /Batch further amendments/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(process.env.GORKHALI_DATA, 'repos', fs.readdirSync(path.join(process.env.GORKHALI_DATA, 'repos'))[0], 'sessions', 'task', 'plan.json'), 'utf8')).notice, undefined, 'notice is not persisted into plan.json');
+});
+
 test('changed plan intent invalidates evidence even without a Git change', (t) => {
   const { repo, data } = fixture(t);
   fs.writeFileSync(path.join(data, 'plan.json'), JSON.stringify(plan()));

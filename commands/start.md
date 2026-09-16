@@ -75,6 +75,20 @@ full re-presentation of the amended plan before the new approval. Conflicts stop
 delegate resolution to a scoped Engineer in the integration worktree, preserve
 the cherry-pick source marker, then retry integration. Never reset away work.
 
-Run subsequent dependency waves only after integration. Default to one Inspector
-and one Auditor after all waves. An intermediate Inspector is justified only when
-later tasks need a risky wave proven before proceeding. Finish via `verify`.
+Run subsequent dependency waves only after integration. Do not spawn an Inspector
+or Auditor between waves. An intermediate Inspector is justified only when later
+tasks need a risky wave proven before proceeding, and it never brings an Auditor.
+
+## Review with the user, then wrap
+
+After the last wave integrates, for `userVisible:true` present the human checklist
+from `verify` and expect the user to shape the result. Each design note becomes a
+plan amendment through `plan`, `approve`, `dispatch`, and `integrate`; do not
+verify in between, since any later commit discards Inspector, Auditor, and human
+evidence. When the user says the result is right, or immediately after the last
+wave when nothing is user-visible, invoke `wrap` yourself and follow it to the
+end; it runs `verify` once on the final integrated commit and then ships. Do not
+stop to ask whether to continue. When the request or the plan approval already
+asked for a PR, wrap ships without asking again; otherwise wrap asks for ship
+authorization at its ship step, and that is the only pause between the user's
+pass and the PR.

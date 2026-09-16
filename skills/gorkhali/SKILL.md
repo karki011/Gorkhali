@@ -13,7 +13,10 @@ there is no additional Planner agent.
 
 Route natural language to the following public commands:
 
-- New work, including obvious bugs: `start`.
+- New work, including obvious bugs: `start`. A request or approval that also asks
+  for a PR ("approved, take it to a PR", "work through to a PR") carries ship
+  authorization: `start` runs the waves and the human pass, then invokes `wrap`,
+  which verifies once and ships without asking again.
 - Continue interrupted work: `resume`.
 - Checks, semantic review, repair, or a user-visible checklist: `verify`.
 - Open a PR, "create a PR", or continue its external review: `wrap`.
