@@ -8,7 +8,7 @@ const { git, snapshot } = require('../lib/git-state');
 const session = require('../lib/session');
 const { run } = require('../lib/cli');
 const { completion, integrate, prepareWorktree, releaseWorktrees, completedRecords, taskHash, dirtyOutsideOwnership } = require('../lib/execution');
-const { recordInspector, requireInspector, recordAuditor, requireVerified } = require('../lib/verification');
+const { recordInspector, requireInspector, recordAuditor, requireVerified, auditorWaiver } = require('../lib/verification');
 const { recoveryDecision } = require('../lib/recovery');
 
 function fixture(t) {
@@ -56,6 +56,11 @@ function evidence(dir, repo, userVisible = false) {
     checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
   recordAuditor(dir, { verdict: 'pass', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [], userVisible, independence: { basis: 'independent-context' } }, repo);
   return inspector;
+}
+// A fresh Inspector pass alone, with no matching current Auditor record.
+function freshInspector(dir, repo) {
+  return recordInspector(dir, { role: 'inspector', verdict: 'pass', worktree_unchanged: true, fingerprint: snapshot(repo).fingerprint,
+    checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
 }
 
 test('fingerprint catches edits to already-dirty files, staging, deletion, untracked content and commits', (t) => {
@@ -192,6 +197,80 @@ test('a new Inspector run invalidates prior Auditor approval even on unchanged c
   const next = recordInspector(data, first, repo);
   assert.notEqual(first.id, next.id);
   assert.throws(() => requireVerified(data, repo), /Auditor/);
+});
+
+test('pre-ship, a fresh Inspector pass without a current Auditor still requires the Auditor', (t) => {
+  const { repo, data } = fixture(t);
+  evidence(data, repo);
+  session.writeJsonAtomic(path.join(data, 'checkpoint.json'), { phase: 'integrated' });
+  freshInspector(data, repo);
+  assert.throws(() => requireVerified(data, repo), /Auditor/);
+});
+
+test('once a PR exists a fresh Inspector pass alone satisfies verify when the last Auditor passed', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  evidence(dir, repo);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/1' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  const fresh = freshInspector(dir, repo);
+  const result = run('verify', {}, repo);
+  assert.equal(result.auditor, null);
+  assert.match(result.auditorWaived, /post-ship/);
+  assert.equal(result.inspector.id, fresh.id);
+});
+
+test('a failing latest Auditor record still blocks verify once a PR exists', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship-fail'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  const inspector = evidence(dir, repo);
+  recordAuditor(dir, { verdict: 'fail', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [] }, repo);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/2' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  freshInspector(dir, repo);
+  assert.throws(() => run('verify', {}, repo), /Auditor/);
+});
+
+test('a user-visible last Auditor still requires current human confirmation under the post-ship waiver', (t) => {
+  const { repo, worktree } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan(); p.isolation = 'worktree';
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  const a = worktree('engineer-postship-visible'); change(a, 'a.txt', 'ship me');
+  run('integrate', { records: [completion(p.tasks[0], wave.baseHead, a)] }, repo);
+  evidence(dir, repo, true);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/3' } }, repo);
+  change(repo, 'a.txt', 'post ship follow up');
+  const fresh = freshInspector(dir, repo);
+  assert.throws(() => run('verify', {}, repo), /human/);
+  run('human-confirmation', { confirmed: true }, repo);
+  const result = run('verify', {}, repo);
+  assert.match(result.auditorWaived, /post-ship/);
+  assert.equal(result.inspector.id, fresh.id);
+});
+
+test('auditorWaiver applies only under the optional policy with a recorded pr and a passing last Auditor', () => {
+  const passing = { verdict: 'pass', findings: [] };
+  const blocking = { verdict: 'pass', findings: [{ severity: 'blocking' }] };
+  const failing = { verdict: 'fail', findings: [] };
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, passing, 'required'), null);
+  assert.match(auditorWaiver({ pr: 'https://example.com/pull/1' }, passing, 'optional'), /post-ship/);
+  assert.equal(auditorWaiver({}, passing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: '' }, passing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, failing, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, blocking, 'optional'), null);
+  assert.equal(auditorWaiver({ pr: 'https://example.com/pull/1' }, null, 'optional'), null);
 });
 
 test('CLI recovery persists its budget across resume and cannot replay one failure', (t) => {

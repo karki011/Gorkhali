@@ -16,7 +16,7 @@ Route natural language to the following public commands:
 - New work, including obvious bugs: `start`.
 - Continue interrupted work: `resume`.
 - Checks, semantic review, repair, or a user-visible checklist: `verify`.
-- Open a PR or continue its external review: `wrap`.
+- Open a PR, "create a PR", or continue its external review: `wrap`.
 - After human merge: `close`.
 - Progress: `status`.
 - Stop with a structured handoff: `pause`.

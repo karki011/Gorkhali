@@ -15,5 +15,8 @@
     "opposition": 6,
     "implementationFailures": 2,
     "failureCap": 2
+  },
+  "review": {
+    "postShipAuditor": "optional"
   }
 }

@@ -110,7 +110,11 @@ scratch Claude configuration to check that it loads.
 
 Version **3.3.0** adds branch-mode isolation: a single low-risk task in the last
 pending wave, with no other active Engineers, runs directly on the integration
-branch instead of its own worktree. Version **3.1.0** adds ticket intake and
+branch instead of its own worktree. The active-session pointer is now keyed per
+checkout, so concurrent leads on one machine no longer see each other's session.
+Once a PR exists and the last Auditor passed, verify accepts a current Inspector
+pass alone under a configurable post-ship review policy, since external reviewers
+re-review every push. Version **3.1.0** adds ticket intake and
 lifecycle tracking. Jira and GitHub issues can follow work from assignment and In
 Progress to PR-linked In Review and Done after merge. GitHub status transitions
 use an existing Project Status field; Jira uses your connected tools and available

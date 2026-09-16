@@ -92,6 +92,16 @@ Pause stops/collects Engineers before clearing active state. Interrupted Enginee
 worktrees and dirty files are preserved. Changed approved scope/dependencies require
 a new plan decision; unchanged approved work resumes automatically.
 
+`requireVerified` still requires a current Inspector pass. Once the checkpoint
+records a PR and the latest Auditor record passed with no blocking findings, a
+fresh Inspector pass alone satisfies verify and reports `auditorWaived`, because
+Codex and Gitar re-review every push in an independent context; a failed or
+missing Auditor, or a policy of `required`, still demands a fresh Auditor. This is
+controlled by `config/routing.json`'s `review.postShipAuditor` key (`optional` or
+`required`, missing means required), and the exported pure `auditorWaiver` helper
+keeps that decision unit-testable. A user-visible last Auditor still requires a
+current human confirmation bound to the Inspector's fingerprint before the waiver applies.
+
 ## Approval and boundaries
 
 Shipping resolves the actual origin default branch and refuses to push it directly.

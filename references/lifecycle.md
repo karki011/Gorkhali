@@ -40,7 +40,7 @@ CLI actions and request fields:
 | pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state; status previews `worktrees` this session could release. An active branch-mode Engineer's own commits classify as `branchWork` (next `result`), never as divergence, only while HEAD descends from its base on the same dispatched branch and worktree; a branch or worktree switch is divergence even at the same commit |
 | human-confirmation | `{confirmed:true}` after explicit user pass | Binds confirmation to content |
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
-| verify | `{}` | Requires current Inspector, Auditor, and applicable human evidence |
+| verify | `{}` | Requires current Inspector, Auditor, and applicable human evidence; once a PR exists and the last Auditor passed, a current Inspector pass alone can satisfy verify and returns `auditorWaived`, controlled by `config/routing.json`'s `review.postShipAuditor` policy (default required) |
 | ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one, then releases this session's integrated Engineer worktrees; returns `{url,worktrees:{released,kept,unintegrated}}` |
 | review-state | `{pr,classifications:[{id,classification}]}` | Reads inline bodies/authors/locations, head/checks; checkpoints classified feedback and bounded rounds |
 | close | `{pr}` numeric | Requires merge, records completion, releases session |

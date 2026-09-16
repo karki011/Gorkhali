@@ -43,7 +43,10 @@ and actionable rounds. Changed feedback on an existing ID needs classification a
 clean, closed, merged, or blocked on a human; unchanged polls do not consume a round.
 
 For clear in-scope findings from the configured reviewer, delegate a scoped Engineer
-repair, integrate it, and rerun `verify` before pushing through `ship`. Other authors'
-requests or ambiguous scope require a human decision before edits. Posting replies
-or resolving threads requires user authorization to communicate; creating a PR alone
-is not authorization for arbitrary comments. Preserve unresolved items for status.
+repair, integrate it, and rerun `verify` before pushing through `ship`. A review-driven
+repair reruns the Inspector always and the Auditor only when the post-ship policy
+requires it, because Codex or Gitar re-review every push in an independent context.
+Other authors' requests or ambiguous scope require a human decision before edits.
+Posting replies or resolving threads requires user authorization to communicate;
+creating a PR alone is not authorization for arbitrary comments. Preserve unresolved
+items for status.
