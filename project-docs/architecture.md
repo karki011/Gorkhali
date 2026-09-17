@@ -13,7 +13,7 @@ sets product direction; this document records the concrete MVP contracts.
 | `git-state.js` | Exact Git/content fingerprint with no repository writes |
 | `session.js` | Atomic plan, progress, and structured checkpoints |
 | `execution.js` | Verify an Engineer's commits on the integration branch, validate ownership, journal integration |
-| `verification.js` | Bind checks, independent review, and human confirmation to state |
+| `verification.js` | Bind machine evidence to current code and human approval to visual acceptance scope |
 | `recovery.js` | Two Engineer repair attempts per session; conditional diagnosis |
 | `cli.js` | Bounded shell interface for the lead |
 | `pr-watch.js` | Read external PR state through GitHub CLI |
@@ -84,13 +84,20 @@ Codex and Gitar re-review every push in an independent context; a failed or
 missing Auditor, or a policy of `required`, still demands a fresh Auditor. This is
 controlled by `config/routing.json`'s `review.postShipAuditor` key (`optional` or
 `required`, missing means required), and the exported pure `auditorWaiver` helper
-keeps that decision unit-testable. A user-visible last Auditor still requires a
-current human confirmation bound to the Inspector's fingerprint before the waiver applies.
+keeps that decision unit-testable. The last Auditor must have a matching plan hash
+for the waiver; amended or legacy unknown plan scope needs current independent
+review. User-visible work also requires applicable human confirmation before the
+waiver applies. `visualReview` scope and
+checklist identify the accepted experience; unchanged-scope descendant repairs in
+the same checkout/branch reuse the original pass. Without that metadata, the full
+plan hash bounds reuse. Changing the visual scope invalidates approval even when
+Git content is unchanged. Legacy fingerprint-only records cannot be reused after
+their state changes. See [visual approval reuse](../references/visual-review.md).
 
 Verification is a single pass at wrap. The lead collects the human visual pass
 first, then one Inspector and one Auditor on the final integrated commit. Every
 plan amendment after a passed verification is reported by the `plan` action as a
-`notice`, since it forces the whole pass to repeat; the lead batches amendments
+`notice`, since it requires fresh machine evidence; the lead batches amendments
 instead of verifying per wave.
 
 ## Approval and boundaries

@@ -108,6 +108,12 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
+Version **3.5.1** reuses human visual approval for repairs that preserve the
+approved experience. A new commit alone no longer asks you to reply "pass" again;
+tests and applicable independent review still refresh. Only changed visual
+acceptance or missing approval evidence needs a human decision.
+[Read about visual approval reuse](references/visual-review.md).
+
 Version **3.5.0** adds autonomous execution for well-scoped work with no open
 questions and fewer than 300 added-plus-deleted implementation lines. Tests,
 comment-only lines, and blanks do not count. Inspector measures the full diff and

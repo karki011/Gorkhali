@@ -8,8 +8,9 @@ user-invocable: true
 # Verify
 
 Read `../references/lifecycle.md`. All Engineer work, version updates, and commits must be
-integrated before final verification. A commit after verification makes evidence
-stale, even if content is otherwise identical. The lead never implements a repair.
+integrated before final verification. A commit after verification makes machine
+evidence stale, even if content is otherwise identical. Human visual approval can
+carry forward under `../references/visual-review.md`. The lead never implements a repair.
 
 Verification runs once, on the final integrated commit, normally entered from
 `wrap`. Running it after every task repeats the Inspector and Auditor for each
@@ -19,11 +20,13 @@ depend on justifies an earlier Inspector, and never an earlier Auditor.
 Every reviewer receives the exact absolute session directory containing plan.json,
 integration checkout, and plugin library paths. GORKHALI_DATA is not the session directory.
 
-1. For `userVisible:true`, present a concrete checklist with expected results
-   before any agent runs. Wait for an explicit human pass; silence, screenshots
-   alone, and agent opinion are not confirmation. A change request here is a plan
-   amendment, not a verification failure, and costs no Inspector or Auditor run.
-   Only after the pass call `human-confirmation`.
+1. For `userVisible:true`, call `visual-status` first. If `reusable:true`, continue
+   without another user confirmation. Otherwise follow `../references/visual-review.md`:
+   reconcile Git problems first, or show the specific missing/changed acceptance
+   criteria and obtain a human pass. Silence, screenshots alone, and agent opinion
+   are not an initial pass. A design change is a plan amendment, not a verification
+   failure. Only an actual new pass calls `human-confirmation`; a new commit alone
+   never justifies asking the user to repeat it.
 2. Spawn one economy Inspector on the integrated checkout. It discovers checks,
    captures fingerprints before/after, and calls `recordInspector` in
    `lib/verification.js`. Record its result through CLI `progress`.
@@ -68,7 +71,9 @@ failure class and diagnostic evidence in progress. A completed diagnosis does no
 consume another Engineer attempt. Budget exhaustion stops with the remaining
 findings and a human decision. No unbounded retry or automatic budget reset.
 
-After any repair, integrate committed changes and rerun the integrated Inspector
-and Auditor. Previous passing evidence is stale, including the human confirmation;
-re-present only the checklist items the repair could have changed. Update the plan
-and obtain approval only if the repair materially changes the approved scope/dependencies.
+After a repair, integrate committed changes and refresh Inspector and the applicable
+Auditor evidence under the policy above. Reuse human visual approval when the
+acceptance scope is unchanged, including fixes that restore already approved
+behavior. Update the plan and obtain approval only if the repair materially changes
+approved scope/dependencies. Ask for renewed visual review only for changed
+acceptance criteria, not merely for changed files or commits.

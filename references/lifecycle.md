@@ -39,7 +39,8 @@ CLI actions and request fields:
 | diff | `{baseHead}` full commit ID | Integrated diff for the approved scope |
 | progress | `{entry:{phase,next,...}}` | Appends progress and checkpoints |
 | pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state. An active Engineer's own commits classify as `branchWork` (next `result`), never as divergence, only while HEAD descends from its base on the same dispatched branch and checkout; a branch or checkout switch is divergence even at the same commit |
-| human-confirmation | `{confirmed:true}` after explicit user pass | Binds confirmation to content |
+| visual-status | `{}` | Reports whether the recorded visual approval is reusable, and why |
+| human-confirmation | `{confirmed:true}` after explicit user pass | Records acceptance scope and Git context; same-scope descendant repairs reuse it |
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
 | verify | `{}` | Runs once at wrap on the final integrated commit. Requires current Inspector, Auditor, and applicable human evidence; for non-autonomous work after a PR exists and the last Auditor passed, a current Inspector pass alone can satisfy verify and returns `auditorWaived`, controlled by `config/routing.json`'s `review.postShipAuditor` policy (default required) |
 | ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one; returns `{url}` |
@@ -78,8 +79,9 @@ All shell tools and user-installed hooks execute with the user's OS permissions.
 This is a workflow discipline boundary, not a sandbox for hostile repository code.
 Keep implementation agents separate from the Inspector and Auditor contexts.
 Machine verification is one Inspector and one Auditor on the final integrated
-commit at wrap, never a per-wave gate. Human visual review comes before both,
-because it is where the user reshapes the result and it costs no agent run.
+commit at wrap, never a per-wave gate. Initial or changed-scope human visual review
+comes before both; `visual-review.md` carries existing approval across in-scope
+repairs without another user pass.
 
 ## Communication
 

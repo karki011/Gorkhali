@@ -24,6 +24,9 @@ raw diff reaches the limit; never obtain a fresh autonomous allowance for an ame
 Commits an active Engineer made on top of its own dispatched base, on the same dispatched branch and checkout, are reported as in-progress work (`branchWork: true`, next `result`), not divergence; collect its result normally.
 A branch or checkout switch away from the dispatched checkout is never `branchWork`, even at the same commit; it is divergence like any other.
 Any other changed HEAD, index, worktree, branch, or untracked content invalidates verification.
+This invalidates machine evidence, not necessarily visual approval. Use
+`visual-status` after reconciliation; same-scope descendant repairs keep the human
+pass under `../references/visual-review.md`.
 Inspect the intervening diff and task dependency/ownership changes.
 Call `reconcile` with the scope classification and concrete Git evidence; dispatch, repair, integration, and verification stay blocked until reconciliation.
 Ask for a new plan decision only when divergence materially changes approved scope/dependencies.

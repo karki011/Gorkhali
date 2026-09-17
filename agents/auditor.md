@@ -41,7 +41,12 @@ only after that review; even post-ship autonomous repairs require current review
 Findings are `blocking` when the change introduces a defect or misses the approved
 requirement; otherwise `advisory`. Record evidence and a concrete file/location.
 Classify `userVisible` explicitly; true requires the orchestrator's human checklist.
-An agent's visual opinion never supplies human confirmation.
+That flag describes the overall work, not a demand for a new pass after each repair.
+Follow `../references/visual-review.md`: check that the declared visual acceptance
+still covers the implementation. Routine fixes restoring approved behavior retain
+approval; a materially different experience needs an amended scope. Report an
+unrecorded visual scope change as blocking rather than silently reusing approval.
+An agent's visual opinion never supplies the initial human confirmation.
 
 Call `recordAuditor(sessionDir,record,cwd)` with `{role:"auditor",verdict,inspectorId,
 fingerprint,independence:{basis,reason},userVisible,findings,comments,scopeReviewed?}`. Copy Inspector ID and
