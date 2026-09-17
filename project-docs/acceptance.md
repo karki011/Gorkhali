@@ -1,15 +1,16 @@
 # PRD acceptance record
 
 This records the Lean Core and Smart Orchestration MVP acceptance for version 3.0.0.
+The worktree and parallel receipts below describe that version; since 3.4.0 every Engineer runs serially in the integration checkout and worktree isolation and parallel waves no longer exist.
 Claude Code is the only supported host. Git history is preserved; this is the
 approved incremental MVP PR, not a replacement root commit.
 
 ## Validation results
 
-- **150 automated tests** pass, including real temporary Git worktrees and failure injection.
+- **150 automated tests** pass, including real temporary Git repositories and failure injection.
 - Claude Code **2.1.269** loaded exactly **8 public commands and 5 roles**.
 - Live normal task: **1 Engineer, 1 Inspector, 1 Auditor**, verified.
-- Live parallel task: **2 overlapping Engineers in distinct worktrees, 1 integrated Inspector, 1 Auditor**, verified.
+- Live two-task run (3.0.0 parallel mode, removed in 3.4.0): **2 Engineers, 1 integrated Inspector, 1 Auditor**, verified.
 - Live failure recovery: **1 scoped Engineer repair**, fresh passing checks, deep Auditor, verified. An extra initial Inspector was needed for a missing session path; the new directory guard and explicit prompt context address it.
 - A fresh Claude process resumed unchanged work without prior pause, then paused and resumed successfully.
 - Independent review accepted the implementation fixes. Plugin validation, whitespace checks, and real GitHub review reads passed.
@@ -24,15 +25,15 @@ small fixture runs; final GitHub CI is attached to the PR commit.
 | --- | --- |
 | FR-1: lead cannot implement | Exact Engineer identity in `never-edits`; lead shell restricted to lifecycle CLI. Hook tests and actual Claude rejection of out-of-contract lead commands. |
 | FR-2: compatible plan fields | Plan-schema and routing tests cover omitted metadata, legacy glob ownership, and explicit dependency/resource/risk fields. |
-| FR-3: safe deterministic waves | Routing tests cover direct/transitive dependencies, file/directory/resource overlap, high-conflict risks, cycles, and sequential fallback. |
-| FR-4: isolated Engineers | Real Git fixture tests plus live Claude worktree dispatch, alignment, structured completion, ownership history, and ordered integration. |
-| FR-5: integrated Inspector | Live single and parallel workflows count actual agent starts; one Inspector follows integration. |
+| FR-3: safe deterministic waves | Routing tests cover direct/transitive dependencies, cycles, and strictly serial one-task waves (3.4.0). |
+| FR-4: scoped Engineers | Real Git fixture tests plus live Claude dispatch, base alignment in the integration checkout, structured completion, ownership history, and ordered integration. |
+| FR-5: integrated Inspector | Live single and two-task workflows count actual agent starts; one Inspector follows integration. |
 | FR-6: current independent Auditor | Evidence tests bind Inspector ID, plan, and exact Git/content state; live Auditor runs in a separate agent context. |
 | FR-7/8: routing and allowed tiers | Deterministic risk/threshold boundary tests and role-model hook tests; actual balanced Engineer/Auditor and economy Inspector calls. |
 | FR-9/10: conditional specialists | Risk/recovery tests and no Opposition or Detective in the low-risk live workflows. |
-| FR-11: bounded recovery | Tests cover two-attempt budget, repeated failure diagnosis, idempotent outcomes, parallel peer failures, dispatch bypass prevention, and explicit human resolution without counter resets. |
-| FR-12/13: pause and resume | Real Git checkpoint/reconstruction tests, selected-session activation, interrupted integration, partial waves, and a fresh Claude process resuming without prior pause. |
-| FR-14: stale evidence | Tests cover changed HEAD, index, branch/worktree, tracked/untracked content, plan revisions, and explicit scope reconciliation before continuation. |
+| FR-11: bounded recovery | Tests cover two-attempt budget, repeated failure diagnosis, idempotent outcomes, dispatch bypass prevention, and explicit human resolution without counter resets. |
+| FR-12/13: pause and resume | Real Git checkpoint/reconstruction tests, selected-session activation, interrupted integration, and a fresh Claude process resuming without prior pause. |
+| FR-14: stale evidence | Tests cover changed HEAD, index, branch/checkout, tracked/untracked content, plan revisions, and explicit scope reconciliation before continuation. |
 | FR-15/16: lean review surface | Actual Claude discovery has eight public commands and five roles. Verify owns the only Auditor artifact required by ship. |
 | FR-17: human visual confirmation | Tests reject missing/stale human confirmation; prompt presents a checklist and requires explicit user pass. |
 | FR-18: repository hygiene | Surface regression checks, removed committed session artifacts, current docs rewritten, old roadmap explicitly historical. |
@@ -57,6 +58,6 @@ small fixture runs; final GitHub CI is attached to the PR commit.
 Automated tests exercise deterministic failure, recovery, approval, shipping, and
 human-confirmation gates using disposable Git repositories. GitHub shipping tests
 use a local remote and a stub GitHub CLI. Live model runs exercise real Claude
-hooks, model selection, worktrees, independent roles, and evidence recording.
+hooks, model selection, independent roles, and evidence recording.
 The live fixtures do not publish a release, merge a PR, or simulate a human visual
 pass. Their public surface and result receipts are recorded alongside this file.
