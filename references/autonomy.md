@@ -29,6 +29,10 @@ an inline comment counts as code. Docstrings, runtime strings, configuration, an
 documentation text are not automatically comments or tests. Do not minify code,
 drop tests, relabel production helpers as tests, or split a request to fit the limit.
 An uncertain estimate or classification requires clarification or normal approval.
+Approval resolves the actual `origin` default branch and rejects it, including
+custom names such as `trunk` or `develop`. A missing, inaccessible, or unresolved
+origin default blocks autonomous approval; use a verified feature branch or the
+normal human approval path.
 
 Present a short scope and verification update, then proceed without waiting for a
 plan yes/no. This is policy authorization, never a claim that the user approved a

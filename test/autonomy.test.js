@@ -19,6 +19,9 @@ function fixture(t, options = {}) {
   git(cwd, ['init', '-q']); git(cwd, ['config', 'user.name', 'Fixture']); git(cwd, ['config', 'user.email', 'fixture@example.com']);
   fs.writeFileSync(path.join(cwd, 'a.js'), 'const original = 0;\n');
   git(cwd, ['add', '.']); git(cwd, ['commit', '-qm', 'base']); git(cwd, ['switch', '-qc', 'feature']);
+  const remote = path.join(root, 'origin.git');
+  git(cwd, ['init', '--bare', '-q', remote]); git(cwd, ['remote', 'add', 'origin', remote]);
+  git(cwd, ['push', '-q', 'origin', 'HEAD:refs/heads/trunk']); git(remote, ['symbolic-ref', 'HEAD', 'refs/heads/trunk']);
   const dir = run('open', { task: 'work' }, cwd);
   const plan = {
     baseHead: snapshot(cwd).head,
@@ -29,7 +32,7 @@ function fixture(t, options = {}) {
     tasks: [{ id: 'a', description: 'work', files: ['a.js', 'a.test.js'], action: 'work', acceptance_criteria: ['work'], verify: 'test' }],
   };
   run('plan', { plan }, cwd);
-  return { cwd, dir, plan };
+  return { cwd, dir, plan, remote };
 }
 function commit(cwd, edits) {
   for (const [file, text] of Object.entries(edits)) fs.writeFileSync(path.join(cwd, file), text);
@@ -195,4 +198,32 @@ test('autonomous approval requires the planned clean feature checkout', (t) => {
   fs.unlinkSync(path.join(ctx.cwd, 'untracked'));
   commit(ctx.cwd, { 'a.js': 'moved();\n' });
   assert.throws(() => run('approve', { autonomous: true }, ctx.cwd), /base/);
+});
+
+test('autonomous approval rejects the actual remote default branch even with a stale cached default', (t) => {
+  const ctx = fixture(t);
+  git(ctx.cwd, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/obsolete']);
+  for (const branch of ['trunk', 'develop']) {
+    git(ctx.cwd, ['switch', '-qc', branch]);
+    git(ctx.cwd, ['push', '-q', 'origin', `HEAD:refs/heads/${branch}`]);
+    git(ctx.remote, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+    const before = snapshot(ctx.cwd).head;
+    assert.throws(() => run('approve', { autonomous: true }, ctx.cwd), /origin default branch/);
+    assert.equal(run('status', {}, ctx.cwd).checkpoint.approval, undefined);
+    assert.throws(() => run('dispatch', {}, ctx.cwd), /approval/);
+    assert.equal(snapshot(ctx.cwd).head, before);
+  }
+  git(ctx.cwd, ['switch', 'feature']);
+  run('approve', { autonomous: true }, ctx.cwd);
+  assert.deepEqual(run('dispatch', {}, ctx.cwd).wave, ['a']);
+});
+
+test('autonomous approval fails closed when the remote default cannot be established', (t) => {
+  const ctx = fixture(t);
+  git(ctx.remote, ['symbolic-ref', 'HEAD', 'refs/heads/missing']);
+  assert.throws(() => run('approve', { autonomous: true }, ctx.cwd), /origin default branch/);
+  git(ctx.cwd, ['remote', 'remove', 'origin']);
+  assert.throws(() => run('approve', { autonomous: true }, ctx.cwd), /origin default branch/);
+  assert.equal(run('status', {}, ctx.cwd).checkpoint.approval, undefined);
+  assert.equal(run('tracking-status', {}, ctx.cwd).decision, 'unanswered');
 });
