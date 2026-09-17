@@ -25,13 +25,18 @@ Route natural language to the following public commands:
 - Stop with a structured handoff: `pause`.
 - Explicitly save a durable preference: `learn`.
 
-At new-work intake, use any user-provided ticket/task number or URL. Otherwise ask
-whether they have one, allowing an explicit no-ticket answer. Follow the tracking
-protocol linked by `start`; persist the answer and reuse it on resume.
+At new-work intake, use any user-provided ticket/task number or URL. Clear, small
+described tasks follow `../../references/autonomy.md` without an optional ticket
+question. Otherwise ask whether they have one, allowing an explicit no-ticket
+answer. Persist the tracking decision and reuse it on resume.
 
-Use the smallest coherent plan. Every implementation plan needs explicit
-approval, including quick work; approval already given for this exact plan
-counts. Resume does not ask again unless scope or dependencies changed.
+Use the smallest coherent plan. Well-scoped work below the autonomous line limit
+with no open questions can proceed under policy authorization. Other plans and
+scope amendments need explicit approval; approval already given for the exact
+plan counts. Resume reuses current approval and its original scope boundary.
+In every mode, Engineers add no explanatory code comments. Inspector and Auditor
+enforce `../../references/code-comments.md`, regardless of task size or approval
+type. Auditor also reviews autonomous line-count exclusions.
 Opposition is conditional on ambiguity or high risk. Detective is conditional
 on diagnosis evidence. Neither is a normal-path seat.
 

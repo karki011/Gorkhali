@@ -19,7 +19,7 @@ test('only MVP commands and roles are discoverable', () => {
 });
 test('package and plugin versions agree on the current release', () => {
   const plugin = require('../.claude-plugin/plugin.json');
-  assert.equal(plugin.version, '3.4.0');
+  assert.equal(plugin.version, '3.5.0');
   assert.equal(require('../.claude-plugin/marketplace.json').metadata.version, plugin.version);
   assert.equal(require('../package.json').version, plugin.version);
 });

@@ -97,12 +97,33 @@ instead of verifying per wave.
 
 Shipping resolves the actual origin default branch and refuses to push it directly.
 Close requires the merged PR URL recorded by this session and preserves another
-active task. Every route requires explicit plan approval. User authorization already given for
-that exact plan counts. Shipping requires explicit authorization and current evidence.
+active task. Clear work below the autonomous line limit can use policy approval;
+other routes and later scope amendments require explicit plan approval. User
+authorization already given for that exact plan counts. Shipping requires explicit
+authorization and current evidence.
 The lead's editing tools cannot write implementation. Its Bash access while active
 is limited to the installed lifecycle CLI. Only the exact live Engineer identity gets
 implementation edit permission. Reviewers write external artifacts only; repository
 scripts still execute with user permissions. This is not a hostile-code sandbox.
+
+`lib/autonomy.js` owns the strict 300-line boundary. An eligible plan records
+well-scoped status, an estimate, no open questions, and whether a ticket was supplied.
+Autonomous approval binds the original base commit, plan hash, branch, and checkout.
+Raw Git additions plus deletions form a conservative upper bound; complete per-file
+classifications exclude tests, comment-only lines, and blanks. The runtime validates
+coverage and arithmetic; Inspector supplies source classifications and Auditor
+independently validates exclusions. This is not language parsing or a security
+boundary against fabricated role evidence. Missing/uncertain evidence and binary
+changes require normal human approval. Final verification always requires a current
+scope review for autonomous work, even under optional post-ship review policy.
+
+In every mode, Inspector and Auditor record no added explanatory code comments, with only
+documented license/tool-directive exceptions. Inspector checks current comments
+even when post-ship policy waives Auditor. Passes without that evidence are rejected;
+older persisted evidence needs fresh verification under the new policy.
+The [global comment rule](../references/code-comments.md) is independent of
+autonomous eligibility, task size, and human approval.
+See [the autonomous workflow](../references/autonomy.md) for the role contracts.
 
 ## Recovery and PR review
 

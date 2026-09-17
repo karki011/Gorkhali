@@ -14,9 +14,10 @@ merely because the request describes a bug. Use it for unclear, repeated,
 flaky, timing-sensitive, or cross-cutting failures that need diagnosis.
 
 Follow `../references/tracking.md` at intake. Bind any supplied ticket number/URL
-and fetch its requirements; otherwise ask whether the user has a ticket/task number
-to track the work. Persist their ticket or explicit no-ticket decision before plan
-approval. Reuse an existing session's tracking decision.
+and fetch its requirements. Assess `../references/autonomy.md` before asking the
+optional ticket question: an eligible described task can proceed without it.
+Otherwise ask whether the user has a ticket/task number. Persist the tracking
+decision before implementation and reuse it on resume.
 
 ## Plan and approve
 
@@ -33,9 +34,13 @@ Optional task fields are `dependsOn` and `riskSignals`; `parallelSafe`, `coordin
 Use concrete repository-relative files or directories.
 Order a schema, migration, or public-contract change before its consumers with `dependsOn`.
 
-Present What, Problem, How, Evidence, Scope, Risks, and Open questions in plain
-English. Obtain approval for this exact plan, then call `approve`. Existing
-explicit approval counts; the quick route makes the plan smaller, not exempt.
+Follow `../references/autonomy.md`. For clear work below its implementation-line
+limit, record the estimate and intake facts in `plan.autonomy`, announce the scope,
+and call `approve` with `{autonomous:true}` without a confirmation question.
+Otherwise present What, Problem, How, Evidence, Scope, Risks, and Open questions in
+plain English and obtain approval for this exact plan, then call `approve` with
+`{confirmed:true}`. Existing explicit approval counts. Ambiguity or a later scope
+amendment requires a human decision rather than a fresh autonomous allowance.
 
 ## Execute
 
@@ -45,6 +50,8 @@ Before the first dispatch, complete tracking stage `start`: preserve or set assi
 Call `dispatch` before spawning, persisting the approved base commit and task ID.
 Spawn `gorkhali:engineer` with the selected model and without any Agent isolation, so it runs directly in the integration checkout.
 Include the task, declared ownership, base commit, absolute plugin root/library paths, integration checkout path, session directory, unique `attemptId`, task hash, and preferences.
+For autonomous work also include the full plan estimate, original approval base,
+current cumulative scope, and `../references/autonomy.md`.
 Do not use agent teams.
 Every Engineer must call `prepareBranch` before editing; it verifies the integration checkout is clean and sitting at the wave base.
 A base that cannot be verified blocks dispatch; an Engineer never edits a dirty or moved integration tree.
@@ -60,6 +67,9 @@ Ownership violations require scope reconciliation and, when the plan changes, a 
 Never reset away work.
 
 Dispatch the next task only after integration.
+For autonomous work, use `scope` to classify committed changes when the raw diff
+reaches the limit. Count from the original approval base across all tasks; pause
+for human approval if implementation itself reaches the limit.
 Do not spawn an Inspector or Auditor between tasks.
 An intermediate Inspector is justified only when later tasks need a risky change proven before proceeding, and it never brings an Auditor.
 

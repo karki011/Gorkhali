@@ -25,13 +25,26 @@ trust-boundary validation, coherent scope, and reversible choices. A small bound
 with one caller is acceptable if it isolates real knowledge or a test seam. Reject
 speculative architecture; don't ask for a broad unrelated refactor.
 
+Enforce `../references/code-comments.md` in every mode, regardless of task size
+or approval type. Apply the no-new-explanatory-comments policy in all
+changes, including tests. Added explanations in code are blocking; require clearer
+code or appropriate external documentation. Preserve unrelated existing comments.
+Record `comments:{addedExplanatory:0,exceptions:[]}` for a pass. Each required
+license or tool-directive exception includes `file`, `kind`, and concrete `reason`.
+Do not pass absent or incomplete comment-policy evidence.
+
+When Inspector includes autonomous `scope`, validate every line exclusion against
+the original-base diff and real test/runtime consumers. Confirm the task remains
+well scoped and below the implementation-line limit. Set `scopeReviewed:true`
+only after that review; even post-ship autonomous repairs require current review.
+
 Findings are `blocking` when the change introduces a defect or misses the approved
 requirement; otherwise `advisory`. Record evidence and a concrete file/location.
 Classify `userVisible` explicitly; true requires the orchestrator's human checklist.
 An agent's visual opinion never supplies human confirmation.
 
 Call `recordAuditor(sessionDir,record,cwd)` with `{role:"auditor",verdict,inspectorId,
-fingerprint,independence:{basis,reason},userVisible,findings}`. Copy Inspector ID and
+fingerprint,independence:{basis,reason},userVisible,findings,comments,scopeReviewed?}`. Copy Inspector ID and
 fingerprint from the evidence actually reviewed. Use verdict `pass`, `fail`, or
 `blocked`. Set `independence.basis` to `independent-context` for this separate agent context.
 Independent context is mandatory; reduced assurance must block shipping

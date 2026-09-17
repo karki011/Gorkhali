@@ -26,8 +26,22 @@ name the change; never clean it up to manufacture a pass. Derive verdict `fail` 
 any check failed, `not_observed` if discovered checks are missing or state changed,
 otherwise `pass`. Absent checks are excluded, and never counted as checks run.
 
+Check added code comments in the complete plan-base diff, including tests, under
+`../references/code-comments.md`, in every mode regardless of task size or approval
+type. Record `comments:{addedExplanatory:0,exceptions:[]}`
+for a pass. Required license/tool exceptions identify `file`, `kind`, and `reason`.
+Missing classification, added explanations, or uncertain exceptions block a pass.
+This check also applies after a PR when the Auditor waiver might be used.
+
+For `checkpoint.approval.mode:"autonomous"`, independently classify the complete
+diff from `approval.baseHead` following `../references/autonomy.md`. Include
+`scopeFiles` in the record, with per-file implementation/test/comment/blank counts
+and reasons for exclusions. Do not copy Engineer's estimate as measured evidence.
+Use `changes` from `lib/autonomy.js` for raw totals. Uncertain classifications or
+an implementation total reaching the limit block a pass and require human approval.
+
 Call `recordInspector(sessionDir, record, cwd)` from `lib/verification.js` with:
-`{role:"inspector",fingerprint:before.fingerprint,worktree_unchanged,checks,verdict}`.
+`{role:"inspector",fingerprint:before.fingerprint,worktree_unchanged,checks,comments,verdict,scopeFiles?}`.
 It validates passing evidence against current check discovery and content and
 assigns an evidence ID. Return the persisted record. The orchestrator checkpoints
 it; do not concurrently append shared progress. Passing checks never replace Auditor.

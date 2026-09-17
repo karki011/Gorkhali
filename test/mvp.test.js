@@ -60,13 +60,15 @@ function implement(repo, base, task, edits) {
 function evidence(dir, repo, userVisible = false) {
   if (!fs.existsSync(path.join(dir, 'plan.json'))) fs.writeFileSync(path.join(dir, 'plan.json'), JSON.stringify(plan()));
   const inspector = recordInspector(dir, { role: 'inspector', verdict: 'pass', worktree_unchanged: true, fingerprint: snapshot(repo).fingerprint,
+    comments: { addedExplanatory: 0, exceptions: [] },
     checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
-  recordAuditor(dir, { verdict: 'pass', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [], userVisible, independence: { basis: 'independent-context' } }, repo);
+  recordAuditor(dir, { verdict: 'pass', inspectorId: inspector.id, fingerprint: inspector.fingerprint, findings: [], userVisible, comments: { addedExplanatory: 0, exceptions: [] }, independence: { basis: 'independent-context' } }, repo);
   return inspector;
 }
 // A fresh Inspector pass alone, with no matching current Auditor record.
 function freshInspector(dir, repo) {
   return recordInspector(dir, { role: 'inspector', verdict: 'pass', worktree_unchanged: true, fingerprint: snapshot(repo).fingerprint,
+    comments: { addedExplanatory: 0, exceptions: [] },
     checks: ['test', 'lint', 'build', 'typecheck'].map((name) => ({ name, command: null, provenance: null, result: 'absent' })) }, repo);
 }
 
