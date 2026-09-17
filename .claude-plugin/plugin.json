@@ -1,6 +1,6 @@
 {
   "name": "gorkhali",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "description": "Lean engineering orchestration for Claude Code: approved plans, serial Engineer work on the integration branch, integrated checks, independent review, and resilient recovery.",
   "author": {
     "name": "Subash Karki"

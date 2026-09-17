@@ -245,7 +245,7 @@ test('a failing latest Auditor record still blocks verify once a PR exists', (t)
   assert.throws(() => run('verify', {}, repo), /Auditor/);
 });
 
-test('a user-visible last Auditor still requires current human confirmation under the post-ship waiver', (t) => {
+test('the post-ship waiver still requires an initial human confirmation for user-visible work', (t) => {
   const { repo } = fixture(t);
   const dir = openUntracked({ task: 'task' }, repo);
   const p = plan();
@@ -261,6 +261,108 @@ test('a user-visible last Auditor still requires current human confirmation unde
   const result = run('verify', {}, repo);
   assert.match(result.auditorWaived, /post-ship/);
   assert.equal(result.inspector.id, fresh.id);
+});
+
+test('visual confirmation survives an in-scope repair while mechanical evidence must be refreshed', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo);
+  evidence(dir, repo, true);
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+  assert.throws(() => requireVerified(dir, repo), /human visual confirmation/);
+  run('human-confirmation', { confirmed: true }, repo);
+  const original = fs.readFileSync(path.join(dir, 'human-confirmation.json'), 'utf8');
+  change(repo, 'a.txt', 'in-scope repair');
+  assert.equal(run('visual-status', {}, repo).basis, 'same-visual-scope');
+  assert.throws(() => requireVerified(dir, repo), /Inspector/);
+  evidence(dir, repo, true);
+  assert.doesNotThrow(() => requireVerified(dir, repo));
+  assert.equal(fs.readFileSync(path.join(dir, 'human-confirmation.json'), 'utf8'), original);
+});
+
+test('post-ship repairs reuse visual confirmation without requiring another Auditor or user pass', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = plan();
+  run('plan', { plan: p }, repo); run('approve', { confirmed: true }, repo);
+  const wave = run('dispatch', {}, repo);
+  run('integrate', { records: [implement(repo, wave.baseHead, p.tasks[0], { 'a.txt': 'approved UI' })] }, repo);
+  run('human-confirmation', { confirmed: true }, repo);
+  evidence(dir, repo, true);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/4' } }, repo);
+  change(repo, 'a.txt', 'restore intended revoked-device behavior');
+  freshInspector(dir, repo);
+  assert.equal(run('visual-status', {}, repo).reusable, true);
+  assert.match(run('verify', {}, repo).auditorWaived, /post-ship/);
+});
+
+test('implementation-only amendments retain visual approval but changed acceptance requires a new pass', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = { ...plan(), visualReview: { scope: 'Device list', checklist: ['Revoked devices remain searchable and use a gray status dot'] } };
+  run('plan', { plan: p }, repo);
+  run('human-confirmation', { confirmed: true }, repo);
+  const revised = { ...p, tasks: [{ ...p.tasks[0], action: 'Use the shared selector' }] };
+  run('plan', { plan: revised }, repo);
+  assert.equal(run('visual-status', {}, repo).reusable, true);
+  change(repo, 'a.txt', 'shared selector');
+  evidence(dir, repo, true);
+  assert.doesNotThrow(() => requireVerified(dir, repo));
+  run('plan', { plan: { ...revised, visualReview: { ...p.visualReview, checklist: ['Hide revoked devices by default'] } } }, repo);
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+  evidence(dir, repo, true);
+  assert.throws(() => requireVerified(dir, repo), /visual acceptance scope changed/);
+});
+
+test('without an explicit visual scope a plan amendment requires renewed visual approval', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  run('plan', { plan: plan() }, repo); run('human-confirmation', { confirmed: true }, repo);
+  const revised = { ...plan(), outcome: { goal: 'different experience', doneWhen: ['different result'] } };
+  run('plan', { plan: revised }, repo);
+  evidence(dir, repo, true);
+  assert.throws(() => requireVerified(dir, repo), /visual acceptance scope changed/);
+});
+
+test('post-ship plan amendments need fresh independent review even when visual approval carries forward', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo);
+  const p = { ...plan(), visualReview: { scope: 'Device list', checklist: ['Revoked devices have an inactive indicator'] } };
+  run('plan', { plan: p }, repo); run('human-confirmation', { confirmed: true }, repo);
+  evidence(dir, repo, true);
+  run('progress', { entry: { pr: 'https://github.com/o/r/pull/5' } }, repo);
+  run('plan', { plan: { ...p, tasks: [{ ...p.tasks[0], action: 'Use the shared selector' }] } }, repo);
+  freshInspector(dir, repo);
+  assert.equal(run('visual-status', {}, repo).reusable, true);
+  assert.throws(() => requireVerified(dir, repo), /current Auditor/);
+  evidence(dir, repo, true);
+  assert.doesNotThrow(() => requireVerified(dir, repo));
+});
+
+test('visual approval cannot carry across branches, dirty work, or rewritten ancestry', (t) => {
+  const { repo } = fixture(t);
+  openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
+  const base = snapshot(repo).head;
+  const branch = snapshot(repo).branch;
+  change(repo, 'a.txt', 'approved UI'); run('human-confirmation', { confirmed: true }, repo);
+  git(repo, ['switch', '-qc', 'other']);
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+  git(repo, ['switch', branch]);
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'uncommitted');
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+  assert.throws(() => run('human-confirmation', { confirmed: true }, repo), /commit work/);
+  git(repo, ['reset', '--hard', base]);
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+});
+
+test('legacy visual evidence remains valid only for its original fingerprint', (t) => {
+  const { repo } = fixture(t);
+  const dir = openUntracked({ task: 'task' }, repo); run('plan', { plan: plan() }, repo);
+  session.writeJsonAtomic(path.join(dir, 'human-confirmation.json'), { confirmed: true, fingerprint: snapshot(repo).fingerprint });
+  assert.equal(run('visual-status', {}, repo).reusable, true);
+  change(repo, 'a.txt', 'later commit');
+  assert.equal(run('visual-status', {}, repo).reusable, false);
+  assert.match(run('visual-status', {}, repo).reason, /Legacy/);
 });
 
 test('auditorWaiver applies only under the optional policy with a recorded pr and a passing last Auditor', () => {

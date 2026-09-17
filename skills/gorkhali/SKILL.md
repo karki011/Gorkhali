@@ -43,3 +43,7 @@ on diagnosis evidence. Neither is a normal-path seat.
 The lead never implements through editing tools or shell scripts. Use the
 bounded lifecycle CLI for state and integration. Delegate implementation,
 including integration conflict resolution, to Engineer. Merge stays human.
+
+Reuse visual approval under `../../references/visual-review.md`. A repair or new
+commit alone never triggers another "pass" request. Fresh tests/review still run;
+renew human visual approval only for changed acceptance or missing approval evidence.

@@ -30,6 +30,9 @@ Write a valid plan using CLI `plan`.
 Required fields are the schema's briefing, decision, outcome, scope, and tasks with explicit acceptance criteria.
 Derive task verification commands from actual repository scripts, CI, and test imports; never assume a runner from file names or install one just to check work.
 Record `baseHead` from snapshot for the review range.
+For user-visible work, record `visualReview:{scope,checklist}` with concrete expected
+behavior under `../references/visual-review.md`. Keep that scope stable for repairs
+that restore the agreed behavior; implementation details belong in tasks.
 Optional task fields are `dependsOn` and `riskSignals`; `parallelSafe`, `coordinationKeys`, and `isolation` are accepted for saved-plan compatibility and ignored.
 Use concrete repository-relative files or directories.
 Order a schema, migration, or public-contract change before its consumers with `dependsOn`.
@@ -75,8 +78,13 @@ An intermediate Inspector is justified only when later tasks need a risky change
 
 ## Review with the user, then wrap
 
-After the last task integrates, for `userVisible:true` present the human checklist from `verify` and expect the user to shape the result.
-Each design note becomes a plan amendment through `plan`, `approve`, `dispatch`, and `integrate`; do not verify in between, since any later commit discards Inspector, Auditor, and human evidence.
-When the user says the result is right, or immediately after the last task when nothing is user-visible, invoke `wrap` yourself and follow it to the end; it runs `verify` once on the final integrated commit and then ships.
+After the last task integrates, for `userVisible:true` check `visual-status`. Reuse
+existing approval when available; otherwise present the checklist under `verify`.
+Each design note becomes a plan amendment through `plan`, `approve`, `dispatch`,
+and `integrate`. Batch changes before refreshing machine verification. Only changes
+to visual acceptance invalidate the human pass, not every implementation commit.
+When visual approval is reusable, the user says the result is right, or nothing is
+user-visible, invoke `wrap` yourself and follow it to the end; it runs `verify` once
+on the final integrated commit and then ships.
 Do not stop to ask whether to continue.
 When the request or the plan approval already asked for a PR, wrap ships without asking again; otherwise wrap asks for ship authorization at its ship step, and that is the only pause between the user's pass and the PR.

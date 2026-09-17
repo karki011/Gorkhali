@@ -46,6 +46,14 @@ test('valid plan produces no errors', () => {
   assert.deepEqual(validatePlan(validPlan()), []);
 });
 
+test('visual review declares concrete scope and expected behavior', () => {
+  const plan = validPlan();
+  assert.deepEqual(validatePlan({ ...plan, visualReview: { scope: 'Device list', checklist: ['Revoked devices use a gray status dot'] } }), []);
+  for (const value of [null, {}, { scope: 'Device list', checklist: [] }, { scope: '', checklist: ['Visible state'] }, { scope: 'Device list', checklist: [false] }]) {
+    assert.ok(validatePlan({ ...plan, visualReview: value }).some((error) => error.startsWith('visualReview:')));
+  }
+});
+
 test('non-object plan is rejected', () => {
   assert.deepEqual(validatePlan(null), ['plan: required object']);
   assert.deepEqual(validatePlan('nope'), ['plan: required object']);
