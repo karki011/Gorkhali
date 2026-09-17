@@ -25,6 +25,10 @@ external documentation tool or framework is mandatory.
   and all requested behavior. Refactor only when today's change benefits.
 - Test observable behavior and meaningful edge cases. Self-review is evidence
   gathering, never the final independent verdict.
+- In every mode, add no explanatory code comments, including in tests. Prefer clear names and
+  control flow. Preserve required license notices and machine-consumed directives;
+  document any new required exception in the completion record. See
+  `../references/code-comments.md`. Leave unrelated existing comments alone.
 
 For an abstraction, name its present responsibility, actual caller, and why a
 simpler expression would be worse. Future flexibility alone is insufficient.
@@ -38,7 +42,8 @@ conventions rather than imposing a language, framework, or personal style.
 
 - Reduce needless nesting, redundant logic, and pass-through abstractions.
 - Prefer clear names and explicit control flow over clever or compressed expressions.
-- Preserve useful boundaries, test seams, and comments that explain decisions.
+- Preserve useful boundaries and test seams. Put new design rationale in the
+  completion summary or appropriate documentation instead of code comments.
 - Preserve observable behavior during refactoring, including errors, side effects,
   evaluation order, and public contracts, except for the approved behavior change.
 - Do not trade readability for fewer lines or broaden the task into unrelated cleanup.
@@ -58,6 +63,10 @@ If it is unavailable, report blocked before editing; do not handcraft completion
 Never create a worktree or branch of your own.
 Stay within the task's declared files.
 Report unexpected ownership needs before editing them.
+For autonomous assignments, count estimated added-plus-deleted implementation
+lines across the entire plan, excluding tests, comment-only lines, and blanks.
+Report scope growth before continuing; never compress code or omit behavior to
+fit the budget. The original plan base, not this task's base, bounds the total.
 
 Never reset, amend, revert, or rewrite commits on the integration branch, even when reporting `failed`, `blocked`, or `needs-context`.
 Leave partial commits in place and list them (`git rev-list <baseHead>..HEAD`) plus any uncommitted files in your summary so the lead can reconcile before continuing.
@@ -74,4 +83,4 @@ Do not run the final integrated verification workflow.
 Keep `summary` concise and factual: what changed, relevant check outcomes, and any remaining work or blocker.
 Preserve uncertainty and exact technical details.
 Return the complete completion record; a prose summary never substitutes for required fields or check evidence.
-Write code comments and documentation in normal professional language.
+Write documentation and required license/tool directives in normal professional language.

@@ -108,7 +108,19 @@ scratch Claude configuration to check that it loads.
 [Read the implementation contracts](project-docs/architecture.md) ·
 [Watch the two short product reels](marketing/README.md)
 
-Version **3.4.0** removes worktree isolation and parallel waves. Every Engineer
+Version **3.5.0** adds autonomous execution for well-scoped work with no open
+questions and fewer than 300 added-plus-deleted implementation lines. Tests,
+comment-only lines, and blanks do not count. Inspector measures the full diff and
+Auditor reviews exclusions; larger or changed scope returns to explicit approval.
+Eligible descriptions need no optional ticket question.
+[Read the autonomy policy](references/autonomy.md).
+
+**No explanatory code comments—in any mode.** This applies to autonomous and
+manually approved work, large changes, tests, and repairs, with narrow exceptions
+for required licenses and tool directives.
+[Read the global comment rule](references/code-comments.md).
+
+Version **3.4.0** removed worktree isolation and parallel waves. Every Engineer
 commits directly on the integration branch, one task at a time, and each task is
 integrated before the next is dispatched. The plan fields `isolation`,
 `parallelSafe`, and `coordinationKeys` are accepted for saved-plan compatibility
@@ -135,7 +147,7 @@ benchmark.
 
 - Existing v2 plans remain valid and run sequentially without the new scheduling metadata. Legacy verification must run again.
 - Standalone `review`, `fix`, `visual`, and PR-review-loop commands were removed. Use `verify` and `wrap`. The optional visual agent was removed; human visual confirmation remains.
-- Every implementation plan needs approval, including quick work. Merge is always human-controlled.
+- Clear work below the autonomous line limit uses recorded policy approval. Other plans and scope amendments need explicit approval. Ship authorization remains separate; merge is always human-controlled.
 - Hooks enforce workflow discipline, not an OS sandbox for hostile repository code. Repository checks execute with the user's permissions.
 - Repositories with submodules or special tracked files currently block fingerprinting. See the architecture before adopting Gorkhali for those layouts.
 - Update Claude Code if subagent identity is unavailable; the edit gate does not guess an agent's identity.

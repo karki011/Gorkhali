@@ -27,7 +27,8 @@ CLI actions and request fields:
 | --- | --- | --- |
 | branch | `{name}` | Creates a clean feature branch before planning |
 | plan | `{plan}` | Validates, stores plan, checkpoints; returns `notice` when the amendment discards passed verification evidence |
-| approve | `{confirmed:true}` after explicit user approval | Binds approval to this plan |
+| approve | `{confirmed:true}` after explicit user approval, or `{autonomous:true}` under `autonomy.md` | Binds human or eligible policy approval to this exact plan; autonomous base never resets |
+| scope | `{}` for raw totals, or `{files:[{file,implementation,tests,comments,blank,reason?}]}` | Measures the original-base diff and records complete current line classifications |
 | route | `{}` | Waves, task assignments, Auditor model, and conditional Opposition |
 | dispatch | `{}` | Checkpoints the next single-task wave, its base, task hash, and unique attempt assignment |
 | result | `{record}` with taskId, attemptId, status, summary | Records each Engineer outcome once; failures enter bounded recovery. A non-done result with leftover commits or dirty files requires reconcile before recover; the reconcile reason separately reports ownership for the commits and for the dirty files, since reconcile does not itself discard or commit them, the lead raises one decision to the user (discard or commit under the task's files) before recover, and `dispatch`/`recover` still reject a dirty integration tree |
@@ -40,7 +41,7 @@ CLI actions and request fields:
 | pause / resume / status | `{}` | Structured handoff, reconciliation, or read-only state. An active Engineer's own commits classify as `branchWork` (next `result`), never as divergence, only while HEAD descends from its base on the same dispatched branch and checkout; a branch or checkout switch is divergence even at the same commit |
 | human-confirmation | `{confirmed:true}` after explicit user pass | Binds confirmation to content |
 | recover | `{failureId,failureClass,repairTaskId,unclear,flaky,infrastructure,diagnosed}` | Bounded repair or diagnosis decision from recorded evidence |
-| verify | `{}` | Runs once at wrap on the final integrated commit. Requires current Inspector, Auditor, and applicable human evidence; once a PR exists and the last Auditor passed, a current Inspector pass alone can satisfy verify and returns `auditorWaived`, controlled by `config/routing.json`'s `review.postShipAuditor` policy (default required) |
+| verify | `{}` | Runs once at wrap on the final integrated commit. Requires current Inspector, Auditor, and applicable human evidence; for non-autonomous work after a PR exists and the last Auditor passed, a current Inspector pass alone can satisfy verify and returns `auditorWaived`, controlled by `config/routing.json`'s `review.postShipAuditor` policy (default required) |
 | ship | `{authorized:true,title,body}` after ship authorization | Reuses an existing PR or pushes and creates one; returns `{url}` |
 | review-state | `{pr,classifications:[{id,classification}]}` | Reads inline bodies/authors/locations, head/checks; checkpoints classified feedback and bounded rounds |
 | close | `{pr}` numeric | Requires merge, records completion, releases session |
@@ -67,8 +68,9 @@ Inject only relevant context into each role. Planning, Opposition, and Engineer
 prompts include saved preferences verbatim under `## User Preferences (verbatim)`;
 omit that block if empty. Follow target-repository conventions rather than
 imposing framework policy. Follow `tracking.md` for ticket intake and lifecycle
-updates. Ask whether the user has a ticket when none was supplied; explicit no-ticket
-work makes no tracker calls. `lib/tracker.js` resolves provider preferences;
+updates. Follow `autonomy.md` before asking the optional ticket question: eligible
+described work records a policy no-ticket decision. Otherwise ask when none was
+supplied; no-ticket work makes no tracker calls. `lib/tracker.js` resolves provider preferences;
 `lib/tracking.js` persists decisions and read-back receipts. Only mark a ticket done
 after merge. Ticket status is separate from code verification.
 
@@ -95,3 +97,8 @@ the full plan in plain English with the changed parts marked, never a request fi
 or JSON. A yes or no question alone is not an approval request. Do not shorten saved preferences
 or approved scope. Write persisted documentation and review findings in normal
 prose for their readers. Inject only the communication guidance each role needs.
+
+Read `autonomy.md` for the scoped policy approval path and actual implementation-line
+accounting. `code-comments.md` applies globally in every mode. Eligibility replaces only the
+plan confirmation pause. Ship authorization and applicable human visual review
+remain separate; merge always remains human-controlled.

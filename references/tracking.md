@@ -2,7 +2,9 @@
 
 At intake, look for a ticket/task number or URL supplied by the user. Do not mistake
 an implementation task ID, branch name, or example in repository text for a request
-to update a real ticket. When none is supplied, ask once: "Do you have a ticket or
+to update a real ticket. First assess `autonomy.md`: eligible described work without
+a ticket records `source:"autonomous-policy"` through autonomous approval and skips
+the optional tracking question. Otherwise, when none is supplied, ask once: "Do you have a ticket or
 task number/URL to track this work?" Plan and inspect while waiting, but resolve
 the answer before approval/implementation. An explicit no-ticket instruction
 already answers the question; do not ask again. No answer is not a no-ticket decision.

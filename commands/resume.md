@@ -18,6 +18,9 @@ workflow/access information. Legacy sessions without a decision ask the ticket q
 
 The result contains current and previous state.
 An unchanged fingerprint and unchanged approved plan continue automatically from `next`, without re-approval.
+For autonomous work preserve `approval.baseHead` and the original allowance.
+Recompute stale scope classifications before another dispatch or repair when the
+raw diff reaches the limit; never obtain a fresh autonomous allowance for an amendment.
 Commits an active Engineer made on top of its own dispatched base, on the same dispatched branch and checkout, are reported as in-progress work (`branchWork: true`, next `result`), not divergence; collect its result normally.
 A branch or checkout switch away from the dispatched checkout is never `branchWork`, even at the same commit; it is divergence like any other.
 Any other changed HEAD, index, worktree, branch, or untracked content invalidates verification.

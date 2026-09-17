@@ -27,6 +27,9 @@ integration checkout, and plugin library paths. GORKHALI_DATA is not the session
 2. Spawn one economy Inspector on the integrated checkout. It discovers checks,
    captures fingerprints before/after, and calls `recordInspector` in
    `lib/verification.js`. Record its result through CLI `progress`.
+   For autonomous work it must independently supply `scopeFiles` for the complete
+   original-base diff. Missing classifications or reaching the implementation-line
+   limit blocks verification; preserve work and obtain explicit scope approval.
 3. Only after `requireInspector` accepts the current evidence, spawn one Auditor
    in an independent context. Use CLI `route`'s Auditor model, which combines integrated risk signals
    and current failure counters. Auditor calls `recordAuditor` with the exact
@@ -35,6 +38,10 @@ integration checkout, and plugin library paths. GORKHALI_DATA is not the session
    routing puts it at deep tier or the plan changed since ship; otherwise the
    Inspector alone satisfies `verify` under `config/routing.json`'s
    `review.postShipAuditor` policy.
+   Autonomous changes always need the current Auditor, including after ship, to
+   review scope exclusions. Every passing Auditor record also includes the
+   no-added-explanatory-comments evidence described in `../references/code-comments.md`,
+   regardless of whether the work was autonomous or manually approved.
 4. Call CLI `verify`. Only its success means the session is verified.
 
 ## Internal recovery
