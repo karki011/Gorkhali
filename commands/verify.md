@@ -12,19 +12,19 @@ integrated before final verification. A commit after verification makes evidence
 stale, even if content is otherwise identical. The lead never implements a repair.
 
 Verification runs once, on the final integrated commit, normally entered from
-`wrap`. Running it after every wave repeats the Inspector and Auditor for each
-later amendment without adding assurance. Only a risky wave that later tasks
+`wrap`. Running it after every task repeats the Inspector and Auditor for each
+later amendment without adding assurance. Only a risky task that later tasks
 depend on justifies an earlier Inspector, and never an earlier Auditor.
 
 Every reviewer receives the exact absolute session directory containing plan.json,
-integration worktree, and plugin library paths. GORKHALI_DATA is not the session directory.
+integration checkout, and plugin library paths. GORKHALI_DATA is not the session directory.
 
 1. For `userVisible:true`, present a concrete checklist with expected results
    before any agent runs. Wait for an explicit human pass; silence, screenshots
    alone, and agent opinion are not confirmation. A change request here is a plan
    amendment, not a verification failure, and costs no Inspector or Auditor run.
    Only after the pass call `human-confirmation`.
-2. Spawn one economy Inspector on the integrated worktree. It discovers checks,
+2. Spawn one economy Inspector on the integrated checkout. It discovers checks,
    captures fingerprints before/after, and calls `recordInspector` in
    `lib/verification.js`. Record its result through CLI `progress`.
 3. Only after `requireInspector` accepts the current evidence, spawn one Auditor
@@ -51,10 +51,11 @@ a retry, call `resolve-failures` with the named pending failure IDs and their de
 This retires only those blockers and never resets failure or repair counters.
 Do not call it merely because another retry seems useful.
 
-For a clear failure dispatch one scoped Engineer with Agent `isolation:"worktree"`.
-Pass the full approved task, returned attempt assignment, exact base, integration
-root, absolute plugin root/library paths, and session directory. Follow start's prepareWorktree, completion, `result`,
-and `integrate` contract for repairs too. For unclear causes or a repeated
+For a clear failure dispatch one scoped Engineer without Agent isolation, in the
+integration checkout. Pass the full approved task, returned attempt assignment, exact
+base, integration root, absolute plugin root/library paths, and session directory.
+Follow start's prepareBranch, completion, `result`, and `integrate` contract for
+repairs too. For unclear causes or a repeated
 same-class repair failure, Detective diagnoses before another repair. Persist the
 failure class and diagnostic evidence in progress. A completed diagnosis does not
 consume another Engineer attempt. Budget exhaustion stops with the remaining

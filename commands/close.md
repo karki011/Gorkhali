@@ -12,6 +12,6 @@ the merge, and begins ticket completion before releasing the session. Follow
 `../references/tracking.md`: if `needsTracking` is true, complete the pending `done`
 stage and call `close` again. A failed ticket update keeps the session recoverable.
 Only a completed close allows optional cleanup; no-ticket work needs no tracker calls.
-Ship already released integrated Engineer worktrees. Remove only remaining task-owned clean worktrees and merged feature branches. Preserve dirty
+Remove only this task's merged feature branch. Preserve dirty
 or uncertain resources and report them. Never delete the default branch or another
 task's work. Keep the session artifacts for recovery and report the merge commit.

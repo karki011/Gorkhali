@@ -1,6 +1,6 @@
 ---
 name: start
-description: Start a feature, fix, or refactor with a small approved plan, risk-aware routing, and isolated Engineer work.
+description: Start a feature, fix, or refactor with a small approved plan, risk-aware routing, and serial Engineer work on the integration branch.
 allowed-tools: ["Agent", "Read", "Write", "Bash", "Grep", "Glob"]
 user-invocable: true
 ---
@@ -25,16 +25,13 @@ tasks; ambiguous work gets a brief discussion of alternatives. Optional read-onl
 scouting is justified only by missing context. Opposition critiques only an
 ambiguous or high-risk plan, and re-runs only if that uncertainty remains.
 
-Write a valid plan using CLI `plan`. Required fields are the schema's briefing,
-decision, outcome, scope, and tasks with explicit acceptance criteria. Derive task verification commands from actual repository scripts, CI, and test
-imports; never assume a runner from file names or install one just to check work. Record
-`baseHead` from snapshot for the review range. Optional task fields are
-`dependsOn`, `parallelSafe`, `coordinationKeys`, `riskSignals`, and `isolation`
-(`auto`, `worktree`, or `branch`, settable per plan or per task).
-Use concrete repository-relative files or directories; globs stay sequential.
-Declare shared logical resources even if the files differ. Move a schema,
-migration, or public-contract change into a preceding serial task; only its
-independent consumers may then qualify for parallel work.
+Write a valid plan using CLI `plan`.
+Required fields are the schema's briefing, decision, outcome, scope, and tasks with explicit acceptance criteria.
+Derive task verification commands from actual repository scripts, CI, and test imports; never assume a runner from file names or install one just to check work.
+Record `baseHead` from snapshot for the review range.
+Optional task fields are `dependsOn` and `riskSignals`; `parallelSafe`, `coordinationKeys`, and `isolation` are accepted for saved-plan compatibility and ignored.
+Use concrete repository-relative files or directories.
+Order a schema, migration, or public-contract change before its consumers with `dependsOn`.
 
 Present What, Problem, How, Evidence, Scope, Risks, and Open questions in plain
 English. Obtain approval for this exact plan, then call `approve`. Existing
@@ -42,53 +39,34 @@ explicit approval counts; the quick route makes the plan smaller, not exempt.
 
 ## Execute
 
-Call `route` and show the wave composition and reasoning. `route` and `dispatch`
-report each task's `isolation` and why: a single low-risk last task with no other
-active Engineers runs in branch mode; everything else (parallel waves, other
-pending or dependent work, shared coordination keys, deep tier, or a prior
-implementation failure) stays isolated in its own worktree. Before the first
-dispatch, complete tracking stage `start`: preserve or set assignment and move to
-In Progress using the provider's actual workflow. Call `dispatch` before
-spawning, persisting the approved base commit and task IDs. For each ready task,
-spawn `gorkhali:engineer` with the selected model. Pass `isolation: "worktree"` on
-the Agent call itself only when the assignment's isolation is worktree; when it is
-branch, spawn the Engineer without Agent isolation so it runs directly in the
-integration worktree, and tell it the mode. Include the task, declared ownership,
-base commit, absolute plugin root/library paths, integration worktree path, session
-directory, unique `attemptId`, task hash, and preferences. Do not use agent
-teams. Every Engineer must call `prepareWorktree` before editing: in worktree
-mode it verifies/fast-forwards the Engineer's own clean worktree to the wave
-base; in branch mode it verifies the integration worktree is already clean at
-that base, since there is no separate worktree to align. A worktree or base
-that cannot be verified blocks dispatch, never falls back to concurrent writes
-in the main checkout.
+Call `route` and show the task order and reasoning.
+Every wave holds exactly one task; tasks run in dependency order, then plan order.
+Before the first dispatch, complete tracking stage `start`: preserve or set assignment and move to In Progress using the provider's actual workflow.
+Call `dispatch` before spawning, persisting the approved base commit and task ID.
+Spawn `gorkhali:engineer` with the selected model and without any Agent isolation, so it runs directly in the integration checkout.
+Include the task, declared ownership, base commit, absolute plugin root/library paths, integration checkout path, session directory, unique `attemptId`, task hash, and preferences.
+Do not use agent teams.
+Every Engineer must call `prepareBranch` before editing; it verifies the integration checkout is clean and sitting at the wave base.
+A base that cannot be verified blocks dispatch; an Engineer never edits a dirty or moved integration tree.
 
-Collect every structured outcome through CLI `result`, including failed, blocked,
-and needs-context outcomes. Persist `attemptId` exactly as dispatched. Failures must
-use bounded `recover`; ordinary dispatch cannot bypass them. Successful results
-remain active until integrated. Use CLI `integrate` in plan order after
-the wave returns. Integration checks every source commit for ownership, current task/dependency
-revisions, and dependency ancestry. Partial integration keeps remaining peers active.
+Collect the structured outcome through CLI `result`, including failed, blocked, and needs-context outcomes.
+Persist `attemptId` exactly as dispatched.
+Failures must use bounded `recover`; ordinary dispatch cannot bypass them.
+A successful result remains active until integrated.
+Call CLI `integrate` with that one completion record before dispatching the next task.
+Integration checks every commit for ownership, the current task/dependency revision, dependency ancestry, and that the recorded head is the integration branch HEAD.
 Never mark a returned task integrated until Git and the journal prove it.
-Ownership violations require scope reconciliation and, when the plan changes, a
-full re-presentation of the amended plan before the new approval. Conflicts stop integration;
-delegate resolution to a scoped Engineer in the integration worktree, preserve
-the cherry-pick source marker, then retry integration. Never reset away work.
+Ownership violations require scope reconciliation and, when the plan changes, a full re-presentation of the amended plan before the new approval.
+Never reset away work.
 
-Run subsequent dependency waves only after integration. Do not spawn an Inspector
-or Auditor between waves. An intermediate Inspector is justified only when later
-tasks need a risky wave proven before proceeding, and it never brings an Auditor.
+Dispatch the next task only after integration.
+Do not spawn an Inspector or Auditor between tasks.
+An intermediate Inspector is justified only when later tasks need a risky change proven before proceeding, and it never brings an Auditor.
 
 ## Review with the user, then wrap
 
-After the last wave integrates, for `userVisible:true` present the human checklist
-from `verify` and expect the user to shape the result. Each design note becomes a
-plan amendment through `plan`, `approve`, `dispatch`, and `integrate`; do not
-verify in between, since any later commit discards Inspector, Auditor, and human
-evidence. When the user says the result is right, or immediately after the last
-wave when nothing is user-visible, invoke `wrap` yourself and follow it to the
-end; it runs `verify` once on the final integrated commit and then ships. Do not
-stop to ask whether to continue. When the request or the plan approval already
-asked for a PR, wrap ships without asking again; otherwise wrap asks for ship
-authorization at its ship step, and that is the only pause between the user's
-pass and the PR.
+After the last task integrates, for `userVisible:true` present the human checklist from `verify` and expect the user to shape the result.
+Each design note becomes a plan amendment through `plan`, `approve`, `dispatch`, and `integrate`; do not verify in between, since any later commit discards Inspector, Auditor, and human evidence.
+When the user says the result is right, or immediately after the last task when nothing is user-visible, invoke `wrap` yourself and follow it to the end; it runs `verify` once on the final integrated commit and then ships.
+Do not stop to ask whether to continue.
+When the request or the plan approval already asked for a PR, wrap ships without asking again; otherwise wrap asks for ship authorization at its ship step, and that is the only pause between the user's pass and the PR.

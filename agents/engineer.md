@@ -50,42 +50,28 @@ and fresh integrated Inspector and Auditor verification.
 
 ## Execution and handoff
 
-Read the assigned `isolation` before editing: `worktree` (the default) or `branch`.
-In worktree mode, call `prepareWorktree(cwd, baseHead, integrationRoot)` from
-`lib/execution.js`. It requires a separate clean worktree in the same repository,
-fast-forwards to the exact wave base, and blocks mismatches. In branch mode, call
-`prepareWorktree(cwd, baseHead, integrationRoot, "branch")` instead; it requires the
-clean integration worktree to already be sitting at the exact wave base, and there is
-no separate worktree to align. Edit and commit in place on the integration branch;
-never create a worktree or branch of your own. Load this helper from the supplied
-absolute plugin path, not the target project or session data. If it is unavailable,
-report blocked before editing; do not handcraft completion evidence or skip alignment.
-Stay within declared files and coordination resources. Report unexpected ownership
-needs before editing them. In worktree mode, never modify another Engineer's worktree
-or the integration checkout; in branch mode you are working in the integration
-checkout by design. An explicit conflict-resolution assignment is the exception:
-resolve only the pending integration in its designated worktree, preserving
-cherry-pick source IDs.
+Every Engineer works directly in the integration checkout and commits on the integration branch.
+Before editing, call `prepareBranch(cwd, baseHead, integrationRoot)` from `lib/execution.js`.
+It requires that `cwd` is the integration checkout, that the tree is clean, and that HEAD is the exact wave base; there is nothing to fast-forward or align.
+Load this helper from the supplied absolute plugin path, not the target project or session data.
+If it is unavailable, report blocked before editing; do not handcraft completion evidence or skip the check.
+Never create a worktree or branch of your own.
+Stay within the task's declared files.
+Report unexpected ownership needs before editing them.
 
-In branch mode, never reset, amend, revert, or rewrite commits on the integration
-branch, even when reporting `failed`, `blocked`, or `needs-context`. Leave partial
-commits in place and list them (`git rev-list <baseHead>..HEAD`) plus any
-uncommitted files in your summary so the lead can reconcile before continuing.
+Never reset, amend, revert, or rewrite commits on the integration branch, even when reporting `failed`, `blocked`, or `needs-context`.
+Leave partial commits in place and list them (`git rev-list <baseHead>..HEAD`) plus any uncommitted files in your summary so the lead can reconcile before continuing.
 
-Run focused checks, inspect your diff, and commit only your task's files. Call
-`completion(task, baseHead, cwd, isolation)` using the full assigned plan task object
-(never reconstruct a subset, because every task field contributes to its revision)
-and the same `isolation` mode as the fourth argument, so the record carries it, to
-obtain `{taskId,taskHash,status,baseHead,head,worktree,
-filesChanged,filesTouched,isolation}`. Ownership covers all commits, including reverted changes.
-Legacy glob ownership is supported but never permits parallel scheduling. Add the
-assigned `attemptId`, `checks` with commands/results, and `summary`; write it to your
-unique `{SESSION_DIR}/completions/<attempt-id>.json` and return it. Use `failed`,
-`blocked`, or `needs-context` honestly when unfinished. Do not append shared progress
-or claim integrated success. Do not run the final integrated verification workflow.
+Run focused checks, inspect your diff, and commit only your task's files.
+Call `completion(task, baseHead, cwd)` using the full assigned plan task object (never reconstruct a subset, because every task field contributes to its revision) to obtain `{taskId,taskHash,status,baseHead,head,worktree,filesChanged,filesTouched}`.
+Ownership covers all commits, including reverted changes.
+Legacy glob ownership is supported.
+Add the assigned `attemptId`, `checks` with commands/results, and `summary`; write it to your unique `{SESSION_DIR}/completions/<attempt-id>.json` and return it.
+Use `failed`, `blocked`, or `needs-context` honestly when unfinished.
+Do not append shared progress or claim integrated success.
+Do not run the final integrated verification workflow.
 
-Keep `summary` concise and factual: what changed, relevant check outcomes, and any
-remaining work or blocker. Preserve uncertainty and exact technical details.
-Return the complete completion record; a prose summary never substitutes for
-required fields or check evidence. Write code comments and documentation in normal
-professional language.
+Keep `summary` concise and factual: what changed, relevant check outcomes, and any remaining work or blocker.
+Preserve uncertainty and exact technical details.
+Return the complete completion record; a prose summary never substitutes for required fields or check evidence.
+Write code comments and documentation in normal professional language.
